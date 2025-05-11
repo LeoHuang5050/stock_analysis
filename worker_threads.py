@@ -138,50 +138,111 @@ class CalculateThread(QThread):
             columns = list(self.diff_data.columns)
             start_idx = columns.index(actual_date)
             end_idx = columns.index(end_date)
+            # 计算diff_data所有行的连续累加值
             for idx, row in self.diff_data.iterrows():
                 arr = [row[d] for d in columns]
                 result = calc_continuous_sum_np(arr, start_idx, end_idx)
                 continuous_results.append(result)
 
             # 向前最大/最小连续累加值
-            if is_forward and actual_idx is not None and actual_idx < len(price_data) - 1:
-                forward_range = price_data[actual_idx+1:]
+            forward_min_result = []
+            forward_max_result = []
+            forward_min_date = forward_max_date = "无"
+
+            if is_forward and actual_idx is not None and actual_idx > 0:
+                # 向前区间：实际开始日期之前
+                forward_range = price_data[:actual_idx]
                 valid_forward = [(i, v) for i, v in enumerate(forward_range) if pd.notna(v)]
-                if valid_forward:
+                if valid_forward and len(valid_forward) >= 1:
                     min_i, min_val = min(valid_forward, key=lambda x: x[1])
                     max_i, max_val = max(valid_forward, key=lambda x: x[1])
-                    min_idx = actual_idx + 1 + min_i
-                    max_idx = actual_idx + 1 + max_i
+                    min_idx = min_i
+                    max_idx = max_i
                     forward_min_date = date_columns[min_idx]
                     forward_max_date = date_columns[max_idx]
                     min_start_idx = columns.index(forward_min_date)
                     max_start_idx = columns.index(forward_max_date)
+                    print(f"min_start_idx: {min_start_idx}, max_start_idx: {max_start_idx}， end_idx: {end_idx}")
+
+                    forward_min_result = []
+                    forward_max_result = []
                     for idx, row in self.diff_data.iterrows():
                         arr = [row[d] for d in columns]
-                        forward_min_result.append(
-                            calc_continuous_sum_np(arr, min_start_idx, end_idx)
-                        )
-                        forward_max_result.append(
-                            calc_continuous_sum_np(arr, max_start_idx, end_idx)
-                        )
+                        forward_min_result.append(calc_continuous_sum_np(arr, min_start_idx, end_idx))
+                        forward_max_result.append(calc_continuous_sum_np(arr, max_start_idx, end_idx))
+                else:
+                    forward_min_date = forward_max_date = "无"
+                    forward_min_result = []
+                    forward_max_result = []
+
+        end_idx = self.workdays_str.index(end_date)
+        start_idx = max(0, end_idx - width + 1)
+        start_date = self.workdays_str[start_idx]
 
         # 组装结果
+        all_results = []
+        for idx in range(self.price_data.shape[0]):
+            row = self.price_data.iloc[idx]
+            price_data = [row[d] for d in date_columns]
+            valid_values = [v for v in price_data if pd.notna(v)]
+            # 最大值、最小值
+            max_value = max(valid_values) if valid_values else None
+            min_value = min(valid_values) if valid_values else None
+            # 目标日期
+            if target_date in date_columns:
+                target_idx = date_columns.index(target_date)
+                target_value = price_data[target_idx] if target_idx < len(price_data) else None
+            else:
+                target_value = None
+            # 开始值
+            start_value = price_data[0] if price_data else None
+            # 实际开始日期值
+            base_idx = None
+            if start_option == "最大值":
+                base_idx = price_data.index(max_value) if valid_values else None
+            elif start_option == "最小值":
+                base_idx = price_data.index(min_value) if valid_values else None
+            elif start_option == "接近值":
+                base_idx = None  # 可补充最接近值逻辑
+            else:
+                base_idx = len(price_data) - 1 if price_data else None
+            actual_idx = base_idx + shift_days if base_idx is not None else None
+            actual_value = price_data[actual_idx] if actual_idx is not None and 0 <= actual_idx < len(price_data) else None
+            # 最接近值（可选）
+            closest_value = None
+            closest_date = None
+            # 可补充最接近值逻辑
+            row_result = {
+                "max_value": max_value,
+                "min_value": min_value,
+                "target_value": target_value,
+                "target_date": target_date,
+                "start_value": start_value,
+                "actual_value": actual_value,
+                "closest_value": closest_value,
+                "closest_date": closest_date,
+            }
+            all_results.append(row_result)
+
         result = {
-            'shift_days': shift_days,
-            'max_value': max_value,
-            'min_value': min_value,
+            "rows": all_results,
+            "shift_days": shift_days,
+            "is_forward": is_forward,
+            "start_date": start_date,
+            "end_date": end_date,
+            'max_value': max_values,
+            'min_value': min_values,
+            'target_value': target_values,
             'target_date': target_date,
-            'target_value': target_value,
-            'closest_date': closest_date,
-            'closest_value': closest_value,
-            'start_value': start_value,
+            'start_value': start_values,
+            'actual_value': actual_values,
+            'closest_date': closest_dates,
+            'closest_value': closest_values,
             'actual_date': actual_date,
-            'actual_value': actual_value,
-            'is_forward': is_forward,
             'continuous_results': continuous_results,
             'forward_max_date': forward_max_date,
             'forward_max_result': forward_max_result,
             'forward_min_date': forward_min_date,
             'forward_min_result': forward_min_result,
         }
-        self.finished.emit(result) 
+        self.finished.emit(result)

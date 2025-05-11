@@ -29,7 +29,8 @@ def calc_continuous_sum_np(arr, start_idx, end_idx):
     # 只允许从右往左（从end_date到start_date，包含两端）
     arr_slice = arr[end_idx:start_idx+1][::-1]
 
-    arr_slice = np.array(arr_slice, dtype=np.float64)
+    # 用float替换Decimal
+    arr_slice = [float(v) for v in arr_slice]
     result = []
     if arr_slice.size == 0:
         return result
