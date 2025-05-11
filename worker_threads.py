@@ -138,16 +138,17 @@ class CalculateThread(QThread):
             columns = list(self.diff_data.columns)
             start_idx = columns.index(actual_date)
             end_idx = columns.index(end_date)
-            for idx, row in self.diff_data.iterrows():
-                arr = [row[d] for d in columns]
-                result = calc_continuous_sum_np(arr, start_idx, end_idx)
-                continuous_results.append(result)
+            # 只计算diff_data第一行
+            first_row = self.diff_data.iloc[0]
+            arr = [first_row[d] for d in columns]
+            result = calc_continuous_sum_np(arr, start_idx, end_idx)
+            continuous_results = result
 
             # 向前最大/最小连续累加值
             if is_forward and actual_idx is not None and actual_idx < len(price_data) - 1:
                 forward_range = price_data[actual_idx+1:]
                 valid_forward = [(i, v) for i, v in enumerate(forward_range) if pd.notna(v)]
-                if valid_forward:
+                if valid_forward and len(valid_forward) > 1:
                     min_i, min_val = min(valid_forward, key=lambda x: x[1])
                     max_i, max_val = max(valid_forward, key=lambda x: x[1])
                     min_idx = actual_idx + 1 + min_i
@@ -156,14 +157,19 @@ class CalculateThread(QThread):
                     forward_max_date = date_columns[max_idx]
                     min_start_idx = columns.index(forward_min_date)
                     max_start_idx = columns.index(forward_max_date)
-                    for idx, row in self.diff_data.iterrows():
-                        arr = [row[d] for d in columns]
-                        forward_min_result.append(
-                            calc_continuous_sum_np(arr, min_start_idx, end_idx)
-                        )
-                        forward_max_result.append(
-                            calc_continuous_sum_np(arr, max_start_idx, end_idx)
-                        )
+                    print(f"min_start_idx: {min_start_idx}, max_start_idx: {max_start_idx}， end_idx: {end_idx}")
+                    # 只计算diff_data第一行
+                    first_row = self.diff_data.iloc[0]
+                    arr = [first_row[d] for d in columns]
+                    forward_min_result = [
+                        calc_continuous_sum_np(arr, min_start_idx, end_idx)
+                    ]
+                    forward_max_result = [
+                        calc_continuous_sum_np(arr, max_start_idx, end_idx)
+                    ]
+                else:
+                    forward_min_date = forward_max_date = "无"
+                    # 或者 forward_min_date = forward_max_date = date_columns[actual_idx+1]（如果只有一个有效值）
 
         # 组装结果
         result = {
