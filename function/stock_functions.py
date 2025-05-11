@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import chinese_calendar
 from datetime import datetime, timedelta
+from decimal import Decimal
 
 def unify_date_columns(df):
     new_columns = []
@@ -29,9 +30,10 @@ def calc_continuous_sum_np(arr, start_idx, end_idx):
     # 只允许从右往左（从end_date到start_date，包含两端）
     arr_slice = arr[end_idx:start_idx+1][::-1]
 
-    arr_slice = np.array(arr_slice, dtype=np.float64)
+    # 用Decimal替换float
+    arr_slice = [Decimal(str(v)) for v in arr_slice]
     result = []
-    if arr_slice.size == 0:
+    if len(arr_slice) == 0:
         return result
     temp_sum = arr_slice[0]
     sign = arr_slice[0] >= 0

@@ -99,5 +99,12 @@ class StockAnalysisInit:
         self.range_price_data = price_data
         self.range_date_range = date_range
 
+        # 新增：设置提示
+        start_date = date_range[0] if date_range else ""
+        end_date = date_range[-1] if date_range else ""
+        self.main_window.result_text.setText(
+            f"日期宽度设置完毕，开始日期为：{start_date}，结束日期为：{end_date}"
+        )
+
     def on_start_option_changed(self, idx):
         pass  # 不再做隐藏/显示 
