@@ -1,5 +1,5 @@
 import sys
-from ui.stock_analysis_ui import StockAnalysisApp
+from ui.stock_analysis_ui_v2 import StockAnalysisApp
 from PyQt5.QtWidgets import QApplication
 
 if __name__ == "__main__":

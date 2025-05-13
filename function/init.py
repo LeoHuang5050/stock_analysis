@@ -106,5 +106,14 @@ class StockAnalysisInit:
             f"日期宽度设置完毕，开始日期为：{start_date}，结束日期为：{end_date}"
         )
 
+        # 新增：设置操作天数最大值和标签
+        end_idx = self.workdays_str.index(end_date)
+        max_op_days = len(self.workdays_str) - end_idx - 1  # 最大可操作天数为end_date到数组结束的距离
+        if max_op_days < 0:
+            max_op_days = 0
+        self.main_window.op_days_label.setText(f"操作天数（最大{max_op_days}）")
+        from PyQt5.QtGui import QIntValidator
+        self.main_window.op_days_edit.setValidator(QIntValidator(0, max_op_days))
+
     def on_start_option_changed(self, idx):
         pass  # 不再做隐藏/显示 
