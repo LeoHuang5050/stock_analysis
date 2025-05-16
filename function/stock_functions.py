@@ -3,6 +3,35 @@ import pandas as pd
 import chinese_calendar
 from datetime import datetime, timedelta
 from decimal import Decimal
+from PyQt5.QtWidgets import QDialog, QVBoxLayout, QTableWidget, QTableWidgetItem, QLabel, QMessageBox
+
+
+def show_continuous_sum_table(parent, all_results):
+    if not all_results:
+        QMessageBox.information(parent, "提示", "请先生成参数！")
+        return
+
+    dialog = QDialog(parent)
+    dialog.setWindowTitle("连续累加值明细")
+    layout = QVBoxLayout(dialog)
+    label = QLabel("连续累加值")
+    layout.addWidget(label)
+
+    # 统计最大长度
+    max_len = max(len(row.get('continuous_results', [])) for row in all_results)
+    table = QTableWidget(len(all_results), max_len + 2)  # +2为代码/名称
+    table.setHorizontalHeaderLabels(['代码', '名称'] + [f'连续累加值{i+1}' for i in range(max_len)])
+
+    for row_idx, row in enumerate(all_results):
+        table.setItem(row_idx, 0, QTableWidgetItem(str(row.get('code', ''))))
+        table.setItem(row_idx, 1, QTableWidgetItem(str(row.get('name', ''))))
+        results = row.get('continuous_results', [])
+        for col_idx, val in enumerate(results):
+            table.setItem(row_idx, col_idx + 2, QTableWidgetItem(str(val)))
+
+    layout.addWidget(table)
+    dialog.resize(800, 400)
+    dialog.exec_()
 
 def unify_date_columns(df):
     new_columns = []
@@ -26,7 +55,7 @@ def calc_continuous_sum_np(arr, start_idx, end_idx):
         print(f"起始索引 {start_idx} 必须在结束索引 {end_idx} 的右侧（即更靠近表格右边）！")
         return []
     if start_idx == end_idx:
-        return [float(arr[start_idx])]  # 只返回该列的单个值
+        return [round(float(arr[start_idx]), 2)]  # 只返回该列的单个值，保留两位小数
     # 只允许从右往左（从end_idx到start_idx，包含两端）
     arr_slice = arr[end_idx:start_idx+1][::-1]
     arr_slice = [float(v) for v in arr_slice]
@@ -39,10 +68,10 @@ def calc_continuous_sum_np(arr, start_idx, end_idx):
         if (v >= 0) == sign:
             temp_sum += v
         else:
-            result.append(temp_sum)
+            result.append(round(temp_sum, 2))  # 保留两位小数
             temp_sum = v
             sign = v >= 0
-    result.append(temp_sum)
+    result.append(round(temp_sum, 2))  # 保留两位小数
     return result
 
 def get_workdays(end_date, width):
@@ -79,7 +108,6 @@ def query_row_result(rows, keyword, n_days=0):
                 f"代码={row['code']}，名称={row['name']}，"
                 f"最大值=({row['max_value'][0]}, {row['max_value'][1]})，"
                 f"最小值=({row['min_value'][0]}, {row['min_value'][1]})，"
-                f"目标日期股价=({row['target_value'][0]}, {row['target_value'][1]})，"
                 f"结束值=({row['end_value'][0]}, {row['end_value'][1]})，"
                 f"开始值=({row['start_value'][0]}, {row['start_value'][1]})，"
                 f"实际开始日期值=({row['actual_value'][0]}, {row['actual_value'][1]})，"
@@ -148,6 +176,13 @@ def query_row_result(rows, keyword, n_days=0):
                 f"\n"
                 f"\n"
                 f"递增值：{row.get('increment_value', '无')}, "
+                f"后值大于结束地址值：{row.get('after_gt_end_value', '无')}, "
+                f"后值大于前值返回值：{row.get('after_gt_start_value', '无')}, "
+                f"操作值：{row.get('ops_value', '无')}, "
+                f"持有天数：{row.get('hold_days', '无')}, "
+                f"操作涨幅：{row.get('ops_change', '无')}%, "
+                f"调整天数：{row.get('adjust_days', '无')}, "
+                f"日均涨幅：{row.get('ops_incre_rate', '无')}%"
             )
             results.append(info)
     if not results:
