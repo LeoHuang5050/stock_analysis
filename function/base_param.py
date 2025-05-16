@@ -17,10 +17,18 @@ class BaseParamHandler:
         params = {
             "end_date": self.main_window.date_picker.date().toString("yyyy-MM-dd"),
             "width": self.main_window.width_spin.value(),
-            "target_date": self.main_window.target_date_combo.currentText(),
             "start_option": self.main_window.start_option_combo.currentText(),
             "shift_days": self.main_window.shift_spin.value(),
-            "is_forward": self.main_window.direction_checkbox.isChecked()
+            "is_forward": self.main_window.direction_checkbox.isChecked(),
+            "n_days": self.main_window.n_days_spin.value(),
+            "range_value": self.main_window.range_value_edit.text(),
+            "abs_sum_value": self.main_window.abs_sum_value_edit.text(),
+            "op_days": int(self.main_window.op_days_edit.text() or 0),
+            "inc_rate": float(self.main_window.inc_rate_edit.text() or 0),
+            "after_gt_end_ratio": float(self.main_window.after_gt_end_edit.text() or 0),
+            "after_gt_start_ratio": float(self.main_window.after_gt_prev_edit.text() or 0),
+            "expr": self.main_window.expr_edit.text().strip(),
+            "ops_change": float(self.main_window.ops_change_edit.text() or 0)
         }
         
         self.main_window.result_text.setText("正在生成基础参数，请稍候...")
@@ -36,42 +44,21 @@ class BaseParamHandler:
         self.main_window.calc_thread.start()
 
     def on_calculate_finished(self, result):
-        # 这里用result字典恢复所有展示内容
-        end_date = self.main_window.date_picker.date().toString("yyyy-MM-dd")
-        width = self.main_window.width_spin.value()
-        workdays = self.main_window.init.workdays_str
-        end_idx = workdays.index(end_date)
-        start_idx = max(0, end_idx - width + 1)
-        start_date = workdays[start_idx]
-
-        self.main_window.result_text.setText(
-            f"日期宽度设置完毕，开始日期为：{start_date}，结束日期为：{end_date}\n"
-            f"前移天数：{result['shift_days']}\n"
-            f"最大值：{result['max_value']}\n"
-            f"最小值：{result['min_value']}\n"
-            f"目标日期：{result['target_date']} 股价：{result['target_value']}\n"
-            f"最接近值日期：{result['closest_date']} 股价：{result['closest_value']}\n"
-            f"开始值：{result['start_value']}\n"
-            f"实际开始日期：{result['actual_date']} 实际开始日期值：{result['actual_value']}\n"
-            f"是否计算向前向后：{result['is_forward']}\n"
-            f"连续累加值结果：{result['continuous_results']}\n"
-            f"向前最大开始日期：{result['forward_max_date']} 结果：{result['forward_max_result']}\n"
-            f"向前最小开始日期：{result['forward_min_date']} 结果：{result['forward_min_result']}\n"
-        )
-
+        self.main_window.result_text.setText('基础参数计算完毕')
         # 直接获取worker_threads的结果
         self.main_window.continuous_results = result.get('continuous_results', None)
         self.main_window.forward_max_date = result.get('forward_max_date')
         self.main_window.forward_max_result = result.get('forward_max_result')
         self.main_window.forward_min_date = result.get('forward_min_date')
         self.main_window.forward_min_result = result.get('forward_min_result')
+        self.main_window.all_row_results = result.get('rows', [])
 
     def update_shift_spin_range(self):
         # 获取当前区间
         end_date = self.main_window.date_picker.date().toString("yyyy-MM-dd")
         width = self.main_window.width_spin.value()
         end_idx = self.main_window.init.workdays_str.index(end_date)
-        start_idx = max(0, end_idx - width + 1)
+        start_idx = max(0, end_idx - width)
         date_range = self.main_window.init.workdays_str[start_idx:end_idx+1]
         date_columns = [col for col in self.main_window.init.price_data.columns if col in date_range]
         first_row = self.main_window.init.price_data.iloc[0]

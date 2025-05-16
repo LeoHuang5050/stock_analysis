@@ -79,13 +79,9 @@ class StockAnalysisInit:
         end_date = self.main_window.date_picker.date().toString("yyyy-MM-dd")
         width = self.main_window.width_spin.value()
         end_idx = self.workdays_str.index(end_date)
-        start_idx = max(0, end_idx - width + 1)
+        start_idx = max(0, end_idx - width)
         date_range = self.workdays_str[start_idx:end_idx+1]
         self.confirmed_date_range = date_range  # 保存下来
-        
-        # 更新目标日期下拉框
-        self.main_window.target_date_combo.clear()
-        self.main_window.target_date_combo.addItems(date_range)
         
         # 获取区间内的股票价格数据
         first_row = self.price_data.iloc[0]
@@ -102,9 +98,20 @@ class StockAnalysisInit:
         # 新增：设置提示
         start_date = date_range[0] if date_range else ""
         end_date = date_range[-1] if date_range else ""
+        
+
+        # 新增：设置操作天数最大值和标签
+        end_idx = self.workdays_str.index(end_date)
+        max_op_days = len(self.workdays_str) - end_idx - 1  # 最大可操作天数为end_date到数组结束的距离
+        if max_op_days < 0:
+            max_op_days = 0
+
         self.main_window.result_text.setText(
-            f"日期宽度设置完毕，开始日期为：{start_date}，结束日期为：{end_date}"
+            f"日期宽度设置完毕，开始日期为：{start_date}，结束日期为：{end_date}，最大设置操作天数为：{max_op_days}"
         )
+        self.main_window.op_days_label.setText(f"操作天数（最大{max_op_days}）")
+        from PyQt5.QtGui import QIntValidator
+        self.main_window.op_days_edit.setValidator(QIntValidator(0, max_op_days))
 
     def on_start_option_changed(self, idx):
         pass  # 不再做隐藏/显示 
