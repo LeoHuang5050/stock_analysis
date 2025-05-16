@@ -1,10 +1,18 @@
 import sys
 from PyQt5.QtWidgets import (
-    QApplication, QWidget, QLabel, QPushButton, QComboBox, QSpinBox, QDateEdit, QCheckBox, QGridLayout, QHBoxLayout, QVBoxLayout, QSizePolicy, QTextEdit, QLineEdit, QDialog
+    QApplication, QWidget, QLabel, QPushButton, QComboBox, QSpinBox, QDateEdit, QCheckBox, QGridLayout, QHBoxLayout, QVBoxLayout, QSizePolicy, QTextEdit, QLineEdit, QDialog, QMessageBox
 )
 from PyQt5.QtCore import Qt
 from function.init import StockAnalysisInit
 from function.base_param import BaseParamHandler
+from function.stock_functions import show_continuous_sum_table
+
+class Tab4SpaceTextEdit(QTextEdit):
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key_Tab:
+            self.insertPlainText('    ')
+        else:
+            super().keyPressEvent(event)
 
 class ExprLineEdit(QLineEdit):
     def __init__(self, *args, **kwargs):
@@ -14,17 +22,29 @@ class ExprLineEdit(QLineEdit):
         dialog = QDialog(self)
         dialog.setWindowTitle("编辑组合表达式")
         layout = QVBoxLayout(dialog)
-        tip_label = QLabel("A:递增率，B:后值大于结束值比例，C:后值大于前值比例")
+        tip_label = QLabel(
+            "A:递增值，B:后值大于结束地址值，C:后值大于前值返回值\n"
+            "支持Python条件表达式，例如：\n"
+            "if (A > 10) and (B < 10):\n"
+            "    result = C\n"
+            "else:\n"
+            "    result = A"
+        )
         tip_label.setStyleSheet("color:gray;")
         layout.addWidget(tip_label)
-        text_edit = QTextEdit()
+        text_edit = Tab4SpaceTextEdit()
         text_edit.setPlainText(self.text())
         layout.addWidget(text_edit)
         btn_ok = QPushButton("确定")
         layout.addWidget(btn_ok)
         def on_ok():
-            self.setText(text_edit.toPlainText())
-            dialog.accept()
+            expr_text = text_edit.toPlainText()
+            try:
+                compile(expr_text, '<string>', 'exec')
+                self.setText(expr_text)
+                dialog.accept()
+            except SyntaxError as e:
+                QMessageBox.warning(dialog, "语法错误", f"表达式存在语法错误，请检查！\n\n{e}")
         btn_ok.clicked.connect(on_ok)
         dialog.exec_()
 
@@ -72,28 +92,26 @@ class StockAnalysisApp(QWidget):
         top_grid.addWidget(self.confirm_btn, 0, 8)
 
         # 第二行（左侧参数）
-        self.target_date_label = QLabel("选择日期(选择接近值使用)：")
-        self.target_date_combo = QComboBox()
         self.start_option_label = QLabel("开始日期值选择：")
         self.start_option_combo = QComboBox()
         self.start_option_combo.addItems(["开始值", "最大值", "最小值", "接近值"])
         self.shift_label = QLabel("前移天数：")
         self.shift_spin = QSpinBox()
-        self.shift_spin.setMinimum(-100)
-        self.shift_spin.setMaximum(100)
+        self.shift_spin.setMinimum(-1)
+        self.shift_spin.setMaximum(1)
         self.shift_spin.setValue(0)
+        self.direction_checkbox = QCheckBox("是否计算向前")
 
         # 第二行（右侧按钮）
         self.calc_btn = QPushButton("2. 生成参数")
         self.calc_btn.setMinimumWidth(120)
 
         # 添加到顶部表格
-        top_grid.addWidget(self.target_date_label, 1, 0)
-        top_grid.addWidget(self.target_date_combo, 1, 1)
-        top_grid.addWidget(self.start_option_label, 1, 2)
-        top_grid.addWidget(self.start_option_combo, 1, 3)
-        top_grid.addWidget(self.shift_label, 1, 4)
-        top_grid.addWidget(self.shift_spin, 1, 5)
+        top_grid.addWidget(self.start_option_label, 1, 0)
+        top_grid.addWidget(self.start_option_combo, 1, 1)
+        top_grid.addWidget(self.shift_label, 1, 2)
+        top_grid.addWidget(self.shift_spin, 1, 3)
+        top_grid.addWidget(self.direction_checkbox, 1, 4)
         top_grid.addWidget(self.calc_btn, 1, 8)
 
         # 第三行控件
@@ -116,7 +134,6 @@ class StockAnalysisApp(QWidget):
         top_grid.addWidget(self.abs_sum_value_edit, 2, 5)
 
         # 第四行控件
-        self.direction_checkbox = QCheckBox("是否计算向前向后")
         op_days_widget = QWidget()
         op_days_layout = QHBoxLayout()
         op_days_layout.setContentsMargins(0, 0, 0, 0)
@@ -174,6 +191,20 @@ class StockAnalysisApp(QWidget):
         after_gt_prev_layout.addWidget(QLabel("%"))
         after_gt_prev_widget.setLayout(after_gt_prev_layout)
 
+        # 操作涨幅
+        self.ops_change_label = QLabel("操作涨幅")
+        self.ops_change_edit = QLineEdit()
+        self.ops_change_edit.setFixedWidth(60)
+        ops_change_widget = QWidget()
+        ops_change_layout = QHBoxLayout()
+        ops_change_layout.setContentsMargins(0, 0, 0, 0)
+        ops_change_layout.setSpacing(0)
+        ops_change_layout.setAlignment(Qt.AlignLeft)
+        ops_change_layout.addWidget(self.ops_change_label)
+        ops_change_layout.addWidget(self.ops_change_edit)
+        ops_change_layout.addWidget(QLabel("%"))
+        ops_change_widget.setLayout(ops_change_layout)
+
         # 操作值
         expr_widget = QWidget()
         expr_layout = QHBoxLayout()
@@ -202,12 +233,12 @@ class StockAnalysisApp(QWidget):
         top_grid.addWidget(query_widget, 3, 8)
 
         # 添加到第四行
-        top_grid.addWidget(self.direction_checkbox, 3, 0)
-        top_grid.addWidget(op_days_widget, 3, 1)
-        top_grid.addWidget(inc_rate_widget, 3, 2)
-        top_grid.addWidget(after_gt_end_widget, 3, 3)
-        top_grid.addWidget(after_gt_prev_widget, 3, 4)
-        top_grid.addWidget(expr_widget, 3, 5)
+        top_grid.addWidget(op_days_widget, 3, 0)
+        top_grid.addWidget(inc_rate_widget, 3, 1)
+        top_grid.addWidget(after_gt_end_widget, 3, 2)
+        top_grid.addWidget(after_gt_prev_widget, 3, 3)
+        top_grid.addWidget(expr_widget, 3, 4)
+        top_grid.addWidget(ops_change_widget, 3, 5)
 
         # 输出框
         self.result_text = QTextEdit()
@@ -217,6 +248,14 @@ class StockAnalysisApp(QWidget):
         # 添加到主布局
         main_layout.addWidget(top_widget)
         main_layout.addWidget(self.result_text, stretch=1)
+
+        # 最后一行添加"查看连续累加参数"按钮
+        self.continuous_sum_btn = QPushButton("连续累加值")
+        self.continuous_sum_btn.setFixedSize(100, 50)
+        btn_layout = QHBoxLayout()
+        btn_layout.addWidget(self.continuous_sum_btn)
+        btn_layout.addStretch()  # 按钮靠左
+        main_layout.addLayout(btn_layout)
 
         # 设置左表格所有参数列都不拉伸
         for i in range(7):  # 假设有7列（0~6），如有更多请调整
@@ -228,9 +267,9 @@ class StockAnalysisApp(QWidget):
         self.upload_btn.clicked.connect(self.init.upload_file)
         self.date_picker.dateChanged.connect(self.init.on_date_changed)
         self.confirm_btn.clicked.connect(self.init.on_confirm_range)
-        self.confirm_btn.clicked.connect(self.base_param.update_shift_spin_range)
         self.calc_btn.clicked.connect(self.base_param.on_calculate_clicked)
         self.query_btn.clicked.connect(self.on_query_param)
+        self.continuous_sum_btn.clicked.connect(self.on_continuous_sum_clicked)
 
     def on_query_param(self):
         # 查询参数信息
@@ -246,3 +285,7 @@ class StockAnalysisApp(QWidget):
         n_days = self.n_days_spin.value()  # 获取spinbox的值
         result = query_row_result(rows, keyword, n_days)
         self.result_text.setText(result) 
+
+    def on_continuous_sum_clicked(self):
+        all_results = getattr(self, 'all_row_results', None)
+        show_continuous_sum_table(self, all_results)
