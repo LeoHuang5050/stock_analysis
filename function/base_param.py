@@ -17,7 +17,6 @@ class BaseParamHandler:
         params = {
             "end_date": self.main_window.date_picker.date().toString("yyyy-MM-dd"),
             "width": self.main_window.width_spin.value(),
-            "target_date": self.main_window.target_date_combo.currentText(),
             "start_option": self.main_window.start_option_combo.currentText(),
             "shift_days": self.main_window.shift_spin.value(),
             "is_forward": self.main_window.direction_checkbox.isChecked(),
@@ -26,6 +25,10 @@ class BaseParamHandler:
             "abs_sum_value": self.main_window.abs_sum_value_edit.text(),
             "op_days": int(self.main_window.op_days_edit.text() or 0),
             "inc_rate": float(self.main_window.inc_rate_edit.text() or 0),
+            "after_gt_end_ratio": float(self.main_window.after_gt_end_edit.text() or 0),
+            "after_gt_start_ratio": float(self.main_window.after_gt_prev_edit.text() or 0),
+            "expr": self.main_window.expr_edit.text().strip(),
+            "ops_change": float(self.main_window.ops_change_edit.text() or 0)
         }
         
         self.main_window.result_text.setText("正在生成基础参数，请稍候...")
@@ -55,7 +58,7 @@ class BaseParamHandler:
         end_date = self.main_window.date_picker.date().toString("yyyy-MM-dd")
         width = self.main_window.width_spin.value()
         end_idx = self.main_window.init.workdays_str.index(end_date)
-        start_idx = max(0, end_idx - width + 1)
+        start_idx = max(0, end_idx - width)
         date_range = self.main_window.init.workdays_str[start_idx:end_idx+1]
         date_columns = [col for col in self.main_window.init.price_data.columns if col in date_range]
         first_row = self.main_window.init.price_data.iloc[0]

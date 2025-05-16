@@ -153,7 +153,7 @@ class StockAnalysisApp(QWidget):
         query_layout.addWidget(self.query_btn)
         query_widget.setLayout(query_layout)
 
-        # 第五行：操作天数、递增率、后值大于结束值比例、后值大于前值比例
+        # 第四行：操作天数、递增率、后值大于结束值比例、后值大于前值比例
         op_days_layout = QHBoxLayout()
         op_days_layout.setContentsMargins(0, 0, 0, 0)
         op_days_layout.setSpacing(0)
@@ -289,16 +289,16 @@ class StockAnalysisApp(QWidget):
         result = query_row_result(rows, keyword, n_days)
         self.result_text.setText(result)
 
-    def on_calculate_clicked(self):
-        # 在计算时
-        A = ... # 递增率
-        B = ... # 后值大于结束值比例
-        C = ... # 后值大于前值比例
-        expr = self.expr_edit_brief.text()
-        # 用simpleeval或自定义安全eval执行
-        from simpleeval import simple_eval
-        result = simple_eval(expr, names={'A': A, 'B': B, 'C': C})
-        self.result_text.setText(str(result))
+    # def on_calculate_clicked(self):
+    #     # 在计算时
+    #     A = ... # 递增率
+    #     B = ... # 后值大于结束值比例
+    #     C = ... # 后值大于前值比例
+    #     expr = self.expr_edit_brief.text()
+    #     # 用simpleeval或自定义安全eval执行
+    #     from simpleeval import simple_eval
+    #     result = simple_eval(expr, names={'A': A, 'B': B, 'C': C})
+    #     self.result_text.setText(str(result))
 
     def open_expr_dialog(self, event):
         dialog = QDialog(self)
