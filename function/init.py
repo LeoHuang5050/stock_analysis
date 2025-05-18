@@ -17,11 +17,18 @@ class StockAnalysisInit:
         self.range_date_range = None
 
     def upload_file(self):
-        file_path, _ = QFileDialog.getOpenFileName(self.main_window, "选择CSV文件", "", "CSV Files (*.csv)")
+        file_path, _ = QFileDialog.getOpenFileName(self.main_window, "选择文件", "", "CSV/Excel Files (*.csv *.xlsx)")
         if file_path:
             self.main_window.result_text.setText("正在上传，请稍候...")
             QApplication.processEvents()
-            self.main_window.loader_thread = FileLoaderThread(file_path)
+            # 判断文件类型
+            if file_path.lower().endswith('.csv'):
+                self.main_window.loader_thread = FileLoaderThread(file_path)
+            elif file_path.lower().endswith('.xlsx'):
+                self.main_window.loader_thread = FileLoaderThread(file_path, file_type='xlsx')
+            else:
+                QMessageBox.warning(self.main_window, "提示", "仅支持CSV或XLSX文件！")
+                return
             self.main_window.loader_thread.finished.connect(self.on_file_loaded)
             self.main_window.loader_thread.start()
 
@@ -78,8 +85,9 @@ class StockAnalysisInit:
     def on_confirm_range(self):
         end_date = self.main_window.date_picker.date().toString("yyyy-MM-dd")
         width = self.main_window.width_spin.value()
+        shift_days = self.main_window.shift_spin.value()
         end_idx = self.workdays_str.index(end_date)
-        start_idx = max(0, end_idx - width)
+        start_idx = max(0, end_idx - width + shift_days)
         date_range = self.workdays_str[start_idx:end_idx+1]
         self.confirmed_date_range = date_range  # 保存下来
         

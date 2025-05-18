@@ -23,26 +23,27 @@ class OpValue:
 class FileLoaderThread(QThread):
     finished = pyqtSignal(object, object, object, list, str)  # df, price_data, diff_data, workdays_str, error_msg
 
-    def __init__(self, file_path):
+    def __init__(self, file_path, file_type='csv'):
         super().__init__()
         self.file_path = file_path
+        self.file_type = file_type
 
     def run(self):
         try:
-            # 读取Excel文件
-            # df = pd.read_excel(self.file_path, dtype=str)  # 先全部读为字符串
-            # 只用csv
-            df = pd.read_csv(self.file_path, dtype=str)  # 先全部读为字符串
+            if self.file_type == 'xlsx':
+                df = pd.read_excel(self.file_path, dtype=str)
+            else:
+                df = pd.read_csv(self.file_path, dtype=str)
             
             # 处理数据类型转换
             for col in df.columns:
-                if col not in ['代码', '名称']:  # 只对非"代码""名称"列做数值转换
+                if col not in ['代码', '名称']:
                     try:
                         df[col] = pd.to_numeric(df[col], errors='coerce')
                     except Exception:
                         continue
             
-            # 后续逻辑不变
+            # 只对price_data部分做0.0转为NaN
             columns = df.columns.tolist()
             separator_idx = None
             for i, col in enumerate(columns):
@@ -54,6 +55,9 @@ class FileLoaderThread(QThread):
                 return
             price_data = df.iloc[:, 0:separator_idx]
             price_data = unify_date_columns(price_data)
+            # 只对price_data做0.0转为NaN
+            for col in price_data.columns:
+                price_data.loc[price_data[col] == 0.0, col] = np.nan
             diff_data = df.iloc[:, separator_idx+1:]
             diff_data = unify_date_columns(diff_data)
             
@@ -95,9 +99,9 @@ class CalculateThread(QThread):
         except ValueError:
             self.finished.emit({"error": "结束日期不在diff_data中！"})
             return
-        start_idx = end_idx + width
+        start_idx = end_idx + width 
         # print(f"end_idx: {end_idx}, start_idx: {start_idx}")
-        date_columns = columns[end_idx:start_idx+1]
+        date_columns = columns[end_idx:start_idx - shift_days + 1]
         # print(f"date_columns: {date_columns}")
 
         # 组装结果
@@ -127,23 +131,28 @@ class CalculateThread(QThread):
             # 结束值、开始值
             end_value = price_data[0] if price_data else None
             end_date_val = date_columns[0] if price_data else None
-            start_value = price_data[-1] if price_data else None
-            start_date_val = date_columns[-1] if price_data else None
-            # 计算最接近开始日期值（无条件计算）
+            start_value = price_data[start_idx] if price_data else None
+            start_date_val = date_columns[start_idx] if price_data else None
+            # if idx == 4:
+            #     print(f"start_value: {start_value}, start_date_val: {start_date_val}")
+            # 计算最接近结束日期值（无条件计算）
             closest_value = None
             closest_date = None
             closest_idx = None
-            if start_value is not None and pd.notna(start_value):
+            if end_value is not None and pd.notna(end_value):
                 min_diff = float('inf')
                 for i, (d, v) in enumerate(zip(date_columns, price_data)):
-                    if d == date_columns[-1] or pd.isna(v):  # 排除开始日期本身
+                    if d == date_columns[0] or pd.isna(v):  # 排除结束日期本身
                         continue
-                    diff = abs(v - start_value)
-                    if diff < min_diff:
+                    diff = abs(v - end_value)
+                    if diff <= min_diff:
                         min_diff = diff
                         closest_date = d
                         closest_value = v
                         closest_idx = i
+            # if idx == 4:
+            #     print(f"end_value: {end_value}, price_data: {price_data}")
+            #     print(f"closest_date: {closest_date}, closest_value: {closest_value}, closest_idx: {closest_idx}")
 
             # 根据选项设置base_idx
             if start_option == "最大值":
@@ -155,11 +164,11 @@ class CalculateThread(QThread):
             else:  # "开始值"
                 base_idx = len(price_data) - 1 if price_data else None
 
-            actual_idx = base_idx - shift_days if base_idx is not None else None
-            # print(f"actual_idx: {actual_idx}, base_idx: {base_idx}, shift_days: {shift_days}")
+            
             
             # 从原始数据中获取actual_date_val
             all_columns = list(self.price_data.columns)
+            actual_idx = base_idx
             if actual_idx is not None:
                 # 找到date_columns在原始数据中的起始位置
                 start_pos = all_columns.index(date_columns[0])
@@ -184,7 +193,9 @@ class CalculateThread(QThread):
             # print(f"actual_date_val: {actual_date_val}, end_date: {end_date}")
             if actual_date_val and end_date in self.diff_data.columns and actual_date_val in self.diff_data.columns:
                 columns_diff = list(self.diff_data.columns)
-                start_idx_diff = columns_diff.index(actual_date_val)
+                start_idx_diff = columns_diff.index(start_date_val)
+                # if idx == 4:
+                #     print(f"start_idx_diff: {start_idx_diff}, start_date_val: {start_date_val}")
                 end_idx_diff = columns_diff.index(end_date)
                 this_row = self.diff_data.iloc[idx]
                 arr = [this_row[d] for d in columns_diff]
@@ -283,16 +294,16 @@ class CalculateThread(QThread):
                 continuous_abs_sum_block3 = 0
                 continuous_abs_sum_block4 = 0
             else:
-                half = continuous_len // 2
+                half = round(continuous_len / 2)
                 continuous_abs_sum_first_half = round(sum(abs(v) for v in continuous_results[:half]), 2)
                 continuous_abs_sum_second_half = round(sum(abs(v) for v in continuous_results[half:]), 2)
 
                 # 连续累加值数组分成四块，每块分别计算绝对值之和
                 abs_arr = [abs(v) for v in continuous_results if v is not None]
                 n = len(abs_arr)
-                q1 = n // 4
-                q2 = n // 2
-                q3 = (3 * n) // 4
+                q1 = round(n / 4)
+                q2 = round(n / 2)
+                q3 = round(n * 3 / 4)
                 continuous_abs_sum_block1 = round(sum(abs_arr[:q1]), 2)
                 continuous_abs_sum_block2 = round(sum(abs_arr[q1:q2]), 2)
                 continuous_abs_sum_block3 = round(sum(abs_arr[q2:q3]), 2)
@@ -334,15 +345,15 @@ class CalculateThread(QThread):
             # 有效累加值数组长度，有效累加值一半绝对值之和、有效累加后一半绝对值之和
             valid_sum_len = len(valid_sum_arr) if valid_sum_arr else None
             if valid_sum_len is not None and valid_sum_len > 0:
-                valid_abs_sum_first_half = round(sum(abs(v) for v in valid_sum_arr[:valid_sum_len//2]), 2)
-                valid_abs_sum_second_half = round(sum(abs(v) for v in valid_sum_arr[valid_sum_len//2:]), 2)
+                valid_abs_sum_first_half = round(sum(abs(v) for v in valid_sum_arr[:round(valid_sum_len/2)]), 2)
+                valid_abs_sum_second_half = round(sum(abs(v) for v in valid_sum_arr[round(valid_sum_len/2):]), 2)
                 
                 # 有效累加值数组分成四块，每块分别计算绝对值之和
                 abs_arr = [abs(v) for v in valid_sum_arr if v is not None]
                 n = len(abs_arr)
-                q1 = n // 4
-                q2 = n // 2
-                q3 = (3 * n) // 4
+                q1 = round(n / 4)
+                q2 = round(n / 2)
+                q3 = round(n * 3 / 4)
                 valid_abs_sum_block1 = round(sum(abs_arr[:q1]), 2) if n > 0 else None
                 valid_abs_sum_block2 = round(sum(abs_arr[q1:q2]), 2) if n > 0 else None
                 valid_abs_sum_block3 = round(sum(abs_arr[q2:q3]), 2) if n > 0 else None
@@ -360,14 +371,14 @@ class CalculateThread(QThread):
                 # 向前最大有效累加值数组长度，前一半绝对值之和、后一半绝对值之和
                 forward_max_valid_sum_len = len(forward_max_valid_sum_arr) if forward_max_valid_sum_arr else None
                 if forward_max_valid_sum_len is not None and forward_max_valid_sum_len > 0:
-                    forward_max_valid_abs_sum_first_half = round(sum(abs(v) for v in forward_max_valid_sum_arr[:forward_max_valid_sum_len//2]), 2)
-                    forward_max_valid_abs_sum_second_half = round(sum(abs(v) for v in forward_max_valid_sum_arr[forward_max_valid_sum_len//2:]), 2)
+                    forward_max_valid_abs_sum_first_half = round(sum(abs(v) for v in forward_max_valid_sum_arr[:round(forward_max_valid_sum_len/2)]), 2)
+                    forward_max_valid_abs_sum_second_half = round(sum(abs(v) for v in forward_max_valid_sum_arr[round(forward_max_valid_sum_len/2):]), 2)
                     # 分四块
                     abs_arr = [abs(v) for v in forward_max_valid_sum_arr if v is not None]
                     n = len(abs_arr)
-                    q1 = n // 4
-                    q2 = n // 2
-                    q3 = (3 * n) // 4
+                    q1 = round(n / 4)
+                    q2 = round(n / 2)
+                    q3 = round(n * 3 / 4)
                     forward_max_valid_abs_sum_block1 = round(sum(abs_arr[:q1]), 2) 
                     forward_max_valid_abs_sum_block2 = round(sum(abs_arr[q1:q2]), 2) 
                     forward_max_valid_abs_sum_block3 = round(sum(abs_arr[q2:q3]), 2) 
@@ -385,14 +396,14 @@ class CalculateThread(QThread):
                 # 向前最小有效累加值数组长度，前一半绝对值之和、后一半绝对值之和
                 forward_min_valid_sum_len = len(forward_min_valid_sum_arr) if forward_min_valid_sum_arr else None
                 if forward_min_valid_sum_len is not None and forward_min_valid_sum_len > 0:
-                    forward_min_valid_abs_sum_first_half = round(sum(abs(v) for v in forward_min_valid_sum_arr[:forward_min_valid_sum_len//2]), 2)
-                    forward_min_valid_abs_sum_second_half = round(sum(abs(v) for v in forward_min_valid_sum_arr[forward_min_valid_sum_len//2:]), 2)
+                    forward_min_valid_abs_sum_first_half = round(sum(abs(v) for v in forward_min_valid_sum_arr[:round(forward_min_valid_sum_len/2)]), 2)
+                    forward_min_valid_abs_sum_second_half = round(sum(abs(v) for v in forward_min_valid_sum_arr[round(forward_min_valid_sum_len/2):]), 2)
                     # 分四块
                     abs_arr = [abs(v) for v in forward_min_valid_sum_arr if v is not None]
                     n = len(abs_arr)
-                    q1 = n // 4
-                    q2 = n // 2
-                    q3 = (3 * n) // 4
+                    q1 = round(n / 4)
+                    q2 = round(n / 2)
+                    q3 = round(n * 3 / 4)
                     forward_min_valid_abs_sum_block1 = round(sum(abs_arr[:q1]), 2)
                     forward_min_valid_abs_sum_block2 = round(sum(abs_arr[q1:q2]), 2)
                     forward_min_valid_abs_sum_block3 = round(sum(abs_arr[q2:q3]), 2)
@@ -509,12 +520,14 @@ class CalculateThread(QThread):
             #     print(f"increment_value: {increment_value}")
             #     print(f"increment_days: {increment_days}, after_gt_end_days: {after_gt_end_days}, after_gt_start_days: {after_gt_start_days}")
 
-            ops_value = None
-            hold_days = None
-            A = OpValue('A', increment_value, increment_days)
-            B = OpValue('B', after_gt_end_value, after_gt_end_days)
-            C = OpValue('C', after_gt_start_value, after_gt_start_days)
-            local_vars = {'A': A, 'B': B, 'C': C, 'result': None}
+            # A = OpValue('A', increment_value, increment_days)
+            # B = OpValue('B', after_gt_end_value, after_gt_end_days)
+            # C = OpValue('C', after_gt_start_value, after_gt_start_days)
+            # 更明确的变量名和注释
+            INC = OpValue('INC', increment_value, increment_days)  # 递增值
+            AGE = OpValue('AGE', after_gt_end_value, after_gt_end_days)  # 后值大于结束地址值
+            AGS = OpValue('AGS', after_gt_start_value, after_gt_start_days)  # 后值大于前值返回值
+            local_vars = {'INC': INC, 'AGE': AGE, 'AGS': AGS, 'result': None}
             try:
                 exec(expr, {}, local_vars)
                 ops_obj = local_vars['result']
@@ -539,7 +552,7 @@ class CalculateThread(QThread):
             adjust_days = None
             if ops_change_input != 0 and ops_change is not None:
                 if ops_change > ops_change_input and hold_days == 1:
-                    adjust_days = op_days / 3
+                    adjust_days = round((op_days / 3), 2)
                 else:
                     adjust_days = hold_days + 1
 
@@ -631,3 +644,79 @@ class CalculateThread(QThread):
             "base_idx": actual_idx,  # 添加base_idx作为顶层变量
         }
         self.finished.emit(result)
+
+class SelectStockThread(QThread):
+    finished = pyqtSignal(list)
+    def __init__(self, all_results, formula_expr, select_count, sort_mode):
+        super().__init__()
+        self.all_results = all_results
+        self.formula_expr = formula_expr
+        self.select_count = select_count
+        self.sort_mode = sort_mode  # '最大值排序' or '最小值排序'
+
+    def run(self):
+        # abbr_map反查表
+        abbr_map = {
+            'MAX': 'max_value', 'MIN': 'min_value', 'END': 'end_value', 'START': 'start_value',
+            'ACT': 'actual_value', 'CLS': 'closest_value', 'NMAX': 'n_max_value',
+            'NMAXISMAX': 'n_max_is_max', 'RRL': 'range_ratio_is_less', 'ASL': 'abs_sum_is_less',
+            'PDC': 'prev_day_change', 'EDC': 'end_day_change', 'DEV': 'diff_end_value',
+            'CR': 'continuous_results', 'CL': 'continuous_len',
+            'CSV': 'continuous_start_value', 'CSNV': 'continuous_start_next_value',
+            'CSNNV': 'continuous_start_next_next_value', 'CEV': 'continuous_end_value',
+            'CEPV': 'continuous_end_prev_value', 'CEPPV': 'continuous_end_prev_prev_value',
+            'CASFH': 'continuous_abs_sum_first_half', 'CASSH': 'continuous_abs_sum_second_half',
+            'CASB1': 'continuous_abs_sum_block1', 'CASB2': 'continuous_abs_sum_block2',
+            'CASB3': 'continuous_abs_sum_block3', 'CASB4': 'continuous_abs_sum_block4',
+            'VSA': 'valid_sum_arr', 'VSL': 'valid_sum_len', 'VPS': 'valid_pos_sum', 'VNS': 'valid_neg_sum',
+            'VASFH': 'valid_abs_sum_first_half', 'VASSH': 'valid_abs_sum_second_half',
+            'VASB1': 'valid_abs_sum_block1', 'VASB2': 'valid_abs_sum_block2',
+            'VASB3': 'valid_abs_sum_block3', 'VASB4': 'valid_abs_sum_block4',
+            'FMD': 'forward_max_date', 'FMR': 'forward_max_result',
+            'FMVSL': 'forward_max_valid_sum_len', 'FMVSA': 'forward_max_valid_sum_arr',
+            'FMVPS': 'forward_max_valid_pos_sum', 'FMVNS': 'forward_max_valid_neg_sum',
+            'FMVASFH': 'forward_max_valid_abs_sum_first_half', 'FMVASSH': 'forward_max_valid_abs_sum_second_half',
+            'FMVASB1': 'forward_max_valid_abs_sum_block1', 'FMVASB2': 'forward_max_valid_abs_sum_block2',
+            'FMVASB3': 'forward_max_valid_abs_sum_block3', 'FMVASB4': 'forward_max_valid_abs_sum_block4',
+            'FMinD': 'forward_min_date', 'FMinR': 'forward_min_result',
+            'FMinVSL': 'forward_min_valid_sum_len', 'FMinVSA': 'forward_min_valid_sum_arr',
+            'FMinVPS': 'forward_min_valid_pos_sum', 'FMinVNS': 'forward_min_valid_neg_sum',
+            'FMinVASFH': 'forward_min_valid_abs_sum_first_half', 'FMinVASSH': 'forward_min_valid_abs_sum_second_half',
+            'FMinVASB1': 'forward_min_valid_abs_sum_block1', 'FMinVASB2': 'forward_min_valid_abs_sum_block2',
+            'FMinVASB3': 'forward_min_valid_abs_sum_block3', 'FMinVASB4': 'forward_min_valid_abs_sum_block4',
+            'INC': 'increment_value', 'AGE': 'after_gt_end_value', 'AGS': 'after_gt_start_value',
+            'OPS': 'ops_value', 'HD': 'hold_days', 'OPC': 'ops_change', 'ADJ': 'adjust_days', 'OIR': 'ops_incre_rate'
+        }
+        import re
+        # 替换公式中的缩写为原参数名
+        expr = self.formula_expr
+        for abbr, full in abbr_map.items():
+            expr = re.sub(r'\b' + abbr + r'\b', full, expr)
+        results = []
+        for row in self.all_results:
+            local_vars = dict(row)
+            print_flag = False
+            if print_flag:
+                print(f"[SelectStockThread] local_vars: {local_vars}")
+            # 只对极少数元组参数自动取数值
+            for k in ['max_value', 'min_value', 'end_value', 'start_value', 'actual_value', 'closest_value']:
+                v = local_vars.get(k)
+                if isinstance(v, (list, tuple)) and len(v) == 2 and isinstance(v[1], (int, float)):
+                    local_vars[k] = v[1]
+            if print_flag:
+                print(f"[SelectStockThread] eval expr: {expr}")
+            try:
+                exec(expr, {}, local_vars)
+                score = round(local_vars.get('result', 0), 2)
+            except Exception as e:
+                if print_flag:
+                    print(f"[SelectStockThread] eval error: {e}")
+                score = float('-inf') if self.sort_mode == '最大值排序' else float('inf')
+            if score is not None and score != float('inf') and score != float('-inf') and score != 0:
+                results.append({'code': row.get('code', ''), 'name': row.get('name', ''), 'hold_days': row.get('hold_days', ''), 'ops_change': row.get('ops_change', ''), 'ops_incre_rate': row.get('ops_incre_rate', ''), 'score': score})
+            print_flag = True
+        reverse = self.sort_mode == '最大值排序'
+        results.sort(key=lambda x: x['score'], reverse=reverse)
+        selected = results[:self.select_count]
+        print(f"[SelectStockThread] selected: {selected}")
+        self.finished.emit(selected)
