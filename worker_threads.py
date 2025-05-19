@@ -23,26 +23,27 @@ class OpValue:
 class FileLoaderThread(QThread):
     finished = pyqtSignal(object, object, object, list, str)  # df, price_data, diff_data, workdays_str, error_msg
 
-    def __init__(self, file_path):
+    def __init__(self, file_path, file_type='csv'):
         super().__init__()
         self.file_path = file_path
+        self.file_type = file_type
 
     def run(self):
         try:
-            # 读取Excel文件
-            # df = pd.read_excel(self.file_path, dtype=str)  # 先全部读为字符串
-            # 只用csv
-            df = pd.read_csv(self.file_path, dtype=str)  # 先全部读为字符串
+            if self.file_type == 'xlsx':
+                df = pd.read_excel(self.file_path, dtype=str)
+            else:
+                df = pd.read_csv(self.file_path, dtype=str)
             
             # 处理数据类型转换
             for col in df.columns:
-                if col not in ['代码', '名称']:  # 只对非"代码""名称"列做数值转换
+                if col not in ['代码', '名称']:
                     try:
                         df[col] = pd.to_numeric(df[col], errors='coerce')
                     except Exception:
                         continue
             
-            # 后续逻辑不变
+            # 只对price_data部分做0.0转为NaN
             columns = df.columns.tolist()
             separator_idx = None
             for i, col in enumerate(columns):
@@ -54,6 +55,9 @@ class FileLoaderThread(QThread):
                 return
             price_data = df.iloc[:, 0:separator_idx]
             price_data = unify_date_columns(price_data)
+            # 只对price_data做0.0转为NaN
+            for col in price_data.columns:
+                price_data.loc[price_data[col] == 0.0, col] = np.nan
             diff_data = df.iloc[:, separator_idx+1:]
             diff_data = unify_date_columns(diff_data)
             
@@ -90,11 +94,8 @@ class CalculateThread(QThread):
         ops_change_input = self.params.get("ops_change", 0) * 0.01
 
         columns = list(self.diff_data.columns)
-        try:
-            end_idx = columns.index(end_date)
-        except ValueError:
-            self.finished.emit({"error": "结束日期不在diff_data中！"})
-            return
+        end_idx = columns.index(end_date)
+
         start_idx = end_idx + width
         # print(f"end_idx: {end_idx}, start_idx: {start_idx}")
         date_columns = columns[end_idx:start_idx+1]
@@ -117,12 +118,13 @@ class CalculateThread(QThread):
             min_date = None
             for d, v in zip(date_columns, price_data):
                 if pd.notna(v):
-                    if (max_value is None) or (v > max_value):
+                    if (max_value is None) or (v >= max_value):
                         max_value = v
                         max_date = d
-                    if (min_value is None) or (v < min_value):
+                    if (min_value is None) or (v <= min_value):
                         min_value = v
                         min_date = d
+            # print(f"code: {code}, name: {name}, max_date: {max_date}, min_date: {min_date}")
 
             # 结束值、开始值
             end_value = price_data[0] if price_data else None
@@ -133,13 +135,13 @@ class CalculateThread(QThread):
             closest_value = None
             closest_date = None
             closest_idx = None
-            if start_value is not None and pd.notna(start_value):
+            if end_value is not None and pd.notna(end_value):
                 min_diff = float('inf')
                 for i, (d, v) in enumerate(zip(date_columns, price_data)):
-                    if d == date_columns[-1] or pd.isna(v):  # 排除开始日期本身
+                    if  d == date_columns[0] or pd.isna(v):  # 排除结束日期自身
                         continue
-                    diff = abs(v - start_value)
-                    if diff < min_diff:
+                    diff = abs(v - end_value)
+                    if diff <= min_diff:
                         min_diff = diff
                         closest_date = d
                         closest_value = v
@@ -178,8 +180,6 @@ class CalculateThread(QThread):
             continuous_results = []
             forward_max_result = []
             forward_min_result = []
-            forward_max_date = None
-            forward_min_date = None
             # 只要实际开始日期和结束日期都在diff_data中
             # print(f"actual_date_val: {actual_date_val}, end_date: {end_date}")
             if actual_date_val and end_date in self.diff_data.columns and actual_date_val in self.diff_data.columns:
@@ -191,23 +191,17 @@ class CalculateThread(QThread):
                 # print(f"idx: {idx}, start_idx_diff: {start_idx_diff}, end_idx_diff: {end_idx_diff}")
                 continuous_results = calc_continuous_sum_np(arr, start_idx_diff, end_idx_diff)
                 # 向前最大/最小连续累加值
-                if is_forward and actual_idx is not None and actual_idx > 0:
+                if is_forward and min_date is not None and max_date is not None:
                     # 向前区间：实际开始日期左侧（索引更小，结束日期方向）
-                    forward_range = price_data[:actual_idx]
-                    valid_forward = [(i, v) for i, v in enumerate(forward_range) if pd.notna(v)]
-                    if valid_forward and len(valid_forward) > 1:
-                        min_i, min_val = min(valid_forward, key=lambda x: x[1])
-                        max_i, max_val = max(valid_forward, key=lambda x: x[1])
-                        min_idx = min_i
-                        max_idx = max_i
-                        forward_min_date = date_columns[min_idx]
-                        forward_max_date = date_columns[max_idx]
-                        min_start_idx = columns_diff.index(forward_min_date)
-                        max_start_idx = columns_diff.index(forward_max_date)
-                        forward_min_result = calc_continuous_sum_np(arr, min_start_idx, end_idx_diff)
-                        forward_max_result = calc_continuous_sum_np(arr, max_start_idx, end_idx_diff)
-                    else:
-                        forward_min_date = forward_max_date = None
+                    min_start_idx = columns_diff.index(min_date)
+                    forward_min_result = calc_continuous_sum_np(arr, min_start_idx, end_idx_diff)
+                            
+                    max_start_idx = columns_diff.index(max_date)
+                    forward_max_result = calc_continuous_sum_np(arr, max_start_idx, end_idx_diff)
+                    # print(f"min_date: {min_date}, max_date: {max_date}, min_start_idx: {min_start_idx}, max_start_idx: {max_start_idx}")
+                else:
+                    forward_max_result = []
+                    forward_min_result = []
 
             # 前N日最大值
             if n_days == 0:
@@ -511,10 +505,10 @@ class CalculateThread(QThread):
 
             ops_value = None
             hold_days = None
-            A = OpValue('A', increment_value, increment_days)
-            B = OpValue('B', after_gt_end_value, after_gt_end_days)
-            C = OpValue('C', after_gt_start_value, after_gt_start_days)
-            local_vars = {'A': A, 'B': B, 'C': C, 'result': None}
+            INC = OpValue('INC', increment_value, increment_days)
+            AGE = OpValue('AGE', after_gt_end_value, after_gt_end_days)
+            AGS = OpValue('AGS', after_gt_start_value, after_gt_start_days)
+            local_vars = {'INC': INC, 'AGE': AGE, 'AGS': AGS, 'result': None}
             try:
                 exec(expr, {}, local_vars)
                 ops_obj = local_vars['result']
@@ -559,8 +553,8 @@ class CalculateThread(QThread):
                 "continuous_results": continuous_results,
                 "forward_max_result": forward_max_result,
                 "forward_min_result": forward_min_result,
-                "forward_max_date": forward_max_date,
-                "forward_min_date": forward_min_date,
+                "forward_max_date": max_date,
+                "forward_min_date": min_date,
                 "n_max_value": n_max_value,
                 "n_max_is_max": n_max_is_max,
                 "prev_day_change": prev_day_change,
@@ -631,3 +625,79 @@ class CalculateThread(QThread):
             "base_idx": actual_idx,  # 添加base_idx作为顶层变量
         }
         self.finished.emit(result)
+
+class SelectStockThread(QThread):
+    finished = pyqtSignal(list)
+    def __init__(self, all_results, formula_expr, select_count, sort_mode):
+        super().__init__()
+        self.all_results = all_results
+        self.formula_expr = formula_expr
+        self.select_count = select_count
+        self.sort_mode = sort_mode  # '最大值排序' or '最小值排序'
+
+    def run(self):
+        # abbr_map反查表
+        abbr_map = {
+            'MAX': 'max_value', 'MIN': 'min_value', 'END': 'end_value', 'START': 'start_value',
+            'ACT': 'actual_value', 'CLS': 'closest_value', 'NMAX': 'n_max_value',
+            'NMAXISMAX': 'n_max_is_max', 'RRL': 'range_ratio_is_less', 'ASL': 'abs_sum_is_less',
+            'PDC': 'prev_day_change', 'EDC': 'end_day_change', 'DEV': 'diff_end_value',
+            'CR': 'continuous_results', 'CL': 'continuous_len',
+            'CSV': 'continuous_start_value', 'CSNV': 'continuous_start_next_value',
+            'CSNNV': 'continuous_start_next_next_value', 'CEV': 'continuous_end_value',
+            'CEPV': 'continuous_end_prev_value', 'CEPPV': 'continuous_end_prev_prev_value',
+            'CASFH': 'continuous_abs_sum_first_half', 'CASSH': 'continuous_abs_sum_second_half',
+            'CASB1': 'continuous_abs_sum_block1', 'CASB2': 'continuous_abs_sum_block2',
+            'CASB3': 'continuous_abs_sum_block3', 'CASB4': 'continuous_abs_sum_block4',
+            'VSA': 'valid_sum_arr', 'VSL': 'valid_sum_len', 'VPS': 'valid_pos_sum', 'VNS': 'valid_neg_sum',
+            'VASFH': 'valid_abs_sum_first_half', 'VASSH': 'valid_abs_sum_second_half',
+            'VASB1': 'valid_abs_sum_block1', 'VASB2': 'valid_abs_sum_block2',
+            'VASB3': 'valid_abs_sum_block3', 'VASB4': 'valid_abs_sum_block4',
+            'FMD': 'forward_max_date', 'FMR': 'forward_max_result',
+            'FMVSL': 'forward_max_valid_sum_len', 'FMVSA': 'forward_max_valid_sum_arr',
+            'FMVPS': 'forward_max_valid_pos_sum', 'FMVNS': 'forward_max_valid_neg_sum',
+            'FMVASFH': 'forward_max_valid_abs_sum_first_half', 'FMVASSH': 'forward_max_valid_abs_sum_second_half',
+            'FMVASB1': 'forward_max_valid_abs_sum_block1', 'FMVASB2': 'forward_max_valid_abs_sum_block2',
+            'FMVASB3': 'forward_max_valid_abs_sum_block3', 'FMVASB4': 'forward_max_valid_abs_sum_block4',
+            'FMinD': 'forward_min_date', 'FMinR': 'forward_min_result',
+            'FMinVSL': 'forward_min_valid_sum_len', 'FMinVSA': 'forward_min_valid_sum_arr',
+            'FMinVPS': 'forward_min_valid_pos_sum', 'FMinVNS': 'forward_min_valid_neg_sum',
+            'FMinVASFH': 'forward_min_valid_abs_sum_first_half', 'FMinVASSH': 'forward_min_valid_abs_sum_second_half',
+            'FMinVASB1': 'forward_min_valid_abs_sum_block1', 'FMinVASB2': 'forward_min_valid_abs_sum_block2',
+            'FMinVASB3': 'forward_min_valid_abs_sum_block3', 'FMinVASB4': 'forward_min_valid_abs_sum_block4',
+            'INC': 'increment_value', 'AGE': 'after_gt_end_value', 'AGS': 'after_gt_start_value',
+            'OPS': 'ops_value', 'HD': 'hold_days', 'OPC': 'ops_change', 'ADJ': 'adjust_days', 'OIR': 'ops_incre_rate'
+        }
+        import re
+        # 替换公式中的缩写为原参数名
+        expr = self.formula_expr
+        for abbr, full in abbr_map.items():
+            expr = re.sub(r'\b' + abbr + r'\b', full, expr)
+        results = []
+        for row in self.all_results:
+            local_vars = dict(row)
+            print_flag = False
+            if print_flag:
+                print(f"[SelectStockThread] local_vars: {local_vars}")
+            # 只对极少数元组参数自动取数值
+            for k in ['max_value', 'min_value', 'end_value', 'start_value', 'actual_value', 'closest_value']:
+                v = local_vars.get(k)
+                if isinstance(v, (list, tuple)) and len(v) == 2 and isinstance(v[1], (int, float)):
+                    local_vars[k] = v[1]
+            if print_flag:
+                print(f"[SelectStockThread] eval expr: {expr}")
+            try:
+                exec(expr, {}, local_vars)
+                score = round(local_vars.get('result', 0), 2)
+            except Exception as e:
+                if print_flag:
+                    print(f"[SelectStockThread] eval error: {e}")
+                score = float('-inf') if self.sort_mode == '最大值排序' else float('inf')
+            if score is not None and score != float('inf') and score != float('-inf') and score != 0:
+                results.append({'code': row.get('code', ''), 'name': row.get('name', ''), 'hold_days': row.get('hold_days', ''), 'ops_change': row.get('ops_change', ''), 'ops_incre_rate': row.get('ops_incre_rate', ''), 'score': score})
+            print_flag = True
+        reverse = self.sort_mode == '最大值排序'
+        results.sort(key=lambda x: x['score'], reverse=reverse)
+        selected = results[:self.select_count]
+        print(f"[SelectStockThread] selected: {selected}")
+        self.finished.emit(selected)
