@@ -114,19 +114,19 @@ def show_continuous_sum_table(parent, all_results, as_widget=False):
                 table2.setItem(row_idx, 2 + max_valid_len + i, QTableWidgetItem(str(val)))
 
         # 向前最大连续累加值tab
-        headers3 = ['代码', '名称'] + [f'向前最大连续累加值{i+1}' for i in range(max_forward_len)] + forward_param_headers
+        headers3 = ['代码', '名称', '向前最大日期'] + [f'向前最大连续累加值{i+1}' for i in range(max_forward_len)] + [h for h in forward_param_headers if h != "向前最大日期"]
         table3 = QTableWidget(len(all_results), len(headers3))
         table3.setHorizontalHeaderLabels(headers3)
 
         for row_idx, row in enumerate(all_results):
             table3.setItem(row_idx, 0, QTableWidgetItem(str(row.get('code', ''))))
             table3.setItem(row_idx, 1, QTableWidgetItem(str(row.get('name', ''))))
+            table3.setItem(row_idx, 2, QTableWidgetItem(str(row.get('forward_max_date', ''))))
             forward_arr = row.get('forward_max_result', [])
             for col_idx in range(max_forward_len):
                 val = forward_arr[col_idx] if col_idx < len(forward_arr) else ""
-                table3.setItem(row_idx, 2 + col_idx, QTableWidgetItem(str(val)))
+                table3.setItem(row_idx, 3 + col_idx, QTableWidgetItem(str(val)))
             forward_param_values = [
-                row.get('forward_max_date', ''),
                 row.get('forward_max_valid_sum_len', ''),
                 row.get('forward_max_valid_sum_arr', ''),
                 row.get('forward_max_valid_pos_sum', ''),
@@ -139,22 +139,22 @@ def show_continuous_sum_table(parent, all_results, as_widget=False):
                 row.get('forward_max_valid_abs_sum_block4', ''),
             ]
             for i, val in enumerate(forward_param_values):
-                table3.setItem(row_idx, 2 + max_forward_len + i, QTableWidgetItem(str(val)))
+                table3.setItem(row_idx, 3 + max_forward_len + i, QTableWidgetItem(str(val)))
 
         # 向前最小连续累加值tab
-        headers4 = ['代码', '名称'] + [f'向前最小连续累加值{i+1}' for i in range(max_forward_min_len)] + forward_min_param_headers
+        headers4 = ['代码', '名称', '向前最小日期'] + [f'向前最小连续累加值{i+1}' for i in range(max_forward_min_len)] + [h for h in forward_min_param_headers if h != "向前最小日期"]
         table4 = QTableWidget(len(all_results), len(headers4))
         table4.setHorizontalHeaderLabels(headers4)
 
         for row_idx, row in enumerate(all_results):
             table4.setItem(row_idx, 0, QTableWidgetItem(str(row.get('code', ''))))
             table4.setItem(row_idx, 1, QTableWidgetItem(str(row.get('name', ''))))
+            table4.setItem(row_idx, 2, QTableWidgetItem(str(row.get('forward_min_date', ''))))
             forward_min_arr = row.get('forward_min_result', [])
             for col_idx in range(max_forward_min_len):
                 val = forward_min_arr[col_idx] if col_idx < len(forward_min_arr) else ""
-                table4.setItem(row_idx, 2 + col_idx, QTableWidgetItem(str(val)))
+                table4.setItem(row_idx, 3 + col_idx, QTableWidgetItem(str(val)))
             forward_min_param_values = [
-                row.get('forward_min_date', ''),
                 row.get('forward_min_valid_sum_len', ''),
                 row.get('forward_min_valid_sum_arr', ''),
                 row.get('forward_min_valid_pos_sum', ''),
@@ -167,7 +167,7 @@ def show_continuous_sum_table(parent, all_results, as_widget=False):
                 row.get('forward_min_valid_abs_sum_block4', ''),
             ]
             for i, val in enumerate(forward_min_param_values):
-                table4.setItem(row_idx, 2 + max_forward_min_len + i, QTableWidgetItem(str(val)))
+                table4.setItem(row_idx, 3 + max_forward_min_len + i, QTableWidgetItem(str(val)))
 
         tab_widget.addTab(table1, "连续累加值")
         tab_widget.addTab(table2, "有效累加值")
@@ -441,6 +441,7 @@ class FormulaExprEdit(QTextEdit):
     def mousePressEvent(self, event):
         dialog = QDialog(self)
         dialog.setWindowTitle("编辑选股公式")
+        dialog.resize(1000, 750)  # 设置弹窗大小
         layout = QVBoxLayout(dialog)
         tip_label = QLabel(
             "示例:\n"
@@ -459,7 +460,7 @@ class FormulaExprEdit(QTextEdit):
             "    result = 0\n"
             "\n"
         )
-        tip_label.setStyleSheet("color:gray;")
+        tip_label.setStyleSheet("color:gray; background-color: #f0f0f0; border-radius: 4px;")
         tip_label.setWordWrap(True)
         layout.addWidget(tip_label)
         text_edit = QTextEdit()
@@ -482,26 +483,33 @@ class FormulaExprEdit(QTextEdit):
 
 def show_formula_select_table(parent, all_results, as_widget=True):
     widget = QWidget(parent)
+    widget.setStyleSheet("background-color: white; border: 1px solid #d0d0d0;")  # 设置白色背景和浅灰边框
     layout = QVBoxLayout(widget)
 
     # 顶部公式输入区
     top_layout = QHBoxLayout()
+    formula_label = QLabel("选股公式:")
+    formula_label.setStyleSheet("border: none;")
+    top_layout.addWidget(formula_label)
     formula_input = FormulaExprEdit()
-    top_layout.addWidget(QLabel("选股公式:"))
     top_layout.addWidget(formula_input, 3)
 
     select_count_label = QLabel("选股数量:")
+    select_count_label.setStyleSheet("border: none;")  # 去掉边框
     select_count_spin = QSpinBox()
     select_count_spin.setMinimum(1)
     select_count_spin.setMaximum(100)
     select_count_spin.setValue(10)
     sort_label = QLabel("排序方式:")
+    sort_label.setStyleSheet("border: none;")  # 去掉边框
     sort_combo = QComboBox()
     sort_combo.addItems(["最大值排序", "最小值排序"])
     select_btn = QPushButton("进行选股")
     select_btn.setFixedSize(100, 50)
+    select_btn.setStyleSheet("background-color: #f0f0f0; border: none;")  # 设置与主界面一致的背景色
     result_btn = QPushButton("查看结果")
     result_btn.setFixedSize(100, 50)
+    result_btn.setStyleSheet("background-color: #f0f0f0; border: none;")  # 设置与主界面一致的背景色
     for w in [select_count_label, select_count_spin, sort_label, sort_combo, select_btn, result_btn]:
         top_layout.addWidget(w)
     layout.addLayout(top_layout)
@@ -530,30 +538,45 @@ def show_formula_select_table(parent, all_results, as_widget=True):
     abbr_widget.setLayout(abbr_grid)
     layout.addWidget(abbr_widget)
 
-    # 选股结果表格（初始隐藏）
-    result_table = QTableWidget()
-    result_table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-    layout.addWidget(result_table)
-    result_table.hide()
+    # 输出区（用于提示和结果展示）
+    output_edit = QTextEdit()
+    output_edit.setReadOnly(True)
+    output_edit.setMinimumHeight(180)
+    layout.addWidget(output_edit)
 
-    # 选股逻辑（你可根据实际线程/数据结构补充）
+    # 选股结果缓存
+    widget.selected_results = []
+    widget.select_thread = None
+
+    # 选股逻辑
     def do_select():
-        # 这里应调用你的选股线程/逻辑，生成结果
-        # 假设有结果列表 selected_results
-        selected_results = [
-            {"代码": "000001", "名称": "平安银行", "得分": 88.8},
-            {"代码": "000002", "名称": "万科A", "得分": 77.7}
-        ]
-        result_table.setColumnCount(3)
-        result_table.setRowCount(len(selected_results))
-        result_table.setHorizontalHeaderLabels(["代码", "名称", "得分"])
-        for i, row in enumerate(selected_results):
-            result_table.setItem(i, 0, QTableWidgetItem(str(row["代码"])))
-            result_table.setItem(i, 1, QTableWidgetItem(str(row["名称"])))
-            result_table.setItem(i, 2, QTableWidgetItem(str(row["得分"])))
-        result_table.show()
+        formula_expr = formula_input.toPlainText()
+        select_count = select_count_spin.value()
+        sort_mode = sort_combo.currentText()
+        output_edit.setText("正在选股...")
+        from worker_threads import SelectStockThread
+        thread = SelectStockThread(all_results, formula_expr, select_count, sort_mode)
+        widget.select_thread = thread  # 防止被回收
+        def on_finished(selected):
+            widget.selected_results = selected
+            output_edit.setText("选股完成！")
+        thread.finished.connect(on_finished)
+        thread.start()
+
+    def show_selected():
+        selected = getattr(widget, 'selected_results', [])
+        if not selected:
+            output_edit.setText("请先进行选股！")
+            return
+        # 构造表格文本
+        headers = ["代码", "名称", "持有天数", "操作涨幅", "日均涨幅", "得分"]
+        lines = ["\t".join(headers)]
+        for row in selected:
+            line = "\t".join(str(row.get(k, "")) for k in ["code", "name", "hold_days", "ops_change", "ops_incre_rate", "score"])
+            lines.append(line)
+        output_edit.setText("\n".join(lines))
 
     select_btn.clicked.connect(do_select)
-    result_btn.clicked.connect(lambda: result_table.show())
+    result_btn.clicked.connect(show_selected)
 
     return widget

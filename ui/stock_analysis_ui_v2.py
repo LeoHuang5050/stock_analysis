@@ -253,9 +253,9 @@ class StockAnalysisApp(QWidget):
         self.formula_select_btn = QPushButton("公式选股")
         self.formula_select_btn.setFixedSize(100, 50)
         btn_layout = QHBoxLayout()
+        btn_layout.addWidget(self.continuous_sum_btn)
         btn_layout.addWidget(self.param_show_btn)
         btn_layout.addWidget(self.formula_select_btn)
-        btn_layout.addWidget(self.continuous_sum_btn)
         btn_layout.addStretch()  # 按钮靠左
         main_layout.addLayout(btn_layout)
 
@@ -268,8 +268,8 @@ class StockAnalysisApp(QWidget):
     def connect_signals(self):
         self.upload_btn.clicked.connect(self.init.upload_file)
         self.date_picker.dateChanged.connect(self.init.on_date_changed)
-        self.confirm_btn.clicked.connect(self.init.on_confirm_range)
-        self.calc_btn.clicked.connect(self.base_param.on_calculate_clicked)
+        self.confirm_btn.clicked.connect(self.on_confirm_range)
+        self.calc_btn.clicked.connect(self.on_calculate_clicked)
         # self.query_btn.clicked.connect(self.on_query_param)
         self.continuous_sum_btn.clicked.connect(self.on_continuous_sum_clicked)
         self.param_show_btn.clicked.connect(self.on_param_show_clicked)
@@ -343,3 +343,15 @@ class StockAnalysisApp(QWidget):
     def show_text_output(self, text):
         self.result_text.setText(text)
         self.output_stack.setCurrentWidget(self.result_text)
+
+    def on_calculate_clicked(self):
+        self.clear_result_area()
+        self.result_text.setText("正在生成参数，请稍候...")
+        self.output_stack.setCurrentWidget(self.result_text)
+        self.base_param.on_calculate_clicked()
+
+    def on_confirm_range(self):
+        self.clear_result_area()
+        self.result_text.setText("区间已确认，请继续设置参数...")
+        self.output_stack.setCurrentWidget(self.result_text)
+        self.init.on_confirm_range()
