@@ -1,6 +1,6 @@
 import sys
 from PyQt5.QtWidgets import (
-    QApplication, QWidget, QLabel, QPushButton, QComboBox, QSpinBox, QDateEdit, QCheckBox, QGridLayout, QHBoxLayout, QVBoxLayout, QSizePolicy, QTextEdit, QLineEdit, QDialog, QMessageBox
+    QApplication, QWidget, QLabel, QPushButton, QComboBox, QSpinBox, QDateEdit, QCheckBox, QGridLayout, QHBoxLayout, QVBoxLayout, QSizePolicy, QTextEdit, QLineEdit, QDialog, QMessageBox, QFrame, QStackedLayout
 )
 from PyQt5.QtCore import Qt
 from function.init import StockAnalysisInit
@@ -68,7 +68,7 @@ class StockAnalysisApp(QWidget):
         top_widget.setLayout(top_grid)
         col_widths = [170, 170, 170, 170, 170, 170]
 
-        # 第一行控件（先创建，再addWidget）
+        # 第一行控件
         self.label = QLabel("请上传数据文件：")
         self.upload_btn = QPushButton("上传数据文件")
         self.date_label = QLabel("请选择结束日期：")
@@ -82,7 +82,6 @@ class StockAnalysisApp(QWidget):
         self.confirm_btn = QPushButton("1. 确认区间")
         self.confirm_btn.setMinimumWidth(120)
 
-        # 然后再addWidget
         top_grid.addWidget(self.label, 0, 0)
         top_grid.addWidget(self.upload_btn, 0, 1)
         top_grid.addWidget(self.date_label, 0, 2)
@@ -91,7 +90,7 @@ class StockAnalysisApp(QWidget):
         top_grid.addWidget(self.width_spin, 0, 5)
         top_grid.addWidget(self.confirm_btn, 0, 8)
 
-        # 第二行（左侧参数）
+        # 第二行
         self.start_option_label = QLabel("开始日期值选择：")
         self.start_option_combo = QComboBox()
         self.start_option_combo.addItems(["开始值", "最大值", "最小值", "接近值"])
@@ -101,18 +100,15 @@ class StockAnalysisApp(QWidget):
         self.shift_spin.setMaximum(1)
         self.shift_spin.setValue(0)
         self.direction_checkbox = QCheckBox("是否计算向前")
-
-        # 第二行（右侧按钮）
         self.calc_btn = QPushButton("2. 生成参数")
         self.calc_btn.setMinimumWidth(120)
 
-        # 添加到顶部表格
         top_grid.addWidget(self.start_option_label, 1, 0)
         top_grid.addWidget(self.start_option_combo, 1, 1)
         top_grid.addWidget(self.shift_label, 1, 2)
         top_grid.addWidget(self.shift_spin, 1, 3)
         top_grid.addWidget(self.direction_checkbox, 1, 4)
-        top_grid.addWidget(self.calc_btn, 1, 8)
+        top_grid.addWidget(self.calc_btn, 3, 8)
 
         # 第三行控件
         self.n_days_label1 = QLabel("前1组结束地址前N日最大值")
@@ -125,7 +121,6 @@ class StockAnalysisApp(QWidget):
         self.abs_sum_label = QLabel("开始日到结束日之间连续累加值绝对值小于")
         self.abs_sum_value_edit = QLineEdit()
 
-        # 添加到顶部表格
         top_grid.addWidget(self.n_days_label1, 2, 0)
         top_grid.addWidget(self.n_days_spin, 2, 1)
         top_grid.addWidget(self.range_label, 2, 2)
@@ -230,7 +225,7 @@ class StockAnalysisApp(QWidget):
         query_layout.addWidget(self.query_btn)
         query_widget.setLayout(query_layout)
         # 添加到第四行右侧
-        top_grid.addWidget(query_widget, 3, 8)
+        # top_grid.addWidget(query_widget, 3, 8)
 
         # 添加到第四行
         top_grid.addWidget(op_days_widget, 3, 0)
@@ -240,20 +235,27 @@ class StockAnalysisApp(QWidget):
         top_grid.addWidget(expr_widget, 3, 4)
         top_grid.addWidget(ops_change_widget, 3, 5)
 
-        # 输出框
+        # 输出区：用QStackedLayout管理result_text和表格
+        self.output_area = QWidget()
+        self.output_stack = QStackedLayout(self.output_area)
         self.result_text = QTextEdit()
         self.result_text.setReadOnly(True)
-        self.result_text.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-
-        # 添加到主布局
+        self.output_stack.addWidget(self.result_text)  # index 0: 文字提示
+        self.table_widget = None  # 先不加表格
         main_layout.addWidget(top_widget)
-        main_layout.addWidget(self.result_text, stretch=1)
+        main_layout.addWidget(self.output_area, stretch=1)
 
-        # 最后一行添加"查看连续累加参数"按钮
+        # 最后一行添加底部功能按钮
         self.continuous_sum_btn = QPushButton("连续累加值")
         self.continuous_sum_btn.setFixedSize(100, 50)
+        self.param_show_btn = QPushButton("参数显示")
+        self.param_show_btn.setFixedSize(100, 50)
+        self.formula_select_btn = QPushButton("公式选股")
+        self.formula_select_btn.setFixedSize(100, 50)
         btn_layout = QHBoxLayout()
         btn_layout.addWidget(self.continuous_sum_btn)
+        btn_layout.addWidget(self.param_show_btn)
+        btn_layout.addWidget(self.formula_select_btn)
         btn_layout.addStretch()  # 按钮靠左
         main_layout.addLayout(btn_layout)
 
@@ -266,10 +268,12 @@ class StockAnalysisApp(QWidget):
     def connect_signals(self):
         self.upload_btn.clicked.connect(self.init.upload_file)
         self.date_picker.dateChanged.connect(self.init.on_date_changed)
-        self.confirm_btn.clicked.connect(self.init.on_confirm_range)
-        self.calc_btn.clicked.connect(self.base_param.on_calculate_clicked)
-        self.query_btn.clicked.connect(self.on_query_param)
+        self.confirm_btn.clicked.connect(self.on_confirm_range)
+        self.calc_btn.clicked.connect(self.on_calculate_clicked)
+        # self.query_btn.clicked.connect(self.on_query_param)
         self.continuous_sum_btn.clicked.connect(self.on_continuous_sum_clicked)
+        self.param_show_btn.clicked.connect(self.on_param_show_clicked)
+        self.formula_select_btn.clicked.connect(self.on_formula_select_clicked)
 
     def on_query_param(self):
         # 查询参数信息
@@ -286,6 +290,68 @@ class StockAnalysisApp(QWidget):
         result = query_row_result(rows, keyword, n_days)
         self.result_text.setText(result) 
 
+    def clear_result_area(self):
+        # 移除表格控件，只保留result_text
+        if self.table_widget is not None:
+            self.output_stack.removeWidget(self.table_widget)
+            self.table_widget.deleteLater()
+            self.table_widget = None
+        self.output_stack.setCurrentWidget(self.result_text)
+
     def on_continuous_sum_clicked(self):
         all_results = getattr(self, 'all_row_results', None)
-        show_continuous_sum_table(self, all_results)
+        from function.stock_functions import show_continuous_sum_table
+        self.clear_result_area()
+        table = show_continuous_sum_table(self, all_results, as_widget=True)
+        if table:
+            table.setMinimumSize(1200, 600)
+            self.table_widget = table
+            self.output_stack.addWidget(table)
+            self.output_stack.setCurrentWidget(table)
+        else:
+            self.result_text.setText("没有可展示的连续累加值数据。")
+            self.output_stack.setCurrentWidget(self.result_text)
+
+    def on_param_show_clicked(self):
+        all_results = getattr(self, 'all_row_results', None)
+        from function.stock_functions import show_params_table
+        self.clear_result_area()
+        table = show_params_table(self, all_results, as_widget=True)
+        if table:
+            table.setMinimumSize(1200, 600)
+            self.table_widget = table
+            self.output_stack.addWidget(table)
+            self.output_stack.setCurrentWidget(table)
+        else:
+            self.result_text.setText("没有可展示的参数明细数据。")
+            self.output_stack.setCurrentWidget(self.result_text)
+
+    def on_formula_select_clicked(self):
+        all_results = getattr(self, 'all_row_results', None)
+        from function.stock_functions import show_formula_select_table
+        self.clear_result_area()
+        table = show_formula_select_table(self, all_results, as_widget=True)
+        if table:
+            table.setMinimumSize(1200, 600)
+            self.table_widget = table
+            self.output_stack.addWidget(table)
+            self.output_stack.setCurrentWidget(table)
+        else:
+            self.result_text.setText("没有可展示的公式选股结果。")
+            self.output_stack.setCurrentWidget(self.result_text)
+
+    def show_text_output(self, text):
+        self.result_text.setText(text)
+        self.output_stack.setCurrentWidget(self.result_text)
+
+    def on_calculate_clicked(self):
+        self.clear_result_area()
+        self.result_text.setText("正在生成参数，请稍候...")
+        self.output_stack.setCurrentWidget(self.result_text)
+        self.base_param.on_calculate_clicked()
+
+    def on_confirm_range(self):
+        self.clear_result_area()
+        self.result_text.setText("区间已确认，请继续设置参数...")
+        self.output_stack.setCurrentWidget(self.result_text)
+        self.init.on_confirm_range()
