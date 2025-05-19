@@ -94,14 +94,11 @@ class CalculateThread(QThread):
         ops_change_input = self.params.get("ops_change", 0) * 0.01
 
         columns = list(self.diff_data.columns)
-        try:
-            end_idx = columns.index(end_date)
-        except ValueError:
-            self.finished.emit({"error": "结束日期不在diff_data中！"})
-            return
-        start_idx = end_idx + width 
+        end_idx = columns.index(end_date)
+
+        start_idx = end_idx + width
         # print(f"end_idx: {end_idx}, start_idx: {start_idx}")
-        date_columns = columns[end_idx:start_idx - shift_days + 1]
+        date_columns = columns[end_idx:start_idx+1]
         # print(f"date_columns: {date_columns}")
 
         # 组装结果
@@ -121,28 +118,27 @@ class CalculateThread(QThread):
             min_date = None
             for d, v in zip(date_columns, price_data):
                 if pd.notna(v):
-                    if (max_value is None) or (v > max_value):
+                    if (max_value is None) or (v >= max_value):
                         max_value = v
                         max_date = d
-                    if (min_value is None) or (v < min_value):
+                    if (min_value is None) or (v <= min_value):
                         min_value = v
                         min_date = d
+            # print(f"code: {code}, name: {name}, max_date: {max_date}, min_date: {min_date}")
 
             # 结束值、开始值
             end_value = price_data[0] if price_data else None
             end_date_val = date_columns[0] if price_data else None
-            start_value = price_data[start_idx] if price_data else None
-            start_date_val = date_columns[start_idx] if price_data else None
-            # if idx == 4:
-            #     print(f"start_value: {start_value}, start_date_val: {start_date_val}")
-            # 计算最接近结束日期值（无条件计算）
+            start_value = price_data[-1] if price_data else None
+            start_date_val = date_columns[-1] if price_data else None
+            # 计算最接近开始日期值（无条件计算）
             closest_value = None
             closest_date = None
             closest_idx = None
             if end_value is not None and pd.notna(end_value):
                 min_diff = float('inf')
                 for i, (d, v) in enumerate(zip(date_columns, price_data)):
-                    if d == date_columns[0] or pd.isna(v):  # 排除结束日期本身
+                    if  d == date_columns[0] or pd.isna(v):  # 排除结束日期自身
                         continue
                     diff = abs(v - end_value)
                     if diff <= min_diff:
@@ -150,9 +146,6 @@ class CalculateThread(QThread):
                         closest_date = d
                         closest_value = v
                         closest_idx = i
-            # if idx == 4:
-            #     print(f"end_value: {end_value}, price_data: {price_data}")
-            #     print(f"closest_date: {closest_date}, closest_value: {closest_value}, closest_idx: {closest_idx}")
 
             # 根据选项设置base_idx
             if start_option == "最大值":
@@ -164,11 +157,11 @@ class CalculateThread(QThread):
             else:  # "开始值"
                 base_idx = len(price_data) - 1 if price_data else None
 
-            
+            actual_idx = base_idx - shift_days if base_idx is not None else None
+            # print(f"actual_idx: {actual_idx}, base_idx: {base_idx}, shift_days: {shift_days}")
             
             # 从原始数据中获取actual_date_val
             all_columns = list(self.price_data.columns)
-            actual_idx = base_idx
             if actual_idx is not None:
                 # 找到date_columns在原始数据中的起始位置
                 start_pos = all_columns.index(date_columns[0])
@@ -187,38 +180,28 @@ class CalculateThread(QThread):
             continuous_results = []
             forward_max_result = []
             forward_min_result = []
-            forward_max_date = None
-            forward_min_date = None
             # 只要实际开始日期和结束日期都在diff_data中
             # print(f"actual_date_val: {actual_date_val}, end_date: {end_date}")
             if actual_date_val and end_date in self.diff_data.columns and actual_date_val in self.diff_data.columns:
                 columns_diff = list(self.diff_data.columns)
-                start_idx_diff = columns_diff.index(start_date_val)
-                # if idx == 4:
-                #     print(f"start_idx_diff: {start_idx_diff}, start_date_val: {start_date_val}")
+                start_idx_diff = columns_diff.index(actual_date_val)
                 end_idx_diff = columns_diff.index(end_date)
                 this_row = self.diff_data.iloc[idx]
                 arr = [this_row[d] for d in columns_diff]
                 # print(f"idx: {idx}, start_idx_diff: {start_idx_diff}, end_idx_diff: {end_idx_diff}")
                 continuous_results = calc_continuous_sum_np(arr, start_idx_diff, end_idx_diff)
                 # 向前最大/最小连续累加值
-                if is_forward and actual_idx is not None and actual_idx > 0:
+                if is_forward and min_date is not None and max_date is not None:
                     # 向前区间：实际开始日期左侧（索引更小，结束日期方向）
-                    forward_range = price_data[:actual_idx]
-                    valid_forward = [(i, v) for i, v in enumerate(forward_range) if pd.notna(v)]
-                    if valid_forward and len(valid_forward) > 1:
-                        min_i, min_val = min(valid_forward, key=lambda x: x[1])
-                        max_i, max_val = max(valid_forward, key=lambda x: x[1])
-                        min_idx = min_i
-                        max_idx = max_i
-                        forward_min_date = date_columns[min_idx]
-                        forward_max_date = date_columns[max_idx]
-                        min_start_idx = columns_diff.index(forward_min_date)
-                        max_start_idx = columns_diff.index(forward_max_date)
-                        forward_min_result = calc_continuous_sum_np(arr, min_start_idx, end_idx_diff)
-                        forward_max_result = calc_continuous_sum_np(arr, max_start_idx, end_idx_diff)
-                    else:
-                        forward_min_date = forward_max_date = None
+                    min_start_idx = columns_diff.index(min_date)
+                    forward_min_result = calc_continuous_sum_np(arr, min_start_idx, end_idx_diff)
+                            
+                    max_start_idx = columns_diff.index(max_date)
+                    forward_max_result = calc_continuous_sum_np(arr, max_start_idx, end_idx_diff)
+                    # print(f"min_date: {min_date}, max_date: {max_date}, min_start_idx: {min_start_idx}, max_start_idx: {max_start_idx}")
+                else:
+                    forward_max_result = []
+                    forward_min_result = []
 
             # 前N日最大值
             if n_days == 0:
@@ -294,16 +277,16 @@ class CalculateThread(QThread):
                 continuous_abs_sum_block3 = 0
                 continuous_abs_sum_block4 = 0
             else:
-                half = round(continuous_len / 2)
+                half = continuous_len // 2
                 continuous_abs_sum_first_half = round(sum(abs(v) for v in continuous_results[:half]), 2)
                 continuous_abs_sum_second_half = round(sum(abs(v) for v in continuous_results[half:]), 2)
 
                 # 连续累加值数组分成四块，每块分别计算绝对值之和
                 abs_arr = [abs(v) for v in continuous_results if v is not None]
                 n = len(abs_arr)
-                q1 = round(n / 4)
-                q2 = round(n / 2)
-                q3 = round(n * 3 / 4)
+                q1 = n // 4
+                q2 = n // 2
+                q3 = (3 * n) // 4
                 continuous_abs_sum_block1 = round(sum(abs_arr[:q1]), 2)
                 continuous_abs_sum_block2 = round(sum(abs_arr[q1:q2]), 2)
                 continuous_abs_sum_block3 = round(sum(abs_arr[q2:q3]), 2)
@@ -345,15 +328,15 @@ class CalculateThread(QThread):
             # 有效累加值数组长度，有效累加值一半绝对值之和、有效累加后一半绝对值之和
             valid_sum_len = len(valid_sum_arr) if valid_sum_arr else None
             if valid_sum_len is not None and valid_sum_len > 0:
-                valid_abs_sum_first_half = round(sum(abs(v) for v in valid_sum_arr[:round(valid_sum_len/2)]), 2)
-                valid_abs_sum_second_half = round(sum(abs(v) for v in valid_sum_arr[round(valid_sum_len/2):]), 2)
+                valid_abs_sum_first_half = round(sum(abs(v) for v in valid_sum_arr[:valid_sum_len//2]), 2)
+                valid_abs_sum_second_half = round(sum(abs(v) for v in valid_sum_arr[valid_sum_len//2:]), 2)
                 
                 # 有效累加值数组分成四块，每块分别计算绝对值之和
                 abs_arr = [abs(v) for v in valid_sum_arr if v is not None]
                 n = len(abs_arr)
-                q1 = round(n / 4)
-                q2 = round(n / 2)
-                q3 = round(n * 3 / 4)
+                q1 = n // 4
+                q2 = n // 2
+                q3 = (3 * n) // 4
                 valid_abs_sum_block1 = round(sum(abs_arr[:q1]), 2) if n > 0 else None
                 valid_abs_sum_block2 = round(sum(abs_arr[q1:q2]), 2) if n > 0 else None
                 valid_abs_sum_block3 = round(sum(abs_arr[q2:q3]), 2) if n > 0 else None
@@ -371,14 +354,14 @@ class CalculateThread(QThread):
                 # 向前最大有效累加值数组长度，前一半绝对值之和、后一半绝对值之和
                 forward_max_valid_sum_len = len(forward_max_valid_sum_arr) if forward_max_valid_sum_arr else None
                 if forward_max_valid_sum_len is not None and forward_max_valid_sum_len > 0:
-                    forward_max_valid_abs_sum_first_half = round(sum(abs(v) for v in forward_max_valid_sum_arr[:round(forward_max_valid_sum_len/2)]), 2)
-                    forward_max_valid_abs_sum_second_half = round(sum(abs(v) for v in forward_max_valid_sum_arr[round(forward_max_valid_sum_len/2):]), 2)
+                    forward_max_valid_abs_sum_first_half = round(sum(abs(v) for v in forward_max_valid_sum_arr[:forward_max_valid_sum_len//2]), 2)
+                    forward_max_valid_abs_sum_second_half = round(sum(abs(v) for v in forward_max_valid_sum_arr[forward_max_valid_sum_len//2:]), 2)
                     # 分四块
                     abs_arr = [abs(v) for v in forward_max_valid_sum_arr if v is not None]
                     n = len(abs_arr)
-                    q1 = round(n / 4)
-                    q2 = round(n / 2)
-                    q3 = round(n * 3 / 4)
+                    q1 = n // 4
+                    q2 = n // 2
+                    q3 = (3 * n) // 4
                     forward_max_valid_abs_sum_block1 = round(sum(abs_arr[:q1]), 2) 
                     forward_max_valid_abs_sum_block2 = round(sum(abs_arr[q1:q2]), 2) 
                     forward_max_valid_abs_sum_block3 = round(sum(abs_arr[q2:q3]), 2) 
@@ -396,14 +379,14 @@ class CalculateThread(QThread):
                 # 向前最小有效累加值数组长度，前一半绝对值之和、后一半绝对值之和
                 forward_min_valid_sum_len = len(forward_min_valid_sum_arr) if forward_min_valid_sum_arr else None
                 if forward_min_valid_sum_len is not None and forward_min_valid_sum_len > 0:
-                    forward_min_valid_abs_sum_first_half = round(sum(abs(v) for v in forward_min_valid_sum_arr[:round(forward_min_valid_sum_len/2)]), 2)
-                    forward_min_valid_abs_sum_second_half = round(sum(abs(v) for v in forward_min_valid_sum_arr[round(forward_min_valid_sum_len/2):]), 2)
+                    forward_min_valid_abs_sum_first_half = round(sum(abs(v) for v in forward_min_valid_sum_arr[:forward_min_valid_sum_len//2]), 2)
+                    forward_min_valid_abs_sum_second_half = round(sum(abs(v) for v in forward_min_valid_sum_arr[forward_min_valid_sum_len//2:]), 2)
                     # 分四块
                     abs_arr = [abs(v) for v in forward_min_valid_sum_arr if v is not None]
                     n = len(abs_arr)
-                    q1 = round(n / 4)
-                    q2 = round(n / 2)
-                    q3 = round(n * 3 / 4)
+                    q1 = n // 4
+                    q2 = n // 2
+                    q3 = (3 * n) // 4
                     forward_min_valid_abs_sum_block1 = round(sum(abs_arr[:q1]), 2)
                     forward_min_valid_abs_sum_block2 = round(sum(abs_arr[q1:q2]), 2)
                     forward_min_valid_abs_sum_block3 = round(sum(abs_arr[q2:q3]), 2)
@@ -520,13 +503,11 @@ class CalculateThread(QThread):
             #     print(f"increment_value: {increment_value}")
             #     print(f"increment_days: {increment_days}, after_gt_end_days: {after_gt_end_days}, after_gt_start_days: {after_gt_start_days}")
 
-            # A = OpValue('A', increment_value, increment_days)
-            # B = OpValue('B', after_gt_end_value, after_gt_end_days)
-            # C = OpValue('C', after_gt_start_value, after_gt_start_days)
-            # 更明确的变量名和注释
-            INC = OpValue('INC', increment_value, increment_days)  # 递增值
-            AGE = OpValue('AGE', after_gt_end_value, after_gt_end_days)  # 后值大于结束地址值
-            AGS = OpValue('AGS', after_gt_start_value, after_gt_start_days)  # 后值大于前值返回值
+            ops_value = None
+            hold_days = None
+            INC = OpValue('INC', increment_value, increment_days)
+            AGE = OpValue('AGE', after_gt_end_value, after_gt_end_days)
+            AGS = OpValue('AGS', after_gt_start_value, after_gt_start_days)
             local_vars = {'INC': INC, 'AGE': AGE, 'AGS': AGS, 'result': None}
             try:
                 exec(expr, {}, local_vars)
@@ -552,7 +533,7 @@ class CalculateThread(QThread):
             adjust_days = None
             if ops_change_input != 0 and ops_change is not None:
                 if ops_change > ops_change_input and hold_days == 1:
-                    adjust_days = round((op_days / 3), 2)
+                    adjust_days = op_days / 3
                 else:
                     adjust_days = hold_days + 1
 
@@ -572,8 +553,8 @@ class CalculateThread(QThread):
                 "continuous_results": continuous_results,
                 "forward_max_result": forward_max_result,
                 "forward_min_result": forward_min_result,
-                "forward_max_date": forward_max_date,
-                "forward_min_date": forward_min_date,
+                "forward_max_date": max_date,
+                "forward_min_date": min_date,
                 "n_max_value": n_max_value,
                 "n_max_is_max": n_max_is_max,
                 "prev_day_change": prev_day_change,
