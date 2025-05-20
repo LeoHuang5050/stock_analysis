@@ -2,6 +2,7 @@ from PyQt5.QtWidgets import QMessageBox, QApplication
 import pandas as pd
 from worker_threads import CalculateThread
 from function.stock_functions import calc_continuous_sum_np
+import numpy as np
 
 class BaseParamHandler:
     def __init__(self, main_window):
@@ -12,10 +13,9 @@ class BaseParamHandler:
         if self.main_window.init.price_data is None:
             QMessageBox.warning(self.main_window, "提示", "请先上传Excel文件！")
             return
-            
+        
         # 收集所有参数
         params = {
-            "end_date": self.main_window.date_picker.date().toString("yyyy-MM-dd"),
             "width": self.main_window.width_spin.value(),
             "start_option": self.main_window.start_option_combo.currentText(),
             "shift_days": self.main_window.shift_spin.value(),
@@ -31,27 +31,26 @@ class BaseParamHandler:
             "ops_change": float(self.main_window.ops_change_edit.text() or 0)
         }
         
-        self.main_window.result_text.setText("正在生成基础参数，请稍候...")
+        self.main_window.result_text.setText("正在批量计算参数，请稍候...")
         QApplication.processEvents()
         
-        self.main_window.calc_thread = CalculateThread(
+        calc = CalculateThread(
             self.main_window.init.price_data, 
             self.main_window.init.diff_data, 
             self.main_window.init.workdays_str, 
             params
         )
-        self.main_window.calc_thread.finished.connect(self.on_calculate_finished)
-        self.main_window.calc_thread.start()
-
-    def on_calculate_finished(self, result):
-        self.main_window.result_text.setText('基础参数计算完毕')
-        # 直接获取worker_threads的结果
+        # result = calc.calculate_batch(params)
+        # result = calc.calculate_py_version(params)
+        result = calc.calculate_batch_16_cores(params)
+        
+        self.main_window.result_text.setText("批量参数计算完毕！")
+        self.main_window.all_row_results = result  # 直接存储整个结果对象
         self.main_window.continuous_results = result.get('continuous_results', None)
         self.main_window.forward_max_date = result.get('forward_max_date')
         self.main_window.forward_max_result = result.get('forward_max_result')
         self.main_window.forward_min_date = result.get('forward_min_date')
         self.main_window.forward_min_result = result.get('forward_min_result')
-        self.main_window.all_row_results = result.get('rows', [])
 
     def update_shift_spin_range(self):
         # 获取当前区间

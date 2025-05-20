@@ -59,8 +59,13 @@ class StockAnalysisInit:
             self.main_window.date_picker.setDate(max_date)
             self.last_valid_date = max_date
 
-        # 计算最大宽度并更新标签
-        max_width = len(self.workdays_str)
+        # 获取当前结束日期
+        end_date = self.main_window.date_picker.date().toString("yyyy-MM-dd")
+        if end_date in self.workdays_str:
+            max_width = self.workdays_str.index(end_date)
+        else:
+            max_width = len(self.workdays_str) - 1  # 兜底
+
         self.main_window.width_label.setText(f"请选择日期宽度（最大宽度为 {max_width}）：")
         self.main_window.width_spin.setMaximum(max_width)
         self.main_window.result_text.setText("文件上传成功，请选择参数后点击计算。")
@@ -75,7 +80,7 @@ class StockAnalysisInit:
             self.last_valid_date = qdate
             # 动态调整日期宽度最大值
             end_idx = self.workdays_str.index(date_str)
-            max_width = end_idx + 1  # 包含当前日期
+            max_width = end_idx  # 不加1
             self.main_window.width_spin.setMaximum(max_width)
             self.main_window.width_label.setText(f"请选择日期宽度（最大宽度为 {max_width}）：")
             # 如果当前宽度大于最大宽度，自动调整
