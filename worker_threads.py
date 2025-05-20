@@ -1,7 +1,25 @@
 import pandas as pd
 from PyQt5.QtCore import QThread, pyqtSignal
-from function.stock_functions import unify_date_columns, calc_continuous_sum_np
+from function.stock_functions import unify_date_columns, calc_continuous_sum_np, calc_valid_sum, calc_continuous_sum_sliding
 import numpy as np
+import time
+from multiprocessing import Pool, cpu_count
+import concurrent.futures
+import worker_threads_cy  # 这是你用Cython编译出来的模块
+
+def split_indices(total, n_parts):
+    part_size = (total + n_parts - 1) // n_parts
+    # 返回每个分组的起止索引（左闭右开）
+    return [(i * part_size, min((i + 1) * part_size, total)) for i in range(n_parts)]
+
+def cy_batch_worker(args):
+    import worker_threads_cy
+    price_data_np, date_columns, width, start_option, shift_days, end_date_start_idx, end_date_end_idx, diff_data_np, stock_idx_arr = args
+    stock_idx_arr = np.ascontiguousarray(stock_idx_arr, dtype=np.int32)
+    date_grouped_results = worker_threads_cy.calculate_batch_cy(
+        price_data_np, date_columns, width, start_option, shift_days, end_date_start_idx, end_date_end_idx, diff_data_np, stock_idx_arr
+    )
+    return date_grouped_results
 
 class OpValue:
     def __init__(self, key, value, days):
@@ -19,6 +37,41 @@ class OpValue:
         return float(self.value)
     def __repr__(self):
         return f"{self.key}({self.value})"
+
+class RowResult:
+    __slots__ = [
+        'code', 'name', 'max_value', 'min_value', 'end_value', 'start_value',
+        'actual_value', 'closest_value', 'continuous_results', 'forward_max_result',
+        'forward_min_result', 'forward_max_date', 'forward_min_date', 'n_max_value',
+        'n_max_is_max', 'prev_day_change', 'end_day_change', 'diff_end_value',
+        'range_ratio_is_less', 'abs_sum_is_less', 'continuous_start_value',
+        'continuous_start_next_value', 'continuous_start_next_next_value',
+        'continuous_end_value', 'continuous_end_prev_value', 'continuous_end_prev_prev_value',
+        'continuous_len', 'continuous_abs_sum_first_half', 'continuous_abs_sum_second_half',
+        'continuous_abs_sum_block1', 'continuous_abs_sum_block2', 'continuous_abs_sum_block3',
+        'continuous_abs_sum_block4', 'valid_sum_arr', 'forward_max_valid_sum_arr',
+        'forward_min_valid_sum_arr', 'valid_pos_sum', 'valid_neg_sum',
+        'forward_max_valid_pos_sum', 'forward_max_valid_neg_sum', 'forward_min_valid_pos_sum',
+        'forward_min_valid_neg_sum', 'valid_sum_len', 'valid_abs_sum_first_half',
+        'valid_abs_sum_second_half', 'valid_abs_sum_block1', 'valid_abs_sum_block2',
+        'valid_abs_sum_block3', 'valid_abs_sum_block4', 'forward_max_valid_sum_len',
+        'forward_max_valid_abs_sum_first_half', 'forward_max_valid_abs_sum_second_half',
+        'forward_max_valid_abs_sum_block1', 'forward_max_valid_abs_sum_block2',
+        'forward_max_valid_abs_sum_block3', 'forward_max_valid_abs_sum_block4',
+        'forward_min_valid_sum_len', 'forward_min_valid_abs_sum_first_half',
+        'forward_min_valid_abs_sum_second_half', 'forward_min_valid_abs_sum_block1',
+        'forward_min_valid_abs_sum_block2', 'forward_min_valid_abs_sum_block3',
+        'forward_min_valid_abs_sum_block4', 'increment_value', 'after_gt_end_value',
+        'after_gt_start_value', 'ops_value', 'hold_days', 'ops_change',
+        'adjust_days', 'ops_incre_rate'
+    ]
+
+    def __init__(self):
+        for slot in self.__slots__:
+            setattr(self, slot, None)
+
+    def to_dict(self):
+        return {slot: getattr(self, slot) for slot in self.__slots__}
 
 class FileLoaderThread(QThread):
     finished = pyqtSignal(object, object, object, list, str)  # df, price_data, diff_data, workdays_str, error_msg
@@ -71,99 +124,162 @@ class FileLoaderThread(QThread):
         except Exception as e:
             self.finished.emit(None, None, None, [], str(e))
 
+def calculate_one_worker(args):
+    price_data, diff_data, params, preprocessed_data = args
+    # 使用预处理好的数据
+    temp_thread = CalculateThread(price_data, diff_data, [], params)
+    temp_thread.preprocessed_data = preprocessed_data  # 传入预处理数据
+    return temp_thread.calculate_one(params)
+
 class CalculateThread(QThread):
-    finished = pyqtSignal(dict)  # 用字典传递所有结果
+    finished = pyqtSignal(dict)
 
     def __init__(self, price_data, diff_data, workdays_str, params):
         super().__init__()
         self.price_data = price_data
         self.diff_data = diff_data
         self.workdays_str = workdays_str
-        self.params = params  # 传递所有界面参数
+        self.params = params
+        self.prev_continuous_results = {}
+        self.prev_start_idx = {}
+        self.prev_end_idx = {}
+        self.preprocessed_data = None  # 存储预处理数据
 
-    def run(self):
-        # 1. 取出参数
-        end_date = self.params.get("end_date")
-        width = self.params.get("width")
-        start_option = self.params.get("start_option")
-        shift_days = self.params.get("shift_days")
-        is_forward = self.params.get("is_forward")
-        n_days = self.params.get("n_days", 5)  # 默认为5，可由界面传入
-        # 操作值表达式
-        expr = self.params.get("expr", "")
-        ops_change_input = self.params.get("ops_change", 0) * 0.01
-
+    def calculate_one(self, params):
+        t0 = time.time()
+        end_date = params.get("end_date")
+        width = params.get("width")
+        start_option = params.get("start_option")
+        shift_days = params.get("shift_days")
+        is_forward = params.get("is_forward")
+        n_days = params.get("n_days", 5)
+        expr = params.get("expr", "")
+        ops_change_input = params.get("ops_change", 0) * 0.01
         columns = list(self.diff_data.columns)
         end_idx = columns.index(end_date)
-
         start_idx = end_idx + width
-        # print(f"end_idx: {end_idx}, start_idx: {start_idx}")
         date_columns = columns[end_idx:start_idx+1]
-        # print(f"date_columns: {date_columns}")
-
-        # 组装结果
         all_results = []
-        for idx in range(self.price_data.shape[0]):
+        actual_idx = None
+        print(f"正在处理 end_date: {end_date}, start_idx: {start_idx}")
+
+        # 统计各类方法总耗时
+        maxmin_time_sum = 0
+        closest_time_sum = 0
+        continuous_time_sum = 0
+        valid_time_sum = 0
+        inc_time_sum = 0
+        other_time_sum = 0
+
+        # 使用预处理数据或进行预处理
+        if self.preprocessed_data is None:
+            self.preprocessed_data = self.preprocess_data(date_columns)
+        
+        price_data = self.preprocessed_data['price_data']
+        diff_data = self.preprocessed_data['diff_data']
+        for idx in range(price_data.shape[0]):
+            t1 = time.time()
             row = self.price_data.iloc[idx]
             code = str(row['代码']) if '代码' in row else str(row.iloc[0])
             name = str(row['名称']) if '名称' in row else str(row.iloc[1])
-            price_data = [row[d] for d in date_columns]
-            # print(f"price_data: {price_data}")
-            valid_values = [v for v in price_data if pd.notna(v)]
+            current_price_data = price_data[idx]
+            # 逐点判断有效性，生成有效值索引
+            valid_indices = [i for i, v in enumerate(current_price_data) if v is not None and not np.isnan(v)]
+            valid_values = [current_price_data[i] for i in valid_indices]
+            # 最大/最小值
+            t_maxmin = time.time()
+            max_value = min_value = max_date = min_date = None
+            if len(valid_values) > 0:
+                try:
+                    max_idx = np.argmax(valid_values)
+                    min_idx = np.argmin(valid_values)
+                    if 0 <= max_idx < len(valid_values) and 0 <= min_idx < len(valid_values):
+                        max_value = valid_values[max_idx]
+                        min_value = valid_values[min_idx]
+                        if len(valid_indices) > 0:
+                            if 0 <= max_idx < len(valid_indices) and 0 <= min_idx < len(valid_indices):
+                                max_date = date_columns[valid_indices[max_idx]]
+                                min_date = date_columns[valid_indices[min_idx]]
+                except Exception as e:
+                    print(f"计算最大值最小值时出错: {e}")
+                    max_value = min_value = max_date = min_date = None
+            maxmin_time_sum += time.time() - t_maxmin
 
-            # 最大值、最小值（按行计算）
-            max_value = None
-            max_date = None
-            min_value = None
-            min_date = None
-            for d, v in zip(date_columns, price_data):
-                if pd.notna(v):
-                    if (max_value is None) or (v >= max_value):
-                        max_value = v
-                        max_date = d
-                    if (min_value is None) or (v <= min_value):
-                        min_value = v
-                        min_date = d
-            # print(f"code: {code}, name: {name}, max_date: {max_date}, min_date: {min_date}")
-
-            # 结束值、开始值
-            end_value = price_data[0] if price_data else None
-            end_date_val = date_columns[0] if price_data else None
-            start_value = price_data[-1] if price_data else None
-            start_date_val = date_columns[-1] if price_data else None
-            # 计算最接近开始日期值（无条件计算）
+            # 最接近值
+            t_closest = time.time()
+            end_value = current_price_data[0] if len(current_price_data) > 0 else None
+            end_date_val = date_columns[0] if len(date_columns) > 0 else None
+            start_value = current_price_data[-1] if len(current_price_data) > 0 else None
+            start_date_val = date_columns[-1] if len(date_columns) > 0 else None
             closest_value = None
             closest_date = None
             closest_idx = None
-            if end_value is not None and pd.notna(end_value):
-                min_diff = float('inf')
-                for i, (d, v) in enumerate(zip(date_columns, price_data)):
-                    if  d == date_columns[0] or pd.isna(v):  # 排除结束日期自身
-                        continue
-                    diff = abs(v - end_value)
-                    if diff <= min_diff:
-                        min_diff = diff
-                        closest_date = d
-                        closest_value = v
-                        closest_idx = i
+            if end_value is not None and not np.isnan(end_value):
+                try:
+                    # 逐点判断有效性和日期掩码
+                    valid_indices2 = [i for i, v in enumerate(current_price_data) if v is not None and not np.isnan(v) and date_columns[i] != date_columns[0]]
+                    if len(valid_indices2) > 0:
+                        valid_values2 = [current_price_data[i] for i in valid_indices2]
+                        diff = np.abs(np.array(valid_values2) - end_value)
+                        min_diff_idx = np.argmin(diff)
+                        if 0 <= min_diff_idx < len(valid_indices2):
+                            closest_idx = valid_indices2[min_diff_idx]
+                            closest_date = date_columns[closest_idx]
+                            closest_value = current_price_data[closest_idx]
+                except Exception as e:
+                    print(f"计算最接近值时出错: {e}")
+                    closest_value = closest_date = closest_idx = None
+            closest_time_sum += time.time() - t_closest
+
+            # --- NumPy化区间累加 ---
+            t_continuous = time.time()
+            continuous_results = []
+            forward_max_result = []
+            forward_min_result = []
+            # 只要有实际开始日期和结束日期，直接用NumPy切片
+            if end_date in self.diff_data.columns and start_date_val in self.diff_data.columns:
+                columns_diff = list(self.diff_data.columns)
+                start_idx_diff = columns_diff.index(start_date_val)
+                end_idx_diff = columns_diff.index(end_date)
+                diff_data_row = diff_data[idx]
+                # 用NumPy切片区间
+                arr = diff_data_row[start_idx_diff:end_idx_diff+1]
+                # 连续累加值（区间和）
+                continuous_sum = np.sum(arr)
+                # 连续累加序列（区间累加和）
+                continuous_results = np.cumsum(arr).tolist()
+                # 你可以根据需要保留continuous_sum或continuous_results
+                # 滑动窗口缓存逻辑可按需保留
+            continuous_time_sum += time.time() - t_continuous
+
+            # 有效累加值
+            t_valid = time.time()
+            valid_sum_arr = calc_valid_sum(continuous_results)
+            valid_time_sum += time.time() - t_valid
+
+            # 递增值等其它主要分支
+            t_inc = time.time()
+            # ... 递增值等其它逻辑 ...
+            inc_time_sum += time.time() - t_inc
+
+            # 其它统计项可继续补充
+            other_time_sum += time.time() - t1
 
             # 根据选项设置base_idx
             if start_option == "最大值":
-                base_idx = price_data.index(max_value) if valid_values else None
+                base_idx = np.where(current_price_data)[0][max_idx] if len(valid_values) > 0 else None
             elif start_option == "最小值":
-                base_idx = price_data.index(min_value) if valid_values else None
+                base_idx = np.where(current_price_data)[0][min_idx] if len(valid_values) > 0 else None
             elif start_option == "接近值":
                 base_idx = closest_idx if closest_value is not None else None
             else:  # "开始值"
-                base_idx = len(price_data) - 1 if price_data else None
+                base_idx = len(current_price_data) - 1 if len(current_price_data) > 0 else None
 
             actual_idx = base_idx - shift_days if base_idx is not None else None
-            # print(f"actual_idx: {actual_idx}, base_idx: {base_idx}, shift_days: {shift_days}")
             
             # 从原始数据中获取actual_date_val
             all_columns = list(self.price_data.columns)
             if actual_idx is not None:
-                # 找到date_columns在原始数据中的起始位置
                 start_pos = all_columns.index(date_columns[0])
                 actual_pos = start_pos + actual_idx
                 if 0 <= actual_pos < len(all_columns):
@@ -172,68 +288,107 @@ class CalculateThread(QThread):
                 else:
                     actual_date_val = None
                     actual_value = None
-            else:
-                actual_date_val = None
-                actual_value = None
-            
-            # diff_data相关（每行）
+
+            t5 = time.time()
+            # 计算连续累加值
             continuous_results = []
             forward_max_result = []
             forward_min_result = []
-            # 只要实际开始日期和结束日期都在diff_data中
-            # print(f"actual_date_val: {actual_date_val}, end_date: {end_date}")
             if actual_date_val and end_date in self.diff_data.columns and actual_date_val in self.diff_data.columns:
                 columns_diff = list(self.diff_data.columns)
                 start_idx_diff = columns_diff.index(actual_date_val)
                 end_idx_diff = columns_diff.index(end_date)
                 this_row = self.diff_data.iloc[idx]
                 arr = [this_row[d] for d in columns_diff]
-                # print(f"idx: {idx}, start_idx_diff: {start_idx_diff}, end_idx_diff: {end_idx_diff}")
-                continuous_results = calc_continuous_sum_np(arr, start_idx_diff, end_idx_diff)
+                
+                # 使用滑动窗口优化计算连续累加值
+                continuous_results = calc_continuous_sum_sliding(
+                    arr, 
+                    start_idx_diff, 
+                    end_idx_diff,
+                    self.prev_continuous_results.get(idx),
+                    self.prev_start_idx.get(idx),
+                    self.prev_end_idx.get(idx)
+                )
+                
+                # 保存当前计算结果用于下一次计算
+                self.prev_continuous_results[idx] = continuous_results
+                self.prev_start_idx[idx] = start_idx_diff
+                self.prev_end_idx[idx] = end_idx_diff
+                
                 # 向前最大/最小连续累加值
                 if is_forward and min_date is not None and max_date is not None:
-                    # 向前区间：实际开始日期左侧（索引更小，结束日期方向）
                     min_start_idx = columns_diff.index(min_date)
-                    forward_min_result = calc_continuous_sum_np(arr, min_start_idx, end_idx_diff)
+                    forward_min_result = calc_continuous_sum_sliding(
+                        arr,
+                        min_start_idx,
+                        end_idx_diff,
+                        self.prev_continuous_results.get(f"{idx}_min"),
+                        self.prev_start_idx.get(f"{idx}_min"),
+                        self.prev_end_idx.get(f"{idx}_min")
+                    )
+                    self.prev_continuous_results[f"{idx}_min"] = forward_min_result
+                    self.prev_start_idx[f"{idx}_min"] = min_start_idx
+                    self.prev_end_idx[f"{idx}_min"] = end_idx_diff
                             
                     max_start_idx = columns_diff.index(max_date)
-                    forward_max_result = calc_continuous_sum_np(arr, max_start_idx, end_idx_diff)
-                    # print(f"min_date: {min_date}, max_date: {max_date}, min_start_idx: {min_start_idx}, max_start_idx: {max_start_idx}")
+                    forward_max_result = calc_continuous_sum_sliding(
+                        arr,
+                        max_start_idx,
+                        end_idx_diff,
+                        self.prev_continuous_results.get(f"{idx}_max"),
+                        self.prev_start_idx.get(f"{idx}_max"),
+                        self.prev_end_idx.get(f"{idx}_max")
+                    )
+                    self.prev_continuous_results[f"{idx}_max"] = forward_max_result
+                    self.prev_start_idx[f"{idx}_max"] = max_start_idx
+                    self.prev_end_idx[f"{idx}_max"] = end_idx_diff
                 else:
                     forward_max_result = []
                     forward_min_result = []
+            continuous_time_sum += time.time() - t5
 
+            t6 = time.time()
             # 前N日最大值
             if n_days == 0:
                 n_max_value = end_value  # 直接用结束值
             else:
-                n_max_candidates = [v for v in price_data[:n_days] if pd.notna(v)]
-                n_max_value = max(n_max_candidates) if n_max_candidates else None
+                # 使用NumPy的向量化操作来处理前N日数据
+                n_max_candidates = price_data[idx, :n_days]
+                if np.any(~np.isnan(n_max_candidates)):
+                    n_max_value = np.max(n_max_candidates[~np.isnan(n_max_candidates)])
+                else:
+                    n_max_value = None
                 
             # 前N最大值是否大于等于区间最大值
             n_max_is_max = None
             if n_max_value is not None and max_value is not None:
                 n_max_is_max = n_max_value >= max_value
 
+            t7 = time.time()
             # 前1组结束地址前1日涨跌幅，前1组结束日涨跌幅
             prev_day_change = None
             end_day_change = None
-            if len(price_data) >= 3 and pd.notna(price_data[1]) and pd.notna(price_data[2]) and pd.notna(price_data[0]):
-                try:
-                    if price_data[2] == 0 or price_data[2] is None or np.isnan(price_data[2]):
+            if len(current_price_data) >= 3:
+                # 使用NumPy的向量化操作检查有效性
+                valid_prices = ~np.isnan(current_price_data[:3])
+                if np.all(valid_prices):
+                    try:
+                        if current_price_data[2] == 0:
+                            prev_day_change = None
+                        else:
+                            prev_day_change = round(((current_price_data[1] - current_price_data[2]) / current_price_data[2]) * 100, 2)
+                    except Exception:
                         prev_day_change = None
-                    else:
-                        prev_day_change = round(((price_data[1] - price_data[2]) / price_data[2]) * 100, 2)
-                except Exception:
-                    prev_day_change = None
-                try:
-                    if price_data[1] == 0 or price_data[1] is None or np.isnan(price_data[1]):
+                    try:
+                        if current_price_data[1] == 0:
+                            end_day_change = None
+                        else:
+                            end_day_change = round(((current_price_data[0] - current_price_data[1]) / current_price_data[1]) * 100, 2)
+                    except Exception:
                         end_day_change = None
-                    else:
-                        end_day_change = round(((price_data[0] - price_data[1]) / price_data[1]) * 100, 2)
-                except Exception:
-                    end_day_change = None
 
+            t8 = time.time()
             # 获取diff_data中end_date对应的值
             diff_end_value = None
             if end_date in self.diff_data.columns:
@@ -244,11 +399,11 @@ class CalculateThread(QThread):
             range_ratio_is_less = None
             abs_sum_is_less = None
             try:
-                user_range_ratio = float(self.params.get('range_value', None))
+                user_range_ratio = float(params.get('range_value', None))
             except Exception:
                 user_range_ratio = None
             try:
-                user_abs_sum = float(self.params.get('abs_sum_value', None))
+                user_abs_sum = float(params.get('abs_sum_value', None))
             except Exception:
                 user_abs_sum = None
             # 区间最大值/最小值比值判断
@@ -258,6 +413,7 @@ class CalculateThread(QThread):
             if continuous_results and user_abs_sum is not None:
                 abs_sum_is_less = all(abs(v) < user_abs_sum for v in continuous_results if v is not None)
 
+            t9 = time.time()
             # 获取连续累加值开始值、开始后一位值、开始后两位值、连续累加值结束值、结束前一位值、结束前两位值
             continuous_start_value = continuous_results[0] if continuous_results else None
             continuous_start_next_value = continuous_results[1] if len(continuous_results) > 1 else None
@@ -267,7 +423,6 @@ class CalculateThread(QThread):
             continuous_end_prev_prev_value = continuous_results[-3] if len(continuous_results) > 2 else None
 
             # 连续累加值数组长度、连续累加值数组前一半绝对值之和、连续累加值数组后一半绝对值之和
-            # print(f"idx: {idx}, continuous_results: {continuous_results}")
             continuous_len = len(continuous_results) if continuous_results else None
             if continuous_len is None or continuous_len == 0:
                 continuous_abs_sum_first_half = 0
@@ -277,39 +432,24 @@ class CalculateThread(QThread):
                 continuous_abs_sum_block3 = 0
                 continuous_abs_sum_block4 = 0
             else:
-                half = continuous_len // 2
-                continuous_abs_sum_first_half = round(sum(abs(v) for v in continuous_results[:half]), 2)
-                continuous_abs_sum_second_half = round(sum(abs(v) for v in continuous_results[half:]), 2)
-
-                # 连续累加值数组分成四块，每块分别计算绝对值之和
-                abs_arr = [abs(v) for v in continuous_results if v is not None]
+                # 使用NumPy向量化操作一次性计算所有绝对值
+                abs_arr = np.abs(continuous_results)
                 n = len(abs_arr)
+                half = n // 2
                 q1 = n // 4
                 q2 = n // 2
                 q3 = (3 * n) // 4
-                continuous_abs_sum_block1 = round(sum(abs_arr[:q1]), 2)
-                continuous_abs_sum_block2 = round(sum(abs_arr[q1:q2]), 2)
-                continuous_abs_sum_block3 = round(sum(abs_arr[q2:q3]), 2)
-                continuous_abs_sum_block4 = round(sum(abs_arr[q3:]), 2)
+                
+                # 一次性计算所有分块的和
+                continuous_abs_sum_first_half = round(np.sum(abs_arr[:half]), 2)
+                continuous_abs_sum_second_half = round(np.sum(abs_arr[half:]), 2)
+                continuous_abs_sum_block1 = round(np.sum(abs_arr[:q1]), 2)
+                continuous_abs_sum_block2 = round(np.sum(abs_arr[q1:q2]), 2)
+                continuous_abs_sum_block3 = round(np.sum(abs_arr[q2:q3]), 2)
+                continuous_abs_sum_block4 = round(np.sum(abs_arr[q3:]), 2)
 
+            t10 = time.time()
             # 有效累加值、向前最大有效累加值、向前最小有效累加值
-            def calc_valid_sum(arr):
-                arr = [v for v in arr if v is not None]
-                n = len(arr)
-                if n == 0:
-                    return []
-                result = []
-                for i in range(n - 1):
-                    cur = arr[i]
-                    nxt = arr[i + 1]
-                    if abs(nxt) > abs(cur):
-                        result.append(cur)
-                    else:
-                        result.append(nxt if nxt >= 0 else -abs(nxt))
-                # 补最后一位0
-                result.append(0)
-                return result
-            
             valid_sum_arr = calc_valid_sum(continuous_results)
             forward_max_valid_sum_arr = calc_valid_sum(forward_max_result)
             forward_min_valid_sum_arr = calc_valid_sum(forward_min_result)
@@ -317,30 +457,38 @@ class CalculateThread(QThread):
             # 有效累加值正加值和负加值
             def calc_pos_neg_sum(arr):
                 if len(arr) == 0:
-                    return [], []
-                pos_sum = round(sum(v for v in arr if v > 0), 2)
-                neg_sum = round(sum(v for v in arr if v < 0), 2)
+                    return 0, 0
+                arr = np.array(arr)
+                # 使用布尔索引一次性计算正负值
+                pos_mask = arr > 0
+                neg_mask = arr < 0
+                pos_sum = round(np.sum(arr[pos_mask]), 2)
+                neg_sum = round(np.sum(arr[neg_mask]), 2)
                 return pos_sum, neg_sum
+
             valid_pos_sum, valid_neg_sum = calc_pos_neg_sum(valid_sum_arr)
             forward_max_valid_pos_sum, forward_max_valid_neg_sum = calc_pos_neg_sum(forward_max_valid_sum_arr)
             forward_min_valid_pos_sum, forward_min_valid_neg_sum = calc_pos_neg_sum(forward_min_valid_sum_arr)
 
+            t11 = time.time()
             # 有效累加值数组长度，有效累加值一半绝对值之和、有效累加后一半绝对值之和
             valid_sum_len = len(valid_sum_arr) if valid_sum_arr else None
             if valid_sum_len is not None and valid_sum_len > 0:
-                valid_abs_sum_first_half = round(sum(abs(v) for v in valid_sum_arr[:valid_sum_len//2]), 2)
-                valid_abs_sum_second_half = round(sum(abs(v) for v in valid_sum_arr[valid_sum_len//2:]), 2)
-                
-                # 有效累加值数组分成四块，每块分别计算绝对值之和
-                abs_arr = [abs(v) for v in valid_sum_arr if v is not None]
+                # 使用NumPy向量化操作一次性计算所有绝对值
+                abs_arr = np.abs(valid_sum_arr)
                 n = len(abs_arr)
+                half = n // 2
                 q1 = n // 4
                 q2 = n // 2
                 q3 = (3 * n) // 4
-                valid_abs_sum_block1 = round(sum(abs_arr[:q1]), 2) if n > 0 else None
-                valid_abs_sum_block2 = round(sum(abs_arr[q1:q2]), 2) if n > 0 else None
-                valid_abs_sum_block3 = round(sum(abs_arr[q2:q3]), 2) if n > 0 else None
-                valid_abs_sum_block4 = round(sum(abs_arr[q3:]), 2) if n > 0 else None
+                
+                # 一次性计算所有分块的和
+                valid_abs_sum_first_half = round(np.sum(abs_arr[:half]), 2)
+                valid_abs_sum_second_half = round(np.sum(abs_arr[half:]), 2)
+                valid_abs_sum_block1 = round(np.sum(abs_arr[:q1]), 2)
+                valid_abs_sum_block2 = round(np.sum(abs_arr[q1:q2]), 2)
+                valid_abs_sum_block3 = round(np.sum(abs_arr[q2:q3]), 2)
+                valid_abs_sum_block4 = round(np.sum(abs_arr[q3:]), 2)
             else:
                 valid_abs_sum_first_half = 0
                 valid_abs_sum_second_half = 0
@@ -349,24 +497,26 @@ class CalculateThread(QThread):
                 valid_abs_sum_block3 = 0
                 valid_abs_sum_block4 = 0
 
+            t12 = time.time()
             # 只有勾选了"是否计算向前向后"才计算向前最大/最小相关
             if is_forward:
                 # 向前最大有效累加值数组长度，前一半绝对值之和、后一半绝对值之和
                 forward_max_valid_sum_len = len(forward_max_valid_sum_arr) if forward_max_valid_sum_arr else None
                 if forward_max_valid_sum_len is not None and forward_max_valid_sum_len > 0:
-                    forward_max_valid_abs_sum_first_half = round(sum(abs(v) for v in forward_max_valid_sum_arr[:forward_max_valid_sum_len//2]), 2)
-                    forward_max_valid_abs_sum_second_half = round(sum(abs(v) for v in forward_max_valid_sum_arr[forward_max_valid_sum_len//2:]), 2)
+                    abs_arr = np.abs(forward_max_valid_sum_arr)
+                    half = forward_max_valid_sum_len // 2
+                    forward_max_valid_abs_sum_first_half = round(np.sum(abs_arr[:half]), 2)
+                    forward_max_valid_abs_sum_second_half = round(np.sum(abs_arr[half:]), 2)
+                    
                     # 分四块
-                    abs_arr = [abs(v) for v in forward_max_valid_sum_arr if v is not None]
                     n = len(abs_arr)
                     q1 = n // 4
                     q2 = n // 2
                     q3 = (3 * n) // 4
-                    forward_max_valid_abs_sum_block1 = round(sum(abs_arr[:q1]), 2) 
-                    forward_max_valid_abs_sum_block2 = round(sum(abs_arr[q1:q2]), 2) 
-                    forward_max_valid_abs_sum_block3 = round(sum(abs_arr[q2:q3]), 2) 
-                    forward_max_valid_abs_sum_block4 = round(sum(abs_arr[q3:]), 2) 
-
+                    forward_max_valid_abs_sum_block1 = round(np.sum(abs_arr[:q1]), 2)
+                    forward_max_valid_abs_sum_block2 = round(np.sum(abs_arr[q1:q2]), 2)
+                    forward_max_valid_abs_sum_block3 = round(np.sum(abs_arr[q2:q3]), 2)
+                    forward_max_valid_abs_sum_block4 = round(np.sum(abs_arr[q3:]), 2)
                 else:
                     forward_max_valid_abs_sum_first_half = 0
                     forward_max_valid_abs_sum_second_half = 0
@@ -374,24 +524,24 @@ class CalculateThread(QThread):
                     forward_max_valid_abs_sum_block2 = 0
                     forward_max_valid_abs_sum_block3 = 0
                     forward_max_valid_abs_sum_block4 = 0
-                
 
                 # 向前最小有效累加值数组长度，前一半绝对值之和、后一半绝对值之和
                 forward_min_valid_sum_len = len(forward_min_valid_sum_arr) if forward_min_valid_sum_arr else None
                 if forward_min_valid_sum_len is not None and forward_min_valid_sum_len > 0:
-                    forward_min_valid_abs_sum_first_half = round(sum(abs(v) for v in forward_min_valid_sum_arr[:forward_min_valid_sum_len//2]), 2)
-                    forward_min_valid_abs_sum_second_half = round(sum(abs(v) for v in forward_min_valid_sum_arr[forward_min_valid_sum_len//2:]), 2)
+                    abs_arr = np.abs(forward_min_valid_sum_arr)
+                    half = forward_min_valid_sum_len // 2
+                    forward_min_valid_abs_sum_first_half = round(np.sum(abs_arr[:half]), 2)
+                    forward_min_valid_abs_sum_second_half = round(np.sum(abs_arr[half:]), 2)
+                    
                     # 分四块
-                    abs_arr = [abs(v) for v in forward_min_valid_sum_arr if v is not None]
                     n = len(abs_arr)
                     q1 = n // 4
                     q2 = n // 2
                     q3 = (3 * n) // 4
-                    forward_min_valid_abs_sum_block1 = round(sum(abs_arr[:q1]), 2)
-                    forward_min_valid_abs_sum_block2 = round(sum(abs_arr[q1:q2]), 2)
-                    forward_min_valid_abs_sum_block3 = round(sum(abs_arr[q2:q3]), 2)
-                    forward_min_valid_abs_sum_block4 = round(sum(abs_arr[q3:]), 2)
-                
+                    forward_min_valid_abs_sum_block1 = round(np.sum(abs_arr[:q1]), 2)
+                    forward_min_valid_abs_sum_block2 = round(np.sum(abs_arr[q1:q2]), 2)
+                    forward_min_valid_abs_sum_block3 = round(np.sum(abs_arr[q2:q3]), 2)
+                    forward_min_valid_abs_sum_block4 = round(np.sum(abs_arr[q3:]), 2)
                 else:
                     forward_min_valid_abs_sum_first_half = 0
                     forward_min_valid_abs_sum_second_half = 0
@@ -399,7 +549,7 @@ class CalculateThread(QThread):
                     forward_min_valid_abs_sum_block2 = 0
                     forward_min_valid_abs_sum_block3 = 0
                     forward_min_valid_abs_sum_block4 = 0
-                
+
             else:
                 forward_max_valid_sum_len = None
                 forward_max_valid_abs_sum_first_half = None
@@ -422,10 +572,10 @@ class CalculateThread(QThread):
             end_idx = list(self.price_data.columns).index(end_date_val)
 
             # 递增值计算逻辑
-            op_days = int(self.params.get("op_days", 0))
-            inc_rate = float(self.params.get("inc_rate", 0)) * 0.01
-            after_gt_end_ratio = float(self.params.get("after_gt_end_ratio", 0)) * 0.01
-            after_gt_start_ratio = float(self.params.get("after_gt_start_ratio", 0)) * 0.01
+            op_days = int(params.get("op_days", 0))
+            inc_rate = float(params.get("inc_rate", 0)) * 0.01
+            after_gt_end_ratio = float(params.get("after_gt_end_ratio", 0)) * 0.01
+            after_gt_start_ratio = float(params.get("after_gt_start_ratio", 0)) * 0.01
             end_value = full_price_data[end_idx] if end_idx < len(full_price_data) else None
 
             increment_value = None
@@ -541,90 +691,301 @@ class CalculateThread(QThread):
             if adjust_days is not None:
                 ops_incre_rate = round(ops_change / adjust_days, 2)
 
-            row_result = {
-                "code": code,
-                "name": name,
-                "max_value": [max_date, max_value],
-                "min_value": [min_date, min_value],
-                "end_value": [end_date_val, end_value],
-                "start_value": [start_date_val, start_value],
-                "actual_value": [actual_date_val, actual_value],
-                "closest_value": [closest_date, closest_value],
-                "continuous_results": continuous_results,
-                "forward_max_result": forward_max_result,
-                "forward_min_result": forward_min_result,
-                "forward_max_date": max_date,
-                "forward_min_date": min_date,
-                "n_max_value": n_max_value,
-                "n_max_is_max": n_max_is_max,
-                "prev_day_change": prev_day_change,
-                "end_day_change": end_day_change,
-                "diff_end_value": diff_end_value,  # 新增后一组结束地址值
-                "range_ratio_is_less": range_ratio_is_less,  # 区间比值布尔
-                "abs_sum_is_less": abs_sum_is_less,          # 绝对值布尔
-                "continuous_start_value": continuous_start_value,
-                "continuous_start_next_value": continuous_start_next_value,
-                "continuous_start_next_next_value": continuous_start_next_next_value,
-                "continuous_end_value": continuous_end_value,
-                "continuous_end_prev_value": continuous_end_prev_value,
-                "continuous_end_prev_prev_value": continuous_end_prev_prev_value,
-                "continuous_len": continuous_len,  # 非空数据长度
-                "continuous_abs_sum_first_half": continuous_abs_sum_first_half,  # 前一半绝对值之和
-                "continuous_abs_sum_second_half": continuous_abs_sum_second_half,  # 后一半绝对值之和
-                "continuous_abs_sum_block1": continuous_abs_sum_block1,  # 第一块绝对值之和
-                "continuous_abs_sum_block2": continuous_abs_sum_block2,  # 第二块绝对值之和
-                "continuous_abs_sum_block3": continuous_abs_sum_block3,  # 第三块绝对值之和
-                "continuous_abs_sum_block4": continuous_abs_sum_block4,  # 第四块绝对值之和
-                "valid_sum_arr": valid_sum_arr,  # 有效累加值数组
-                "forward_max_valid_sum_arr": forward_max_valid_sum_arr,  # 向前最大有效累加值数组
-                "forward_min_valid_sum_arr": forward_min_valid_sum_arr,  # 向前最小有效累加值数组
-                "valid_pos_sum": valid_pos_sum,  # 有效累加值正加值和
-                "valid_neg_sum": valid_neg_sum,  # 有效累加值负加值和
-                "forward_max_valid_pos_sum": forward_max_valid_pos_sum,  # 向前最大有效累加值正加值和
-                "forward_max_valid_neg_sum": forward_max_valid_neg_sum,  # 向前最大有效累加值负加值和
-                "forward_min_valid_pos_sum": forward_min_valid_pos_sum,  # 向前最小有效累加值正加值和
-                "forward_min_valid_neg_sum": forward_min_valid_neg_sum,  # 向前最小有效累加值负加值和
-                "valid_sum_len": valid_sum_len,  # 有效累加值数组长度
-                "valid_abs_sum_first_half": valid_abs_sum_first_half,  # 有效累加值一半绝对值之和
-                "valid_abs_sum_second_half": valid_abs_sum_second_half,  # 有效累加值后一半绝对值之和
-                "valid_abs_sum_block1": valid_abs_sum_block1,  # 有效累加值第一块绝对值之和
-                "valid_abs_sum_block2": valid_abs_sum_block2,  # 有效累加值第二块绝对值之和
-                "valid_abs_sum_block3": valid_abs_sum_block3,  # 有效累加值第三块绝对值之和
-                "valid_abs_sum_block4": valid_abs_sum_block4,  # 有效累加值第四块绝对值之和
-                "forward_max_valid_sum_len": forward_max_valid_sum_len,  # 向前最大有效累加值数组长度
-                "forward_max_valid_abs_sum_first_half": forward_max_valid_abs_sum_first_half,  # 向前最大有效累加值数组前一半绝对值之和
-                "forward_max_valid_abs_sum_second_half": forward_max_valid_abs_sum_second_half,  # 向前最大有效累加值数组后一半绝对值之和
-                "forward_max_valid_abs_sum_block1": forward_max_valid_abs_sum_block1,  # 向前最大有效累加值数组第一块绝对值之和
-                "forward_max_valid_abs_sum_block2": forward_max_valid_abs_sum_block2,  # 向前最大有效累加值数组第二块绝对值之和
-                "forward_max_valid_abs_sum_block3": forward_max_valid_abs_sum_block3,  # 向前最大有效累加值数组第三块绝对值之和
-                "forward_max_valid_abs_sum_block4": forward_max_valid_abs_sum_block4,  # 向前最大有效累加值数组第四块绝对值之和
-                "forward_min_valid_sum_len": forward_min_valid_sum_len,  # 向前最小有效累加值数组长度
-                "forward_min_valid_abs_sum_first_half": forward_min_valid_abs_sum_first_half,  # 向前最小有效累加值数组前一半绝对值之和
-                "forward_min_valid_abs_sum_second_half": forward_min_valid_abs_sum_second_half,  # 向前最小有效累加值数组后一半绝对值之和
-                "forward_min_valid_abs_sum_block1": forward_min_valid_abs_sum_block1,  # 向前最小有效累加值数组第一块绝对值之和
-                "forward_min_valid_abs_sum_block2": forward_min_valid_abs_sum_block2,  # 向前最小有效累加值数组第二块绝对值之和
-                "forward_min_valid_abs_sum_block3": forward_min_valid_abs_sum_block3,  # 向前最小有效累加值数组第三块绝对值之和
-                "forward_min_valid_abs_sum_block4": forward_min_valid_abs_sum_block4,  # 向前最小有效累加值数组第四块绝对值之和
-                "increment_value": increment_value,  # 递增值
-                "after_gt_end_value": after_gt_end_value,  # 后值大于结束地址值
-                "after_gt_start_value": after_gt_start_value,  # 后值大于前值返回值
-                "ops_value": ops_value,  # 操作值
-                "hold_days": hold_days,  # 持有天数
-                "ops_change": ops_change,  # 操作涨幅
-                "adjust_days": adjust_days,  # 调整天数
-                "ops_incre_rate": ops_incre_rate,  # 操作涨幅增长率
-            }
+            # 使用RowResult替代字典
+            row_result = RowResult()
+            row_result.code = code
+            row_result.name = name
+            row_result.max_value = [max_date, max_value]
+            row_result.min_value = [min_date, min_value]
+            row_result.end_value = [end_date_val, end_value]
+            row_result.start_value = [start_date_val, start_value]
+            row_result.actual_value = [actual_date_val, actual_value]
+            row_result.closest_value = [closest_date, closest_value]
+            row_result.continuous_results = continuous_results
+            row_result.forward_max_result = forward_max_result
+            row_result.forward_min_result = forward_min_result
+            row_result.forward_max_date = max_date
+            row_result.forward_min_date = min_date
+            row_result.n_max_value = n_max_value
+            row_result.n_max_is_max = n_max_is_max
+            row_result.prev_day_change = prev_day_change
+            row_result.end_day_change = end_day_change
+            row_result.diff_end_value = diff_end_value
+            row_result.range_ratio_is_less = range_ratio_is_less
+            row_result.abs_sum_is_less = abs_sum_is_less
+            row_result.continuous_start_value = continuous_start_value
+            row_result.continuous_start_next_value = continuous_start_next_value
+            row_result.continuous_start_next_next_value = continuous_start_next_next_value
+            row_result.continuous_end_value = continuous_end_value
+            row_result.continuous_end_prev_value = continuous_end_prev_value
+            row_result.continuous_end_prev_prev_value = continuous_end_prev_prev_value
+            row_result.continuous_len = continuous_len
+            row_result.continuous_abs_sum_first_half = continuous_abs_sum_first_half
+            row_result.continuous_abs_sum_second_half = continuous_abs_sum_second_half
+            row_result.continuous_abs_sum_block1 = continuous_abs_sum_block1
+            row_result.continuous_abs_sum_block2 = continuous_abs_sum_block2
+            row_result.continuous_abs_sum_block3 = continuous_abs_sum_block3
+            row_result.continuous_abs_sum_block4 = continuous_abs_sum_block4
+            row_result.valid_sum_arr = valid_sum_arr
+            row_result.forward_max_valid_sum_arr = forward_max_valid_sum_arr
+            row_result.forward_min_valid_sum_arr = forward_min_valid_sum_arr
+            row_result.valid_pos_sum = valid_pos_sum
+            row_result.valid_neg_sum = valid_neg_sum
+            row_result.forward_max_valid_pos_sum = forward_max_valid_pos_sum
+            row_result.forward_max_valid_neg_sum = forward_max_valid_neg_sum
+            row_result.forward_min_valid_pos_sum = forward_min_valid_pos_sum
+            row_result.forward_min_valid_neg_sum = forward_min_valid_neg_sum
+            row_result.valid_sum_len = valid_sum_len
+            row_result.valid_abs_sum_first_half = valid_abs_sum_first_half
+            row_result.valid_abs_sum_second_half = valid_abs_sum_second_half
+            row_result.valid_abs_sum_block1 = valid_abs_sum_block1
+            row_result.valid_abs_sum_block2 = valid_abs_sum_block2
+            row_result.valid_abs_sum_block3 = valid_abs_sum_block3
+            row_result.valid_abs_sum_block4 = valid_abs_sum_block4
+            row_result.forward_max_valid_sum_len = forward_max_valid_sum_len
+            row_result.forward_max_valid_abs_sum_first_half = forward_max_valid_abs_sum_first_half
+            row_result.forward_max_valid_abs_sum_second_half = forward_max_valid_abs_sum_second_half
+            row_result.forward_max_valid_abs_sum_block1 = forward_max_valid_abs_sum_block1
+            row_result.forward_max_valid_abs_sum_block2 = forward_max_valid_abs_sum_block2
+            row_result.forward_max_valid_abs_sum_block3 = forward_max_valid_abs_sum_block3
+            row_result.forward_max_valid_abs_sum_block4 = forward_max_valid_abs_sum_block4
+            row_result.forward_min_valid_sum_len = forward_min_valid_sum_len
+            row_result.forward_min_valid_abs_sum_first_half = forward_min_valid_abs_sum_first_half
+            row_result.forward_min_valid_abs_sum_second_half = forward_min_valid_abs_sum_second_half
+            row_result.forward_min_valid_abs_sum_block1 = forward_min_valid_abs_sum_block1
+            row_result.forward_min_valid_abs_sum_block2 = forward_min_valid_abs_sum_block2
+            row_result.forward_min_valid_abs_sum_block3 = forward_min_valid_abs_sum_block3
+            row_result.forward_min_valid_abs_sum_block4 = forward_min_valid_abs_sum_block4
+            row_result.increment_value = increment_value
+            row_result.after_gt_end_value = after_gt_end_value
+            row_result.after_gt_start_value = after_gt_start_value
+            row_result.ops_value = ops_value
+            row_result.hold_days = hold_days
+            row_result.ops_change = ops_change
+            row_result.adjust_days = adjust_days
+            row_result.ops_incre_rate = ops_incre_rate
+            
             all_results.append(row_result)
 
         result = {
-            "rows": all_results,
+            "rows": [r.to_dict() for r in all_results],
             "shift_days": shift_days,
             "is_forward": is_forward,
             "start_date": date_columns[0],
             "end_date": date_columns[-1],
-            "base_idx": actual_idx,  # 添加base_idx作为顶层变量
+            "base_idx": actual_idx,
         }
-        self.finished.emit(result)
+
+        print(f"最大/最小值总耗时: {maxmin_time_sum:.4f}秒")
+        print(f"最接近值总耗时: {closest_time_sum:.4f}秒")
+        print(f"连续累加值总耗时: {continuous_time_sum:.4f}秒")
+        print(f"有效累加值总耗时: {valid_time_sum:.4f}秒")
+        print(f"递增值等其它分支总耗时: {inc_time_sum:.4f}秒")
+        print(f"其它总耗时(含循环体): {other_time_sum:.4f}秒")
+        print(f"单次calculate_one总耗时: {time.time() - t0:.4f}秒")
+
+        return result
+
+    def calculate_batch(self, params):
+        columns = list(self.diff_data.columns)
+        date_columns = list(self.price_data.columns[2:])
+        width = params.get("width")   #日期宽度
+        start_option = params.get("start_option")  #开始日期选项
+        shift_days = params.get("shift_days")  #偏移天数
+        # 自动分析 结束日期开始到结束日期结束
+        end_date_start = "2023-11-17"
+        # end_date_start = "2025-04-30"
+        end_date_end = "2025-04-30"
+        end_date_start_idx = date_columns.index(end_date_start)
+        end_date_end_idx = date_columns.index(end_date_end)
+        print(f"end_date_start: {end_date_start}, end_date_end: {end_date_end}, end_date_start_idx: {end_date_start_idx}, end_date_end_idx: {end_date_end_idx}")
+        # 数据准备：转为NumPy数组
+        price_data_np = self.price_data.iloc[:, 2:].values.astype(np.float64)
+        diff_data_np = self.diff_data.values.astype(np.float64)  # 不要去掉前两列
+        # 调用Cython加速方法
+        t0 = time.time()
+        all_results = worker_threads_cy.calculate_batch_cy(
+            price_data_np, date_columns, width, start_option, shift_days, end_date_start_idx, end_date_end_idx, diff_data_np
+        )
+        t1 = time.time()
+        print(f"calculate_batch_cy 总耗时: {t1 - t0:.4f}秒")
+        result = {
+            "dates": all_results,  # 现在all_results是按日期分组的数组
+            "shift_days": shift_days,
+            "is_forward": params.get("is_forward"),
+            "start_date": date_columns[0],
+            "end_date": date_columns[-1],
+            "base_idx": None,
+        }
+        return result
+
+    def calculate_batch_16_cores(self, params):
+        columns = list(self.diff_data.columns)
+        date_columns = list(self.price_data.columns[2:])
+        width = params.get("width")
+        start_option = params.get("start_option")
+        shift_days = params.get("shift_days")
+        end_date_start = "2023-11-17"
+        end_date_end = "2025-04-30"
+        end_date_start_idx = date_columns.index(end_date_start)
+        end_date_end_idx = date_columns.index(end_date_end)
+        price_data_np = self.price_data.iloc[:, 2:].values.astype(np.float64)
+        diff_data_np = self.diff_data.values.astype(np.float64)
+        num_stocks = price_data_np.shape[0]
+        n_proc = 16
+        stock_idx_arr = np.arange(num_stocks, dtype=np.int32)
+        stock_idx_ranges = split_indices(num_stocks, n_proc)
+        args_list = [
+            (
+                price_data_np,  # 全量
+                date_columns,
+                width,
+                start_option,
+                shift_days,
+                end_date_start_idx,
+                end_date_end_idx,
+                diff_data_np,   # 全量
+                np.ascontiguousarray(stock_idx_arr[start:end], dtype=np.int32)
+            )
+            for (start, end) in stock_idx_ranges if end > start
+        ]
+        t0 = time.time()
+        merged_results = {}
+        for idx in range(end_date_start_idx, end_date_end_idx-1, -1):
+            end_date = date_columns[idx]
+            merged_results[end_date] = []
+        with concurrent.futures.ProcessPoolExecutor(max_workers=n_proc) as executor:
+            futures = [executor.submit(cy_batch_worker, args) for args in args_list]
+            for fut in concurrent.futures.as_completed(futures):
+                process_results = fut.result()
+                for date_data in process_results:
+                    end_date = date_data['end_date']
+                    if end_date in merged_results:
+                        merged_results[end_date].extend(date_data['stocks'])
+        sorted_results = []
+        for idx in range(end_date_start_idx, end_date_end_idx-1, -1):
+            end_date = date_columns[idx]
+            if end_date in merged_results and merged_results[end_date]:
+                sorted_results.append({
+                    'end_date': end_date,
+                    'stocks': merged_results[end_date]
+                })
+        t1 = time.time()
+        print(f"calculate_batch_16_cores 总耗时: {t1 - t0:.4f}秒")
+        print(f"len(sorted_results): {len(sorted_results)}")
+        result = {
+            "dates": sorted_results,
+            "shift_days": shift_days,
+            "is_forward": params.get("is_forward"),
+            "start_date": date_columns[0],
+            "end_date": date_columns[-1],
+            "base_idx": None,
+        }
+        return result
+
+    def calculate_py_version(self, params):
+        columns = list(self.diff_data.columns)
+        date_columns = list(self.price_data.columns[2:])
+        width = params.get("width")
+        start_option = params.get("start_option")
+        shift_days = params.get("shift_days")
+        # end_date_start = "2023-11-17"
+        end_date_start = "2025-04-30"
+        end_date_end = "2025-04-30"
+        end_date_start_idx = date_columns.index(end_date_start)
+        end_date_end_idx = date_columns.index(end_date_end)
+        price_data_np = self.price_data.iloc[:, 2:].values.astype(np.float64)
+        diff_data_np = self.diff_data.values.astype(np.float64)  # 不要去掉前两列
+        num_stocks = price_data_np.shape[0]
+        num_dates = price_data_np.shape[1]
+        all_results = []
+        t0 = time.time()
+        for stock_idx in range(num_stocks):
+            for idx in range(end_date_start_idx, end_date_end_idx-1, -1):
+                end_date_idx = idx
+                end_date = date_columns[end_date_idx]
+                start_date_idx = end_date_idx + width
+                if stock_idx == 0:
+                    print(f"end_date_idx: {end_date_idx}, start_date_idx: {start_date_idx}")
+                start_date = date_columns[start_date_idx]
+                price_slice = price_data_np[stock_idx, end_date_idx:start_date_idx+1]
+                window_len = price_slice.shape[0]
+                if window_len == 0 or np.isnan(price_slice).all():
+                    max_price = min_price = np.nan
+                    max_idx_in_window = min_idx_in_window = -1
+                else:
+                    max_price = np.nanmax(price_slice)
+                    min_price = np.nanmin(price_slice)
+                    max_idx_in_window = int(np.where(price_slice == max_price)[0][0])
+                    min_idx_in_window = int(np.where(price_slice == min_price)[0][0])
+                end_value = price_data_np[stock_idx, end_date_idx]
+                start_value = price_data_np[stock_idx, start_date_idx]
+                # 最接近值
+                if np.isnan(end_value):
+                    closest_value = np.nan
+                    closest_idx_in_window = -1
+                else:
+                    mask = ~np.isnan(price_slice)
+                    if mask.sum() > 0:
+                        diffs = np.abs(price_slice[mask] - end_value)
+                        min_idx = np.argmin(diffs)
+                        valid_indices = np.where(mask)[0]
+                        closest_value = price_slice[mask][min_idx]
+                        closest_idx_in_window = int(valid_indices[min_idx])
+                    else:
+                        closest_value = np.nan
+                        closest_idx_in_window = -1
+                # 实际开始值索引
+                if start_option == "最大值":
+                    base_idx = end_date_idx + max_idx_in_window if max_idx_in_window >= 0 else -1
+                elif start_option == "最小值":
+                    base_idx = end_date_idx + min_idx_in_window if min_idx_in_window >= 0 else -1
+                elif start_option == "接近值":
+                    base_idx = end_date_idx + closest_idx_in_window if closest_idx_in_window >= 0 else -1
+                else:
+                    base_idx = start_date_idx
+                actual_idx = base_idx - shift_days if base_idx >= 0 else -1
+                actual_value = price_data_np[stock_idx, actual_idx] if actual_idx >= 0 and actual_idx < num_dates else np.nan
+                # 计算diff_data的连续累加值
+                continuous_results = calc_continuous_sum_sliding(
+                    arr=diff_data_np[stock_idx],  # 传入完整的diff_data行数据
+                    start_idx=actual_idx,         # 实际开始索引
+                    end_idx=end_date_idx,       # 结束索引
+                    prev_result=self.prev_continuous_results.get(stock_idx),  # 获取上一次的结果
+                    prev_start_idx=self.prev_start_idx.get(stock_idx),       # 获取上一次的开始索引
+                    prev_end_idx=self.prev_end_idx.get(stock_idx)            # 获取上一次的结束索引
+                )
+                # print(f"stock_idx: {stock_idx}, continuous_results: {continuous_results}")
+                
+                # 保存当前计算结果用于下一次计算
+                self.prev_continuous_results[stock_idx] = continuous_results
+                self.prev_start_idx[stock_idx] = actual_idx
+                self.prev_end_idx[stock_idx] = end_date_idx-1
+                
+                row_result = {
+                    'stock_idx': stock_idx,
+                    'code': self.price_data.iloc[stock_idx, 0],
+                    'name': self.price_data.iloc[stock_idx, 1],
+                    'max_value': [date_columns[end_date_idx + max_idx_in_window] if max_idx_in_window >= 0 else None, max_price],
+                    'min_value': [date_columns[end_date_idx + min_idx_in_window] if min_idx_in_window >= 0 else None, min_price],
+                    'end_value': [end_date, end_value],
+                    'start_value': [start_date, start_value],
+                    'actual_value': [date_columns[actual_idx] if actual_idx >= 0 and actual_idx < num_dates else None, actual_value],
+                    'closest_value': [date_columns[end_date_idx + closest_idx_in_window] if closest_idx_in_window >= 0 else None, closest_value],
+                    'continuous_results': continuous_results,
+                }
+                all_results.append(row_result)
+        t1 = time.time()
+        print(f"calculate_py_version 总耗时: {t1 - t0:.4f}秒")
+        result = {
+            "rows": all_results,
+            "shift_days": shift_days,
+            "is_forward": params.get("is_forward"),
+            "start_date": date_columns[0],
+            "end_date": date_columns[-1],
+            "base_idx": None,
+        }
+        return result
 
 class SelectStockThread(QThread):
     finished = pyqtSignal(list)

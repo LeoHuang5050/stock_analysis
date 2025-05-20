@@ -3,191 +3,262 @@ import pandas as pd
 import chinese_calendar
 from datetime import datetime, timedelta
 from decimal import Decimal
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTextEdit, QLineEdit, QSpinBox, QComboBox, QPushButton, QTableWidget, QTableWidgetItem, QSizePolicy, QDialog, QTabWidget, QMessageBox, QGridLayout
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTextEdit, QLineEdit, QSpinBox, QComboBox, QPushButton, QTableWidget, QTableWidgetItem, QSizePolicy, QDialog, QTabWidget, QMessageBox, QGridLayout, QDateEdit
+from PyQt5.QtCore import QDate
 
 import math
 
-def show_continuous_sum_table(parent, all_results, as_widget=False):
+# 连续累加值参数表头
+param_headers = [
+    "连续累加值长度", "连续累加值开始值", "连续累加值开始后1位值", "连续累加值开始后2位值",
+    "连续累加值结束值", "连续累加值结束前1位值", "连续累加值结束前2位值",
+    "连续累加值前一半绝对值之和", "连续累加值后一半绝对值之和",
+    "连续累加值前四分之一绝对值之和", "连续累加值前四分之二绝对值之和",
+    "连续累加值前四分之三绝对值之和", "连续累加值后四分之一绝对值之和"
+]
+# 有效累加值参数表头
+valid_param_headers = [
+    "有效累加值数组长度", "有效累加值正加值和", "有效累加值负加值和",
+    "有效累加值前一半绝对值之和", "有效累加值后一半绝对值之和",
+    "有效累加值第一块绝对值之和", "有效累加值第二块绝对值之和",
+    "有效累加值第三块绝对值之和", "有效累加值第四块绝对值之和"
+]
+# 向前最大相关参数表头
+forward_param_headers = [
+    "向前最大日期", "向前最大有效累加值数组长度", "向前最大有效累加值", "向前最大有效累加值正加值和", "向前最大有效累加值负加值和",
+    "向前最大有效累加值数组前一半绝对值之和", "向前最大有效累加值数组后一半绝对值之和",
+    "向前最大有效累加值数组第一块绝对值之和", "向前最大有效累加值数组第二块绝对值之和",
+    "向前最大有效累加值数组第三块绝对值之和", "向前最大有效累加值数组第四块绝对值之和"
+]
+# 向前最小相关参数表头
+forward_min_param_headers = [
+    "向前最小日期", "向前最小有效累加值数组长度", "向前最小有效累加值", "向前最小有效累加值正加值和", "向前最小有效累加值负加值和",
+    "向前最小有效累加值数组前一半绝对值之和", "向前最小有效累加值数组后一半绝对值之和",
+    "向前最小有效累加值数组第一块绝对值之和", "向前最小有效累加值数组第二块绝对值之和",
+    "向前最小有效累加值数组第三块绝对值之和", "向前最小有效累加值数组第四块绝对值之和"
+]
+
+def show_continuous_sum_table(parent, all_results, price_data, as_widget=False):
     try:
-        if not all_results:
-            print("all_results 为空，return None")
+        if not all_results or not all_results.get("dates"):
             if not as_widget:
                 QMessageBox.information(parent, "提示", "请先生成参数！")
             return None
 
-        tab_widget = QTabWidget(parent)  # 直接以parent为父
+        dates = all_results.get("dates", [])
+        if not dates:
+            if not as_widget:
+                QMessageBox.information(parent, "提示", "没有可用的日期数据！")
+            return None
+
+        # 获取第一个日期的数据作为初始显示
+        first_date_data = dates[0]
+        end_date = first_date_data.get("end_date")
+        stocks_data = first_date_data.get("stocks", [])
+
+        # 按stock_idx排序
+        stocks_data = sorted(stocks_data, key=lambda row: row.get('stock_idx', 0))
+
+        if not stocks_data:
+            if not as_widget:
+                QMessageBox.information(parent, "提示", f"日期 {end_date} 没有股票数据！")
+            return None
+
+        tab_widget = QTabWidget(parent)
         # 统计最大长度
-        max_len = max(len(row.get('continuous_results', [])) for row in all_results)
-        max_valid_len = max(len(row.get('valid_sum_arr', [])) for row in all_results)
-        max_forward_len = max(len(row.get('forward_max_result', [])) for row in all_results)
-        max_forward_min_len = max(len(row.get('forward_min_result', [])) for row in all_results)
+        max_len = max(len(row.get('continuous_results', [])) for row in stocks_data)
+        max_valid_len = max(len(row.get('valid_sum_arr', [])) for row in stocks_data)
+        max_forward_len = max(len(row.get('forward_max_result', [])) for row in stocks_data)
+        max_forward_min_len = max(len(row.get('forward_min_result', [])) for row in stocks_data)
         n_val = max(max_len, max_valid_len, max_forward_len, max_forward_min_len)
 
-        # 连续累加值参数表头
-        param_headers = [
-            "连续累加值长度", "连续累加值开始值", "连续累加值开始后1位值", "连续累加值开始后2位值",
-            "连续累加值结束值", "连续累加值结束前1位值", "连续累加值结束前2位值",
-            "连续累加值前一半绝对值之和", "连续累加值后一半绝对值之和",
-            "连续累加值前四分之一绝对值之和", "连续累加值前四分之二绝对值之和",
-            "连续累加值前四分之三绝对值之和", "连续累加值后四分之一绝对值之和"
-        ]
-        # 有效累加值参数表头
-        valid_param_headers = [
-            "有效累加值数组长度", "有效累加值正加值和", "有效累加值负加值和",
-            "有效累加值前一半绝对值之和", "有效累加值后一半绝对值之和",
-            "有效累加值第一块绝对值之和", "有效累加值第二块绝对值之和",
-            "有效累加值第三块绝对值之和", "有效累加值第四块绝对值之和"
-        ]
-        # 向前最大相关参数表头
-        forward_param_headers = [
-            "向前最大日期", "向前最大有效累加值数组长度", "向前最大有效累加值", "向前最大有效累加值正加值和", "向前最大有效累加值负加值和",
-            "向前最大有效累加值数组前一半绝对值之和", "向前最大有效累加值数组后一半绝对值之和",
-            "向前最大有效累加值数组第一块绝对值之和", "向前最大有效累加值数组第二块绝对值之和",
-            "向前最大有效累加值数组第三块绝对值之和", "向前最大有效累加值数组第四块绝对值之和"
-        ]
-        # 向前最小相关参数表头
-        forward_min_param_headers = [
-            "向前最小日期", "向前最小有效累加值数组长度", "向前最小有效累加值", "向前最小有效累加值正加值和", "向前最小有效累加值负加值和",
-            "向前最小有效累加值数组前一半绝对值之和", "向前最小有效累加值数组后一半绝对值之和",
-            "向前最小有效累加值数组第一块绝对值之和", "向前最小有效累加值数组第二块绝对值之和",
-            "向前最小有效累加值数组第三块绝对值之和", "向前最小有效累加值数组第四块绝对值之和"
-        ]
-
-        # 连续累加值tab
+        # 创建四个表格
         headers1 = ['代码', '名称', '实际开始日期值', '计算开始日期'] + [f'连续累加值{i+1}' for i in range(max_len)] + param_headers
-        table1 = QTableWidget(len(all_results), len(headers1))
-        table1.setHorizontalHeaderLabels(headers1)
-
-        for row_idx, row in enumerate(all_results):
-            table1.setItem(row_idx, 0, QTableWidgetItem(str(row.get('code', ''))))
-            table1.setItem(row_idx, 1, QTableWidgetItem(str(row.get('name', ''))))
-            actual_value = row.get('actual_value', [None, None])
-            start_value = row.get('start_value', [None, None])
-            table1.setItem(row_idx, 2, QTableWidgetItem(str(actual_value[1]) if actual_value else ''))
-            table1.setItem(row_idx, 3, QTableWidgetItem(str(start_value[0]) if start_value else ''))
-            results = row.get('continuous_results', [])
-            for col_idx in range(max_len):
-                val = results[col_idx] if col_idx < len(results) else ""
-                table1.setItem(row_idx, 4 + col_idx, QTableWidgetItem(str(val)))
-            param_values = [
-                row.get('continuous_len', ''),
-                row.get('continuous_start_value', ''),
-                row.get('continuous_start_next_value', ''),
-                row.get('continuous_start_next_next_value', ''),
-                row.get('continuous_end_value', ''),
-                row.get('continuous_end_prev_value', ''),
-                row.get('continuous_end_prev_prev_value', ''),
-                row.get('continuous_abs_sum_first_half', ''),
-                row.get('continuous_abs_sum_second_half', ''),
-                row.get('continuous_abs_sum_block1', ''),
-                row.get('continuous_abs_sum_block2', ''),
-                row.get('continuous_abs_sum_block3', ''),
-                row.get('continuous_abs_sum_block4', ''),
-            ]
-            for i, val in enumerate(param_values):
-                table1.setItem(row_idx, 4 + max_len + i, QTableWidgetItem(str(val)))
-
-        # 有效累加值tab
         headers2 = ['代码', '名称'] + [f'有效累加值{i+1}' for i in range(max_valid_len)] + valid_param_headers
-        table2 = QTableWidget(len(all_results), len(headers2))
-        table2.setHorizontalHeaderLabels(headers2)
-
-        for row_idx, row in enumerate(all_results):
-            table2.setItem(row_idx, 0, QTableWidgetItem(str(row.get('code', ''))))
-            table2.setItem(row_idx, 1, QTableWidgetItem(str(row.get('name', ''))))
-            valid_arr = row.get('valid_sum_arr', [])
-            for col_idx in range(max_valid_len):
-                val = valid_arr[col_idx] if col_idx < len(valid_arr) else ""
-                table2.setItem(row_idx, 2 + col_idx, QTableWidgetItem(str(val)))
-            valid_param_values = [
-                row.get('valid_sum_len', ''),
-                row.get('valid_pos_sum', ''),
-                row.get('valid_neg_sum', ''),
-                row.get('valid_abs_sum_first_half', ''),
-                row.get('valid_abs_sum_second_half', ''),
-                row.get('valid_abs_sum_block1', ''),
-                row.get('valid_abs_sum_block2', ''),
-                row.get('valid_abs_sum_block3', ''),
-                row.get('valid_abs_sum_block4', ''),
-            ]
-            for i, val in enumerate(valid_param_values):
-                table2.setItem(row_idx, 2 + max_valid_len + i, QTableWidgetItem(str(val)))
-
-        # 向前最大连续累加值tab
         headers3 = ['代码', '名称', '向前最大日期'] + [f'向前最大连续累加值{i+1}' for i in range(max_forward_len)] + [h for h in forward_param_headers if h != "向前最大日期"]
-        table3 = QTableWidget(len(all_results), len(headers3))
-        table3.setHorizontalHeaderLabels(headers3)
-
-        for row_idx, row in enumerate(all_results):
-            table3.setItem(row_idx, 0, QTableWidgetItem(str(row.get('code', ''))))
-            table3.setItem(row_idx, 1, QTableWidgetItem(str(row.get('name', ''))))
-            table3.setItem(row_idx, 2, QTableWidgetItem(str(row.get('forward_max_date', ''))))
-            forward_arr = row.get('forward_max_result', [])
-            for col_idx in range(max_forward_len):
-                val = forward_arr[col_idx] if col_idx < len(forward_arr) else ""
-                table3.setItem(row_idx, 3 + col_idx, QTableWidgetItem(str(val)))
-            forward_param_values = [
-                row.get('forward_max_valid_sum_len', ''),
-                row.get('forward_max_valid_sum_arr', ''),
-                row.get('forward_max_valid_pos_sum', ''),
-                row.get('forward_max_valid_neg_sum', ''),
-                row.get('forward_max_valid_abs_sum_first_half', ''),
-                row.get('forward_max_valid_abs_sum_second_half', ''),
-                row.get('forward_max_valid_abs_sum_block1', ''),
-                row.get('forward_max_valid_abs_sum_block2', ''),
-                row.get('forward_max_valid_abs_sum_block3', ''),
-                row.get('forward_max_valid_abs_sum_block4', ''),
-            ]
-            for i, val in enumerate(forward_param_values):
-                table3.setItem(row_idx, 3 + max_forward_len + i, QTableWidgetItem(str(val)))
-
-        # 向前最小连续累加值tab
         headers4 = ['代码', '名称', '向前最小日期'] + [f'向前最小连续累加值{i+1}' for i in range(max_forward_min_len)] + [h for h in forward_min_param_headers if h != "向前最小日期"]
-        table4 = QTableWidget(len(all_results), len(headers4))
+
+        table1 = QTableWidget(len(stocks_data), len(headers1))
+        table2 = QTableWidget(len(stocks_data), len(headers2))
+        table3 = QTableWidget(len(stocks_data), len(headers3))
+        table4 = QTableWidget(len(stocks_data), len(headers4))
+
+        table1.setHorizontalHeaderLabels(headers1)
+        table2.setHorizontalHeaderLabels(headers2)
+        table3.setHorizontalHeaderLabels(headers3)
         table4.setHorizontalHeaderLabels(headers4)
 
-        for row_idx, row in enumerate(all_results):
-            table4.setItem(row_idx, 0, QTableWidgetItem(str(row.get('code', ''))))
-            table4.setItem(row_idx, 1, QTableWidgetItem(str(row.get('name', ''))))
-            table4.setItem(row_idx, 2, QTableWidgetItem(str(row.get('forward_min_date', ''))))
-            forward_min_arr = row.get('forward_min_result', [])
-            for col_idx in range(max_forward_min_len):
-                val = forward_min_arr[col_idx] if col_idx < len(forward_min_arr) else ""
-                table4.setItem(row_idx, 3 + col_idx, QTableWidgetItem(str(val)))
-            forward_min_param_values = [
-                row.get('forward_min_valid_sum_len', ''),
-                row.get('forward_min_valid_sum_arr', ''),
-                row.get('forward_min_valid_pos_sum', ''),
-                row.get('forward_min_valid_neg_sum', ''),
-                row.get('forward_min_valid_abs_sum_first_half', ''),
-                row.get('forward_min_valid_abs_sum_second_half', ''),
-                row.get('forward_min_valid_abs_sum_block1', ''),
-                row.get('forward_min_valid_abs_sum_block2', ''),
-                row.get('forward_min_valid_abs_sum_block3', ''),
-                row.get('forward_min_valid_abs_sum_block4', ''),
-            ]
-            for i, val in enumerate(forward_min_param_values):
-                table4.setItem(row_idx, 3 + max_forward_min_len + i, QTableWidgetItem(str(val)))
+        def update_tables(stocks_data):
+            # 更新table1
+            for row_idx, row in enumerate(stocks_data):
+                stock_idx = row.get('stock_idx')
+                code = price_data.iloc[stock_idx, 0]
+                name = price_data.iloc[stock_idx, 1]
+                table1.setItem(row_idx, 0, QTableWidgetItem(str(code)))
+                table1.setItem(row_idx, 1, QTableWidgetItem(str(name)))
+                actual_value = row.get('actual_value', [None, None])
+                start_value = row.get('start_value', [None, None])
+                table1.setItem(row_idx, 2, QTableWidgetItem(str(actual_value[1]) if actual_value else ''))
+                table1.setItem(row_idx, 3, QTableWidgetItem(str(start_value[0]) if start_value else ''))
+                results = row.get('continuous_results', [])
+                for col_idx in range(max_len):
+                    val = results[col_idx] if col_idx < len(results) else ""
+                    table1.setItem(row_idx, 4 + col_idx, QTableWidgetItem(str(val)))
+                param_values = [
+                    len(results),
+                    row.get('continuous_start_value', ''),
+                    row.get('continuous_start_next_value', ''),
+                    row.get('continuous_start_next_next_value', ''),
+                    row.get('continuous_end_value', ''),
+                    row.get('continuous_end_prev_value', ''),
+                    row.get('continuous_end_prev_prev_value', ''),
+                    row.get('continuous_abs_sum_first_half', ''),
+                    row.get('continuous_abs_sum_second_half', ''),
+                    row.get('continuous_abs_sum_block1', ''),
+                    row.get('continuous_abs_sum_block2', ''),
+                    row.get('continuous_abs_sum_block3', ''),
+                    row.get('continuous_abs_sum_block4', ''),
+                ]
+                for i, val in enumerate(param_values):
+                    table1.setItem(row_idx, 4 + max_len + i, QTableWidgetItem(str(val)))
 
-        tab_widget.addTab(table1, "连续累加值")
-        tab_widget.addTab(table2, "有效累加值")
-        tab_widget.addTab(table3, "向前最大连续累加值")
-        tab_widget.addTab(table4, "向前最小连续累加值")
+            # 更新table2
+            for row_idx, row in enumerate(stocks_data):
+                table2.setItem(row_idx, 0, QTableWidgetItem(str(row.get('code', ''))))
+                table2.setItem(row_idx, 1, QTableWidgetItem(str(row.get('name', ''))))
+                valid_arr = row.get('valid_sum_arr', [])
+                for col_idx in range(max_valid_len):
+                    val = valid_arr[col_idx] if col_idx < len(valid_arr) else ""
+                    table2.setItem(row_idx, 2 + col_idx, QTableWidgetItem(str(val)))
+                valid_param_values = [
+                    row.get('valid_sum_len', ''),
+                    row.get('valid_pos_sum', ''),
+                    row.get('valid_neg_sum', ''),
+                    row.get('valid_abs_sum_first_half', ''),
+                    row.get('valid_abs_sum_second_half', ''),
+                    row.get('valid_abs_sum_block1', ''),
+                    row.get('valid_abs_sum_block2', ''),
+                    row.get('valid_abs_sum_block3', ''),
+                    row.get('valid_abs_sum_block4', ''),
+                ]
+                for i, val in enumerate(valid_param_values):
+                    table2.setItem(row_idx, 2 + max_valid_len + i, QTableWidgetItem(str(val)))
 
-        table1.resizeColumnsToContents()
-        table2.resizeColumnsToContents()
-        table3.resizeColumnsToContents()
-        table4.resizeColumnsToContents()
+            # 更新table3
+            for row_idx, row in enumerate(stocks_data):
+                table3.setItem(row_idx, 0, QTableWidgetItem(str(row.get('code', ''))))
+                table3.setItem(row_idx, 1, QTableWidgetItem(str(row.get('name', ''))))
+                table3.setItem(row_idx, 2, QTableWidgetItem(str(row.get('forward_max_date', ''))))
+                forward_arr = row.get('forward_max_result', [])
+                for col_idx in range(max_forward_len):
+                    val = forward_arr[col_idx] if col_idx < len(forward_arr) else ""
+                    table3.setItem(row_idx, 3 + col_idx, QTableWidgetItem(str(val)))
+                forward_param_values = [
+                    row.get('forward_max_valid_sum_len', ''),
+                    row.get('forward_max_valid_sum_arr', ''),
+                    row.get('forward_max_valid_pos_sum', ''),
+                    row.get('forward_max_valid_neg_sum', ''),
+                    row.get('forward_max_valid_abs_sum_first_half', ''),
+                    row.get('forward_max_valid_abs_sum_second_half', ''),
+                    row.get('forward_max_valid_abs_sum_block1', ''),
+                    row.get('forward_max_valid_abs_sum_block2', ''),
+                    row.get('forward_max_valid_abs_sum_block3', ''),
+                    row.get('forward_max_valid_abs_sum_block4', ''),
+                ]
+                for i, val in enumerate(forward_param_values):
+                    table3.setItem(row_idx, 3 + max_forward_len + i, QTableWidgetItem(str(val)))
+
+            # 更新table4
+            for row_idx, row in enumerate(stocks_data):
+                table4.setItem(row_idx, 0, QTableWidgetItem(str(row.get('code', ''))))
+                table4.setItem(row_idx, 1, QTableWidgetItem(str(row.get('name', ''))))
+                table4.setItem(row_idx, 2, QTableWidgetItem(str(row.get('forward_min_date', ''))))
+                forward_min_arr = row.get('forward_min_result', [])
+                for col_idx in range(max_forward_min_len):
+                    val = forward_min_arr[col_idx] if col_idx < len(forward_min_arr) else ""
+                    table4.setItem(row_idx, 3 + col_idx, QTableWidgetItem(str(val)))
+                forward_min_param_values = [
+                    row.get('forward_min_valid_sum_len', ''),
+                    row.get('forward_min_valid_sum_arr', ''),
+                    row.get('forward_min_valid_pos_sum', ''),
+                    row.get('forward_min_valid_neg_sum', ''),
+                    row.get('forward_min_valid_abs_sum_first_half', ''),
+                    row.get('forward_min_valid_abs_sum_second_half', ''),
+                    row.get('forward_min_valid_abs_sum_block1', ''),
+                    row.get('forward_min_valid_abs_sum_block2', ''),
+                    row.get('forward_min_valid_abs_sum_block3', ''),
+                    row.get('forward_min_valid_abs_sum_block4', ''),
+                ]
+                for i, val in enumerate(forward_min_param_values):
+                    table4.setItem(row_idx, 3 + max_forward_min_len + i, QTableWidgetItem(str(val)))
+
+            # 设置表格列宽自适应
+            table1.resizeColumnsToContents()
+            table2.resizeColumnsToContents()
+            table3.resizeColumnsToContents()
+            table4.resizeColumnsToContents()
+
+            # 设置表头样式
+            for table in [table1, table2, table3, table4]:
+                table.horizontalHeader().setFixedHeight(50)
+                table.horizontalHeader().setStyleSheet("font-size: 12px;")
+
+        # 初始化表格内容
+        update_tables(stocks_data)
+
+        tab_widget.addTab(table1, f"连续累加值 ({end_date})")
+        tab_widget.addTab(table2, f"有效累加值 ({end_date})")
+        tab_widget.addTab(table3, f"向前最大连续累加值 ({end_date})")
+        tab_widget.addTab(table4, f"向前最小连续累加值 ({end_date})")
+
+        # 添加日期选择框
+        date_picker = QDateEdit(parent)
+        date_picker.setDisplayFormat("yyyy-MM-dd")
+        date_picker.setCalendarPopup(True)
+        date_list = [d['end_date'] for d in dates]
+        date_picker.setDate(QDate.fromString(end_date, "yyyy-MM-dd"))
+        date_picker.setFixedWidth(180)
+        date_picker.setStyleSheet("font-size: 12px; height: 20px;")
+
+        # 顶部布局
+        top_layout = QHBoxLayout()
+        top_layout.addStretch(1)
+        top_layout.addWidget(QLabel("选择结束日期："))
+        top_layout.addWidget(date_picker)
+
+        # 主布局
+        main_layout = QVBoxLayout()
+        main_layout.addLayout(top_layout)
+        main_layout.addWidget(tab_widget)
 
         if as_widget:
-            tab_widget.setMinimumSize(1200, 600)
-            tab_widget.show()
-            return tab_widget
+            container = QWidget(parent)
+            container.setLayout(main_layout)
+            container.setMinimumSize(1200, 600)
+            container.show()
+
+            # 切换日期时刷新所有表格内容
+            def on_date_changed():
+                selected_date = date_picker.date().toString("yyyy-MM-dd")
+                for d in dates:
+                    if d['end_date'] == selected_date:
+                        stocks_data = d['stocks']
+                        break
+                # 按stock_idx排序
+                stocks_data = sorted(stocks_data, key=lambda row: row.get('stock_idx', 0))
+                # 更新所有表格
+                update_tables(stocks_data)
+                # 更新tab标签
+                tab_widget.setTabText(0, f"连续累加值 ({selected_date})")
+                tab_widget.setTabText(1, f"有效累加值 ({selected_date})")
+                tab_widget.setTabText(2, f"向前最大连续累加值 ({selected_date})")
+                tab_widget.setTabText(3, f"向前最小连续累加值 ({selected_date})")
+
+            date_picker.dateChanged.connect(on_date_changed)
+            return container
         else:
             dialog = QWidget()
-            layout = QVBoxLayout(dialog)
-            layout.addWidget(tab_widget)
-            dialog.setLayout(layout)
+            dialog.setLayout(main_layout)
             dialog.resize(1200, 600)
             dialog.show()
             return dialog
@@ -207,34 +278,74 @@ def unify_date_columns(df):
     return df
 
 def calc_continuous_sum_np(arr, start_idx, end_idx):
-    """
-    arr: 一行数据（Series 或 1D array）
-    columns: 该行对应的列名（顺序与arr一致）
-    start_idx, end_idx: 均为索引，允许相等
-    返回：连续累加值列表（从右往左）
-    """
+    np.set_printoptions(suppress=True, precision=4, linewidth=200, floatmode='fixed')
     if start_idx < end_idx:
-        print(f"起始索引 {start_idx} 必须在结束索引 {end_idx} 的右侧（即更靠近表格右边）！")
+        print("start_idx < end_idx, return []")
         return []
     if start_idx == end_idx:
-        return [round(float(arr[start_idx]), 2)]  # 只返回该列的单个值，保留两位小数
-    # 只允许从右往左（从end_idx到start_idx，包含两端）
-    arr_slice = arr[end_idx:start_idx+1][::-1]
-    arr_slice = [float(v) for v in arr_slice]
+        return [round(float(arr[start_idx]), 2)]
+    # 正步长切片+反转，保证顺序和表格一致
+    arr_slice = np.array(arr[end_idx:start_idx+1])[::-1]
+    mask = ~np.isnan(arr_slice)
+    if not np.any(mask):
+        print("all nan in arr_slice, return []")
+        return []
+    arr_slice = arr_slice[mask]
+    signs = np.sign(arr_slice)
+    sign_changes = np.diff(signs) != 0
+    
+    # 使用numpy的cumsum和where来优化累加
+    cumsum = np.cumsum(arr_slice)
+    change_indices = np.where(sign_changes)[0] + 1
+    
+    if len(change_indices) == 0:
+        return [round(float(cumsum[-1]), 2)]
+        
     result = []
-    if len(arr_slice) == 0:
-        return result
-    temp_sum = arr_slice[0]
-    sign = arr_slice[0] >= 0
-    for v in arr_slice[1:]:
-        if (v >= 0) == sign:
-            temp_sum += v
-        else:
-            result.append(round(temp_sum, 2))  # 保留两位小数
-            temp_sum = v
-            sign = v >= 0
-    result.append(round(temp_sum, 2))  # 保留两位小数
+    last_idx = 0
+    for idx in change_indices:
+        result.append(round(float(cumsum[idx-1] - cumsum[last_idx-1] if last_idx > 0 else cumsum[idx-1]), 2))
+        last_idx = idx
+    
+    result.append(round(float(cumsum[-1] - cumsum[last_idx-1] if last_idx > 0 else cumsum[-1]), 2))
     return result
+
+def calc_continuous_sum_sliding(arr, start_idx, end_idx, prev_result=None, prev_start_idx=None, prev_end_idx=None):
+    """
+    使用滑动窗口优化的连续累加值计算
+    arr: 完整数组
+    start_idx: 当前起始索引
+    end_idx: 当前结束索引
+    prev_result: 上一次的计算结果
+    prev_start_idx: 上一次的起始索引
+    prev_end_idx: 上一次的结束索引
+    """
+    # print(f"start_idx: {start_idx}, end_idx: {end_idx}")
+    if start_idx < end_idx:
+        return []
+    if start_idx == end_idx:
+        return [round(float(arr[start_idx]), 2)]
+
+    # 如果是第一次计算或索引变化超过1，使用完整计算
+    if prev_result is None or abs(start_idx - prev_start_idx) > 1 or abs(end_idx - prev_end_idx) > 1:
+        return calc_continuous_sum_np(arr, start_idx, end_idx)
+
+    # 获取新增和移除的元素
+    removed_elements = []
+    new_elements = []
+    
+    removed_elements.append(arr[prev_start_idx])
+    new_elements.append(arr[end_idx])
+
+    # 如果只有一个元素变化，可以优化计算
+    if len(new_elements) == 1 and len(removed_elements) == 1:
+        # 这里可以实现增量计算逻辑
+        # 由于连续累加值的计算比较复杂，需要根据具体业务逻辑来实现
+        # 暂时回退到完整计算
+        return calc_continuous_sum_np(arr, start_idx, end_idx)
+    
+    # 如果有多个元素变化，使用完整计算
+    return calc_continuous_sum_np(arr, start_idx, end_idx)
 
 def get_workdays(end_date, width):
     days = []
@@ -352,8 +463,22 @@ def query_row_result(rows, keyword, n_days=0):
     return '\n'.join(results)
 
 def show_params_table(parent, all_results, n_days=0, range_value=None, abs_sum_value=None, as_widget=False):
-    if not all_results:
+    if not all_results or not all_results.get("dates"):
         QMessageBox.information(parent, "提示", "请先生成参数！")
+        return None
+
+    # 获取最后一个end_date的数据
+    dates = all_results.get("dates", [])
+    if not dates:
+        QMessageBox.information(parent, "提示", "没有可用的日期数据！")
+        return None
+
+    last_date_data = dates[-1]
+    end_date = last_date_data.get("end_date")
+    stocks_data = last_date_data.get("stocks", [])
+
+    if not stocks_data:
+        QMessageBox.information(parent, "提示", f"日期 {end_date} 没有股票数据！")
         return None
 
     dialog = QDialog()
@@ -370,7 +495,7 @@ def show_params_table(parent, all_results, n_days=0, range_value=None, abs_sum_v
         '前1组结束地址前1日涨跌幅', '前1组结束日涨跌幅', '后1组结束地址值',
         '递增值', '后值大于结束地址值', '后值大于前值返回值', '操作值', '持有天数', '操作涨幅', '调整天数', '日均涨幅'
     ]
-    table = QTableWidget(len(all_results), len(headers))
+    table = QTableWidget(len(stocks_data), len(headers))
     table.setHorizontalHeaderLabels(headers)
 
     def get_val(val):
@@ -394,7 +519,7 @@ def show_params_table(parent, all_results, n_days=0, range_value=None, abs_sum_v
             return 'False'
         return str(v)
 
-    for row_idx, row in enumerate(all_results):
+    for row_idx, row in enumerate(stocks_data):
         table.setItem(row_idx, 0, QTableWidgetItem(str(get_val(row.get('code', '')))))
         table.setItem(row_idx, 1, QTableWidgetItem(str(get_val(row.get('name', '')))))
         table.setItem(row_idx, 2, QTableWidgetItem(str(get_val(row.get('max_value', '')))))
@@ -482,6 +607,24 @@ class FormulaExprEdit(QTextEdit):
 
 
 def show_formula_select_table(parent, all_results, as_widget=True):
+    if not all_results or not all_results.get("dates"):
+        QMessageBox.information(parent, "提示", "请先生成参数！")
+        return None
+
+    # 获取最后一个end_date的数据
+    dates = all_results.get("dates", [])
+    if not dates:
+        QMessageBox.information(parent, "提示", "没有可用的日期数据！")
+        return None
+
+    last_date_data = dates[-1]
+    end_date = last_date_data.get("end_date")
+    stocks_data = last_date_data.get("stocks", [])
+
+    if not stocks_data:
+        QMessageBox.information(parent, "提示", f"日期 {end_date} 没有股票数据！")
+        return None
+
     widget = QWidget(parent)
     widget.setStyleSheet("background-color: white; border: 1px solid #d0d0d0;")  # 设置白色背景和浅灰边框
     layout = QVBoxLayout(widget)
@@ -551,17 +694,121 @@ def show_formula_select_table(parent, all_results, as_widget=True):
     # 选股逻辑
     def do_select():
         formula_expr = formula_input.toPlainText()
+        if not formula_expr:
+            output_edit.setText("请输入选股公式！")
+            return
+
+        try:
+            # 编译表达式以检查语法
+            compile(formula_expr, '<string>', 'exec')
+        except SyntaxError as e:
+            output_edit.setText(f"公式语法错误：{e}")
+            return
+
         select_count = select_count_spin.value()
-        sort_mode = sort_combo.currentText()
-        output_edit.setText("正在选股...")
-        from worker_threads import SelectStockThread
-        thread = SelectStockThread(all_results, formula_expr, select_count, sort_mode)
-        widget.select_thread = thread  # 防止被回收
+        sort_type = sort_combo.currentText()
+
+        # 创建选股线程
+        class SelectThread(QThread):
+            finished = pyqtSignal(list)
+
+            def __init__(self, stocks_data, formula_expr, select_count, sort_type):
+                super().__init__()
+                self.stocks_data = stocks_data
+                self.formula_expr = formula_expr
+                self.select_count = select_count
+                self.sort_type = sort_type
+
+            def run(self):
+                selected = []
+                for row in self.stocks_data:
+                    try:
+                        # 创建局部变量字典
+                        local_vars = {
+                            'NMAX': row.get('n_max_value', 0),
+                            'NMAXISMAX': row.get('n_max_is_max', False),
+                            'EDC': row.get('end_day_change', 0),
+                            'DEV': row.get('diff_end_value', 0),
+                            'RRL': row.get('range_ratio_is_less', False),
+                            'ASL': row.get('abs_sum_is_less', False),
+                            'CSV': row.get('continuous_start_value', 0),
+                            'CSNV': row.get('continuous_start_next_value', 0),
+                            'CEV': row.get('continuous_end_value', 0),
+                            'CEPV': row.get('continuous_end_prev_value', 0),
+                            'CEPPV': row.get('continuous_end_prev_prev_value', 0),
+                            'CL': row.get('continuous_len', 0),
+                            'CASFH': row.get('continuous_abs_sum_first_half', 0),
+                            'CASSH': row.get('continuous_abs_sum_second_half', 0),
+                            'CASB1': row.get('continuous_abs_sum_block1', 0),
+                            'CASB2': row.get('continuous_abs_sum_block2', 0),
+                            'CASB3': row.get('continuous_abs_sum_block3', 0),
+                            'CASB4': row.get('continuous_abs_sum_block4', 0),
+                            'VPS': row.get('valid_pos_sum', 0),
+                            'VNS': row.get('valid_neg_sum', 0),
+                            'VSL': row.get('valid_sum_len', 0),
+                            'VASFH': row.get('valid_abs_sum_first_half', 0),
+                            'VASSH': row.get('valid_abs_sum_second_half', 0),
+                            'VASB1': row.get('valid_abs_sum_block1', 0),
+                            'VASB2': row.get('valid_abs_sum_block2', 0),
+                            'VASB3': row.get('valid_abs_sum_block3', 0),
+                            'VASB4': row.get('valid_abs_sum_block4', 0),
+                            'FMD': row.get('forward_max_date', ''),
+                            'FMR': row.get('forward_max_result', []),
+                            'FMVSL': row.get('forward_max_valid_sum_len', 0),
+                            'FMVPS': row.get('forward_max_valid_pos_sum', 0),
+                            'FMVNS': row.get('forward_max_valid_neg_sum', 0),
+                            'FMVASFH': row.get('forward_max_valid_abs_sum_first_half', 0),
+                            'FMVASSH': row.get('forward_max_valid_abs_sum_second_half', 0),
+                            'FMVASB1': row.get('forward_max_valid_abs_sum_block1', 0),
+                            'FMVASB2': row.get('forward_max_valid_abs_sum_block2', 0),
+                            'FMVASB3': row.get('forward_max_valid_abs_sum_block3', 0),
+                            'FMVASB4': row.get('forward_max_valid_abs_sum_block4', 0),
+                            'INC': row.get('increment_value', 0),
+                            'AGE': row.get('after_gt_end_value', 0),
+                            'AGS': row.get('after_gt_start_value', 0),
+                            'OPS': row.get('ops_value', 0),
+                            'HD': row.get('hold_days', 0),
+                            'OPC': row.get('ops_change', 0),
+                            'ADJ': row.get('adjust_days', 0),
+                            'OIR': row.get('ops_incre_rate', 0),
+                            'result': None
+                        }
+
+                        # 执行公式
+                        exec(self.formula_expr, {}, local_vars)
+                        score = local_vars['result']
+
+                        if score is not None and score != 0:
+                            selected.append({
+                                'code': row.get('code', ''),
+                                'name': row.get('name', ''),
+                                'hold_days': row.get('hold_days', 0),
+                                'ops_change': row.get('ops_change', 0),
+                                'ops_incre_rate': row.get('ops_incre_rate', 0),
+                                'score': score
+                            })
+                    except Exception as e:
+                        print(f"处理股票 {row.get('code', '')} 时出错：{e}")
+                        continue
+
+                # 根据分数排序
+                selected.sort(key=lambda x: x['score'], reverse=True)
+                # 根据排序方式调整
+                if self.sort_type == "最小值排序":
+                    selected.reverse()
+                # 截取指定数量
+                selected = selected[:self.select_count]
+                self.finished.emit(selected)
+
         def on_finished(selected):
             widget.selected_results = selected
-            output_edit.setText("选股完成！")
-        thread.finished.connect(on_finished)
-        thread.start()
+            output_edit.setText(f"选股完成，共选出 {len(selected)} 只股票")
+
+        # 创建并启动线程
+        widget.select_thread = SelectThread(stocks_data, formula_expr, select_count, sort_type)
+        widget.select_thread.finished.connect(on_finished)
+        widget.select_thread.start()
+        output_edit.setText("正在选股，请稍候...")
 
     def show_selected():
         selected = getattr(widget, 'selected_results', [])
@@ -580,3 +827,43 @@ def show_formula_select_table(parent, all_results, as_widget=True):
     result_btn.clicked.connect(show_selected)
 
     return widget
+
+def calc_valid_sum(arr):
+    arr = np.array([v for v in arr if v is not None], dtype=float)
+    if len(arr) == 0:
+        return []
+    
+    # 使用numpy向量化操作
+    abs_arr = np.abs(arr)
+    next_abs = np.roll(abs_arr, -1)
+    next_abs[-1] = 0
+    
+    # 使用布尔索引和向量化操作
+    mask = next_abs[:-1] > abs_arr[:-1]
+    result = np.zeros_like(arr)
+    result[:-1] = np.where(mask, arr[:-1], np.where(arr[1:] >= 0, arr[1:], -abs_arr[1:]))
+    return result.tolist()
+
+def calc_continuous_sum_sliding_window(arr, window_size):
+    """
+    计算滑动窗口下每个窗口的连续同符号累加和（每个窗口内从头到尾的连续和序列）。
+    arr: 一维np.ndarray或list
+    window_size: 窗口宽度
+    返回: list，每个元素为该窗口的连续和序列
+    """
+    arr = np.array(arr, dtype=float)
+    n = len(arr)
+    if n < window_size or window_size <= 0:
+        return []
+    results = []
+    for i in range(n - window_size + 1):
+        window = arr[i:i+window_size]
+        # 计算窗口内的连续同符号累加和
+        cont_sum = [window[0]]
+        for j in range(1, window_size):
+            if window[j] * window[j-1] > 0:
+                cont_sum.append(cont_sum[-1] + window[j])
+            else:
+                cont_sum.append(window[j])
+        results.append(cont_sum)
+    return results

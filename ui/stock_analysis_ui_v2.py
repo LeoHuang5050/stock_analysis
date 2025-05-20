@@ -302,7 +302,7 @@ class StockAnalysisApp(QWidget):
         all_results = getattr(self, 'all_row_results', None)
         from function.stock_functions import show_continuous_sum_table
         self.clear_result_area()
-        table = show_continuous_sum_table(self, all_results, as_widget=True)
+        table = show_continuous_sum_table(self, all_results, self.init.price_data, as_widget=True)
         if table:
             table.setMinimumSize(1200, 600)
             self.table_widget = table
