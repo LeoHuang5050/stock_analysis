@@ -66,7 +66,7 @@ def show_continuous_sum_table(parent, all_results, price_data, as_widget=False):
 
         tab_widget = QTabWidget(parent)
         # 统计最大长度
-        max_len = max(len(row.get('continuous_results', [])) for row in stocks_data)
+        max_len = max(row.get('continuous_len', 0) for row in stocks_data)
         max_valid_len = max(len(row.get('valid_sum_arr', [])) for row in stocks_data)
         max_forward_len = max(len(row.get('forward_max_result', [])) for row in stocks_data)
         max_forward_min_len = max(len(row.get('forward_min_result', [])) for row in stocks_data)
@@ -89,17 +89,16 @@ def show_continuous_sum_table(parent, all_results, price_data, as_widget=False):
         table4.setHorizontalHeaderLabels(headers4)
 
         def update_tables(stocks_data):
-            # 更新table1
+            # table1
+            table1.setRowCount(len(stocks_data))
             for row_idx, row in enumerate(stocks_data):
-                stock_idx = row.get('stock_idx')
+                stock_idx = row.get('stock_idx', 0)
                 code = price_data.iloc[stock_idx, 0]
                 name = price_data.iloc[stock_idx, 1]
                 table1.setItem(row_idx, 0, QTableWidgetItem(str(code)))
                 table1.setItem(row_idx, 1, QTableWidgetItem(str(name)))
-                actual_value = row.get('actual_value', [None, None])
-                start_value = row.get('start_value', [None, None])
-                table1.setItem(row_idx, 2, QTableWidgetItem(str(actual_value[1]) if actual_value else ''))
-                table1.setItem(row_idx, 3, QTableWidgetItem(str(start_value[0]) if start_value else ''))
+                table1.setItem(row_idx, 2, QTableWidgetItem(str(row.get('actual_value', [None, None])[1]) if row.get('actual_value') else ''))
+                table1.setItem(row_idx, 3, QTableWidgetItem(str(row.get('start_value', [None, None])[0]) if row.get('start_value') else ''))
                 results = row.get('continuous_results', [])
                 for col_idx in range(max_len):
                     val = results[col_idx] if col_idx < len(results) else ""
@@ -122,10 +121,14 @@ def show_continuous_sum_table(parent, all_results, price_data, as_widget=False):
                 for i, val in enumerate(param_values):
                     table1.setItem(row_idx, 4 + max_len + i, QTableWidgetItem(str(val)))
 
-            # 更新table2
+            # table2
+            table2.setRowCount(len(stocks_data))
             for row_idx, row in enumerate(stocks_data):
-                table2.setItem(row_idx, 0, QTableWidgetItem(str(row.get('code', ''))))
-                table2.setItem(row_idx, 1, QTableWidgetItem(str(row.get('name', ''))))
+                stock_idx = row.get('stock_idx', 0)
+                code = price_data.iloc[stock_idx, 0]
+                name = price_data.iloc[stock_idx, 1]
+                table2.setItem(row_idx, 0, QTableWidgetItem(str(code)))
+                table2.setItem(row_idx, 1, QTableWidgetItem(str(name)))
                 valid_arr = row.get('valid_sum_arr', [])
                 for col_idx in range(max_valid_len):
                     val = valid_arr[col_idx] if col_idx < len(valid_arr) else ""
@@ -144,10 +147,14 @@ def show_continuous_sum_table(parent, all_results, price_data, as_widget=False):
                 for i, val in enumerate(valid_param_values):
                     table2.setItem(row_idx, 2 + max_valid_len + i, QTableWidgetItem(str(val)))
 
-            # 更新table3
+            # table3
+            table3.setRowCount(len(stocks_data))
             for row_idx, row in enumerate(stocks_data):
-                table3.setItem(row_idx, 0, QTableWidgetItem(str(row.get('code', ''))))
-                table3.setItem(row_idx, 1, QTableWidgetItem(str(row.get('name', ''))))
+                stock_idx = row.get('stock_idx', 0)
+                code = price_data.iloc[stock_idx, 0]
+                name = price_data.iloc[stock_idx, 1]
+                table3.setItem(row_idx, 0, QTableWidgetItem(str(code)))
+                table3.setItem(row_idx, 1, QTableWidgetItem(str(name)))
                 table3.setItem(row_idx, 2, QTableWidgetItem(str(row.get('forward_max_date', ''))))
                 forward_arr = row.get('forward_max_result', [])
                 for col_idx in range(max_forward_len):
@@ -168,10 +175,14 @@ def show_continuous_sum_table(parent, all_results, price_data, as_widget=False):
                 for i, val in enumerate(forward_param_values):
                     table3.setItem(row_idx, 3 + max_forward_len + i, QTableWidgetItem(str(val)))
 
-            # 更新table4
+            # table4
+            table4.setRowCount(len(stocks_data))
             for row_idx, row in enumerate(stocks_data):
-                table4.setItem(row_idx, 0, QTableWidgetItem(str(row.get('code', ''))))
-                table4.setItem(row_idx, 1, QTableWidgetItem(str(row.get('name', ''))))
+                stock_idx = row.get('stock_idx', 0)
+                code = price_data.iloc[stock_idx, 0]
+                name = price_data.iloc[stock_idx, 1]
+                table4.setItem(row_idx, 0, QTableWidgetItem(str(code)))
+                table4.setItem(row_idx, 1, QTableWidgetItem(str(name)))
                 table4.setItem(row_idx, 2, QTableWidgetItem(str(row.get('forward_min_date', ''))))
                 forward_min_arr = row.get('forward_min_result', [])
                 for col_idx in range(max_forward_min_len):
