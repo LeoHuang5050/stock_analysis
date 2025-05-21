@@ -129,9 +129,9 @@ class StockAnalysisApp(QWidget):
         self.abs_sum_label = QLabel("开始日到结束日之间连续累加值绝对值小于")
         self.abs_sum_label.setMinimumWidth(col_widths[4])
         grid.addWidget(self.abs_sum_label, 2, 4)
-        self.abs_sum_value_edit = QLineEdit()
-        self.abs_sum_value_edit.setMinimumWidth(col_widths[5])
-        grid.addWidget(self.abs_sum_value_edit, 2, 5)
+        self.continuous_abs_threshold_edit = QLineEdit()
+        self.continuous_abs_threshold_edit.setMinimumWidth(col_widths[5])
+        grid.addWidget(self.continuous_abs_threshold_edit, 2, 5)
 
         # 第四行：参数查询（合并为一组，放最右侧一列）
         query_widget = QWidget()

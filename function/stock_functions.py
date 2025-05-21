@@ -89,6 +89,8 @@ def show_continuous_sum_table(parent, all_results, price_data, as_widget=False):
         table4.setHorizontalHeaderLabels(headers4)
 
         def update_tables(stocks_data):
+            # 排序
+            stocks_data = sorted(stocks_data, key=lambda row: row.get('stock_idx', 0))
             # table1
             table1.setRowCount(len(stocks_data))
             for row_idx, row in enumerate(stocks_data):
@@ -251,19 +253,16 @@ def show_continuous_sum_table(parent, all_results, price_data, as_widget=False):
             # 切换日期时刷新所有表格内容
             def on_date_changed():
                 selected_date = date_picker.date().toString("yyyy-MM-dd")
+                found = False
                 for d in dates:
                     if d['end_date'] == selected_date:
                         stocks_data = d['stocks']
+                        found = True
                         break
-                # 按stock_idx排序
-                stocks_data = sorted(stocks_data, key=lambda row: row.get('stock_idx', 0))
-                # 更新所有表格
+                if not found:
+                    QMessageBox.information(parent, "提示", f"没有该结束日期（{selected_date}）的数据！")
+                    return
                 update_tables(stocks_data)
-                # 更新tab标签
-                tab_widget.setTabText(0, f"连续累加值 ({selected_date})")
-                tab_widget.setTabText(1, f"有效累加值 ({selected_date})")
-                tab_widget.setTabText(2, f"向前最大连续累加值 ({selected_date})")
-                tab_widget.setTabText(3, f"向前最小连续累加值 ({selected_date})")
 
             date_picker.dateChanged.connect(on_date_changed)
             return container
@@ -399,7 +398,7 @@ def query_row_result(rows, keyword, n_days=0):
                 f"前1组结束地址前{n_days}日的最高值：{row.get('n_max_value', '无')}，"
                 f"前N最大值：{row.get('n_max_is_max', '无')}，"
                 f"开始日到结束日之间最高价/最低价小于M：{row.get('range_ratio_is_less', '无')}，"
-                f"开始日到结束日之间连续累加值绝对值小于：{row.get('abs_sum_is_less', '无')}，"
+                f"开始日到结束日之间连续累加值绝对值小于：{row.get('continuous_abs_is_less', '无')}，"
                 f"前1组结束地址前1日涨跌幅：{row.get('prev_day_change', '无')}%，"
                 f"前1组结束日涨跌幅：{row.get('end_day_change', '无')}%，"
                 f"后一组结束地址值：{row.get('diff_end_value', '无')}, "
@@ -473,12 +472,10 @@ def query_row_result(rows, keyword, n_days=0):
         return f"未找到与'{keyword}'相关的股票信息。"
     return '\n'.join(results)
 
-def show_params_table(parent, all_results, n_days=0, range_value=None, abs_sum_value=None, as_widget=False):
+def show_params_table(parent, all_results, n_days=0, n_days_max=0, range_value=None, continuous_abs_threshold=None, as_widget=False, price_data=None):
     if not all_results or not all_results.get("dates"):
         QMessageBox.information(parent, "提示", "请先生成参数！")
         return None
-
-    # 获取最后一个end_date的数据
     dates = all_results.get("dates", [])
     if not dates:
         QMessageBox.information(parent, "提示", "没有可用的日期数据！")
@@ -492,17 +489,20 @@ def show_params_table(parent, all_results, n_days=0, range_value=None, abs_sum_v
         QMessageBox.information(parent, "提示", f"日期 {end_date} 没有股票数据！")
         return None
 
-    dialog = QDialog()
-    dialog.setWindowTitle("参数明细")
-    layout = QVBoxLayout(dialog)
-    label = QLabel("参数明细")
-    layout.addWidget(label)
+    date_picker = QDateEdit(parent)
+    date_picker.setDisplayFormat("yyyy-MM-dd")
+    date_picker.setCalendarPopup(True)
+    date_list = [d['end_date'] for d in dates]
+    date_picker.setDate(QDate.fromString(end_date, "yyyy-MM-dd"))
+    date_picker.setFixedWidth(180)
+    date_picker.setStyleSheet("font-size: 12px; height: 20px;")
 
     headers = [
         '代码', '名称', '最大值', '最小值', '结束值', '开始值', '实际开始日期值', '最接近值',
-        f'前1组结束地址前{n_days}日的最高值', '前N最大值',
+        f'前1组结束地址前{n_days_max}日最大值', '前N最大值', 
         f'开始日到结束日之间最高价/最低价小于{range_value}',
-        f'开始日到结束日之间连续累加值绝对值小于{abs_sum_value}',
+        f'开始日到结束日之间连续累加值绝对值小于{continuous_abs_threshold}',
+        '前1组结束日地址值',
         '前1组结束地址前1日涨跌幅', '前1组结束日涨跌幅', '后1组结束地址值',
         '递增值', '后值大于结束地址值', '后值大于前值返回值', '操作值', '持有天数', '操作涨幅', '调整天数', '日均涨幅'
     ]
@@ -510,10 +510,8 @@ def show_params_table(parent, all_results, n_days=0, range_value=None, abs_sum_v
     table.setHorizontalHeaderLabels(headers)
 
     def get_val(val):
-        # 如果是元组或列表，取第2个元素（数值部分），否则原样返回
         if isinstance(val, (list, tuple)) and len(val) > 1:
             val = val[1]
-        # None或nan都返回空字符串
         if val is None or val == '' or (isinstance(val, float) and math.isnan(val)):
             return ''
         return val
@@ -530,39 +528,76 @@ def show_params_table(parent, all_results, n_days=0, range_value=None, abs_sum_v
             return 'False'
         return str(v)
 
-    for row_idx, row in enumerate(stocks_data):
-        table.setItem(row_idx, 0, QTableWidgetItem(str(get_val(row.get('code', '')))))
-        table.setItem(row_idx, 1, QTableWidgetItem(str(get_val(row.get('name', '')))))
-        table.setItem(row_idx, 2, QTableWidgetItem(str(get_val(row.get('max_value', '')))))
-        table.setItem(row_idx, 3, QTableWidgetItem(str(get_val(row.get('min_value', '')))))
-        table.setItem(row_idx, 4, QTableWidgetItem(str(get_val(row.get('end_value', '')))))
-        table.setItem(row_idx, 5, QTableWidgetItem(str(get_val(row.get('start_value', '')))))
-        table.setItem(row_idx, 6, QTableWidgetItem(str(get_val(row.get('actual_value', '')))))
-        table.setItem(row_idx, 7, QTableWidgetItem(str(get_val(row.get('closest_value', '')))))
-        table.setItem(row_idx, 8, QTableWidgetItem(str(get_val(row.get('n_max_value', '')))))
-        table.setItem(row_idx, 9, QTableWidgetItem(get_bool(row.get('n_max_is_max', ''))))
-        table.setItem(row_idx, 10, QTableWidgetItem(get_bool(row.get('range_ratio_is_less', ''))))
-        table.setItem(row_idx, 11, QTableWidgetItem(get_bool(row.get('abs_sum_is_less', ''))))
-        table.setItem(row_idx, 12, QTableWidgetItem(get_percent(row.get('prev_day_change', ''))))
-        table.setItem(row_idx, 13, QTableWidgetItem(get_percent(row.get('end_day_change', ''))))
-        table.setItem(row_idx, 14, QTableWidgetItem(str(get_val(row.get('diff_end_value', '')))))
-        table.setItem(row_idx, 15, QTableWidgetItem(str(get_val(row.get('increment_value', '')))))
-        table.setItem(row_idx, 16, QTableWidgetItem(str(get_val(row.get('after_gt_end_value', '')))))
-        table.setItem(row_idx, 17, QTableWidgetItem(str(get_val(row.get('after_gt_start_value', '')))))
-        table.setItem(row_idx, 18, QTableWidgetItem(str(get_val(row.get('ops_value', '')))))
-        table.setItem(row_idx, 19, QTableWidgetItem(str(get_val(row.get('hold_days', '')))))
-        table.setItem(row_idx, 20, QTableWidgetItem(get_percent(row.get('ops_change', ''))))
-        table.setItem(row_idx, 21, QTableWidgetItem(str(get_val(row.get('adjust_days', '')))))
-        table.setItem(row_idx, 22, QTableWidgetItem(get_percent(row.get('ops_incre_rate', ''))))
+    def update_table(stocks_data):
+        table.setRowCount(len(stocks_data))
+        for row_idx, row in enumerate(sorted(stocks_data, key=lambda r: r.get('stock_idx', 0))):
+            stock_idx = row.get('stock_idx', 0)
+            code = price_data.iloc[stock_idx, 0] if price_data is not None else row.get('code', '')
+            name = price_data.iloc[stock_idx, 1] if price_data is not None else row.get('name', '')
+            table.setItem(row_idx, 0, QTableWidgetItem(str(code)))
+            table.setItem(row_idx, 1, QTableWidgetItem(str(name)))
+            table.setItem(row_idx, 2, QTableWidgetItem(str(get_val(row.get('max_value', '')))))
+            table.setItem(row_idx, 3, QTableWidgetItem(str(get_val(row.get('min_value', '')))))
+            table.setItem(row_idx, 4, QTableWidgetItem(str(get_val(row.get('end_value', '')))))
+            table.setItem(row_idx, 5, QTableWidgetItem(str(get_val(row.get('start_value', '')))))
+            table.setItem(row_idx, 6, QTableWidgetItem(str(get_val(row.get('actual_value', '')))))
+            table.setItem(row_idx, 7, QTableWidgetItem(str(get_val(row.get('closest_value', '')))))
+            table.setItem(row_idx, 8, QTableWidgetItem(str(get_val(row.get('n_days_max_value', '')))))
+            table.setItem(row_idx, 9, QTableWidgetItem(str(get_val(row.get('n_max_is_max', '')))))
+            table.setItem(row_idx, 10, QTableWidgetItem(get_bool(row.get('range_ratio_is_less', ''))))
+            table.setItem(row_idx, 11, QTableWidgetItem(get_bool(row.get('continuous_abs_is_less', ''))))
+            table.setItem(row_idx, 12, QTableWidgetItem(str(get_val(row.get('end_value', '')))))
+            table.setItem(row_idx, 13, QTableWidgetItem(get_percent(row.get('prev_day_change', ''))))
+            table.setItem(row_idx, 14, QTableWidgetItem(get_percent(row.get('end_day_change', ''))))
+            table.setItem(row_idx, 15, QTableWidgetItem(str(get_val(row.get('diff_end_value', '')))))
+            table.setItem(row_idx, 16, QTableWidgetItem(str(get_val(row.get('increment_value', '')))))
+            table.setItem(row_idx, 17, QTableWidgetItem(str(get_val(row.get('after_gt_end_value', '')))))
+            table.setItem(row_idx, 18, QTableWidgetItem(str(get_val(row.get('after_gt_start_value', '')))))
+            table.setItem(row_idx, 19, QTableWidgetItem(str(get_val(row.get('ops_value', '')))))
+            table.setItem(row_idx, 20, QTableWidgetItem(str(get_val(row.get('hold_days', '')))))
+            table.setItem(row_idx, 21, QTableWidgetItem(get_percent(row.get('ops_change', ''))))
+            table.setItem(row_idx, 22, QTableWidgetItem(str(get_val(row.get('adjust_days', '')))))
+            table.setItem(row_idx, 23, QTableWidgetItem(get_percent(row.get('ops_incre_rate', ''))))
+        table.resizeColumnsToContents()
+        table.horizontalHeader().setFixedHeight(50)
+        table.horizontalHeader().setStyleSheet("font-size: 12px;")
+
+    update_table(stocks_data)
+
+    def on_date_changed():
+        selected_date = date_picker.date().toString("yyyy-MM-dd")
+        found = False
+        for d in dates:
+            if d['end_date'] == selected_date:
+                stocks_data = d['stocks']
+                found = True
+                break
+        if not found:
+            QMessageBox.information(parent, "提示", f"没有该结束日期（{selected_date}）的数据！")
+            return
+        update_table(stocks_data)
+
+    date_picker.dateChanged.connect(on_date_changed)
+
+    top_layout = QHBoxLayout()
+    top_layout.addStretch(1)
+    top_layout.addWidget(QLabel("选择结束日期："))
+    top_layout.addWidget(date_picker)
+
+    main_layout = QVBoxLayout()
+    main_layout.addLayout(top_layout)
+    main_layout.addWidget(table)
 
     if as_widget:
-        return table  # 直接返回QTableWidget
+        container = QWidget(parent)
+        container.setLayout(main_layout)
+        container.setMinimumSize(1200, 600)
+        container.show()
+        return container
     else:
         dialog = QDialog()
         dialog.setWindowTitle("参数明细")
-        layout = QVBoxLayout(dialog)
-        layout.addWidget(table)
-        dialog.setLayout(layout)
+        dialog.setLayout(main_layout)
         dialog.resize(1800, 500)
         dialog.show()
         return dialog
@@ -741,7 +776,7 @@ def show_formula_select_table(parent, all_results, as_widget=True):
                             'EDC': row.get('end_day_change', 0),
                             'DEV': row.get('diff_end_value', 0),
                             'RRL': row.get('range_ratio_is_less', False),
-                            'ASL': row.get('abs_sum_is_less', False),
+                            'ASL': row.get('continuous_abs_is_less', False),
                             'CSV': row.get('continuous_start_value', 0),
                             'CSNV': row.get('continuous_start_next_value', 0),
                             'CEV': row.get('continuous_end_value', 0),
