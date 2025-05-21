@@ -103,15 +103,25 @@ class StockAnalysisApp(QWidget):
         self.calc_btn = QPushButton("2. 生成参数")
         self.calc_btn.setMinimumWidth(120)
 
+        # 新增"前1组结束地址前N日最大值"
+        self.n_days_label2 = QLabel("前1组结束地址前N日最大值")
+        self.n_days_max_spin = QSpinBox()
+        self.n_days_max_spin.setMinimum(0)
+        self.n_days_max_spin.setMaximum(100)
+        self.n_days_max_spin.setValue(0)
+
         top_grid.addWidget(self.start_option_label, 1, 0)
         top_grid.addWidget(self.start_option_combo, 1, 1)
         top_grid.addWidget(self.shift_label, 1, 2)
         top_grid.addWidget(self.shift_spin, 1, 3)
         top_grid.addWidget(self.direction_checkbox, 1, 4)
+        # 新增控件放在第二行第五列
+        top_grid.addWidget(self.n_days_label2, 1, 5)
+        top_grid.addWidget(self.n_days_max_spin, 1, 6)
         top_grid.addWidget(self.calc_btn, 3, 8)
 
         # 第三行控件
-        self.n_days_label1 = QLabel("前1组结束地址前N日最大值")
+        self.n_days_label1 = QLabel("前N日最大值")
         self.n_days_spin = QSpinBox()
         self.n_days_spin.setMinimum(0)
         self.n_days_spin.setMaximum(100)
@@ -119,14 +129,16 @@ class StockAnalysisApp(QWidget):
         self.range_label = QLabel("开始日到结束日之间最高价/最低价小于")
         self.range_value_edit = QLineEdit()
         self.abs_sum_label = QLabel("开始日到结束日之间连续累加值绝对值小于")
-        self.abs_sum_value_edit = QLineEdit()
+        self.continuous_abs_threshold_edit = QLineEdit()
+        
 
         top_grid.addWidget(self.n_days_label1, 2, 0)
         top_grid.addWidget(self.n_days_spin, 2, 1)
         top_grid.addWidget(self.range_label, 2, 2)
         top_grid.addWidget(self.range_value_edit, 2, 3)
         top_grid.addWidget(self.abs_sum_label, 2, 4)
-        top_grid.addWidget(self.abs_sum_value_edit, 2, 5)
+        top_grid.addWidget(self.continuous_abs_threshold_edit, 2, 5)
+        
 
         # 第四行控件
         op_days_widget = QWidget()
@@ -316,7 +328,18 @@ class StockAnalysisApp(QWidget):
         all_results = getattr(self, 'all_row_results', None)
         from function.stock_functions import show_params_table
         self.clear_result_area()
-        table = show_params_table(self, all_results, as_widget=True)
+        params = {}
+        params['n_days_max'] = self.n_days_max_spin.value()
+        table = show_params_table(
+            parent=self,
+            all_results=all_results,
+            n_days=self.n_days if hasattr(self, 'n_days') else 0,
+            n_days_max=params['n_days_max'],
+            range_value=getattr(self, 'range_value', None),
+            continuous_abs_threshold=getattr(self, 'continuous_abs_threshold', None),
+            as_widget=True,
+            price_data=self.init.price_data
+        )
         if table:
             table.setMinimumSize(1200, 600)
             self.table_widget = table
@@ -348,7 +371,10 @@ class StockAnalysisApp(QWidget):
         self.clear_result_area()
         self.result_text.setText("正在生成参数，请稍候...")
         self.output_stack.setCurrentWidget(self.result_text)
-        self.base_param.on_calculate_clicked()
+        # 传递 n_days_max
+        params = {}
+        params['n_days_max'] = self.n_days_max_spin.value()
+        self.base_param.on_calculate_clicked(params)
 
     def on_confirm_range(self):
         self.clear_result_area()

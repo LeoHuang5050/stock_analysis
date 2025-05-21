@@ -14,10 +14,10 @@ def split_indices(total, n_parts):
 
 def cy_batch_worker(args):
     import worker_threads_cy
-    price_data_np, date_columns, width, start_option, shift_days, end_date_start_idx, end_date_end_idx, diff_data_np, stock_idx_arr = args
+    price_data_np, date_columns, width, start_option, shift_days, end_date_start_idx, end_date_end_idx, diff_data_np, stock_idx_arr, is_forward, n_days, user_range_ratio, continuous_abs_threshold, n_days_max = args
     stock_idx_arr = np.ascontiguousarray(stock_idx_arr, dtype=np.int32)
     date_grouped_results = worker_threads_cy.calculate_batch_cy(
-        price_data_np, date_columns, width, start_option, shift_days, end_date_start_idx, end_date_end_idx, diff_data_np, stock_idx_arr
+        price_data_np, date_columns, width, start_option, shift_days, end_date_start_idx, end_date_end_idx, diff_data_np, stock_idx_arr, is_forward, n_days, user_range_ratio, continuous_abs_threshold, n_days_max
     )
     return date_grouped_results
 
@@ -44,7 +44,7 @@ class RowResult:
         'actual_value', 'closest_value', 'continuous_results', 'forward_max_result',
         'forward_min_result', 'forward_max_date', 'forward_min_date', 'n_max_value',
         'n_max_is_max', 'prev_day_change', 'end_day_change', 'diff_end_value',
-        'range_ratio_is_less', 'abs_sum_is_less', 'continuous_start_value',
+        'range_ratio_is_less', 'continuous_abs_is_less', 'continuous_start_value',
         'continuous_start_next_value', 'continuous_start_next_next_value',
         'continuous_end_value', 'continuous_end_prev_value', 'continuous_end_prev_prev_value',
         'continuous_len', 'continuous_abs_sum_first_half', 'continuous_abs_sum_second_half',
@@ -397,13 +397,13 @@ class CalculateThread(QThread):
             
             # 读取用户输入的区间比值和绝对值阈值
             range_ratio_is_less = None
-            abs_sum_is_less = None
+            continuous_abs_is_less = None
             try:
                 user_range_ratio = float(params.get('range_value', None))
             except Exception:
                 user_range_ratio = None
             try:
-                user_abs_sum = float(params.get('abs_sum_value', None))
+                user_abs_sum = float(params.get('continuous_abs_threshold', None))
             except Exception:
                 user_abs_sum = None
             # 区间最大值/最小值比值判断
@@ -411,7 +411,7 @@ class CalculateThread(QThread):
                 range_ratio_is_less = (max_value / min_value) < user_range_ratio
             # 连续累加值绝对值判断
             if continuous_results and user_abs_sum is not None:
-                abs_sum_is_less = all(abs(v) < user_abs_sum for v in continuous_results if v is not None)
+                continuous_abs_is_less = all(abs(v) < user_abs_sum for v in continuous_results if v is not None)
 
             t9 = time.time()
             # 获取连续累加值开始值、开始后一位值、开始后两位值、连续累加值结束值、结束前一位值、结束前两位值
@@ -712,7 +712,7 @@ class CalculateThread(QThread):
             row_result.end_day_change = end_day_change
             row_result.diff_end_value = diff_end_value
             row_result.range_ratio_is_less = range_ratio_is_less
-            row_result.abs_sum_is_less = abs_sum_is_less
+            row_result.continuous_abs_is_less = continuous_abs_is_less
             row_result.continuous_start_value = continuous_start_value
             row_result.continuous_start_next_value = continuous_start_next_value
             row_result.continuous_start_next_next_value = continuous_start_next_next_value
@@ -792,6 +792,11 @@ class CalculateThread(QThread):
         width = params.get("width")   #日期宽度
         start_option = params.get("start_option")  #开始日期选项
         shift_days = params.get("shift_days")  #偏移天数
+        is_forward = params.get("is_forward", False)  # 是否计算向前
+        n_days = params.get("n_days", 0)  # 前N日
+        range_value = params.get('range_value', None)
+        user_range_ratio = self.safe_float(range_value)
+        continuous_abs_threshold = self.safe_float(params.get('continuous_abs_threshold', None))
         # 自动分析 结束日期开始到结束日期结束
         end_date_start = "2023-11-17"
         # end_date_start = "2025-04-30"
@@ -804,8 +809,10 @@ class CalculateThread(QThread):
         diff_data_np = self.diff_data.values.astype(np.float64)  # 不要去掉前两列
         # 调用Cython加速方法
         t0 = time.time()
+        n_days_max = params.get("n_days_max", 0)
         all_results = worker_threads_cy.calculate_batch_cy(
-            price_data_np, date_columns, width, start_option, shift_days, end_date_start_idx, end_date_end_idx, diff_data_np
+            price_data_np, date_columns, width, start_option, shift_days, end_date_start_idx, end_date_end_idx,
+            diff_data_np, np.arange(price_data_np.shape[0], dtype=np.int32), is_forward, n_days, user_range_ratio, continuous_abs_threshold, n_days_max
         )
         t1 = time.time()
         print(f"calculate_batch_cy 总耗时: {t1 - t0:.4f}秒")
@@ -819,13 +826,27 @@ class CalculateThread(QThread):
         }
         return result
 
+    def safe_float(self, val, default=float('nan')):
+        try:
+            if val is None or (isinstance(val, str) and val.strip() == ''):
+                return default
+            return float(val)
+        except Exception:
+            return default
+
     def calculate_batch_16_cores(self, params):
         columns = list(self.diff_data.columns)
         date_columns = list(self.price_data.columns[2:])
         width = params.get("width")
         start_option = params.get("start_option")
         shift_days = params.get("shift_days")
+        is_forward = params.get("is_forward", False)  # 是否计算向前
+        n_days = params.get("n_days", 0)  # 前N日
+        range_value = params.get('range_value', None)
+        user_range_ratio = self.safe_float(range_value)
+        continuous_abs_threshold = self.safe_float(params.get('continuous_abs_threshold', None))
         end_date_start = "2023-11-17"
+        # end_date_start = "2025-04-30"
         end_date_end = "2025-04-30"
         end_date_start_idx = date_columns.index(end_date_start)
         end_date_end_idx = date_columns.index(end_date_end)
@@ -835,6 +856,7 @@ class CalculateThread(QThread):
         n_proc = 16
         stock_idx_arr = np.arange(num_stocks, dtype=np.int32)
         stock_idx_ranges = split_indices(num_stocks, n_proc)
+        n_days_max = params.get("n_days_max", 0)
         args_list = [
             (
                 price_data_np,  # 全量
@@ -845,7 +867,12 @@ class CalculateThread(QThread):
                 end_date_start_idx,
                 end_date_end_idx,
                 diff_data_np,   # 全量
-                np.ascontiguousarray(stock_idx_arr[start:end], dtype=np.int32)
+                np.ascontiguousarray(stock_idx_arr[start:end], dtype=np.int32),
+                is_forward,
+                n_days,
+                user_range_ratio,
+                continuous_abs_threshold,
+                n_days_max
             )
             for (start, end) in stock_idx_ranges if end > start
         ]
@@ -1001,7 +1028,7 @@ class SelectStockThread(QThread):
         abbr_map = {
             'MAX': 'max_value', 'MIN': 'min_value', 'END': 'end_value', 'START': 'start_value',
             'ACT': 'actual_value', 'CLS': 'closest_value', 'NMAX': 'n_max_value',
-            'NMAXISMAX': 'n_max_is_max', 'RRL': 'range_ratio_is_less', 'ASL': 'abs_sum_is_less',
+            'NMAXISMAX': 'n_max_is_max', 'RRL': 'range_ratio_is_less', 'CAL': 'continuous_abs_is_less',
             'PDC': 'prev_day_change', 'EDC': 'end_day_change', 'DEV': 'diff_end_value',
             'CR': 'continuous_results', 'CL': 'continuous_len',
             'CSV': 'continuous_start_value', 'CSNV': 'continuous_start_next_value',
