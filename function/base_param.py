@@ -9,27 +9,30 @@ class BaseParamHandler:
         self.main_window = main_window
         self.range_max_value = None  # 确保有这个属性
 
-    def on_calculate_clicked(self):
+    def on_calculate_clicked(self, params=None):
         if self.main_window.init.price_data is None:
             QMessageBox.warning(self.main_window, "提示", "请先上传Excel文件！")
             return
         
         # 收集所有参数
-        params = {
+        if params is None:
+            params = {}
+            
+        params.update({
             "width": self.main_window.width_spin.value(),
             "start_option": self.main_window.start_option_combo.currentText(),
             "shift_days": self.main_window.shift_spin.value(),
             "is_forward": self.main_window.direction_checkbox.isChecked(),
             "n_days": self.main_window.n_days_spin.value(),
             "range_value": self.main_window.range_value_edit.text(),
-            "abs_sum_value": self.main_window.abs_sum_value_edit.text(),
+            "continuous_abs_threshold": self.main_window.continuous_abs_threshold_edit.text(),
             "op_days": int(self.main_window.op_days_edit.text() or 0),
             "inc_rate": float(self.main_window.inc_rate_edit.text() or 0),
             "after_gt_end_ratio": float(self.main_window.after_gt_end_edit.text() or 0),
             "after_gt_start_ratio": float(self.main_window.after_gt_prev_edit.text() or 0),
             "expr": self.main_window.expr_edit.text().strip(),
             "ops_change": float(self.main_window.ops_change_edit.text() or 0)
-        }
+        })
         
         self.main_window.result_text.setText("正在批量计算参数，请稍候...")
         QApplication.processEvents()
