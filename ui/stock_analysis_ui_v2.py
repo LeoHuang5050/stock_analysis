@@ -6,6 +6,8 @@ from PyQt5.QtCore import Qt
 from function.init import StockAnalysisInit
 from function.base_param import BaseParamHandler
 from function.stock_functions import show_continuous_sum_table
+import gc
+import numpy as np
 
 class Tab4SpaceTextEdit(QTextEdit):
     def keyPressEvent(self, event):
@@ -367,13 +369,29 @@ class StockAnalysisApp(QWidget):
         self.result_text.setText(text)
         self.output_stack.setCurrentWidget(self.result_text)
 
-    def on_calculate_clicked(self):
+    def on_calculate_clicked(self, formula_expr=None):
+        # 释放上一次的结果，防止内存累加
+        self.all_results = None
+        try:
+            del self.all_results
+        except Exception:
+            pass
+        # 2. 强制垃圾回收
+        gc.collect()
+        # 4. 触发numpy的内存释放
+        np.empty(0)
         self.clear_result_area()
         self.result_text.setText("正在生成参数，请稍候...")
         self.output_stack.setCurrentWidget(self.result_text)
         # 传递 n_days_max
         params = {}
         params['n_days_max'] = self.n_days_max_spin.value()
+        user_expr = self.expr_edit.text().strip()
+        params['expr'] = user_expr
+        # 其它参数收集（如有）
+        # ... 你原有的参数收集逻辑 ...
+        if formula_expr is not None:
+            params['formula_expr'] = formula_expr
         self.base_param.on_calculate_clicked(params)
 
     def on_confirm_range(self):
