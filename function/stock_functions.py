@@ -528,6 +528,17 @@ def show_params_table(parent, all_results, n_days=0, n_days_max=0, range_value=N
             return 'False'
         return str(v)
 
+    def get_ops_value(val):
+        # val 是 [值, 天数] 或 None
+        if isinstance(val, (list, tuple)) and len(val) == 2:
+            return val[0]
+        return '' if val is None else val
+
+    def get_ops_days(val):
+        if isinstance(val, (list, tuple)) and len(val) == 2:
+            return val[1]
+        return '' if val is None else val
+
     def update_table(stocks_data):
         table.setRowCount(len(stocks_data))
         for row_idx, row in enumerate(sorted(stocks_data, key=lambda r: r.get('stock_idx', 0))):
@@ -553,8 +564,8 @@ def show_params_table(parent, all_results, n_days=0, n_days_max=0, range_value=N
             table.setItem(row_idx, 16, QTableWidgetItem(str(get_val(row.get('increment_value', '')))))
             table.setItem(row_idx, 17, QTableWidgetItem(str(get_val(row.get('after_gt_end_value', '')))))
             table.setItem(row_idx, 18, QTableWidgetItem(str(get_val(row.get('after_gt_start_value', '')))))
-            table.setItem(row_idx, 19, QTableWidgetItem(str(get_val(row.get('ops_value', '')))))
-            table.setItem(row_idx, 20, QTableWidgetItem(str(get_val(row.get('hold_days', '')))))
+            table.setItem(row_idx, 19, QTableWidgetItem(str(row.get('ops_value', ''))))
+            table.setItem(row_idx, 20, QTableWidgetItem(str(row.get('hold_days', ''))))
             table.setItem(row_idx, 21, QTableWidgetItem(get_percent(row.get('ops_change', ''))))
             table.setItem(row_idx, 22, QTableWidgetItem(str(get_val(row.get('adjust_days', '')))))
             table.setItem(row_idx, 23, QTableWidgetItem(get_percent(row.get('ops_incre_rate', ''))))
@@ -620,7 +631,7 @@ class FormulaExprEdit(QTextEdit):
             "    abs(CEV) < 3 and\n"
             "    abs(CEPV) < 3 and\n"
             "    abs(CEPPV) < 3000 and\n"
-            "    abs(NMAX) < 3000 and\n"
+            "    abs(NDAYMAX) < 3000 and\n"
             "    abs(CSV) > 150 and\n"
             "    abs(CEPV) > 0 and\n"
             "    abs(CEPPV) > 0 and\n"
@@ -652,25 +663,7 @@ class FormulaExprEdit(QTextEdit):
         dialog.exec_()
 
 
-def show_formula_select_table(parent, all_results, as_widget=True):
-    if not all_results or not all_results.get("dates"):
-        QMessageBox.information(parent, "提示", "请先生成参数！")
-        return None
-
-    # 获取最后一个end_date的数据
-    dates = all_results.get("dates", [])
-    if not dates:
-        QMessageBox.information(parent, "提示", "没有可用的日期数据！")
-        return None
-
-    last_date_data = dates[-1]
-    end_date = last_date_data.get("end_date")
-    stocks_data = last_date_data.get("stocks", [])
-
-    if not stocks_data:
-        QMessageBox.information(parent, "提示", f"日期 {end_date} 没有股票数据！")
-        return None
-
+def show_formula_select_table(parent, all_results=None, as_widget=True):
     widget = QWidget(parent)
     widget.setStyleSheet("background-color: white; border: 1px solid #d0d0d0;")  # 设置白色背景和浅灰边框
     layout = QVBoxLayout(widget)
@@ -705,7 +698,7 @@ def show_formula_select_table(parent, all_results, as_widget=True):
 
     # 缩写说明区（表格排列，每行5列）
     abbrs = [
-        ("前N最大值", "NMAX"), ("前N最大值是否区间最大", "NMAXISMAX"), ("前1组结束日涨跌幅", "EDC"), ("后一组结束地址值", "DEV"), ("区间比值", "RRL"),
+        ("前N最大值", "NMAX"), ("前一组结束地址前N日的最高值", "NDAYMAX"), ("前N最大值是否区间最大", "NMAXISMAX"), ("前1组结束日涨跌幅", "EDC"), ("后一组结束地址值", "DEV"), ("区间比值", "RRL"),
         ("绝对值", "ASL"), ("连续累加值开始值", "CSV"), ("连续累加值开始后1位值", "CSNV"), ("连续累加值结束值", "CEV"), ("连续累加值结束前1位值", "CEPV"),
         ("连续累加值结束前2位值", "CEPPV"), ("连续累加值长度", "CL"), ("连续累加值前一半绝对值之和", "CASFH"), ("连续累加值后一半绝对值之和", "CASSH"), ("连续累加值前四分之一绝对值之和", "CASB1"),
         ("连续累加值前四分之二绝对值之和", "CASB2"), ("连续累加值前四分之三绝对值之和", "CASB3"), ("连续累加值后四分之一绝对值之和", "CASB4"), ("有效累加值正加值和", "VPS"), ("有效累加值负加值和", "VNS"),
@@ -739,122 +732,14 @@ def show_formula_select_table(parent, all_results, as_widget=True):
 
     # 选股逻辑
     def do_select():
-        formula_expr = formula_input.toPlainText()
-        if not formula_expr:
-            output_edit.setText("请输入选股公式！")
-            return
-
-        try:
-            # 编译表达式以检查语法
-            compile(formula_expr, '<string>', 'exec')
-        except SyntaxError as e:
-            output_edit.setText(f"公式语法错误：{e}")
-            return
-
-        select_count = select_count_spin.value()
-        sort_type = sort_combo.currentText()
-
-        # 创建选股线程
-        class SelectThread(QThread):
-            finished = pyqtSignal(list)
-
-            def __init__(self, stocks_data, formula_expr, select_count, sort_type):
-                super().__init__()
-                self.stocks_data = stocks_data
-                self.formula_expr = formula_expr
-                self.select_count = select_count
-                self.sort_type = sort_type
-
-            def run(self):
-                selected = []
-                for row in self.stocks_data:
-                    try:
-                        # 创建局部变量字典
-                        local_vars = {
-                            'NMAX': row.get('n_max_value', 0),
-                            'NMAXISMAX': row.get('n_max_is_max', False),
-                            'EDC': row.get('end_day_change', 0),
-                            'DEV': row.get('diff_end_value', 0),
-                            'RRL': row.get('range_ratio_is_less', False),
-                            'ASL': row.get('continuous_abs_is_less', False),
-                            'CSV': row.get('continuous_start_value', 0),
-                            'CSNV': row.get('continuous_start_next_value', 0),
-                            'CEV': row.get('continuous_end_value', 0),
-                            'CEPV': row.get('continuous_end_prev_value', 0),
-                            'CEPPV': row.get('continuous_end_prev_prev_value', 0),
-                            'CL': row.get('continuous_len', 0),
-                            'CASFH': row.get('continuous_abs_sum_first_half', 0),
-                            'CASSH': row.get('continuous_abs_sum_second_half', 0),
-                            'CASB1': row.get('continuous_abs_sum_block1', 0),
-                            'CASB2': row.get('continuous_abs_sum_block2', 0),
-                            'CASB3': row.get('continuous_abs_sum_block3', 0),
-                            'CASB4': row.get('continuous_abs_sum_block4', 0),
-                            'VPS': row.get('valid_pos_sum', 0),
-                            'VNS': row.get('valid_neg_sum', 0),
-                            'VSL': row.get('valid_sum_len', 0),
-                            'VASFH': row.get('valid_abs_sum_first_half', 0),
-                            'VASSH': row.get('valid_abs_sum_second_half', 0),
-                            'VASB1': row.get('valid_abs_sum_block1', 0),
-                            'VASB2': row.get('valid_abs_sum_block2', 0),
-                            'VASB3': row.get('valid_abs_sum_block3', 0),
-                            'VASB4': row.get('valid_abs_sum_block4', 0),
-                            'FMD': row.get('forward_max_date', ''),
-                            'FMR': row.get('forward_max_result', []),
-                            'FMVSL': row.get('forward_max_valid_sum_len', 0),
-                            'FMVPS': row.get('forward_max_valid_pos_sum', 0),
-                            'FMVNS': row.get('forward_max_valid_neg_sum', 0),
-                            'FMVASFH': row.get('forward_max_valid_abs_sum_first_half', 0),
-                            'FMVASSH': row.get('forward_max_valid_abs_sum_second_half', 0),
-                            'FMVASB1': row.get('forward_max_valid_abs_sum_block1', 0),
-                            'FMVASB2': row.get('forward_max_valid_abs_sum_block2', 0),
-                            'FMVASB3': row.get('forward_max_valid_abs_sum_block3', 0),
-                            'FMVASB4': row.get('forward_max_valid_abs_sum_block4', 0),
-                            'INC': row.get('increment_value', 0),
-                            'AGE': row.get('after_gt_end_value', 0),
-                            'AGS': row.get('after_gt_start_value', 0),
-                            'OPS': row.get('ops_value', 0),
-                            'HD': row.get('hold_days', 0),
-                            'OPC': row.get('ops_change', 0),
-                            'ADJ': row.get('adjust_days', 0),
-                            'OIR': row.get('ops_incre_rate', 0),
-                            'result': None
-                        }
-
-                        # 执行公式
-                        exec(self.formula_expr, {}, local_vars)
-                        score = local_vars['result']
-
-                        if score is not None and score != 0:
-                            selected.append({
-                                'code': row.get('code', ''),
-                                'name': row.get('name', ''),
-                                'hold_days': row.get('hold_days', 0),
-                                'ops_change': row.get('ops_change', 0),
-                                'ops_incre_rate': row.get('ops_incre_rate', 0),
-                                'score': score
-                            })
-                    except Exception as e:
-                        print(f"处理股票 {row.get('code', '')} 时出错：{e}")
-                        continue
-
-                # 根据分数排序
-                selected.sort(key=lambda x: x['score'], reverse=True)
-                # 根据排序方式调整
-                if self.sort_type == "最小值排序":
-                    selected.reverse()
-                # 截取指定数量
-                selected = selected[:self.select_count]
-                self.finished.emit(selected)
-
-        def on_finished(selected):
-            widget.selected_results = selected
-            output_edit.setText(f"选股完成，共选出 {len(selected)} 只股票")
-
-        # 创建并启动线程
-        widget.select_thread = SelectThread(stocks_data, formula_expr, select_count, sort_type)
-        widget.select_thread.finished.connect(on_finished)
-        widget.select_thread.start()
-        output_edit.setText("正在选股，请稍候...")
+        output_edit.setText("正在生成参数，请稍候...")
+        formula_expr = formula_input.toPlainText().strip()  # 如果是QTextEdit
+        # formula_expr = formula_input.text().strip()  # 如果是QLineEdit
+        if hasattr(parent, 'on_calculate_clicked'):
+            parent.on_calculate_clicked(formula_expr=formula_expr)
+            output_edit.setText("参数生成完毕，请点击'查看结果'按钮查看选股结果。")
+        else:
+            output_edit.setText("未找到生成参数的方法！")
 
     def show_selected():
         selected = getattr(widget, 'selected_results', [])
