@@ -11,10 +11,10 @@
             "C:\\Users\\46305\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\site-packages\\numpy\\_core\\include\\numpy\\ufuncobject.h"
         ],
         "extra_compile_args": [
-            "-fopenmp"
+            "/openmp"
         ],
         "extra_link_args": [
-            "-fopenmp"
+            "/openmp"
         ],
         "include_dirs": [
             "C:\\Users\\46305\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\site-packages\\numpy\\_core\\include"
@@ -1771,7 +1771,7 @@ typedef npy_double __pyx_t_5numpy_double_t;
 */
 typedef npy_longdouble __pyx_t_5numpy_longdouble_t;
 
-/* "worker_threads_cy.pyx":12
+/* "worker_threads_cy.pyx":11
  * from libcpp.vector cimport vector
  * 
  * ctypedef np.float64_t DTYPE_t             # <<<<<<<<<<<<<<
@@ -2087,6 +2087,46 @@ static CYTHON_INLINE PyObject* __Pyx_PyObject_GetAttrStrNoError(PyObject* obj, P
 
 /* GetBuiltinName.proto */
 static PyObject *__Pyx_GetBuiltinName(PyObject *name);
+
+/* GetTopmostException.proto */
+#if CYTHON_USE_EXC_INFO_STACK && CYTHON_FAST_THREAD_STATE
+static _PyErr_StackItem * __Pyx_PyErr_GetTopmostException(PyThreadState *tstate);
+#endif
+
+/* SaveResetException.proto */
+#if CYTHON_FAST_THREAD_STATE
+#define __Pyx_ExceptionSave(type, value, tb)  __Pyx__ExceptionSave(__pyx_tstate, type, value, tb)
+static CYTHON_INLINE void __Pyx__ExceptionSave(PyThreadState *tstate, PyObject **type, PyObject **value, PyObject **tb);
+#define __Pyx_ExceptionReset(type, value, tb)  __Pyx__ExceptionReset(__pyx_tstate, type, value, tb)
+static CYTHON_INLINE void __Pyx__ExceptionReset(PyThreadState *tstate, PyObject *type, PyObject *value, PyObject *tb);
+#else
+#define __Pyx_ExceptionSave(type, value, tb)   PyErr_GetExcInfo(type, value, tb)
+#define __Pyx_ExceptionReset(type, value, tb)  PyErr_SetExcInfo(type, value, tb)
+#endif
+
+/* FastTypeChecks.proto */
+#if CYTHON_COMPILING_IN_CPYTHON
+#define __Pyx_TypeCheck(obj, type) __Pyx_IsSubtype(Py_TYPE(obj), (PyTypeObject *)type)
+#define __Pyx_TypeCheck2(obj, type1, type2) __Pyx_IsAnySubtype2(Py_TYPE(obj), (PyTypeObject *)type1, (PyTypeObject *)type2)
+static CYTHON_INLINE int __Pyx_IsSubtype(PyTypeObject *a, PyTypeObject *b);
+static CYTHON_INLINE int __Pyx_IsAnySubtype2(PyTypeObject *cls, PyTypeObject *a, PyTypeObject *b);
+static CYTHON_INLINE int __Pyx_PyErr_GivenExceptionMatches(PyObject *err, PyObject *type);
+static CYTHON_INLINE int __Pyx_PyErr_GivenExceptionMatches2(PyObject *err, PyObject *type1, PyObject *type2);
+#else
+#define __Pyx_TypeCheck(obj, type) PyObject_TypeCheck(obj, (PyTypeObject *)type)
+#define __Pyx_TypeCheck2(obj, type1, type2) (PyObject_TypeCheck(obj, (PyTypeObject *)type1) || PyObject_TypeCheck(obj, (PyTypeObject *)type2))
+#define __Pyx_PyErr_GivenExceptionMatches(err, type) PyErr_GivenExceptionMatches(err, type)
+static CYTHON_INLINE int __Pyx_PyErr_GivenExceptionMatches2(PyObject *err, PyObject *type1, PyObject *type2) {
+    return PyErr_GivenExceptionMatches(err, type1) || PyErr_GivenExceptionMatches(err, type2);
+}
+#endif
+#define __Pyx_PyErr_ExceptionMatches2(err1, err2)  __Pyx_PyErr_GivenExceptionMatches2(__Pyx_PyErr_CurrentExceptionType(), err1, err2)
+#define __Pyx_PyException_Check(obj) __Pyx_TypeCheck(obj, PyExc_Exception)
+#ifdef PyExceptionInstance_Check
+  #define __Pyx_PyBaseException_Check(obj) PyExceptionInstance_Check(obj)
+#else
+  #define __Pyx_PyBaseException_Check(obj) __Pyx_TypeCheck(obj, PyExc_BaseException)
+#endif
 
 /* TupleAndListFromArray.proto */
 #if CYTHON_COMPILING_IN_CPYTHON
@@ -2453,22 +2493,6 @@ static CYTHON_INLINE void __Pyx_RaiseNoneNotIterableError(void);
 /* ExtTypeTest.proto */
 static CYTHON_INLINE int __Pyx_TypeTest(PyObject *obj, PyTypeObject *type);
 
-/* GetTopmostException.proto */
-#if CYTHON_USE_EXC_INFO_STACK && CYTHON_FAST_THREAD_STATE
-static _PyErr_StackItem * __Pyx_PyErr_GetTopmostException(PyThreadState *tstate);
-#endif
-
-/* SaveResetException.proto */
-#if CYTHON_FAST_THREAD_STATE
-#define __Pyx_ExceptionSave(type, value, tb)  __Pyx__ExceptionSave(__pyx_tstate, type, value, tb)
-static CYTHON_INLINE void __Pyx__ExceptionSave(PyThreadState *tstate, PyObject **type, PyObject **value, PyObject **tb);
-#define __Pyx_ExceptionReset(type, value, tb)  __Pyx__ExceptionReset(__pyx_tstate, type, value, tb)
-static CYTHON_INLINE void __Pyx__ExceptionReset(PyThreadState *tstate, PyObject *type, PyObject *value, PyObject *tb);
-#else
-#define __Pyx_ExceptionSave(type, value, tb)   PyErr_GetExcInfo(type, value, tb)
-#define __Pyx_ExceptionReset(type, value, tb)  PyErr_SetExcInfo(type, value, tb)
-#endif
-
 /* GetException.proto */
 #if CYTHON_FAST_THREAD_STATE
 #define __Pyx_GetException(type, value, tb)  __Pyx__GetException(__pyx_tstate, type, value, tb)
@@ -2491,30 +2515,6 @@ static PyObject *__Pyx_Import(PyObject *name, PyObject *from_list, int level);
 /* ImportDottedModule.proto */
 static PyObject *__Pyx_ImportDottedModule(PyObject *name, PyObject *parts_tuple);
 static PyObject *__Pyx_ImportDottedModule_WalkParts(PyObject *module, PyObject *name, PyObject *parts_tuple);
-
-/* FastTypeChecks.proto */
-#if CYTHON_COMPILING_IN_CPYTHON
-#define __Pyx_TypeCheck(obj, type) __Pyx_IsSubtype(Py_TYPE(obj), (PyTypeObject *)type)
-#define __Pyx_TypeCheck2(obj, type1, type2) __Pyx_IsAnySubtype2(Py_TYPE(obj), (PyTypeObject *)type1, (PyTypeObject *)type2)
-static CYTHON_INLINE int __Pyx_IsSubtype(PyTypeObject *a, PyTypeObject *b);
-static CYTHON_INLINE int __Pyx_IsAnySubtype2(PyTypeObject *cls, PyTypeObject *a, PyTypeObject *b);
-static CYTHON_INLINE int __Pyx_PyErr_GivenExceptionMatches(PyObject *err, PyObject *type);
-static CYTHON_INLINE int __Pyx_PyErr_GivenExceptionMatches2(PyObject *err, PyObject *type1, PyObject *type2);
-#else
-#define __Pyx_TypeCheck(obj, type) PyObject_TypeCheck(obj, (PyTypeObject *)type)
-#define __Pyx_TypeCheck2(obj, type1, type2) (PyObject_TypeCheck(obj, (PyTypeObject *)type1) || PyObject_TypeCheck(obj, (PyTypeObject *)type2))
-#define __Pyx_PyErr_GivenExceptionMatches(err, type) PyErr_GivenExceptionMatches(err, type)
-static CYTHON_INLINE int __Pyx_PyErr_GivenExceptionMatches2(PyObject *err, PyObject *type1, PyObject *type2) {
-    return PyErr_GivenExceptionMatches(err, type1) || PyErr_GivenExceptionMatches(err, type2);
-}
-#endif
-#define __Pyx_PyErr_ExceptionMatches2(err1, err2)  __Pyx_PyErr_GivenExceptionMatches2(__Pyx_PyErr_CurrentExceptionType(), err1, err2)
-#define __Pyx_PyException_Check(obj) __Pyx_TypeCheck(obj, PyExc_Exception)
-#ifdef PyExceptionInstance_Check
-  #define __Pyx_PyBaseException_Check(obj) PyExceptionInstance_Check(obj)
-#else
-  #define __Pyx_PyBaseException_Check(obj) __Pyx_TypeCheck(obj, PyExc_BaseException)
-#endif
 
 CYTHON_UNUSED static int __pyx_memoryview_getbuffer(PyObject *__pyx_v_self, Py_buffer *__pyx_v_info, int __pyx_v_flags); /*proto*/
 /* ListCompAppend.proto */
@@ -2647,6 +2647,28 @@ static CYTHON_INLINE PyObject* __Pyx_PyObject_GetSlice(
         PyObject** py_start, PyObject** py_stop, PyObject** py_slice,
         int has_cstart, int has_cstop, int wraparound);
 
+/* PyLongCompare.proto */
+static CYTHON_INLINE int __Pyx_PyLong_BoolNeObjC(PyObject *op1, PyObject *op2, long intval, long inplace);
+
+/* PyLongBinop.proto */
+#if !CYTHON_COMPILING_IN_PYPY
+static CYTHON_INLINE PyObject* __Pyx_PyLong_MultiplyObjC(PyObject *op1, PyObject *op2, long intval, int inplace, int zerodivision_check);
+#else
+#define __Pyx_PyLong_MultiplyObjC(op1, op2, intval, inplace, zerodivision_check)\
+    (inplace ? PyNumber_InPlaceMultiply(op1, op2) : PyNumber_Multiply(op1, op2))
+#endif
+
+/* PyLongCompare.proto */
+static CYTHON_INLINE int __Pyx_PyLong_BoolEqObjC(PyObject *op1, PyObject *op2, long intval, long inplace);
+
+/* PyLongBinop.proto */
+#if !CYTHON_COMPILING_IN_PYPY
+static CYTHON_INLINE PyObject* __Pyx_PyLong_AddObjC(PyObject *op1, PyObject *op2, long intval, int inplace, int zerodivision_check);
+#else
+#define __Pyx_PyLong_AddObjC(op1, op2, intval, inplace, zerodivision_check)\
+    (inplace ? PyNumber_InPlaceAdd(op1, op2) : PyNumber_Add(op1, op2))
+#endif
+
 /* ListAppend.proto */
 #if CYTHON_USE_PYLIST_INTERNALS && CYTHON_ASSUME_SAFE_MACROS
 static CYTHON_INLINE int __Pyx_PyList_Append(PyObject* list, PyObject* x) {
@@ -2689,13 +2711,6 @@ static PyObject *__Pyx_PyDict_GetItem(PyObject *d, PyObject* key);
 #else
 #define __Pyx_PyDict_GetItem(d, key) PyObject_GetItem(d, key)
 #define __Pyx_PyObject_Dict_GetItem(obj, name)  PyObject_GetItem(obj, name)
-#endif
-
-/* SharedInFreeThreading.proto */
-#if CYTHON_COMPILING_IN_CPYTHON_FREETHREADING
-#define __Pyx_shared_in_cpython_freethreading(x) shared(x)
-#else
-#define __Pyx_shared_in_cpython_freethreading(x)
 #endif
 
 /* PyDictContains.proto */
@@ -3496,6 +3511,7 @@ static CYTHON_INLINE double __pyx_f_17worker_threads_cy_round_to_2(double); /*pr
 static void __pyx_f_17worker_threads_cy_calc_continuous_sum(__Pyx_memviewslice, std::vector<double>  &); /*proto*/
 static void __pyx_f_17worker_threads_cy_calc_valid_sum_and_pos_neg(__Pyx_memviewslice, double *, int *, double *, double *); /*proto*/
 static PyObject *__pyx_convert_vector_to_py_double(std::vector<double>  const &); /*proto*/
+static int __Pyx_carray_from_py_double(PyObject *, double *, Py_ssize_t); /*proto*/
 static CYTHON_INLINE PyObject *__Pyx_carray_to_py_double(double *, Py_ssize_t); /*proto*/
 static CYTHON_INLINE PyObject *__Pyx_carray_to_tuple_double(double *, Py_ssize_t); /*proto*/
 static int __pyx_array_allocate_buffer(struct __pyx_array_obj *); /*proto*/
@@ -3546,23 +3562,26 @@ int __pyx_module_is_main_worker_threads_cy = 0;
 /* Implementation of "worker_threads_cy" */
 /* #### Code section: global_var ### */
 static PyObject *__pyx_builtin_range;
+static PyObject *__pyx_builtin_enumerate;
 static PyObject *__pyx_builtin_max;
 static PyObject *__pyx_builtin_MemoryError;
+static PyObject *__pyx_builtin_TypeError;
+static PyObject *__pyx_builtin_OverflowError;
+static PyObject *__pyx_builtin_IndexError;
 static PyObject *__pyx_builtin___import__;
 static PyObject *__pyx_builtin_ValueError;
-static PyObject *__pyx_builtin_enumerate;
-static PyObject *__pyx_builtin_TypeError;
 static PyObject *__pyx_builtin_AssertionError;
 static PyObject *__pyx_builtin_Ellipsis;
 static PyObject *__pyx_builtin_id;
-static PyObject *__pyx_builtin_IndexError;
 static PyObject *__pyx_builtin_ImportError;
 /* #### Code section: string_decls ### */
 static const char __pyx_k_[] = ": ";
 static const char __pyx_k_O[] = "O";
 static const char __pyx_k_c[] = "c";
+static const char __pyx_k_e[] = "e";
 static const char __pyx_k_i[] = "i";
 static const char __pyx_k_j[] = "j";
+static const char __pyx_k_k[] = "k";
 static const char __pyx_k_n[] = "n";
 static const char __pyx_k_v[] = "v";
 static const char __pyx_k_x[] = "x";
@@ -3594,6 +3613,7 @@ static const char __pyx_k_sum[] = "sum";
 static const char __pyx_k_base[] = "base";
 static const char __pyx_k_dict[] = "__dict__";
 static const char __pyx_k_diff[] = "diff";
+static const char __pyx_k_expr[] = "expr";
 static const char __pyx_k_func[] = "__func__";
 static const char __pyx_k_half[] = "half";
 static const char __pyx_k_main[] = "__main__";
@@ -3613,13 +3633,17 @@ static const char __pyx_k_at_0x[] = " at 0x";
 static const char __pyx_k_class[] = "__class__";
 static const char __pyx_k_count[] = "count";
 static const char __pyx_k_dtype[] = "dtype";
+static const char __pyx_k_empty[] = "empty";
 static const char __pyx_k_error[] = "error";
 static const char __pyx_k_flags[] = "flags";
+static const char __pyx_k_found[] = "found";
 static const char __pyx_k_index[] = "index";
 static const char __pyx_k_numpy[] = "numpy";
 static const char __pyx_k_range[] = "range";
+static const char __pyx_k_score[] = "score";
 static const char __pyx_k_shape[] = "shape";
 static const char __pyx_k_start[] = "start";
+static const char __pyx_k_v_now[] = "v_now";
 static const char __pyx_k_width[] = "width";
 static const char __pyx_k_append[] = "append";
 static const char __pyx_k_enable[] = "enable";
@@ -3631,17 +3655,20 @@ static const char __pyx_k_n_days[] = "n_days";
 static const char __pyx_k_name_2[] = "__name__";
 static const char __pyx_k_object[] = " object>";
 static const char __pyx_k_pickle[] = "pickle";
+static const char __pyx_k_prev_v[] = "prev_v";
 static const char __pyx_k_reduce[] = "__reduce__";
 static const char __pyx_k_stocks[] = "stocks";
 static const char __pyx_k_struct[] = "struct";
 static const char __pyx_k_unpack[] = "unpack";
 static const char __pyx_k_update[] = "update";
+static const char __pyx_k_v_prev[] = "v_prev";
 static const char __pyx_k_abs_arr[] = "abs_arr";
 static const char __pyx_k_disable[] = "disable";
 static const char __pyx_k_float64[] = "float64";
 static const char __pyx_k_fortran[] = "fortran";
 static const char __pyx_k_memview[] = "memview";
 static const char __pyx_k_n_valid[] = "n_valid";
+static const char __pyx_k_op_days[] = "op_days";
 static const char __pyx_k_Ellipsis[] = "Ellipsis";
 static const char __pyx_k_Sequence[] = "Sequence";
 static const char __pyx_k_add_note[] = "add_note";
@@ -3649,6 +3676,7 @@ static const char __pyx_k_base_idx[] = "base_idx";
 static const char __pyx_k_cont_sum[] = "cont_sum";
 static const char __pyx_k_end_date[] = "end_date";
 static const char __pyx_k_getstate[] = "__getstate__";
+static const char __pyx_k_inc_rate[] = "inc_rate";
 static const char __pyx_k_itemsize[] = "itemsize";
 static const char __pyx_k_min_diff[] = "min_diff";
 static const char __pyx_k_pyx_type[] = "__pyx_type";
@@ -3660,19 +3688,25 @@ static const char __pyx_k_register[] = "register";
 static const char __pyx_k_set_name[] = "__set_name__";
 static const char __pyx_k_setstate[] = "__setstate__";
 static const char __pyx_k_TypeError[] = "TypeError";
+static const char __pyx_k_age_value[] = "age_value";
+static const char __pyx_k_ags_value[] = "ags_value";
 static const char __pyx_k_diff_data[] = "diff_data";
 static const char __pyx_k_end_value[] = "end_value";
 static const char __pyx_k_enumerate[] = "enumerate";
+static const char __pyx_k_hold_days[] = "hold_days";
+static const char __pyx_k_inc_value[] = "inc_value";
 static const char __pyx_k_isenabled[] = "isenabled";
 static const char __pyx_k_max_price[] = "max_price";
 static const char __pyx_k_max_value[] = "max_value";
 static const char __pyx_k_min_price[] = "min_price";
 static const char __pyx_k_min_value[] = "min_value";
 static const char __pyx_k_num_dates[] = "num_dates";
+static const char __pyx_k_ops_value[] = "ops_value";
 static const char __pyx_k_price_arr[] = "price_arr";
 static const char __pyx_k_pyx_state[] = "__pyx_state";
 static const char __pyx_k_reduce_ex[] = "__reduce_ex__";
 static const char __pyx_k_stock_idx[] = "stock_idx";
+static const char __pyx_k_user_func[] = "user_func";
 static const char __pyx_k_IndexError[] = "IndexError";
 static const char __pyx_k_ValueError[] = "ValueError";
 static const char __pyx_k_actual_idx[] = "actual_idx";
@@ -3680,28 +3714,36 @@ static const char __pyx_k_half_valid[] = "half_valid";
 static const char __pyx_k_is_forward[] = "is_forward";
 static const char __pyx_k_n_days_max[] = "n_days_max";
 static const char __pyx_k_num_stocks[] = "num_stocks";
+static const char __pyx_k_ops_change[] = "ops_change";
 static const char __pyx_k_price_data[] = "price_data";
 static const char __pyx_k_pyx_vtable[] = "__pyx_vtable__";
 static const char __pyx_k_row_result[] = "row_result";
+static const char __pyx_k_score_func[] = "score_func";
 static const char __pyx_k_shift_days[] = "shift_days";
 static const char __pyx_k_window_len[] = "window_len";
 static const char __pyx_k_ImportError[] = "ImportError";
 static const char __pyx_k_MemoryError[] = "MemoryError";
 static const char __pyx_k_PickleError[] = "PickleError";
+static const char __pyx_k_adjust_days[] = "adjust_days";
 static const char __pyx_k_all_results[] = "all_results";
 static const char __pyx_k_cont_sum_np[] = "cont_sum_np";
 static const char __pyx_k_max_abs_val[] = "max_abs_val";
+static const char __pyx_k_n_increment[] = "n_increment";
 static const char __pyx_k_py_cont_sum[] = "py_cont_sum";
 static const char __pyx_k_start_value[] = "start_value";
 static const char __pyx_k_actual_value[] = "actual_value";
 static const char __pyx_k_date_columns[] = "date_columns";
 static const char __pyx_k_end_date_idx[] = "end_date_idx";
+static const char __pyx_k_fallback_idx[] = "fallback_idx";
+static const char __pyx_k_formula_expr[] = "formula_expr";
 static const char __pyx_k_initializing[] = "_initializing";
 static const char __pyx_k_is_coroutine[] = "_is_coroutine";
 static const char __pyx_k_n_max_is_max[] = "n_max_is_max";
 static const char __pyx_k_pyx_checksum[] = "__pyx_checksum";
+static const char __pyx_k_result_value[] = "result_value";
 static const char __pyx_k_start_option[] = "start_option";
 static const char __pyx_k_MemoryView_of[] = "<MemoryView of ";
+static const char __pyx_k_OverflowError[] = "OverflowError";
 static const char __pyx_k_class_getitem[] = "__class_getitem__";
 static const char __pyx_k_closest_value[] = "closest_value";
 static const char __pyx_k_reduce_cython[] = "__reduce_cython__";
@@ -3715,12 +3757,17 @@ static const char __pyx_k_continuous_len[] = "continuous_len";
 static const char __pyx_k_diff_data_view[] = "diff_data_view";
 static const char __pyx_k_diff_end_value[] = "diff_end_value";
 static const char __pyx_k_end_day_change[] = "end_day_change";
+static const char __pyx_k_increment_days[] = "increment_days";
+static const char __pyx_k_make_user_func[] = "make_user_func";
+static const char __pyx_k_ops_incre_rate[] = "ops_incre_rate";
 static const char __pyx_k_sorted_results[] = "sorted_results";
 static const char __pyx_k_start_date_idx[] = "start_date_idx";
+static const char __pyx_k_worker_threads[] = "worker_threads";
 static const char __pyx_k_View_MemoryView[] = "View.MemoryView";
 static const char __pyx_k_allocate_buffer[] = "allocate_buffer";
 static const char __pyx_k_collections_abc[] = "collections.abc";
 static const char __pyx_k_dtype_is_object[] = "dtype_is_object";
+static const char __pyx_k_increment_value[] = "increment_value";
 static const char __pyx_k_prev_day_change[] = "prev_day_change";
 static const char __pyx_k_price_data_view[] = "price_data_view";
 static const char __pyx_k_setstate_cython[] = "__setstate_cython__";
@@ -3728,11 +3775,16 @@ static const char __pyx_k_end_date_end_idx[] = "end_date_end_idx";
 static const char __pyx_k_forward_max_date[] = "forward_max_date";
 static const char __pyx_k_forward_min_date[] = "forward_min_date";
 static const char __pyx_k_n_days_max_value[] = "n_days_max_value";
+static const char __pyx_k_ops_change_input[] = "ops_change_input";
 static const char __pyx_k_user_range_ratio[] = "user_range_ratio";
+static const char __pyx_k_after_gt_end_days[] = "after_gt_end_days";
+static const char __pyx_k_end_value_for_ops[] = "end_value_for_ops";
 static const char __pyx_k_max_idx_in_window[] = "max_idx_in_window";
 static const char __pyx_k_min_idx_in_window[] = "min_idx_in_window";
 static const char __pyx_k_pyx_unpickle_Enum[] = "__pyx_unpickle_Enum";
 static const char __pyx_k_worker_threads_cy[] = "worker_threads_cy";
+static const char __pyx_k_after_gt_end_ratio[] = "after_gt_end_ratio";
+static const char __pyx_k_after_gt_end_value[] = "after_gt_end_value";
 static const char __pyx_k_asyncio_coroutines[] = "asyncio.coroutines";
 static const char __pyx_k_calculate_batch_cy[] = "calculate_batch_cy";
 static const char __pyx_k_cline_in_traceback[] = "cline_in_traceback";
@@ -3742,7 +3794,11 @@ static const char __pyx_k_forward_max_result[] = "forward_max_result";
 static const char __pyx_k_forward_min_result[] = "forward_min_result";
 static const char __pyx_k_stock_idx_arr_view[] = "stock_idx_arr_view";
 static const char __pyx_k_strided_and_direct[] = "<strided and direct>";
+static const char __pyx_k_after_gt_start_days[] = "after_gt_start_days";
+static const char __pyx_k_increment_threshold[] = "increment_threshold";
 static const char __pyx_k_range_ratio_is_less[] = "range_ratio_is_less";
+static const char __pyx_k_after_gt_start_ratio[] = "after_gt_start_ratio";
+static const char __pyx_k_after_gt_start_value[] = "after_gt_start_value";
 static const char __pyx_k_continuous_end_value[] = "continuous_end_value";
 static const char __pyx_k_forward_max_result_c[] = "forward_max_result_c";
 static const char __pyx_k_forward_min_result_c[] = "forward_min_result_c";
@@ -3756,9 +3812,13 @@ static const char __pyx_k_closest_idx_in_window[] = "closest_idx_in_window";
 static const char __pyx_k_contiguous_and_direct[] = "<contiguous and direct>";
 static const char __pyx_k_worker_threads_cy_pyx[] = "worker_threads_cy.pyx";
 static const char __pyx_k_Cannot_index_with_type[] = "Cannot index with type '";
+static const char __pyx_k_after_gt_end_threshold[] = "after_gt_end_threshold";
 static const char __pyx_k_continuous_abs_is_less[] = "continuous_abs_is_less";
 static const char __pyx_k_continuous_start_value[] = "continuous_start_value";
+static const char __pyx_k_forward_max_result_len[] = "forward_max_result_len";
+static const char __pyx_k_forward_min_result_len[] = "forward_min_result_len";
 static const char __pyx_k_contiguous_and_indirect[] = "<contiguous and indirect>";
+static const char __pyx_k_after_gt_start_threshold[] = "after_gt_start_threshold";
 static const char __pyx_k_continuous_abs_threshold[] = "continuous_abs_threshold";
 static const char __pyx_k_valid_abs_sum_first_half[] = "valid_abs_sum_first_half";
 static const char __pyx_k_Dimension_d_is_not_direct[] = "Dimension %d is not direct";
@@ -3782,10 +3842,10 @@ static const char __pyx_k_continuous_start_next_value[] = "continuous_start_next
 static const char __pyx_k_itemsize_0_for_cython_array[] = "itemsize <= 0 for cython.array";
 static const char __pyx_k_continuous_abs_sum_first_half[] = "continuous_abs_sum_first_half";
 static const char __pyx_k_unable_to_allocate_array_data[] = "unable to allocate array data.";
+static const char __pyx_k_F_1_6_A_q_Q_1_Q_q_q_A_A_Q_q_aq[] = "\200\001\360(\000\005\006\330\004\005\340\004\032\230*\240F\250!\2501\330\004\031\230\032\2406\250\021\250!\360\n\000\005\035\230A\360\006\000\005)\250\001\330\004'\240q\330\004%\240Q\360\022\000\005#\240!\330\004!\240\021\330\004#\2401\360\026\000\005#\240!\330\004%\240Q\330\004'\240q\330\004\037\230q\330\004\"\240!\330\004$\240A\360\016\000\005\035\230A\330\004\035\230Q\330\004\t\320\t\037\230q\330\004\020\220\016\230a\230q\330\004\021\220\036\230q\320 1\3201C\3001\360\006\000\005\t\210\007\210u\220A\320\025)\320)9\270\021\270$\270a\330\010\023\220<\230q\240\001\330\010\023\2201\220L\240\001\360\006\000\005\t\210\005\210U\220!\320\023%\240V\2501\250A\330\010\024\320\024&\240a\240q\360\006\000\t\r\210G\2205\230\001\320\031-\320-=\270Q\270d\300!\340\014\033\2301\330\014\035\230]\250\"\250A\330\014\030\230\001\330\014\030\230\001\330\014!\240\021\330\014!\240\021\330\014\031\230\026\230r\240\021\340\014\020\220\005\220U\230!\2301\330\020\023\2204\220u\230A\230_\250A\250[\270\r\300R\300q\330\024\027\220\240a\240{\260-\270r\300\023\300B\300a\330\030$\240O\2601\260K\270}\310B\310a\330\030,\250A\330\024\027\220\240a\240{\260-\270r\300\023\300B\300a\330\030$\240O\2601\260K\270}\310B\310a\330\030,\250A\340\014\030\230\017\240q\250\013\2601\330\014\032\230/\250\021\250+\260Q\360\006\000\r\035\230A\330\014%\240Q\330\014\017\210t\2205\230\001\230\021\330\020\033\2301\330\020\024\220E\230\025\230a\230q\330\024\027\220t\2305\240\001\240\037\260\001\260\033\270M\310\022\3101\330\030\037\230t\2401\240O\2601\260K\270}\310B\310c\320QS\320ST\330\030\033\2305\240\002\240!\330\034'\240q\330\034,\250O\2701\270K\300}\320TV\320VW\330\0344\260A\360\006\000\r\020\210}\230C\230q\330\020\033\230=\250\002\320*?\320?Q\320QT\320T\\\320\\]\330\021\036\230c\240\021\330\020\033\230=\250\002\320*?\320?Q\320QT\320T\\\320\\]\330\021\036\230c\240\021\330\020\033\230=\250\002\320*C\320CY\320Y\\\320\\d\320de\340\020\033\2301\340\014\031\230\031\240\"\240N\260)\2703\270h\300a\330\014\033\230?\250!\250;""\260o\300[\320PS\320SU\320UY\320Yd\320df\320fu\320uv\360\006\000\r\020\210{\230#\230R\230t\240;\250c\260\021\330\020#\2401\240N\260!\260;\270m\310:\320UV\320VX\320X\\\320\\`\320`a\340\020\030\230\006\230a\360\006\000\r\020\210{\230$\320\0360\260\003\2602\260T\270\035\300b\320HZ\320Z]\320]^\330\020#\2401\330\024\"\240!\240;\250m\270=\310\002\320J\\\320\\^\320^`\320`d\320de\330\024\025\360\006\000\021%\240F\250!\360\006\000\r\020\210{\230$\320\0360\260\003\2602\260T\270\035\300b\320HZ\320Z]\320]^\330\020#\2401\330\024\"\240!\240;\250m\270=\310\002\320J\\\320\\^\320^`\320`d\320de\330\024\025\360\006\000\021%\240F\250!\360\006\000\r\037\230a\330\014\036\230a\330\014!\240\021\330\014!\240\021\330\014#\2401\330\014#\2401\330\014\017\210x\220r\230\021\330\020\034\230O\2501\250K\260q\330\020\023\2204\220u\230A\230Q\340\024\034\230A\330\024\030\230\003\2305\240\t\250\021\250%\250q\260\r\270R\270s\300-\310r\320QY\320Y[\320[_\320_c\320cd\330\030\033\2302\230R\230q\330\034\035\330\030\034\230O\2501\250K\260q\330\030\033\2305\240\001\240\021\330\034\035\330\030.\250j\270\002\270)\3002\300Q\330\030\033\320\033/\250s\260\"\260E\270\022\2702\270[\310\002\310!\330\034.\250a\330\034-\250Q\330\034$\240A\330\034\035\330\024\027\220t\2301\330\030'\240}\260B\260a\330\030\033\230=\250\003\2501\330\034.\250o\270Q\270k\310\021\330\034-\250Q\340\020\023\2204\220u\230A\230Q\330\024\034\230A\330\024\030\230\003\2305\240\t\250\021\250%\250q\260\r\270R\270s\300-\310r\320QY\320Y[\320[_\320_c\320cd\330\030\033\2302\230R\230q\330\034\035\330\030\034\230O\2501\250K\260q\330\030\033\2305\240\001\240\021\330\034\035\330\0301\260\032\2702\270Q\330\030\033\320\033.\250c\260\022\2605\270\002\270\"\270K\300r\310\021\330\0341\260\021\330\0340\260\001\330\034$\240A\330\034\035\330\024\027\220t\2301\330\030'\240}\260B\260a\330\030\033\230=\250\003\2501\330\0341\260\037\300\001\300\033\310A\330\0340\260\001\340\020\030\230\001\330\020\024\220C\220u\230I\240Q\240e\2501\250N\270-\300r\310\032\320SW\320WX\330""\024\027\220r\230\022\2302\230R\230r\240\023\240B\240c\250\021\330\030\031\330\024\034\230O\2501\250K\260q\330\024\035\230_\250A\250[\270\002\270\"\270A\330\024\027\220u\230A\230W\240C\240u\250A\250Q\330\030\031\330\024/\250v\260R\260q\330\024\027\320\027,\250C\250r\260\025\260g\270R\270w\300b\310\001\330\030/\250q\330\030.\250a\330\030 \240\001\330\030\031\330\020\023\2204\220q\330\024#\240=\260\002\260!\330\024\027\220}\240C\240q\330\030/\250\270a\270{\310!\330\030.\250a\360\006\000\r\033\230$\230a\230q\330\014\032\230\"\230F\240!\240=\260\006\260b\270\001\330\014&\240a\330\020\035\230_\250A\250_\270A\270_\310A\310Q\330\014!\240\024\240Q\240a\330\014!\240\024\240Q\240a\330\014\020\220\003\2201\220A\330\014\023\2203\220a\220u\230A\230R\230r\240\021\330\014\021\220\023\220A\220U\230!\2302\230R\230q\330\014\021\220\023\220A\220U\230!\2302\230R\230q\330\014\021\220\023\220A\220U\230!\2302\230R\230r\240\022\2401\330\014,\250A\330\014-\250Q\330\014(\250\001\330\014(\250\001\330\014(\250\001\330\014(\250\001\330\014\020\220\005\220U\230!\2301\330\0201\260\023\260A\260[\300\001\300\021\330\014\020\220\005\220U\230!\2306\240\021\330\0202\260#\260Q\260k\300\021\300!\330\014\020\220\005\220U\230!\2301\330\020-\250S\260\001\260\033\270A\270Q\330\014\020\220\005\220U\230!\2304\230q\330\020-\250S\260\001\260\033\270A\270Q\330\014\020\220\005\220U\230!\2304\230q\330\020-\250S\260\001\260\033\270A\270Q\330\014\020\220\005\220U\230!\2304\230q\330\020-\250S\260\001\260\033\270A\270Q\330\014,\250J\260a\260q\330\014-\250Z\260q\270\001\330\014(\250\n\260!\2601\330\014(\250\n\260!\2601\330\014(\250\n\260!\2601\330\014(\250\n\260!\2601\360\006\000\r\020\210q\340\020,\250C\250q\3200G\320G_\320_`\330\020\023\320\023-\250R\250q\330\024\036\230b\240\004\240A\240Q\330\024\033\2303\230a\230u\240A\320%?\270r\300\021\330\024;\270:\300Q\300b\310\004\310A\310W\320TV\320VW\330\024<\270J\300a\300r\310\024\310Q\310g\320UV\320VW\340\024\030\230\003\2301\230A\330\024\031\230\023\230A\230U\240!\2402""\240R\240q\330\024\031\230\023\230A\230U\240!\2402\240R\240q\330\024\031\230\023\230A\230U\240!\2402\240R\240r\250\022\2501\330\0247\260z\300\021\300\"\300D\310\001\310\027\320PR\320RS\330\0247\260z\300\021\300\"\300D\310\001\310\027\320PQ\320QT\320TU\330\0247\260z\300\021\300\"\300D\310\001\310\027\320PQ\320QT\320TU\330\0247\260z\300\021\300\"\300D\310\001\310\027\320PQ\320QR\340\024;\2701\330\024<\270A\330\0247\260q\330\0247\260q\330\0247\260q\330\0247\260q\360\006\000\021-\250C\250q\3200G\320G_\320_`\330\020\023\320\023-\250R\250q\330\024\036\230b\240\004\240A\240Q\330\024\033\2303\230a\230u\240A\320%?\270r\300\021\330\024;\270:\300Q\300b\310\004\310A\310W\320TV\320VW\330\024<\270J\300a\300r\310\024\310Q\310g\320UV\320VW\340\024\030\230\003\2301\230A\330\024\031\230\023\230A\230U\240!\2402\240R\240q\330\024\031\230\023\230A\230U\240!\2402\240R\240q\330\024\031\230\023\230A\230U\240!\2402\240R\240r\250\022\2501\330\0247\260z\300\021\300\"\300D\310\001\310\027\320PR\320RS\330\0247\260z\300\021\300\"\300D\310\001\310\027\320PQ\320QT\320TU\330\0247\260z\300\021\300\"\300D\310\001\310\027\320PQ\320QT\320TU\330\0247\260z\300\021\300\"\300D\310\001\310\027\320PQ\320QR\340\024;\2701\330\024<\270A\330\0247\260q\330\0247\260q\330\0247\260q\330\0247\260q\360\006\000\021-\250A\330\0207\260q\330\0208\270\001\330\0203\2601\330\0203\2601\330\0203\2601\330\0203\2601\330\020,\250A\330\0207\260q\330\0208\270\001\330\0203\2601\330\0203\2601\330\0203\2601\330\0203\2601\360\006\000\r\034\320\033+\250?\270!\330\014'\320'C\300?\320RS\330\014'\320'C\300?\320RS\360\006\000\r\020\320\017(\250\003\320+D\300D\310\003\3101\310M\320Y[\320[\\\330\020\036\230c\240\021\240!\2403\240a\240s\250$\250e\2601\330\020)\250\034\260R\260q\340\020)\250\021\360\006\000\r \230q\330\014\017\210{\230\"\230B\230d\240-\250r\260\033\270C\270q\330\020\027\220q\330\020\024\220E\230\025\230a\230q\330\024\030\230\017\240q\250\013\260=\300\002\300!\330\024\027\220t\2305\240\001\240\023\240D\250\002\250\"\250A\330""\030\037\230q\330\020#\2408\2505\260\002\260,\270a\360\006\000\r\037\230a\330\014\035\230Q\330\014\030\230\002\230&\240\001\240\025\240f\250B\250a\330\014\020\220\005\220U\230!\2301\330\020\031\230\021\230%\230\250a\250{\270-\300r\310\021\330\014\017\210s\220!\220;\230c\240\021\330\020\023\2209\230A\230S\240\003\2402\240T\250\024\250U\260!\2609\270A\270Q\330\024&\240j\260\003\2609\270A\270S\300\002\300)\3101\310D\320PR\320R[\320[\\\320\\`\320`b\320bc\330\020\023\2209\230A\230S\240\003\2402\240T\250\024\250U\260!\2609\270A\270Q\330\024%\240Z\250s\260)\2701\270C\270r\300\031\310!\3104\310r\320QZ\320Z[\320[_\320_a\320ab\330\021\024\220A\220[\240\003\2401\330\020\023\2209\230A\230S\240\003\2402\240T\250\024\250U\260!\2609\270A\270Q\330\024%\240Z\250s\260)\2701\270C\270r\300\031\310!\3104\310r\320QZ\320Z[\320[_\320_a\320ab\360\006\000\r(\240q\330\014(\250\001\330\014#\2401\330\014#\2401\330\014#\2401\330\014#\2401\330\014\026\220a\330\014\031\230\023\230A\230U\240!\2408\2502\250Q\330\014\027\220s\230!\2305\240\001\240\030\250\022\2501\330\014\027\220s\230!\2305\240\001\240\030\250\022\2501\330\014\027\220s\230!\2305\240\001\240\022\2402\240X\250R\250q\330\014\020\220\005\220U\230!\2301\330\020,\250C\250q\260\r\270Q\270a\330\014\020\220\005\220U\230!\230<\240q\330\020-\250S\260\001\260\035\270a\270q\330\014\020\220\005\220U\230!\2301\330\020(\250\003\2501\250M\270\021\270!\330\014\020\220\005\220U\230!\230:\240Q\330\020(\250\003\2501\250M\270\021\270!\330\014\020\220\005\220U\230!\230:\240Q\330\020(\250\003\2501\250M\270\021\270!\330\014\020\220\005\220U\230!\230:\240Q\330\020(\250\003\2501\250M\270\021\270!\330\014'\240z\260\021\260!\330\014(\250\n\260!\2601\330\014#\240:\250Q\250a\330\014#\240:\250Q\250a\330\014#\240:\250Q\250a\330\014#\240:\250Q\250a\360\006\000\r'\240a\330\020\035\230_\250A\250_\270A\270_\310A\310Q\360\006\000\r\020\210s\220!\320\023'\240r\250\021\330\020*\250!\330\024\026\220f\230A\320\0351\260\026\260r\270\021\330\024/\250q\260\001\330\024\025\320""\0250\260\001\260\021\340\020,\250A\330\020,\250A\330\020,\250A\360\006\000\r\020\210s\220!\320\023'\240r\250\021\330\020*\250!\330\024\026\220f\230A\320\0351\260\026\260r\270\021\330\024/\250q\260\001\330\024\025\320\0250\260\001\260\021\340\020,\250A\330\020,\250A\330\020,\250A\360\006\000\r&\320%9\270\025\270a\330\0143\2601\330\0144\260A\330\014/\250q\330\014/\250q\330\014/\250q\330\014/\250q\330\014\017\210{\230$\320\0365\260R\260q\330\020\024\220A\330\020\027\220s\230!\2305\240\001\240\022\2402\240Q\330\020\025\220S\230\001\230\025\230a\230r\240\022\2401\330\020\025\220S\230\001\230\025\230a\230r\240\022\2401\330\020\025\220S\230\001\230\025\230a\230r\240\022\2402\240R\240q\330\020\024\220E\230\025\230a\230q\330\024\030\230\004\230A\320\0351\260\021\260!\330\024\027\220r\230\022\2301\330\030@\300\001\340\030A\300\021\330\024\027\220r\230\022\2301\330\030<\270A\330\031\033\2302\230Q\330\030<\270A\330\031\033\2302\230Q\330\030<\270A\340\030<\270A\330\0207\260z\300\021\300!\330\0208\270\n\300!\3001\330\0203\260:\270Q\270a\330\0203\260:\270Q\270a\330\0203\260:\270Q\270a\330\0203\260:\270Q\270a\340\0207\260q\330\0208\270\001\330\0203\2601\330\0203\2601\330\0203\2601\330\0203\2601\360\006\000\r&\320%9\270\025\270a\330\0143\2601\330\0144\260A\330\014/\250q\330\014/\250q\330\014/\250q\330\014/\250q\330\014\017\210{\230$\320\0365\260R\260q\330\020\024\220A\330\020\027\220s\230!\2305\240\001\240\022\2402\240Q\330\020\025\220S\230\001\230\025\230a\230r\240\022\2401\330\020\025\220S\230\001\230\025\230a\230r\240\022\2401\330\020\025\220S\230\001\230\025\230a\230r\240\022\2402\240R\240q\330\020\024\220E\230\025\230a\230q\330\024\030\230\004\230A\320\0351\260\021\260!\330\024\027\220r\230\022\2301\330\030@\300\001\340\030A\300\021\330\024\027\220r\230\022\2301\330\030<\270A\330\031\033\2302\230Q\330\030<\270A\330\031\033\2302\230Q\330\030<\270A\340\030<\270A\330\0207\260z\300\021\300!\330\0208\270\n\300!\3001\330\0203\260:\270Q\270a\330\0203\260:\270Q\270a\330\0203\260:\270Q""\270a\330\0203\260:\270Q\270a\340\0207\260q\330\0208\270\001\330\0203\2601\330\0203\2601\330\0203\2601\330\0203\2601\360\006\000\r&\240X\250Q\250f\260H\270E\300\023\300B\300g\310Q\330\014*\250(\260!\2606\270\030\300\025\300c\310\022\3107\320RS\330\014/\250x\260q\270\006\270h\300e\3103\310b\320PW\320WX\330\014#\2408\2501\250H\260E\270\022\2701\270F\300(\310%\310s\320RT\320T[\320[\\\330\014(\250\010\260\001\260\030\270\025\270b\300\001\300\026\300x\310u\320TW\320WY\320Y`\320`a\330\014-\250X\260Q\260h\270e\3002\300Q\300f\310H\320TY\320Y\\\320\\^\320^e\320ef\360\006\000\r\"\240\021\320\"6\260a\260s\270$\270e\3005\310\001\320I]\320]b\320bc\330\014!\240\021\320\"6\260a\260s\270$\270e\3005\310\001\320I]\320]b\320bc\360\006\000\r\031\230\001\330\014\030\230\001\330\014\030\230\001\330\014\r\330\020\037\230y\250\001\250\033\260K\270q\340\020\023\220=\240\003\2401\330\024 \240\001\330\024 \240\001\330\025\"\240#\240Q\330\024 \240\001\330\024 \240\001\330\025\"\240#\240Q\330\024 \240\001\330\024 \240\001\340\024 \240\001\330\024 \240\001\340\014\023\220=\240\001\330\020\034\230A\330\020\034\230A\360\006\000\r\025\220A\330\014\017\210{\230'\240\021\330\020\021\330\024\034\230J\240a\330\030#\240;\250a\340\027\030\330\024\034\230A\340\014\031\230\021\330\014\032\230!\330\014\035\230Q\330\014 \240\r\250T\260\025\260a\3207G\300q\330\014\017\210z\230\027\240\005\240T\320);\2708\3006\310\021\330\020\021\330\024!\240\032\2502\250Z\260r\3209L\310B\320N`\320`b\320bc\330\027\030\330\024!\240\021\330\014\017\210{\230'\240\025\240d\320*;\2707\300%\300t\310:\320U\\\320\\]\330\020\021\330\024\027\220{\240\"\320$5\260T\270\032\3003\300a\330\030&\240j\260\001\260\030\270\022\2701\340\030&\240j\260\002\260!\330\027\030\330\024\"\240!\330\014\017\210{\230'\240\025\240d\250,\260h\270f\300A\330\020\021\330\024%\240Z\250q\260\013\2702\270Q\330\027\030\330\024%\240Q\340\014\r\330\020\035\230Q\330\020\035\230Q\230l\250!\250=\270\002\320:P\320Pb\320be\320el\320lr\320rs\330\020\035\230Q\230l\250!\250=""\270\002\320:P\320Pb\320be\320el\320lr\320rs\330\020\035\230Q\230l\250!\250?\270!\330\020\037\230q\240\014\250A\320->\270a\330\020 \240\001\240\034\250Q\250o\270[\310\003\3102\310T\320Q\\\320\\^\320^m\320ms\320st\330\020!\240\021\240,\250a\250}\270B\320>X\320Xn\320nq\320qx\320x~\320~\330\020&\240a\330\020\"\240#\240Q\240a\330\020*\250!\330\020/\250q\330\0204\260A\330\020(\250\001\330\020-\250Q\330\0202\260!\330\0201\260\021\330\0202\260!\330\020-\250Q\330\020-\250Q\330\020-\250Q\330\020-\250Q\330\020&\240a\330\020&\240a\330\020!\240\021\240-\250q\260\003\2604\260u\270E\300\021\300!\330\020!\240\021\330\020!\240\021\330\020!\240\021\330\020-\250Q\330\020-\250Q\330\020-\250Q\330\020-\250Q\330\020-\250Q\330\020-\250Q\330\020-\250Q\330\020-\250Q\330\020,\250A\330\020-\250Q\330\020(\250\001\330\020(\250\001\330\020(\250\001\330\020(\250\001\330\0208\270\001\330\0209\270\021\330\0204\260A\330\0204\260A\330\0204\260A\330\0204\260A\330\0208\270\001\330\0209\270\021\330\0204\260A\330\0204\260A\330\0204\260A\330\0204\260A\330\020$\240L\260\001\260\035\270b\320@V\320Vh\320hk\320kr\320rs\330\020$\240L\260\001\260\035\270b\320@V\320Vh\320hk\320kr\320rs\330\020 \320 2\260\"\260J\270g\300R\300w\310a\330\020'\240q\250\n\260\"\260K\270r\320AU\320U_\320_f\320fk\320ko\320oy\320y|\320|~\360\000\000\001C\002\360\000\000C\002G\002\360\000\000G\002L\002\360\000\000L\002M\002\360\000\000M\002d\002\360\000\000d\002e\002\330\020*\250!\330\020$\240H\250E\260\021\3202I\310\021\330\020#\2408\2505\260\001\3201G\300q\330\020\"\240(\250%\250q\3200E\300Q\330\020\"\240.\260\001\260\033\270A\330\020#\2408\2505\260\001\3201G\300z\320QR\320RS\330\020&\240h\250e\2601\3204M\310Z\320WX\320XY\330\020(\250\010\260\005\260Q\3206Q\320Q[\320[\\\320\\]\330\020\035\230X\240Z\250s\260%\260s\270%\270q\320@P\320PZ\320Z[\320[\\\330\020\035\230Q\330\020\036\230a\330\020\037\230q\330\020\"\240!\330\020\031\230\021\340\014\027\220q\230\014\240A\240^\2607\270!\2701\360\006\000\005\026\220Q\330\004\010\210\007\210u""\220A\320\025)\320)9\270\021\270$\270a\330\010\023\220<\230q\240\001\330\010\013\2109\220C\220q\330\014\032\230'\240\021\330\020\034\230A\330\020\032\230+\240Q\240a\360\006\000\005\014\2101";
 static const char __pyx_k_continuous_abs_sum_second_half[] = "continuous_abs_sum_second_half";
 static const char __pyx_k_continuous_end_prev_prev_value[] = "continuous_end_prev_prev_value";
 static const char __pyx_k_strided_and_direct_or_indirect[] = "<strided and direct or indirect>";
-static const char __pyx_k_F_1_6_A_q_Q_1_uA_9_a_q_1L_1_fAQ[] = "\200\001\360 \000\005\033\230*\240F\250!\2501\330\004\031\230\032\2406\250\021\250!\360\n\000\005\035\230A\360\006\000\005)\250\001\330\004'\240q\330\004%\240Q\360\022\000\005#\240!\330\004!\240\021\330\004#\2401\360\032\000\005\t\210\007\210u\220A\320\025)\320)9\270\021\270$\270a\330\010\023\220<\230q\240\001\330\010\023\2201\220L\240\001\360\006\000\t\024\2201\320\024&\240f\250A\250Q\330\010\024\320\024&\240a\240q\360\006\000\t\r\210G\2205\230\001\320\031-\320-=\270Q\270d\300!\340\014\033\2301\330\014\035\230]\250\"\250A\330\014\030\230\001\330\014\030\230\001\330\014!\240\021\330\014!\240\021\330\014\031\230\026\230r\240\021\340\014\020\220\005\220U\230!\2301\330\020\023\2204\220u\230A\230_\250A\250[\270\r\300R\300q\330\024\027\220\240a\240{\260-\270r\300\023\300B\300a\330\030$\240O\2601\260K\270}\310B\310a\330\030,\250A\330\024\027\220\240a\240{\260-\270r\300\023\300B\300a\330\030$\240O\2601\260K\270}\310B\310a\330\030,\250A\340\014\030\230\017\240q\250\013\2601\330\014\032\230/\250\021\250+\260Q\360\006\000\r\035\230A\330\014%\240Q\330\014\017\210t\2205\230\001\230\021\330\020\033\2301\330\020\024\220E\230\025\230a\230q\330\024\027\220t\2305\240\001\240\037\260\001\260\033\270M\310\022\3101\330\030\037\230t\2401\240O\2601\260K\270}\310B\310c\320QS\320ST\330\030\033\2305\240\002\240!\330\034'\240q\330\034,\250O\2701\270K\300}\320TV\320VW\330\0344\260A\360\006\000\r\020\210}\230C\230q\330\020\033\230=\250\002\320*?\320?Q\320QT\320T\\\320\\]\330\021\036\230c\240\021\330\020\033\230=\250\002\320*?\320?Q\320QT\320T\\\320\\]\330\021\036\230c\240\021\330\020\033\230=\250\002\320*C\320CY\320Y\\\320\\d\320de\340\020\033\2301\340\014\031\230\031\240\"\240N\260)\2703\270h\300a\330\014\033\230?\250!\250;\260o\300[\320PS\320SU\320UY\320Yd\320df\320fu\320uv\360\006\000\r\020\210{\230#\230R\230t\240;\250c\260\021\330\020#\2401\240N\260!\260;\270m\310:\320UV\320VX\320X\\\320\\`\320`a\340\020\030\230\006\230a\360\006\000\r\020\210{\230$\320\0360\260\003\2602\260T\270\035\300b""\320HZ\320Z]\320]^\330\020#\2401\330\024\"\240!\240;\250m\270=\310\002\320J\\\320\\^\320^`\320`d\320de\330\024\025\360\006\000\021%\240F\250!\360\006\000\r\020\210{\230$\320\0360\260\003\2602\260T\270\035\300b\320HZ\320Z]\320]^\330\020#\2401\330\024\"\240!\240;\250m\270=\310\002\320J\\\320\\^\320^`\320`d\320de\330\024\025\360\006\000\021%\240F\250!\340\021\022\330\020\036\230d\240!\2401\330\020\036\230b\240\006\240a\240}\260F\270\"\270A\330\020*\250!\330\024!\240\037\260\001\260\037\300\001\300\037\320PQ\320QR\330\020%\240T\250\021\250!\330\020%\240T\250\021\250!\330\020\024\220C\220q\230\001\330\020\027\220s\230!\2305\240\001\240\022\2402\240Q\330\020\025\220S\230\001\230\025\230a\230r\240\022\2401\330\020\025\220S\230\001\230\025\230a\230r\240\022\2401\330\020\025\220S\230\001\230\025\230a\230r\240\022\2402\240R\240q\330\0200\260\001\330\0201\260\021\330\020,\250A\330\020,\250A\330\020,\250A\330\020,\250A\330\020\024\220E\230\025\230a\230q\330\0245\260S\270\001\270\033\300A\300Q\330\020\024\220E\230\025\230a\230v\240Q\330\0246\260c\270\021\270+\300Q\300a\330\020\024\220E\230\025\230a\230q\330\0241\260\023\260A\260[\300\001\300\021\330\020\024\220E\230\025\230a\230t\2401\330\0241\260\023\260A\260[\300\001\300\021\330\020\024\220E\230\025\230a\230t\2401\330\0241\260\023\260A\260[\300\001\300\021\330\020\024\220E\230\025\230a\230t\2401\330\0241\260\023\260A\260[\300\001\300\021\330\0200\260\n\270!\2701\330\0201\260\032\2701\270A\330\020,\250J\260a\260q\330\020,\250J\260a\260q\330\020,\250J\260a\260q\330\020,\250J\260a\260q\360\006\000\021\024\2201\340\0240\260\003\2601\3204K\320Kc\320cd\330\024\027\320\0271\260\022\2601\330\030\"\240\"\240D\250\001\250\021\330\030\037\230s\240!\2405\250\001\320)C\3002\300Q\330\030?\270z\310\021\310\"\310D\320PQ\320QX\320XZ\320Z[\330\030@\300\n\310!\3102\310T\320QR\320RY\320YZ\320Z[\360\006\000\031\035\230C\230q\240\001\330\030\035\230S\240\001\240\025\240a\240r\250\022\2501\330\030\035\230S\240\001\240\025\240a\240r\250\022\2501\330""\030\035\230S\240\001\240\025\240a\240r\250\022\2502\250R\250q\330\030;\270:\300Q\300b\310\004\310A\310W\320TV\320VW\330\030;\270:\300Q\300b\310\004\310A\310W\320TU\320UX\320XY\330\030;\270:\300Q\300b\310\004\310A\310W\320TU\320UX\320XY\330\030;\270:\300Q\300b\310\004\310A\310W\320TU\320UV\340\030?\270q\330\030@\300\001\330\030;\2701\330\030;\2701\330\030;\2701\330\030;\2701\360\006\000\0251\260\003\2601\3204K\320Kc\320cd\330\024\027\320\0271\260\022\2601\330\030\"\240\"\240D\250\001\250\021\330\030\037\230s\240!\2405\250\001\320)C\3002\300Q\330\030?\270z\310\021\310\"\310D\320PQ\320QX\320XZ\320Z[\330\030@\300\n\310!\3102\310T\320QR\320RY\320YZ\320Z[\360\006\000\031\035\230C\230q\240\001\330\030\035\230S\240\001\240\025\240a\240r\250\022\2501\330\030\035\230S\240\001\240\025\240a\240r\250\022\2501\330\030\035\230S\240\001\240\025\240a\240r\250\022\2502\250R\250q\330\030;\270:\300Q\300b\310\004\310A\310W\320TV\320VW\330\030;\270:\300Q\300b\310\004\310A\310W\320TU\320UX\320XY\330\030;\270:\300Q\300b\310\004\310A\310W\320TU\320UX\320XY\330\030;\270:\300Q\300b\310\004\310A\310W\320TU\320UV\340\030?\270q\330\030@\300\001\330\030;\2701\330\030;\2701\330\030;\2701\330\030;\2701\360\006\000\0251\260\001\330\024;\2701\330\024<\270A\330\0247\260q\330\0247\260q\330\0247\260q\330\0247\260q\330\0240\260\001\330\024;\2701\330\024<\270A\330\0247\260q\330\0247\260q\330\0247\260q\330\0247\260q\360\006\000\021 \320\037/\250\270a\330\020+\320+G\300\320VW\330\020+\320+G\300\320VW\360\006\000\021\024\320\023,\250C\320/H\310\004\310C\310q\320P]\320]_\320_`\330\024\"\240#\240Q\240a\240s\250!\2503\250d\260%\260q\330\024-\250\\\270\022\2701\340\024-\250Q\360\006\000\021$\2401\330\020\023\220;\230b\240\002\240$\240m\2602\260[\300\003\3001\330\024\033\2301\330\024\030\230\005\230U\240!\2401\330\030\034\230O\2501\250K\260}\300B\300a\330\030\033\2304\230u\240A\240S\250\004\250B\250b\260\001\330\034#\2401\330\024'\240x\250u\260B\260l\300!\360\006\000\021#\240!\330\020!\240\021\330\020\034""\230A\330\020\024\220E\230\025\230a\230q\330\024\035\230W\240A\240_\260A\260[\300\r\310R\310q\330\020\023\2203\220a\220{\240#\240Q\330\024\027\220y\240\001\240\023\240C\240r\250\024\250T\260\025\260a\260y\300\001\300\021\330\030*\250*\260C\260y\300\001\300\023\300B\300i\310q\320PT\320TV\320V_\320_`\320`d\320df\320fg\330\024\027\220y\240\001\240\023\240C\240r\250\024\250T\260\025\260a\260y\300\001\300\021\330\030)\250\032\2603\260i\270q\300\003\3002\300Y\310a\310t\320SU\320U^\320^_\320_c\320ce\320ef\330\025\030\230\001\230\033\240C\240q\330\024\027\220y\240\001\240\023\240C\240r\250\024\250T\260\025\260a\260y\300\001\300\021\330\030)\250\032\2603\260i\270q\300\003\3002\300Y\310a\310t\320SU\320U^\320^_\320_c\320ce\320ef\360\006\000\021,\2501\330\020,\250A\330\020'\240q\330\020'\240q\330\020'\240q\330\020'\240q\330\020\032\230!\330\020\035\230S\240\001\240\025\240a\240x\250r\260\021\330\020\033\2303\230a\230u\240A\240X\250R\250q\330\020\033\2303\230a\230u\240A\240X\250R\250q\330\020\033\2303\230a\230u\240A\240R\240r\250\030\260\022\2601\330\020\024\220E\230\025\230a\230q\330\0240\260\003\2601\260M\300\021\300!\330\020\024\220E\230\025\230a\230|\2501\330\0241\260\023\260A\260]\300!\3001\330\020\024\220E\230\025\230a\230q\330\024,\250C\250q\260\r\270Q\270a\330\020\024\220E\230\025\230a\230z\250\021\330\024,\250C\250q\260\r\270Q\270a\330\020\024\220E\230\025\230a\230z\250\021\330\024,\250C\250q\260\r\270Q\270a\330\020\024\220E\230\025\230a\230z\250\021\330\024,\250C\250q\260\r\270Q\270a\330\020+\250:\260Q\260a\330\020,\250J\260a\260q\330\020'\240z\260\021\260!\330\020'\240z\260\021\260!\330\020'\240z\260\021\260!\330\020'\240z\260\021\260!\360\006\000\021+\250!\330\024!\240\037\260\001\260\037\300\001\300\037\320PQ\320QR\360\006\000\021\024\2203\220a\320\027+\2502\250Q\330\024.\250a\330\030\032\230&\240\001\320!5\260V\2702\270Q\330\0303\2601\260A\330\030\031\320\0314\260A\260Q\340\0240\260\001\330\0240\260\001\330\0240\260\001\360\006\000\021\024\2203\220a\320\027+\2502""\250Q\330\024.\250a\330\030\032\230&\240\001\320!5\260V\2702\270Q\330\0303\2601\260A\330\030\031\320\0314\260A\260Q\340\0240\260\001\330\0240\260\001\330\0240\260\001\340\020\021\330\024!\240\021\330\024!\240\021\240,\250a\250}\270B\320>T\320Tf\320fi\320ip\320pv\320vw\330\024!\240\021\240,\250a\250}\270B\320>T\320Tf\320fi\320ip\320pv\320vw\330\024!\240\021\240,\250a\250\270a\330\024#\2401\240L\260\001\3201B\300!\330\024$\240A\240\\\260\021\260/\300\033\310C\310r\320QU\320U`\320`b\320bq\320qw\320wx\330\024%\240Q\240l\260!\260=\300\002\320B\\\320\\r\320ru\320u|\360\000\000}\001C\002\360\000\000C\002D\002\330\024*\250!\330\024&\240c\250\021\250!\330\024.\250h\260a\260v\270X\300U\310#\310R\310w\320VW\330\0243\2608\2701\270F\300(\310%\310s\320RT\320T[\320[\\\330\0248\270\010\300\001\300\026\300x\310u\320TW\320WY\320Y`\320`a\330\024,\250H\260A\260X\270U\300\"\300A\300V\3108\320SX\320X[\320[]\320]d\320de\330\0241\260\030\270\021\270(\300%\300r\310\021\310&\320PX\320X]\320]`\320`b\320bi\320ij\330\0246\260h\270a\270x\300u\310B\310a\310v\320U]\320]b\320be\320eg\320gn\320no\330\0245\260Q\330\0246\260a\330\0241\260\021\330\0241\260\021\330\0241\260\021\330\0241\260\021\330\024*\250!\330\024*\250!\330\024%\240Q\240m\2601\260C\260t\2705\300\005\300Q\300a\330\024%\240Q\330\024%\240Q\330\024%\240Q\330\0241\260\021\330\0241\260\021\330\0241\260\021\330\0241\260\021\330\0241\260\021\330\0241\260\021\330\0241\260\021\330\0241\260\021\330\0240\260\001\330\0241\260\021\330\024,\250A\330\024,\250A\330\024,\250A\330\024,\250A\330\024<\270A\330\024=\270Q\330\0248\270\001\330\0248\270\001\330\0248\270\001\330\0248\270\001\330\024<\270A\330\024=\270Q\330\0248\270\001\330\0248\270\001\330\0248\270\001\330\0248\270\001\330\024(\250\014\260A\260]\300\"\320DZ\320Zl\320lo\320ov\320vw\330\024(\250\014\260A\260]\300\"\320DZ\320Zl\320lo\320ov\320vw\330\024$\320$6\260b\270\n\300'\310\022\3107\320RS\330\024+\2501\250J\260b\270\013\3002\320EY\320Yc\320cj\320jo\320os\320s}\360\000\000~\001A\002\360""\000\000A\002C\002\360\000\000C\002G\002\360\000\000G\002K\002\360\000\000K\002P\002\360\000\000P\002Q\002\360\000\000Q\002h\002\360\000\000h\002i\002\330\024.\250a\330\024(\250\010\260\005\260Q\3206M\310Q\330\024'\240x\250u\260A\3205K\3101\330\024&\240h\250e\2601\3204I\310\021\330\024&\240n\260A\260[\300\001\340\020\033\2301\230L\250\001\250\036\260w\270a\270q\360\006\000\005\026\220Q\330\004\010\210\007\210u\220A\320\025)\320)9\270\021\270$\270a\330\010\023\220<\230q\240\001\330\010\013\2109\220C\220q\330\014\032\230'\240\021\330\020\034\230A\330\020\032\230+\240Q\240a\360\006\000\005\014\2101";
 static const char __pyx_k_forward_max_valid_abs_sum_first[] = "forward_max_valid_abs_sum_first_half";
 static const char __pyx_k_forward_min_valid_abs_sum_first[] = "forward_min_valid_abs_sum_first_half";
 static const char __pyx_k_All_dimensions_preceding_dimensi[] = "All dimensions preceding dimension %d must be indexed and not sliced";
@@ -3859,7 +3919,7 @@ static void __pyx_memoryviewslice___pyx_pf_15View_dot_MemoryView_16_memoryviewsl
 static PyObject *__pyx_pf___pyx_memoryviewslice___reduce_cython__(CYTHON_UNUSED struct __pyx_memoryviewslice_obj *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf___pyx_memoryviewslice_2__setstate_cython__(CYTHON_UNUSED struct __pyx_memoryviewslice_obj *__pyx_v_self, CYTHON_UNUSED PyObject *__pyx_v___pyx_state); /* proto */
 static PyObject *__pyx_pf_15View_dot_MemoryView___pyx_unpickle_Enum(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v___pyx_type, long __pyx_v___pyx_checksum, PyObject *__pyx_v___pyx_state); /* proto */
-static PyObject *__pyx_pf_17worker_threads_cy_calculate_batch_cy(CYTHON_UNUSED PyObject *__pyx_self, PyArrayObject *__pyx_v_price_data, PyObject *__pyx_v_date_columns, int __pyx_v_width, PyObject *__pyx_v_start_option, int __pyx_v_shift_days, int __pyx_v_end_date_start_idx, int __pyx_v_end_date_end_idx, PyArrayObject *__pyx_v_diff_data, PyArrayObject *__pyx_v_stock_idx_arr, int __pyx_v_is_forward, int __pyx_v_n_days, double __pyx_v_user_range_ratio, double __pyx_v_continuous_abs_threshold, int __pyx_v_n_days_max); /* proto */
+static PyObject *__pyx_pf_17worker_threads_cy_calculate_batch_cy(CYTHON_UNUSED PyObject *__pyx_self, PyArrayObject *__pyx_v_price_data, PyObject *__pyx_v_date_columns, int __pyx_v_width, PyObject *__pyx_v_start_option, int __pyx_v_shift_days, int __pyx_v_end_date_start_idx, int __pyx_v_end_date_end_idx, PyArrayObject *__pyx_v_diff_data, PyArrayObject *__pyx_v_stock_idx_arr, int __pyx_v_is_forward, int __pyx_v_n_days, double __pyx_v_user_range_ratio, double __pyx_v_continuous_abs_threshold, int __pyx_v_n_days_max, int __pyx_v_op_days, double __pyx_v_inc_rate, double __pyx_v_after_gt_end_ratio, double __pyx_v_after_gt_start_ratio, PyObject *__pyx_v_expr, double __pyx_v_ops_change_input, PyObject *__pyx_v_formula_expr); /* proto */
 static PyObject *__pyx_tp_new_array(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
 static PyObject *__pyx_tp_new_Enum(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
 static PyObject *__pyx_tp_new_memoryview(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
@@ -3930,10 +3990,10 @@ typedef struct {
   PyObject *__pyx_slice[1];
   PyObject *__pyx_tuple[2];
   PyObject *__pyx_codeobj_tab[1];
-  PyObject *__pyx_string_tab[258];
-  PyObject *__pyx_float_neg_1e308;
+  PyObject *__pyx_string_tab[301];
   PyObject *__pyx_int_0;
   PyObject *__pyx_int_1;
+  PyObject *__pyx_int_100;
   PyObject *__pyx_int_112105877;
   PyObject *__pyx_int_136983863;
   PyObject *__pyx_int_184977713;
@@ -3997,239 +4057,282 @@ static __pyx_mstatetype * const __pyx_mstate_global = &__pyx_mstate_global_stati
 #define __pyx_kp_u_Note_that_Cython_is_deliberately __pyx_string_tab[22]
 #define __pyx_n_b_O __pyx_string_tab[23]
 #define __pyx_kp_u_Out_of_bounds_on_buffer_access_a __pyx_string_tab[24]
-#define __pyx_n_u_PickleError __pyx_string_tab[25]
-#define __pyx_n_u_Sequence __pyx_string_tab[26]
-#define __pyx_kp_u_Step_may_not_be_zero_axis_d __pyx_string_tab[27]
-#define __pyx_n_u_TypeError __pyx_string_tab[28]
-#define __pyx_kp_u_Unable_to_convert_item_to_object __pyx_string_tab[29]
-#define __pyx_n_u_ValueError __pyx_string_tab[30]
-#define __pyx_n_u_View_MemoryView __pyx_string_tab[31]
-#define __pyx_kp_u__2 __pyx_string_tab[32]
-#define __pyx_kp_u__3 __pyx_string_tab[33]
-#define __pyx_kp_u__4 __pyx_string_tab[34]
-#define __pyx_kp_u__5 __pyx_string_tab[35]
-#define __pyx_n_u__6 __pyx_string_tab[36]
-#define __pyx_n_u__7 __pyx_string_tab[37]
-#define __pyx_n_u__8 __pyx_string_tab[38]
-#define __pyx_kp_u__9 __pyx_string_tab[39]
-#define __pyx_n_u_abc __pyx_string_tab[40]
-#define __pyx_n_u_abs __pyx_string_tab[41]
-#define __pyx_n_u_abs_arr __pyx_string_tab[42]
-#define __pyx_n_u_actual_idx __pyx_string_tab[43]
-#define __pyx_n_u_actual_value __pyx_string_tab[44]
-#define __pyx_kp_u_add_note __pyx_string_tab[45]
-#define __pyx_n_u_all_results __pyx_string_tab[46]
-#define __pyx_n_u_allocate_buffer __pyx_string_tab[47]
-#define __pyx_kp_u_and __pyx_string_tab[48]
-#define __pyx_n_u_append __pyx_string_tab[49]
-#define __pyx_n_u_array __pyx_string_tab[50]
-#define __pyx_n_u_asyncio_coroutines __pyx_string_tab[51]
-#define __pyx_kp_u_at_0x __pyx_string_tab[52]
-#define __pyx_n_u_base __pyx_string_tab[53]
-#define __pyx_n_u_base_idx __pyx_string_tab[54]
-#define __pyx_n_u_c __pyx_string_tab[55]
-#define __pyx_n_u_calculate_batch_cy __pyx_string_tab[56]
-#define __pyx_n_u_class __pyx_string_tab[57]
-#define __pyx_n_u_class_getitem __pyx_string_tab[58]
-#define __pyx_n_u_cline_in_traceback __pyx_string_tab[59]
-#define __pyx_n_u_closest_idx_in_window __pyx_string_tab[60]
-#define __pyx_n_u_closest_value __pyx_string_tab[61]
-#define __pyx_kp_u_collections_abc __pyx_string_tab[62]
-#define __pyx_n_u_cont_sum __pyx_string_tab[63]
-#define __pyx_n_u_cont_sum_np __pyx_string_tab[64]
-#define __pyx_kp_u_contiguous_and_direct __pyx_string_tab[65]
-#define __pyx_kp_u_contiguous_and_indirect __pyx_string_tab[66]
-#define __pyx_n_u_continuous_abs_is_less __pyx_string_tab[67]
-#define __pyx_n_u_continuous_abs_sum_block1 __pyx_string_tab[68]
-#define __pyx_n_u_continuous_abs_sum_block2 __pyx_string_tab[69]
-#define __pyx_n_u_continuous_abs_sum_block3 __pyx_string_tab[70]
-#define __pyx_n_u_continuous_abs_sum_block4 __pyx_string_tab[71]
-#define __pyx_n_u_continuous_abs_sum_first_half __pyx_string_tab[72]
-#define __pyx_n_u_continuous_abs_sum_second_half __pyx_string_tab[73]
-#define __pyx_n_u_continuous_abs_threshold __pyx_string_tab[74]
-#define __pyx_n_u_continuous_end_prev_prev_value __pyx_string_tab[75]
-#define __pyx_n_u_continuous_end_prev_value __pyx_string_tab[76]
-#define __pyx_n_u_continuous_end_value __pyx_string_tab[77]
-#define __pyx_n_u_continuous_len __pyx_string_tab[78]
-#define __pyx_n_u_continuous_results __pyx_string_tab[79]
-#define __pyx_n_u_continuous_start_next_next_value __pyx_string_tab[80]
-#define __pyx_n_u_continuous_start_next_value __pyx_string_tab[81]
-#define __pyx_n_u_continuous_start_value __pyx_string_tab[82]
-#define __pyx_n_u_count __pyx_string_tab[83]
-#define __pyx_n_u_date_columns __pyx_string_tab[84]
-#define __pyx_n_u_dict __pyx_string_tab[85]
-#define __pyx_n_u_diff __pyx_string_tab[86]
-#define __pyx_n_u_diff_data __pyx_string_tab[87]
-#define __pyx_n_u_diff_data_view __pyx_string_tab[88]
-#define __pyx_n_u_diff_end_value __pyx_string_tab[89]
-#define __pyx_kp_u_disable __pyx_string_tab[90]
-#define __pyx_n_u_dtype __pyx_string_tab[91]
-#define __pyx_n_u_dtype_is_object __pyx_string_tab[92]
-#define __pyx_kp_u_enable __pyx_string_tab[93]
-#define __pyx_n_u_encode __pyx_string_tab[94]
-#define __pyx_n_u_end_date __pyx_string_tab[95]
-#define __pyx_n_u_end_date_end_idx __pyx_string_tab[96]
-#define __pyx_n_u_end_date_idx __pyx_string_tab[97]
-#define __pyx_n_u_end_date_start_idx __pyx_string_tab[98]
-#define __pyx_n_u_end_day_change __pyx_string_tab[99]
-#define __pyx_n_u_end_value __pyx_string_tab[100]
-#define __pyx_n_u_enumerate __pyx_string_tab[101]
-#define __pyx_n_u_error __pyx_string_tab[102]
-#define __pyx_n_u_flags __pyx_string_tab[103]
-#define __pyx_n_u_float64 __pyx_string_tab[104]
-#define __pyx_n_u_format __pyx_string_tab[105]
-#define __pyx_n_u_fortran __pyx_string_tab[106]
-#define __pyx_n_u_forward_max_date __pyx_string_tab[107]
-#define __pyx_n_u_forward_max_result __pyx_string_tab[108]
-#define __pyx_n_u_forward_max_result_c __pyx_string_tab[109]
-#define __pyx_n_u_forward_max_valid_abs_sum_block1 __pyx_string_tab[110]
-#define __pyx_n_u_forward_max_valid_abs_sum_block2 __pyx_string_tab[111]
-#define __pyx_n_u_forward_max_valid_abs_sum_block3 __pyx_string_tab[112]
-#define __pyx_n_u_forward_max_valid_abs_sum_block4 __pyx_string_tab[113]
-#define __pyx_n_u_forward_max_valid_abs_sum_first __pyx_string_tab[114]
-#define __pyx_n_u_forward_max_valid_abs_sum_second __pyx_string_tab[115]
-#define __pyx_n_u_forward_max_valid_neg_sum __pyx_string_tab[116]
-#define __pyx_n_u_forward_max_valid_pos_sum __pyx_string_tab[117]
-#define __pyx_n_u_forward_max_valid_sum_arr __pyx_string_tab[118]
-#define __pyx_n_u_forward_max_valid_sum_len __pyx_string_tab[119]
-#define __pyx_n_u_forward_min_date __pyx_string_tab[120]
-#define __pyx_n_u_forward_min_result __pyx_string_tab[121]
-#define __pyx_n_u_forward_min_result_c __pyx_string_tab[122]
-#define __pyx_n_u_forward_min_valid_abs_sum_block1 __pyx_string_tab[123]
-#define __pyx_n_u_forward_min_valid_abs_sum_block2 __pyx_string_tab[124]
-#define __pyx_n_u_forward_min_valid_abs_sum_block3 __pyx_string_tab[125]
-#define __pyx_n_u_forward_min_valid_abs_sum_block4 __pyx_string_tab[126]
-#define __pyx_n_u_forward_min_valid_abs_sum_first __pyx_string_tab[127]
-#define __pyx_n_u_forward_min_valid_abs_sum_second __pyx_string_tab[128]
-#define __pyx_n_u_forward_min_valid_neg_sum __pyx_string_tab[129]
-#define __pyx_n_u_forward_min_valid_pos_sum __pyx_string_tab[130]
-#define __pyx_n_u_forward_min_valid_sum_arr __pyx_string_tab[131]
-#define __pyx_n_u_forward_min_valid_sum_len __pyx_string_tab[132]
-#define __pyx_n_u_func __pyx_string_tab[133]
-#define __pyx_kp_u_gc __pyx_string_tab[134]
-#define __pyx_n_u_getstate __pyx_string_tab[135]
-#define __pyx_kp_u_got __pyx_string_tab[136]
-#define __pyx_kp_u_got_differing_extents_in_dimensi __pyx_string_tab[137]
-#define __pyx_n_u_half __pyx_string_tab[138]
-#define __pyx_n_u_half_valid __pyx_string_tab[139]
-#define __pyx_n_u_i __pyx_string_tab[140]
-#define __pyx_n_u_id __pyx_string_tab[141]
-#define __pyx_n_u_idx __pyx_string_tab[142]
-#define __pyx_n_u_import __pyx_string_tab[143]
-#define __pyx_n_u_index __pyx_string_tab[144]
-#define __pyx_n_u_initializing __pyx_string_tab[145]
-#define __pyx_n_u_is_coroutine __pyx_string_tab[146]
-#define __pyx_n_u_is_forward __pyx_string_tab[147]
-#define __pyx_kp_u_isenabled __pyx_string_tab[148]
-#define __pyx_n_u_itemsize __pyx_string_tab[149]
-#define __pyx_kp_u_itemsize_0_for_cython_array __pyx_string_tab[150]
-#define __pyx_n_u_j __pyx_string_tab[151]
-#define __pyx_n_u_main __pyx_string_tab[152]
-#define __pyx_n_u_max __pyx_string_tab[153]
-#define __pyx_n_u_max_abs_val __pyx_string_tab[154]
-#define __pyx_n_u_max_idx_in_window __pyx_string_tab[155]
-#define __pyx_n_u_max_price __pyx_string_tab[156]
-#define __pyx_n_u_max_value __pyx_string_tab[157]
-#define __pyx_n_u_maxv __pyx_string_tab[158]
-#define __pyx_n_u_memview __pyx_string_tab[159]
-#define __pyx_n_u_min_diff __pyx_string_tab[160]
-#define __pyx_n_u_min_idx_in_window __pyx_string_tab[161]
-#define __pyx_n_u_min_price __pyx_string_tab[162]
-#define __pyx_n_u_min_value __pyx_string_tab[163]
-#define __pyx_n_u_mode __pyx_string_tab[164]
-#define __pyx_n_u_module __pyx_string_tab[165]
-#define __pyx_n_u_n __pyx_string_tab[166]
-#define __pyx_n_u_n_days __pyx_string_tab[167]
-#define __pyx_n_u_n_days_max __pyx_string_tab[168]
-#define __pyx_n_u_n_days_max_value __pyx_string_tab[169]
-#define __pyx_n_u_n_max_is_max __pyx_string_tab[170]
-#define __pyx_n_u_n_valid __pyx_string_tab[171]
-#define __pyx_n_u_name __pyx_string_tab[172]
-#define __pyx_n_u_name_2 __pyx_string_tab[173]
-#define __pyx_n_u_nan __pyx_string_tab[174]
-#define __pyx_n_u_ndim __pyx_string_tab[175]
-#define __pyx_n_u_new __pyx_string_tab[176]
-#define __pyx_kp_u_no_default___reduce___due_to_non __pyx_string_tab[177]
-#define __pyx_n_u_np __pyx_string_tab[178]
-#define __pyx_n_u_num_dates __pyx_string_tab[179]
-#define __pyx_n_u_num_stocks __pyx_string_tab[180]
-#define __pyx_n_u_numpy __pyx_string_tab[181]
-#define __pyx_kp_u_numpy__core_multiarray_failed_to __pyx_string_tab[182]
-#define __pyx_kp_u_numpy__core_umath_failed_to_impo __pyx_string_tab[183]
-#define __pyx_n_u_obj __pyx_string_tab[184]
-#define __pyx_kp_u_object __pyx_string_tab[185]
-#define __pyx_n_u_pack __pyx_string_tab[186]
-#define __pyx_n_u_pickle __pyx_string_tab[187]
-#define __pyx_n_u_pop __pyx_string_tab[188]
-#define __pyx_n_u_prev_day_change __pyx_string_tab[189]
-#define __pyx_n_u_price_arr __pyx_string_tab[190]
-#define __pyx_n_u_price_data __pyx_string_tab[191]
-#define __pyx_n_u_price_data_view __pyx_string_tab[192]
-#define __pyx_n_u_py_cont_sum __pyx_string_tab[193]
-#define __pyx_n_u_pyx_checksum __pyx_string_tab[194]
-#define __pyx_n_u_pyx_state __pyx_string_tab[195]
-#define __pyx_n_u_pyx_type __pyx_string_tab[196]
-#define __pyx_n_u_pyx_unpickle_Enum __pyx_string_tab[197]
-#define __pyx_n_u_pyx_vtable __pyx_string_tab[198]
-#define __pyx_n_u_q1 __pyx_string_tab[199]
-#define __pyx_n_u_q1_valid __pyx_string_tab[200]
-#define __pyx_n_u_q2 __pyx_string_tab[201]
-#define __pyx_n_u_q2_valid __pyx_string_tab[202]
-#define __pyx_n_u_q3 __pyx_string_tab[203]
-#define __pyx_n_u_q3_valid __pyx_string_tab[204]
-#define __pyx_n_u_qualname __pyx_string_tab[205]
-#define __pyx_n_u_range __pyx_string_tab[206]
-#define __pyx_n_u_range_ratio_is_less __pyx_string_tab[207]
-#define __pyx_n_u_reduce __pyx_string_tab[208]
-#define __pyx_n_u_reduce_cython __pyx_string_tab[209]
-#define __pyx_n_u_reduce_ex __pyx_string_tab[210]
-#define __pyx_n_u_register __pyx_string_tab[211]
-#define __pyx_n_u_row_result __pyx_string_tab[212]
-#define __pyx_n_u_set_name __pyx_string_tab[213]
-#define __pyx_n_u_setstate __pyx_string_tab[214]
-#define __pyx_n_u_setstate_cython __pyx_string_tab[215]
-#define __pyx_n_u_shape __pyx_string_tab[216]
-#define __pyx_n_u_shift_days __pyx_string_tab[217]
-#define __pyx_n_u_size __pyx_string_tab[218]
-#define __pyx_n_u_sorted_results __pyx_string_tab[219]
-#define __pyx_n_u_spec __pyx_string_tab[220]
-#define __pyx_n_u_start __pyx_string_tab[221]
-#define __pyx_n_u_start_date_idx __pyx_string_tab[222]
-#define __pyx_n_u_start_option __pyx_string_tab[223]
-#define __pyx_n_u_start_value __pyx_string_tab[224]
-#define __pyx_n_u_step __pyx_string_tab[225]
-#define __pyx_n_u_stock_idx __pyx_string_tab[226]
-#define __pyx_n_u_stock_idx_arr __pyx_string_tab[227]
-#define __pyx_n_u_stock_idx_arr_view __pyx_string_tab[228]
-#define __pyx_n_u_stocks __pyx_string_tab[229]
-#define __pyx_n_u_stop __pyx_string_tab[230]
-#define __pyx_kp_u_strided_and_direct __pyx_string_tab[231]
-#define __pyx_kp_u_strided_and_direct_or_indirect __pyx_string_tab[232]
-#define __pyx_kp_u_strided_and_indirect __pyx_string_tab[233]
-#define __pyx_n_u_struct __pyx_string_tab[234]
-#define __pyx_n_u_sum __pyx_string_tab[235]
-#define __pyx_n_u_test __pyx_string_tab[236]
-#define __pyx_kp_u_unable_to_allocate_array_data __pyx_string_tab[237]
-#define __pyx_kp_u_unable_to_allocate_shape_and_str __pyx_string_tab[238]
-#define __pyx_n_u_unpack __pyx_string_tab[239]
-#define __pyx_n_u_update __pyx_string_tab[240]
-#define __pyx_n_u_user_range_ratio __pyx_string_tab[241]
-#define __pyx_n_u_v __pyx_string_tab[242]
-#define __pyx_n_u_valid_abs_sum_block1 __pyx_string_tab[243]
-#define __pyx_n_u_valid_abs_sum_block2 __pyx_string_tab[244]
-#define __pyx_n_u_valid_abs_sum_block3 __pyx_string_tab[245]
-#define __pyx_n_u_valid_abs_sum_block4 __pyx_string_tab[246]
-#define __pyx_n_u_valid_abs_sum_first_half __pyx_string_tab[247]
-#define __pyx_n_u_valid_abs_sum_second_half __pyx_string_tab[248]
-#define __pyx_n_u_valid_neg_sum __pyx_string_tab[249]
-#define __pyx_n_u_valid_pos_sum __pyx_string_tab[250]
-#define __pyx_n_u_valid_sum_arr __pyx_string_tab[251]
-#define __pyx_n_u_valid_sum_len __pyx_string_tab[252]
-#define __pyx_n_u_width __pyx_string_tab[253]
-#define __pyx_n_u_window_len __pyx_string_tab[254]
-#define __pyx_n_u_worker_threads_cy __pyx_string_tab[255]
-#define __pyx_kp_u_worker_threads_cy_pyx __pyx_string_tab[256]
-#define __pyx_n_u_x __pyx_string_tab[257]
+#define __pyx_n_u_OverflowError __pyx_string_tab[25]
+#define __pyx_n_u_PickleError __pyx_string_tab[26]
+#define __pyx_n_u_Sequence __pyx_string_tab[27]
+#define __pyx_kp_u_Step_may_not_be_zero_axis_d __pyx_string_tab[28]
+#define __pyx_n_u_TypeError __pyx_string_tab[29]
+#define __pyx_kp_u_Unable_to_convert_item_to_object __pyx_string_tab[30]
+#define __pyx_n_u_ValueError __pyx_string_tab[31]
+#define __pyx_n_u_View_MemoryView __pyx_string_tab[32]
+#define __pyx_kp_u__2 __pyx_string_tab[33]
+#define __pyx_kp_u__3 __pyx_string_tab[34]
+#define __pyx_kp_u__4 __pyx_string_tab[35]
+#define __pyx_kp_u__5 __pyx_string_tab[36]
+#define __pyx_n_u__6 __pyx_string_tab[37]
+#define __pyx_n_u__7 __pyx_string_tab[38]
+#define __pyx_n_u__8 __pyx_string_tab[39]
+#define __pyx_kp_u__9 __pyx_string_tab[40]
+#define __pyx_n_u_abc __pyx_string_tab[41]
+#define __pyx_n_u_abs __pyx_string_tab[42]
+#define __pyx_n_u_abs_arr __pyx_string_tab[43]
+#define __pyx_n_u_actual_idx __pyx_string_tab[44]
+#define __pyx_n_u_actual_value __pyx_string_tab[45]
+#define __pyx_kp_u_add_note __pyx_string_tab[46]
+#define __pyx_n_u_adjust_days __pyx_string_tab[47]
+#define __pyx_n_u_after_gt_end_days __pyx_string_tab[48]
+#define __pyx_n_u_after_gt_end_ratio __pyx_string_tab[49]
+#define __pyx_n_u_after_gt_end_threshold __pyx_string_tab[50]
+#define __pyx_n_u_after_gt_end_value __pyx_string_tab[51]
+#define __pyx_n_u_after_gt_start_days __pyx_string_tab[52]
+#define __pyx_n_u_after_gt_start_ratio __pyx_string_tab[53]
+#define __pyx_n_u_after_gt_start_threshold __pyx_string_tab[54]
+#define __pyx_n_u_after_gt_start_value __pyx_string_tab[55]
+#define __pyx_n_u_age_value __pyx_string_tab[56]
+#define __pyx_n_u_ags_value __pyx_string_tab[57]
+#define __pyx_n_u_all_results __pyx_string_tab[58]
+#define __pyx_n_u_allocate_buffer __pyx_string_tab[59]
+#define __pyx_kp_u_and __pyx_string_tab[60]
+#define __pyx_n_u_append __pyx_string_tab[61]
+#define __pyx_n_u_array __pyx_string_tab[62]
+#define __pyx_n_u_asyncio_coroutines __pyx_string_tab[63]
+#define __pyx_kp_u_at_0x __pyx_string_tab[64]
+#define __pyx_n_u_base __pyx_string_tab[65]
+#define __pyx_n_u_base_idx __pyx_string_tab[66]
+#define __pyx_n_u_c __pyx_string_tab[67]
+#define __pyx_n_u_calculate_batch_cy __pyx_string_tab[68]
+#define __pyx_n_u_class __pyx_string_tab[69]
+#define __pyx_n_u_class_getitem __pyx_string_tab[70]
+#define __pyx_n_u_cline_in_traceback __pyx_string_tab[71]
+#define __pyx_n_u_closest_idx_in_window __pyx_string_tab[72]
+#define __pyx_n_u_closest_value __pyx_string_tab[73]
+#define __pyx_kp_u_collections_abc __pyx_string_tab[74]
+#define __pyx_n_u_cont_sum __pyx_string_tab[75]
+#define __pyx_n_u_cont_sum_np __pyx_string_tab[76]
+#define __pyx_kp_u_contiguous_and_direct __pyx_string_tab[77]
+#define __pyx_kp_u_contiguous_and_indirect __pyx_string_tab[78]
+#define __pyx_n_u_continuous_abs_is_less __pyx_string_tab[79]
+#define __pyx_n_u_continuous_abs_sum_block1 __pyx_string_tab[80]
+#define __pyx_n_u_continuous_abs_sum_block2 __pyx_string_tab[81]
+#define __pyx_n_u_continuous_abs_sum_block3 __pyx_string_tab[82]
+#define __pyx_n_u_continuous_abs_sum_block4 __pyx_string_tab[83]
+#define __pyx_n_u_continuous_abs_sum_first_half __pyx_string_tab[84]
+#define __pyx_n_u_continuous_abs_sum_second_half __pyx_string_tab[85]
+#define __pyx_n_u_continuous_abs_threshold __pyx_string_tab[86]
+#define __pyx_n_u_continuous_end_prev_prev_value __pyx_string_tab[87]
+#define __pyx_n_u_continuous_end_prev_value __pyx_string_tab[88]
+#define __pyx_n_u_continuous_end_value __pyx_string_tab[89]
+#define __pyx_n_u_continuous_len __pyx_string_tab[90]
+#define __pyx_n_u_continuous_results __pyx_string_tab[91]
+#define __pyx_n_u_continuous_start_next_next_value __pyx_string_tab[92]
+#define __pyx_n_u_continuous_start_next_value __pyx_string_tab[93]
+#define __pyx_n_u_continuous_start_value __pyx_string_tab[94]
+#define __pyx_n_u_count __pyx_string_tab[95]
+#define __pyx_n_u_date_columns __pyx_string_tab[96]
+#define __pyx_n_u_dict __pyx_string_tab[97]
+#define __pyx_n_u_diff __pyx_string_tab[98]
+#define __pyx_n_u_diff_data __pyx_string_tab[99]
+#define __pyx_n_u_diff_data_view __pyx_string_tab[100]
+#define __pyx_n_u_diff_end_value __pyx_string_tab[101]
+#define __pyx_kp_u_disable __pyx_string_tab[102]
+#define __pyx_n_u_dtype __pyx_string_tab[103]
+#define __pyx_n_u_dtype_is_object __pyx_string_tab[104]
+#define __pyx_n_u_e __pyx_string_tab[105]
+#define __pyx_n_u_empty __pyx_string_tab[106]
+#define __pyx_kp_u_enable __pyx_string_tab[107]
+#define __pyx_n_u_encode __pyx_string_tab[108]
+#define __pyx_n_u_end_date __pyx_string_tab[109]
+#define __pyx_n_u_end_date_end_idx __pyx_string_tab[110]
+#define __pyx_n_u_end_date_idx __pyx_string_tab[111]
+#define __pyx_n_u_end_date_start_idx __pyx_string_tab[112]
+#define __pyx_n_u_end_day_change __pyx_string_tab[113]
+#define __pyx_n_u_end_value __pyx_string_tab[114]
+#define __pyx_n_u_end_value_for_ops __pyx_string_tab[115]
+#define __pyx_n_u_enumerate __pyx_string_tab[116]
+#define __pyx_n_u_error __pyx_string_tab[117]
+#define __pyx_n_u_expr __pyx_string_tab[118]
+#define __pyx_n_u_fallback_idx __pyx_string_tab[119]
+#define __pyx_n_u_flags __pyx_string_tab[120]
+#define __pyx_n_u_float64 __pyx_string_tab[121]
+#define __pyx_n_u_format __pyx_string_tab[122]
+#define __pyx_n_u_formula_expr __pyx_string_tab[123]
+#define __pyx_n_u_fortran __pyx_string_tab[124]
+#define __pyx_n_u_forward_max_date __pyx_string_tab[125]
+#define __pyx_n_u_forward_max_result __pyx_string_tab[126]
+#define __pyx_n_u_forward_max_result_c __pyx_string_tab[127]
+#define __pyx_n_u_forward_max_result_len __pyx_string_tab[128]
+#define __pyx_n_u_forward_max_valid_abs_sum_block1 __pyx_string_tab[129]
+#define __pyx_n_u_forward_max_valid_abs_sum_block2 __pyx_string_tab[130]
+#define __pyx_n_u_forward_max_valid_abs_sum_block3 __pyx_string_tab[131]
+#define __pyx_n_u_forward_max_valid_abs_sum_block4 __pyx_string_tab[132]
+#define __pyx_n_u_forward_max_valid_abs_sum_first __pyx_string_tab[133]
+#define __pyx_n_u_forward_max_valid_abs_sum_second __pyx_string_tab[134]
+#define __pyx_n_u_forward_max_valid_neg_sum __pyx_string_tab[135]
+#define __pyx_n_u_forward_max_valid_pos_sum __pyx_string_tab[136]
+#define __pyx_n_u_forward_max_valid_sum_arr __pyx_string_tab[137]
+#define __pyx_n_u_forward_max_valid_sum_len __pyx_string_tab[138]
+#define __pyx_n_u_forward_min_date __pyx_string_tab[139]
+#define __pyx_n_u_forward_min_result __pyx_string_tab[140]
+#define __pyx_n_u_forward_min_result_c __pyx_string_tab[141]
+#define __pyx_n_u_forward_min_result_len __pyx_string_tab[142]
+#define __pyx_n_u_forward_min_valid_abs_sum_block1 __pyx_string_tab[143]
+#define __pyx_n_u_forward_min_valid_abs_sum_block2 __pyx_string_tab[144]
+#define __pyx_n_u_forward_min_valid_abs_sum_block3 __pyx_string_tab[145]
+#define __pyx_n_u_forward_min_valid_abs_sum_block4 __pyx_string_tab[146]
+#define __pyx_n_u_forward_min_valid_abs_sum_first __pyx_string_tab[147]
+#define __pyx_n_u_forward_min_valid_abs_sum_second __pyx_string_tab[148]
+#define __pyx_n_u_forward_min_valid_neg_sum __pyx_string_tab[149]
+#define __pyx_n_u_forward_min_valid_pos_sum __pyx_string_tab[150]
+#define __pyx_n_u_forward_min_valid_sum_arr __pyx_string_tab[151]
+#define __pyx_n_u_forward_min_valid_sum_len __pyx_string_tab[152]
+#define __pyx_n_u_found __pyx_string_tab[153]
+#define __pyx_n_u_func __pyx_string_tab[154]
+#define __pyx_kp_u_gc __pyx_string_tab[155]
+#define __pyx_n_u_getstate __pyx_string_tab[156]
+#define __pyx_kp_u_got __pyx_string_tab[157]
+#define __pyx_kp_u_got_differing_extents_in_dimensi __pyx_string_tab[158]
+#define __pyx_n_u_half __pyx_string_tab[159]
+#define __pyx_n_u_half_valid __pyx_string_tab[160]
+#define __pyx_n_u_hold_days __pyx_string_tab[161]
+#define __pyx_n_u_i __pyx_string_tab[162]
+#define __pyx_n_u_id __pyx_string_tab[163]
+#define __pyx_n_u_idx __pyx_string_tab[164]
+#define __pyx_n_u_import __pyx_string_tab[165]
+#define __pyx_n_u_inc_rate __pyx_string_tab[166]
+#define __pyx_n_u_inc_value __pyx_string_tab[167]
+#define __pyx_n_u_increment_days __pyx_string_tab[168]
+#define __pyx_n_u_increment_threshold __pyx_string_tab[169]
+#define __pyx_n_u_increment_value __pyx_string_tab[170]
+#define __pyx_n_u_index __pyx_string_tab[171]
+#define __pyx_n_u_initializing __pyx_string_tab[172]
+#define __pyx_n_u_is_coroutine __pyx_string_tab[173]
+#define __pyx_n_u_is_forward __pyx_string_tab[174]
+#define __pyx_kp_u_isenabled __pyx_string_tab[175]
+#define __pyx_n_u_itemsize __pyx_string_tab[176]
+#define __pyx_kp_u_itemsize_0_for_cython_array __pyx_string_tab[177]
+#define __pyx_n_u_j __pyx_string_tab[178]
+#define __pyx_n_u_k __pyx_string_tab[179]
+#define __pyx_n_u_main __pyx_string_tab[180]
+#define __pyx_n_u_make_user_func __pyx_string_tab[181]
+#define __pyx_n_u_max __pyx_string_tab[182]
+#define __pyx_n_u_max_abs_val __pyx_string_tab[183]
+#define __pyx_n_u_max_idx_in_window __pyx_string_tab[184]
+#define __pyx_n_u_max_price __pyx_string_tab[185]
+#define __pyx_n_u_max_value __pyx_string_tab[186]
+#define __pyx_n_u_maxv __pyx_string_tab[187]
+#define __pyx_n_u_memview __pyx_string_tab[188]
+#define __pyx_n_u_min_diff __pyx_string_tab[189]
+#define __pyx_n_u_min_idx_in_window __pyx_string_tab[190]
+#define __pyx_n_u_min_price __pyx_string_tab[191]
+#define __pyx_n_u_min_value __pyx_string_tab[192]
+#define __pyx_n_u_mode __pyx_string_tab[193]
+#define __pyx_n_u_module __pyx_string_tab[194]
+#define __pyx_n_u_n __pyx_string_tab[195]
+#define __pyx_n_u_n_days __pyx_string_tab[196]
+#define __pyx_n_u_n_days_max __pyx_string_tab[197]
+#define __pyx_n_u_n_days_max_value __pyx_string_tab[198]
+#define __pyx_n_u_n_increment __pyx_string_tab[199]
+#define __pyx_n_u_n_max_is_max __pyx_string_tab[200]
+#define __pyx_n_u_n_valid __pyx_string_tab[201]
+#define __pyx_n_u_name __pyx_string_tab[202]
+#define __pyx_n_u_name_2 __pyx_string_tab[203]
+#define __pyx_n_u_nan __pyx_string_tab[204]
+#define __pyx_n_u_ndim __pyx_string_tab[205]
+#define __pyx_n_u_new __pyx_string_tab[206]
+#define __pyx_kp_u_no_default___reduce___due_to_non __pyx_string_tab[207]
+#define __pyx_n_u_np __pyx_string_tab[208]
+#define __pyx_n_u_num_dates __pyx_string_tab[209]
+#define __pyx_n_u_num_stocks __pyx_string_tab[210]
+#define __pyx_n_u_numpy __pyx_string_tab[211]
+#define __pyx_kp_u_numpy__core_multiarray_failed_to __pyx_string_tab[212]
+#define __pyx_kp_u_numpy__core_umath_failed_to_impo __pyx_string_tab[213]
+#define __pyx_n_u_obj __pyx_string_tab[214]
+#define __pyx_kp_u_object __pyx_string_tab[215]
+#define __pyx_n_u_op_days __pyx_string_tab[216]
+#define __pyx_n_u_ops_change __pyx_string_tab[217]
+#define __pyx_n_u_ops_change_input __pyx_string_tab[218]
+#define __pyx_n_u_ops_incre_rate __pyx_string_tab[219]
+#define __pyx_n_u_ops_value __pyx_string_tab[220]
+#define __pyx_n_u_pack __pyx_string_tab[221]
+#define __pyx_n_u_pickle __pyx_string_tab[222]
+#define __pyx_n_u_pop __pyx_string_tab[223]
+#define __pyx_n_u_prev_day_change __pyx_string_tab[224]
+#define __pyx_n_u_prev_v __pyx_string_tab[225]
+#define __pyx_n_u_price_arr __pyx_string_tab[226]
+#define __pyx_n_u_price_data __pyx_string_tab[227]
+#define __pyx_n_u_price_data_view __pyx_string_tab[228]
+#define __pyx_n_u_py_cont_sum __pyx_string_tab[229]
+#define __pyx_n_u_pyx_checksum __pyx_string_tab[230]
+#define __pyx_n_u_pyx_state __pyx_string_tab[231]
+#define __pyx_n_u_pyx_type __pyx_string_tab[232]
+#define __pyx_n_u_pyx_unpickle_Enum __pyx_string_tab[233]
+#define __pyx_n_u_pyx_vtable __pyx_string_tab[234]
+#define __pyx_n_u_q1 __pyx_string_tab[235]
+#define __pyx_n_u_q1_valid __pyx_string_tab[236]
+#define __pyx_n_u_q2 __pyx_string_tab[237]
+#define __pyx_n_u_q2_valid __pyx_string_tab[238]
+#define __pyx_n_u_q3 __pyx_string_tab[239]
+#define __pyx_n_u_q3_valid __pyx_string_tab[240]
+#define __pyx_n_u_qualname __pyx_string_tab[241]
+#define __pyx_n_u_range __pyx_string_tab[242]
+#define __pyx_n_u_range_ratio_is_less __pyx_string_tab[243]
+#define __pyx_n_u_reduce __pyx_string_tab[244]
+#define __pyx_n_u_reduce_cython __pyx_string_tab[245]
+#define __pyx_n_u_reduce_ex __pyx_string_tab[246]
+#define __pyx_n_u_register __pyx_string_tab[247]
+#define __pyx_n_u_result_value __pyx_string_tab[248]
+#define __pyx_n_u_row_result __pyx_string_tab[249]
+#define __pyx_n_u_score __pyx_string_tab[250]
+#define __pyx_n_u_score_func __pyx_string_tab[251]
+#define __pyx_n_u_set_name __pyx_string_tab[252]
+#define __pyx_n_u_setstate __pyx_string_tab[253]
+#define __pyx_n_u_setstate_cython __pyx_string_tab[254]
+#define __pyx_n_u_shape __pyx_string_tab[255]
+#define __pyx_n_u_shift_days __pyx_string_tab[256]
+#define __pyx_n_u_size __pyx_string_tab[257]
+#define __pyx_n_u_sorted_results __pyx_string_tab[258]
+#define __pyx_n_u_spec __pyx_string_tab[259]
+#define __pyx_n_u_start __pyx_string_tab[260]
+#define __pyx_n_u_start_date_idx __pyx_string_tab[261]
+#define __pyx_n_u_start_option __pyx_string_tab[262]
+#define __pyx_n_u_start_value __pyx_string_tab[263]
+#define __pyx_n_u_step __pyx_string_tab[264]
+#define __pyx_n_u_stock_idx __pyx_string_tab[265]
+#define __pyx_n_u_stock_idx_arr __pyx_string_tab[266]
+#define __pyx_n_u_stock_idx_arr_view __pyx_string_tab[267]
+#define __pyx_n_u_stocks __pyx_string_tab[268]
+#define __pyx_n_u_stop __pyx_string_tab[269]
+#define __pyx_kp_u_strided_and_direct __pyx_string_tab[270]
+#define __pyx_kp_u_strided_and_direct_or_indirect __pyx_string_tab[271]
+#define __pyx_kp_u_strided_and_indirect __pyx_string_tab[272]
+#define __pyx_n_u_struct __pyx_string_tab[273]
+#define __pyx_n_u_sum __pyx_string_tab[274]
+#define __pyx_n_u_test __pyx_string_tab[275]
+#define __pyx_kp_u_unable_to_allocate_array_data __pyx_string_tab[276]
+#define __pyx_kp_u_unable_to_allocate_shape_and_str __pyx_string_tab[277]
+#define __pyx_n_u_unpack __pyx_string_tab[278]
+#define __pyx_n_u_update __pyx_string_tab[279]
+#define __pyx_n_u_user_func __pyx_string_tab[280]
+#define __pyx_n_u_user_range_ratio __pyx_string_tab[281]
+#define __pyx_n_u_v __pyx_string_tab[282]
+#define __pyx_n_u_v_now __pyx_string_tab[283]
+#define __pyx_n_u_v_prev __pyx_string_tab[284]
+#define __pyx_n_u_valid_abs_sum_block1 __pyx_string_tab[285]
+#define __pyx_n_u_valid_abs_sum_block2 __pyx_string_tab[286]
+#define __pyx_n_u_valid_abs_sum_block3 __pyx_string_tab[287]
+#define __pyx_n_u_valid_abs_sum_block4 __pyx_string_tab[288]
+#define __pyx_n_u_valid_abs_sum_first_half __pyx_string_tab[289]
+#define __pyx_n_u_valid_abs_sum_second_half __pyx_string_tab[290]
+#define __pyx_n_u_valid_neg_sum __pyx_string_tab[291]
+#define __pyx_n_u_valid_pos_sum __pyx_string_tab[292]
+#define __pyx_n_u_valid_sum_arr __pyx_string_tab[293]
+#define __pyx_n_u_valid_sum_len __pyx_string_tab[294]
+#define __pyx_n_u_width __pyx_string_tab[295]
+#define __pyx_n_u_window_len __pyx_string_tab[296]
+#define __pyx_n_u_worker_threads __pyx_string_tab[297]
+#define __pyx_n_u_worker_threads_cy __pyx_string_tab[298]
+#define __pyx_kp_u_worker_threads_cy_pyx __pyx_string_tab[299]
+#define __pyx_n_u_x __pyx_string_tab[300]
 /* #### Code section: module_state_clear ### */
 #if CYTHON_USE_MODULE_STATE
 static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
@@ -4277,10 +4380,10 @@ static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
   for (int i=0; i<1; ++i) { Py_CLEAR(clear_module_state->__pyx_slice[i]); }
   for (int i=0; i<2; ++i) { Py_CLEAR(clear_module_state->__pyx_tuple[i]); }
   for (int i=0; i<1; ++i) { Py_CLEAR(clear_module_state->__pyx_codeobj_tab[i]); }
-  for (int i=0; i<258; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
-  Py_CLEAR(clear_module_state->__pyx_float_neg_1e308);
+  for (int i=0; i<301; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
   Py_CLEAR(clear_module_state->__pyx_int_0);
   Py_CLEAR(clear_module_state->__pyx_int_1);
+  Py_CLEAR(clear_module_state->__pyx_int_100);
   Py_CLEAR(clear_module_state->__pyx_int_112105877);
   Py_CLEAR(clear_module_state->__pyx_int_136983863);
   Py_CLEAR(clear_module_state->__pyx_int_184977713);
@@ -4332,10 +4435,10 @@ static CYTHON_SMALL_CODE int __pyx_m_traverse(PyObject *m, visitproc visit, void
   for (int i=0; i<1; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_slice[i]); }
   for (int i=0; i<2; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_tuple[i]); }
   for (int i=0; i<1; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_codeobj_tab[i]); }
-  for (int i=0; i<258; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
-  __Pyx_VISIT_CONST(traverse_module_state->__pyx_float_neg_1e308);
+  for (int i=0; i<301; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
   __Pyx_VISIT_CONST(traverse_module_state->__pyx_int_0);
   __Pyx_VISIT_CONST(traverse_module_state->__pyx_int_1);
+  __Pyx_VISIT_CONST(traverse_module_state->__pyx_int_100);
   __Pyx_VISIT_CONST(traverse_module_state->__pyx_int_112105877);
   __Pyx_VISIT_CONST(traverse_module_state->__pyx_int_136983863);
   __Pyx_VISIT_CONST(traverse_module_state->__pyx_int_184977713);
@@ -4491,6 +4594,342 @@ static PyObject *__pyx_convert_vector_to_py_double(std::vector<double>  const &_
   __Pyx_XDECREF(__pyx_v_o);
   __Pyx_XDECREF(__pyx_v_item);
   __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "carray.from_py":78
+ *     object PyErr_Format(exc, const char *format, ...)
+ * 
+ * @cname("__Pyx_carray_from_py_double")             # <<<<<<<<<<<<<<
+ * cdef int __Pyx_carray_from_py_double(object o, base_type *v, Py_ssize_t length) except -1:
+ *     cdef Py_ssize_t i = length
+*/
+
+static int __Pyx_carray_from_py_double(PyObject *__pyx_v_o, double *__pyx_v_v, Py_ssize_t __pyx_v_length) {
+  Py_ssize_t __pyx_v_i;
+  PyObject *__pyx_v_item = NULL;
+  int __pyx_r;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  PyObject *__pyx_t_2 = NULL;
+  PyObject *__pyx_t_3 = NULL;
+  Py_ssize_t __pyx_t_4;
+  int __pyx_t_5;
+  int __pyx_t_6;
+  PyObject *__pyx_t_7 = NULL;
+  Py_ssize_t __pyx_t_8;
+  PyObject *(*__pyx_t_9)(PyObject *);
+  PyObject *__pyx_t_10 = NULL;
+  double __pyx_t_11;
+  char const *__pyx_t_12;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("__Pyx_carray_from_py_double", 0);
+
+  /* "carray.from_py":80
+ * @cname("__Pyx_carray_from_py_double")
+ * cdef int __Pyx_carray_from_py_double(object o, base_type *v, Py_ssize_t length) except -1:
+ *     cdef Py_ssize_t i = length             # <<<<<<<<<<<<<<
+ *     try:
+ *         i = len(o)
+*/
+  __pyx_v_i = __pyx_v_length;
+
+  /* "carray.from_py":81
+ * cdef int __Pyx_carray_from_py_double(object o, base_type *v, Py_ssize_t length) except -1:
+ *     cdef Py_ssize_t i = length
+ *     try:             # <<<<<<<<<<<<<<
+ *         i = len(o)
+ *     except (TypeError, OverflowError):
+*/
+  {
+    __Pyx_PyThreadState_declare
+    __Pyx_PyThreadState_assign
+    __Pyx_ExceptionSave(&__pyx_t_1, &__pyx_t_2, &__pyx_t_3);
+    __Pyx_XGOTREF(__pyx_t_1);
+    __Pyx_XGOTREF(__pyx_t_2);
+    __Pyx_XGOTREF(__pyx_t_3);
+    /*try:*/ {
+
+      /* "carray.from_py":82
+ *     cdef Py_ssize_t i = length
+ *     try:
+ *         i = len(o)             # <<<<<<<<<<<<<<
+ *     except (TypeError, OverflowError):
+ *         pass
+*/
+      __pyx_t_4 = PyObject_Length(__pyx_v_o); if (unlikely(__pyx_t_4 == ((Py_ssize_t)-1))) __PYX_ERR(1, 82, __pyx_L3_error)
+      __pyx_v_i = __pyx_t_4;
+
+      /* "carray.from_py":81
+ * cdef int __Pyx_carray_from_py_double(object o, base_type *v, Py_ssize_t length) except -1:
+ *     cdef Py_ssize_t i = length
+ *     try:             # <<<<<<<<<<<<<<
+ *         i = len(o)
+ *     except (TypeError, OverflowError):
+*/
+    }
+    __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
+    __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
+    goto __pyx_L8_try_end;
+    __pyx_L3_error:;
+
+    /* "carray.from_py":83
+ *     try:
+ *         i = len(o)
+ *     except (TypeError, OverflowError):             # <<<<<<<<<<<<<<
+ *         pass
+ *     if i == length:
+*/
+    __pyx_t_5 = __Pyx_PyErr_ExceptionMatches2(__pyx_builtin_TypeError, __pyx_builtin_OverflowError);
+    if (__pyx_t_5) {
+      __Pyx_ErrRestore(0,0,0);
+      goto __pyx_L4_exception_handled;
+    }
+    goto __pyx_L5_except_error;
+
+    /* "carray.from_py":81
+ * cdef int __Pyx_carray_from_py_double(object o, base_type *v, Py_ssize_t length) except -1:
+ *     cdef Py_ssize_t i = length
+ *     try:             # <<<<<<<<<<<<<<
+ *         i = len(o)
+ *     except (TypeError, OverflowError):
+*/
+    __pyx_L5_except_error:;
+    __Pyx_XGIVEREF(__pyx_t_1);
+    __Pyx_XGIVEREF(__pyx_t_2);
+    __Pyx_XGIVEREF(__pyx_t_3);
+    __Pyx_ExceptionReset(__pyx_t_1, __pyx_t_2, __pyx_t_3);
+    goto __pyx_L1_error;
+    __pyx_L4_exception_handled:;
+    __Pyx_XGIVEREF(__pyx_t_1);
+    __Pyx_XGIVEREF(__pyx_t_2);
+    __Pyx_XGIVEREF(__pyx_t_3);
+    __Pyx_ExceptionReset(__pyx_t_1, __pyx_t_2, __pyx_t_3);
+    __pyx_L8_try_end:;
+  }
+
+  /* "carray.from_py":85
+ *     except (TypeError, OverflowError):
+ *         pass
+ *     if i == length:             # <<<<<<<<<<<<<<
+ *         for i, item in enumerate(o):
+ *             if i >= length:
+*/
+  __pyx_t_6 = (__pyx_v_i == __pyx_v_length);
+  if (__pyx_t_6) {
+
+    /* "carray.from_py":86
+ *         pass
+ *     if i == length:
+ *         for i, item in enumerate(o):             # <<<<<<<<<<<<<<
+ *             if i >= length:
+ *                 break
+*/
+    __pyx_t_4 = 0;
+    if (likely(PyList_CheckExact(__pyx_v_o)) || PyTuple_CheckExact(__pyx_v_o)) {
+      __pyx_t_7 = __pyx_v_o; __Pyx_INCREF(__pyx_t_7);
+      __pyx_t_8 = 0;
+      __pyx_t_9 = NULL;
+    } else {
+      __pyx_t_8 = -1; __pyx_t_7 = PyObject_GetIter(__pyx_v_o); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 86, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_7);
+      __pyx_t_9 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_7); if (unlikely(!__pyx_t_9)) __PYX_ERR(1, 86, __pyx_L1_error)
+    }
+    for (;;) {
+      if (likely(!__pyx_t_9)) {
+        if (likely(PyList_CheckExact(__pyx_t_7))) {
+          {
+            Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_7);
+            #if !CYTHON_ASSUME_SAFE_SIZE
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(1, 86, __pyx_L1_error)
+            #endif
+            if (__pyx_t_8 >= __pyx_temp) break;
+          }
+          __pyx_t_10 = __Pyx_PyList_GetItemRef(__pyx_t_7, __pyx_t_8);
+          ++__pyx_t_8;
+        } else {
+          {
+            Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_7);
+            #if !CYTHON_ASSUME_SAFE_SIZE
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(1, 86, __pyx_L1_error)
+            #endif
+            if (__pyx_t_8 >= __pyx_temp) break;
+          }
+          #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
+          __pyx_t_10 = __Pyx_NewRef(PyTuple_GET_ITEM(__pyx_t_7, __pyx_t_8));
+          #else
+          __pyx_t_10 = __Pyx_PySequence_ITEM(__pyx_t_7, __pyx_t_8);
+          #endif
+          ++__pyx_t_8;
+        }
+        if (unlikely(!__pyx_t_10)) __PYX_ERR(1, 86, __pyx_L1_error)
+      } else {
+        __pyx_t_10 = __pyx_t_9(__pyx_t_7);
+        if (unlikely(!__pyx_t_10)) {
+          PyObject* exc_type = PyErr_Occurred();
+          if (exc_type) {
+            if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(1, 86, __pyx_L1_error)
+            PyErr_Clear();
+          }
+          break;
+        }
+      }
+      __Pyx_GOTREF(__pyx_t_10);
+      __Pyx_XDECREF_SET(__pyx_v_item, __pyx_t_10);
+      __pyx_t_10 = 0;
+      __pyx_v_i = __pyx_t_4;
+      __pyx_t_4 = (__pyx_t_4 + 1);
+
+      /* "carray.from_py":87
+ *     if i == length:
+ *         for i, item in enumerate(o):
+ *             if i >= length:             # <<<<<<<<<<<<<<
+ *                 break
+ *             v[i] = item
+*/
+      __pyx_t_6 = (__pyx_v_i >= __pyx_v_length);
+      if (__pyx_t_6) {
+
+        /* "carray.from_py":88
+ *         for i, item in enumerate(o):
+ *             if i >= length:
+ *                 break             # <<<<<<<<<<<<<<
+ *             v[i] = item
+ *         else:
+*/
+        goto __pyx_L13_break;
+
+        /* "carray.from_py":87
+ *     if i == length:
+ *         for i, item in enumerate(o):
+ *             if i >= length:             # <<<<<<<<<<<<<<
+ *                 break
+ *             v[i] = item
+*/
+      }
+
+      /* "carray.from_py":89
+ *             if i >= length:
+ *                 break
+ *             v[i] = item             # <<<<<<<<<<<<<<
+ *         else:
+ *             i += 1  # convert index to length
+*/
+      __pyx_t_11 = __Pyx_PyFloat_AsDouble(__pyx_v_item); if (unlikely((__pyx_t_11 == (double)-1) && PyErr_Occurred())) __PYX_ERR(1, 89, __pyx_L1_error)
+      (__pyx_v_v[__pyx_v_i]) = __pyx_t_11;
+
+      /* "carray.from_py":86
+ *         pass
+ *     if i == length:
+ *         for i, item in enumerate(o):             # <<<<<<<<<<<<<<
+ *             if i >= length:
+ *                 break
+*/
+    }
+    __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+    goto __pyx_L15_for_else;
+    __pyx_L13_break:;
+    __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+    goto __pyx_L16_for_end;
+    /*else*/ {
+      __pyx_L15_for_else:;
+
+      /* "carray.from_py":91
+ *             v[i] = item
+ *         else:
+ *             i += 1  # convert index to length             # <<<<<<<<<<<<<<
+ *             if i == length:
+ *                 return 0
+*/
+      __pyx_v_i = (__pyx_v_i + 1);
+
+      /* "carray.from_py":92
+ *         else:
+ *             i += 1  # convert index to length
+ *             if i == length:             # <<<<<<<<<<<<<<
+ *                 return 0
+ * 
+*/
+      __pyx_t_6 = (__pyx_v_i == __pyx_v_length);
+      if (__pyx_t_6) {
+
+        /* "carray.from_py":93
+ *             i += 1  # convert index to length
+ *             if i == length:
+ *                 return 0             # <<<<<<<<<<<<<<
+ * 
+ *     PyErr_Format(
+*/
+        __pyx_r = 0;
+        goto __pyx_L0;
+
+        /* "carray.from_py":92
+ *         else:
+ *             i += 1  # convert index to length
+ *             if i == length:             # <<<<<<<<<<<<<<
+ *                 return 0
+ * 
+*/
+      }
+    }
+    __pyx_L16_for_end:;
+
+    /* "carray.from_py":85
+ *     except (TypeError, OverflowError):
+ *         pass
+ *     if i == length:             # <<<<<<<<<<<<<<
+ *         for i, item in enumerate(o):
+ *             if i >= length:
+*/
+  }
+
+  /* "carray.from_py":98
+ *         IndexError,
+ *         ("too many values found during array assignment, expected %zd"
+ *          if i >= length else             # <<<<<<<<<<<<<<
+ *          "not enough values found during array assignment, expected %zd, got %zd"),
+ *         length, i)
+*/
+  __pyx_t_6 = (__pyx_v_i >= __pyx_v_length);
+  if (__pyx_t_6) {
+    __pyx_t_12 = ((char const *)"too many values found during array assignment, expected %zd");
+  } else {
+    __pyx_t_12 = ((char const *)"not enough values found during array assignment, expected %zd, got %zd");
+  }
+
+  /* "carray.from_py":95
+ *                 return 0
+ * 
+ *     PyErr_Format(             # <<<<<<<<<<<<<<
+ *         IndexError,
+ *         ("too many values found during array assignment, expected %zd"
+*/
+  __pyx_t_7 = PyErr_Format(__pyx_builtin_IndexError, __pyx_t_12, __pyx_v_length, __pyx_v_i); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 95, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_7);
+  __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+
+  /* "carray.from_py":78
+ *     object PyErr_Format(exc, const char *format, ...)
+ * 
+ * @cname("__Pyx_carray_from_py_double")             # <<<<<<<<<<<<<<
+ * cdef int __Pyx_carray_from_py_double(object o, base_type *v, Py_ssize_t length) except -1:
+ *     cdef Py_ssize_t i = length
+*/
+
+  /* function exit code */
+  __pyx_r = 0;
+  goto __pyx_L0;
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_7);
+  __Pyx_XDECREF(__pyx_t_10);
+  __Pyx_AddTraceback("carray.from_py.__Pyx_carray_from_py_double", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = -1;
+  __pyx_L0:;
+  __Pyx_XDECREF(__pyx_v_item);
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
@@ -19813,7 +20252,7 @@ static CYTHON_INLINE NPY_DATETIMEUNIT __pyx_f_5numpy_get_datetime64_unit(PyObjec
   return __pyx_r;
 }
 
-/* "worker_threads_cy.pyx":15
+/* "worker_threads_cy.pyx":14
  * cdef double NAN = float('nan')
  * 
  * cdef inline double round_to_2(double x) nogil:             # <<<<<<<<<<<<<<
@@ -19824,7 +20263,7 @@ static CYTHON_INLINE NPY_DATETIMEUNIT __pyx_f_5numpy_get_datetime64_unit(PyObjec
 static CYTHON_INLINE double __pyx_f_17worker_threads_cy_round_to_2(double __pyx_v_x) {
   double __pyx_r;
 
-  /* "worker_threads_cy.pyx":16
+  /* "worker_threads_cy.pyx":15
  * 
  * cdef inline double round_to_2(double x) nogil:
  *     return round(x * 100.0) / 100.0             # <<<<<<<<<<<<<<
@@ -19834,7 +20273,7 @@ static CYTHON_INLINE double __pyx_f_17worker_threads_cy_round_to_2(double __pyx_
   __pyx_r = (round((__pyx_v_x * 100.0)) / 100.0);
   goto __pyx_L0;
 
-  /* "worker_threads_cy.pyx":15
+  /* "worker_threads_cy.pyx":14
  * cdef double NAN = float('nan')
  * 
  * cdef inline double round_to_2(double x) nogil:             # <<<<<<<<<<<<<<
@@ -19847,7 +20286,7 @@ static CYTHON_INLINE double __pyx_f_17worker_threads_cy_round_to_2(double __pyx_
   return __pyx_r;
 }
 
-/* "worker_threads_cy.pyx":18
+/* "worker_threads_cy.pyx":17
  *     return round(x * 100.0) / 100.0
  * 
  * cdef void calc_continuous_sum(             # <<<<<<<<<<<<<<
@@ -19875,7 +20314,7 @@ static void __pyx_f_17worker_threads_cy_calc_continuous_sum(__Pyx_memviewslice _
   int __pyx_clineno = 0;
   PyGILState_STATE __pyx_gilstate_save;
 
-  /* "worker_threads_cy.pyx":22
+  /* "worker_threads_cy.pyx":21
  *     vector[double]& cont_sum
  * ) nogil:
  *     cdef int n = diff_slice.shape[0]             # <<<<<<<<<<<<<<
@@ -19884,7 +20323,7 @@ static void __pyx_f_17worker_threads_cy_calc_continuous_sum(__Pyx_memviewslice _
 */
   __pyx_v_n = (__pyx_v_diff_slice.shape[0]);
 
-  /* "worker_threads_cy.pyx":23
+  /* "worker_threads_cy.pyx":22
  * ) nogil:
  *     cdef int n = diff_slice.shape[0]
  *     cdef double cur_sum = 0             # <<<<<<<<<<<<<<
@@ -19893,7 +20332,7 @@ static void __pyx_f_17worker_threads_cy_calc_continuous_sum(__Pyx_memviewslice _
 */
   __pyx_v_cur_sum = 0.0;
 
-  /* "worker_threads_cy.pyx":24
+  /* "worker_threads_cy.pyx":23
  *     cdef int n = diff_slice.shape[0]
  *     cdef double cur_sum = 0
  *     cdef double last_sign = 0             # <<<<<<<<<<<<<<
@@ -19902,7 +20341,7 @@ static void __pyx_f_17worker_threads_cy_calc_continuous_sum(__Pyx_memviewslice _
 */
   __pyx_v_last_sign = 0.0;
 
-  /* "worker_threads_cy.pyx":28
+  /* "worker_threads_cy.pyx":27
  *     cdef int i
  * 
  *     cont_sum.clear()             # <<<<<<<<<<<<<<
@@ -19911,7 +20350,7 @@ static void __pyx_f_17worker_threads_cy_calc_continuous_sum(__Pyx_memviewslice _
 */
   __pyx_v_cont_sum.clear();
 
-  /* "worker_threads_cy.pyx":30
+  /* "worker_threads_cy.pyx":29
  *     cont_sum.clear()
  * 
  *     for i in range(n):             # <<<<<<<<<<<<<<
@@ -19923,7 +20362,7 @@ static void __pyx_f_17worker_threads_cy_calc_continuous_sum(__Pyx_memviewslice _
   for (__pyx_t_3 = 0; __pyx_t_3 < __pyx_t_2; __pyx_t_3+=1) {
     __pyx_v_i = __pyx_t_3;
 
-    /* "worker_threads_cy.pyx":31
+    /* "worker_threads_cy.pyx":30
  * 
  *     for i in range(n):
  *         v = diff_slice[i]             # <<<<<<<<<<<<<<
@@ -19933,7 +20372,7 @@ static void __pyx_f_17worker_threads_cy_calc_continuous_sum(__Pyx_memviewslice _
     __pyx_t_4 = __pyx_v_i;
     __pyx_v_v = (*((double *) ( /* dim=0 */ (__pyx_v_diff_slice.data + __pyx_t_4 * __pyx_v_diff_slice.strides[0]) )));
 
-    /* "worker_threads_cy.pyx":32
+    /* "worker_threads_cy.pyx":31
  *     for i in range(n):
  *         v = diff_slice[i]
  *         if isnan(v):             # <<<<<<<<<<<<<<
@@ -19943,7 +20382,7 @@ static void __pyx_f_17worker_threads_cy_calc_continuous_sum(__Pyx_memviewslice _
     __pyx_t_5 = isnan(__pyx_v_v);
     if (__pyx_t_5) {
 
-      /* "worker_threads_cy.pyx":33
+      /* "worker_threads_cy.pyx":32
  *         v = diff_slice[i]
  *         if isnan(v):
  *             continue             # <<<<<<<<<<<<<<
@@ -19952,7 +20391,7 @@ static void __pyx_f_17worker_threads_cy_calc_continuous_sum(__Pyx_memviewslice _
 */
       goto __pyx_L3_continue;
 
-      /* "worker_threads_cy.pyx":32
+      /* "worker_threads_cy.pyx":31
  *     for i in range(n):
  *         v = diff_slice[i]
  *         if isnan(v):             # <<<<<<<<<<<<<<
@@ -19961,7 +20400,7 @@ static void __pyx_f_17worker_threads_cy_calc_continuous_sum(__Pyx_memviewslice _
 */
     }
 
-    /* "worker_threads_cy.pyx":34
+    /* "worker_threads_cy.pyx":33
  *         if isnan(v):
  *             continue
  *         sign = 1.0 if v > 0 else (-1.0 if v < 0 else 0.0)             # <<<<<<<<<<<<<<
@@ -19982,7 +20421,7 @@ static void __pyx_f_17worker_threads_cy_calc_continuous_sum(__Pyx_memviewslice _
     }
     __pyx_v_sign = __pyx_t_6;
 
-    /* "worker_threads_cy.pyx":35
+    /* "worker_threads_cy.pyx":34
  *             continue
  *         sign = 1.0 if v > 0 else (-1.0 if v < 0 else 0.0)
  *         if i == 0 or sign == last_sign or last_sign == 0:             # <<<<<<<<<<<<<<
@@ -20006,7 +20445,7 @@ static void __pyx_f_17worker_threads_cy_calc_continuous_sum(__Pyx_memviewslice _
     __pyx_L7_bool_binop_done:;
     if (__pyx_t_5) {
 
-      /* "worker_threads_cy.pyx":36
+      /* "worker_threads_cy.pyx":35
  *         sign = 1.0 if v > 0 else (-1.0 if v < 0 else 0.0)
  *         if i == 0 or sign == last_sign or last_sign == 0:
  *             cur_sum += v             # <<<<<<<<<<<<<<
@@ -20015,7 +20454,7 @@ static void __pyx_f_17worker_threads_cy_calc_continuous_sum(__Pyx_memviewslice _
 */
       __pyx_v_cur_sum = (__pyx_v_cur_sum + __pyx_v_v);
 
-      /* "worker_threads_cy.pyx":35
+      /* "worker_threads_cy.pyx":34
  *             continue
  *         sign = 1.0 if v > 0 else (-1.0 if v < 0 else 0.0)
  *         if i == 0 or sign == last_sign or last_sign == 0:             # <<<<<<<<<<<<<<
@@ -20025,7 +20464,7 @@ static void __pyx_f_17worker_threads_cy_calc_continuous_sum(__Pyx_memviewslice _
       goto __pyx_L6;
     }
 
-    /* "worker_threads_cy.pyx":38
+    /* "worker_threads_cy.pyx":37
  *             cur_sum += v
  *         else:
  *             cont_sum.push_back(round_to_2(cur_sum))             # <<<<<<<<<<<<<<
@@ -20033,17 +20472,17 @@ static void __pyx_f_17worker_threads_cy_calc_continuous_sum(__Pyx_memviewslice _
  *         last_sign = sign
 */
     /*else*/ {
-      __pyx_t_6 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_v_cur_sum); if (unlikely(__pyx_t_6 == ((double)-1) && __Pyx_ErrOccurredWithGIL())) __PYX_ERR(0, 38, __pyx_L1_error)
+      __pyx_t_6 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_v_cur_sum); if (unlikely(__pyx_t_6 == ((double)-1) && __Pyx_ErrOccurredWithGIL())) __PYX_ERR(0, 37, __pyx_L1_error)
       try {
         __pyx_v_cont_sum.push_back(__pyx_t_6);
       } catch(...) {
         PyGILState_STATE __pyx_gilstate_save = __Pyx_PyGILState_Ensure();
         __Pyx_CppExn2PyErr();
         __Pyx_PyGILState_Release(__pyx_gilstate_save);
-        __PYX_ERR(0, 38, __pyx_L1_error)
+        __PYX_ERR(0, 37, __pyx_L1_error)
       }
 
-      /* "worker_threads_cy.pyx":39
+      /* "worker_threads_cy.pyx":38
  *         else:
  *             cont_sum.push_back(round_to_2(cur_sum))
  *             cur_sum = v             # <<<<<<<<<<<<<<
@@ -20054,7 +20493,7 @@ static void __pyx_f_17worker_threads_cy_calc_continuous_sum(__Pyx_memviewslice _
     }
     __pyx_L6:;
 
-    /* "worker_threads_cy.pyx":40
+    /* "worker_threads_cy.pyx":39
  *             cont_sum.push_back(round_to_2(cur_sum))
  *             cur_sum = v
  *         last_sign = sign             # <<<<<<<<<<<<<<
@@ -20065,7 +20504,7 @@ static void __pyx_f_17worker_threads_cy_calc_continuous_sum(__Pyx_memviewslice _
     __pyx_L3_continue:;
   }
 
-  /* "worker_threads_cy.pyx":42
+  /* "worker_threads_cy.pyx":41
  *         last_sign = sign
  * 
  *     if n > 0:             # <<<<<<<<<<<<<<
@@ -20075,24 +20514,24 @@ static void __pyx_f_17worker_threads_cy_calc_continuous_sum(__Pyx_memviewslice _
   __pyx_t_5 = (__pyx_v_n > 0);
   if (__pyx_t_5) {
 
-    /* "worker_threads_cy.pyx":43
+    /* "worker_threads_cy.pyx":42
  * 
  *     if n > 0:
  *         cont_sum.push_back(round_to_2(cur_sum))             # <<<<<<<<<<<<<<
  * 
  * cdef void calc_valid_sum_and_pos_neg(double[:] arr, double* valid_sum, int* valid_len, double* pos_sum, double* neg_sum) nogil:
 */
-    __pyx_t_6 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_v_cur_sum); if (unlikely(__pyx_t_6 == ((double)-1) && __Pyx_ErrOccurredWithGIL())) __PYX_ERR(0, 43, __pyx_L1_error)
+    __pyx_t_6 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_v_cur_sum); if (unlikely(__pyx_t_6 == ((double)-1) && __Pyx_ErrOccurredWithGIL())) __PYX_ERR(0, 42, __pyx_L1_error)
     try {
       __pyx_v_cont_sum.push_back(__pyx_t_6);
     } catch(...) {
       PyGILState_STATE __pyx_gilstate_save = __Pyx_PyGILState_Ensure();
       __Pyx_CppExn2PyErr();
       __Pyx_PyGILState_Release(__pyx_gilstate_save);
-      __PYX_ERR(0, 43, __pyx_L1_error)
+      __PYX_ERR(0, 42, __pyx_L1_error)
     }
 
-    /* "worker_threads_cy.pyx":42
+    /* "worker_threads_cy.pyx":41
  *         last_sign = sign
  * 
  *     if n > 0:             # <<<<<<<<<<<<<<
@@ -20101,7 +20540,7 @@ static void __pyx_f_17worker_threads_cy_calc_continuous_sum(__Pyx_memviewslice _
 */
   }
 
-  /* "worker_threads_cy.pyx":18
+  /* "worker_threads_cy.pyx":17
  *     return round(x * 100.0) / 100.0
  * 
  * cdef void calc_continuous_sum(             # <<<<<<<<<<<<<<
@@ -20118,7 +20557,7 @@ static void __pyx_f_17worker_threads_cy_calc_continuous_sum(__Pyx_memviewslice _
   __pyx_L0:;
 }
 
-/* "worker_threads_cy.pyx":45
+/* "worker_threads_cy.pyx":44
  *         cont_sum.push_back(round_to_2(cur_sum))
  * 
  * cdef void calc_valid_sum_and_pos_neg(double[:] arr, double* valid_sum, int* valid_len, double* pos_sum, double* neg_sum) nogil:             # <<<<<<<<<<<<<<
@@ -20142,7 +20581,7 @@ static void __pyx_f_17worker_threads_cy_calc_valid_sum_and_pos_neg(__Pyx_memview
   int __pyx_t_7;
   long __pyx_t_8;
 
-  /* "worker_threads_cy.pyx":46
+  /* "worker_threads_cy.pyx":45
  * 
  * cdef void calc_valid_sum_and_pos_neg(double[:] arr, double* valid_sum, int* valid_len, double* pos_sum, double* neg_sum) nogil:
  *     cdef int n = arr.shape[0]             # <<<<<<<<<<<<<<
@@ -20151,7 +20590,7 @@ static void __pyx_f_17worker_threads_cy_calc_valid_sum_and_pos_neg(__Pyx_memview
 */
   __pyx_v_n = (__pyx_v_arr.shape[0]);
 
-  /* "worker_threads_cy.pyx":50
+  /* "worker_threads_cy.pyx":49
  *     cdef double v
  *     cdef double abs_v, next_abs
  *     cdef int valid_idx = 0             # <<<<<<<<<<<<<<
@@ -20160,7 +20599,7 @@ static void __pyx_f_17worker_threads_cy_calc_valid_sum_and_pos_neg(__Pyx_memview
 */
   __pyx_v_valid_idx = 0;
 
-  /* "worker_threads_cy.pyx":51
+  /* "worker_threads_cy.pyx":50
  *     cdef double abs_v, next_abs
  *     cdef int valid_idx = 0
  *     pos_sum[0] = 0             # <<<<<<<<<<<<<<
@@ -20169,7 +20608,7 @@ static void __pyx_f_17worker_threads_cy_calc_valid_sum_and_pos_neg(__Pyx_memview
 */
   (__pyx_v_pos_sum[0]) = 0.0;
 
-  /* "worker_threads_cy.pyx":52
+  /* "worker_threads_cy.pyx":51
  *     cdef int valid_idx = 0
  *     pos_sum[0] = 0
  *     neg_sum[0] = 0             # <<<<<<<<<<<<<<
@@ -20178,7 +20617,7 @@ static void __pyx_f_17worker_threads_cy_calc_valid_sum_and_pos_neg(__Pyx_memview
 */
   (__pyx_v_neg_sum[0]) = 0.0;
 
-  /* "worker_threads_cy.pyx":53
+  /* "worker_threads_cy.pyx":52
  *     pos_sum[0] = 0
  *     neg_sum[0] = 0
  *     if n == 0:             # <<<<<<<<<<<<<<
@@ -20188,7 +20627,7 @@ static void __pyx_f_17worker_threads_cy_calc_valid_sum_and_pos_neg(__Pyx_memview
   __pyx_t_1 = (__pyx_v_n == 0);
   if (__pyx_t_1) {
 
-    /* "worker_threads_cy.pyx":54
+    /* "worker_threads_cy.pyx":53
  *     neg_sum[0] = 0
  *     if n == 0:
  *         valid_len[0] = 0             # <<<<<<<<<<<<<<
@@ -20197,7 +20636,7 @@ static void __pyx_f_17worker_threads_cy_calc_valid_sum_and_pos_neg(__Pyx_memview
 */
     (__pyx_v_valid_len[0]) = 0;
 
-    /* "worker_threads_cy.pyx":55
+    /* "worker_threads_cy.pyx":54
  *     if n == 0:
  *         valid_len[0] = 0
  *         return             # <<<<<<<<<<<<<<
@@ -20206,7 +20645,7 @@ static void __pyx_f_17worker_threads_cy_calc_valid_sum_and_pos_neg(__Pyx_memview
 */
     goto __pyx_L0;
 
-    /* "worker_threads_cy.pyx":53
+    /* "worker_threads_cy.pyx":52
  *     pos_sum[0] = 0
  *     neg_sum[0] = 0
  *     if n == 0:             # <<<<<<<<<<<<<<
@@ -20215,7 +20654,7 @@ static void __pyx_f_17worker_threads_cy_calc_valid_sum_and_pos_neg(__Pyx_memview
 */
   }
 
-  /* "worker_threads_cy.pyx":56
+  /* "worker_threads_cy.pyx":55
  *         valid_len[0] = 0
  *         return
  *     for i in range(n):             # <<<<<<<<<<<<<<
@@ -20227,7 +20666,7 @@ static void __pyx_f_17worker_threads_cy_calc_valid_sum_and_pos_neg(__Pyx_memview
   for (__pyx_t_4 = 0; __pyx_t_4 < __pyx_t_3; __pyx_t_4+=1) {
     __pyx_v_i = __pyx_t_4;
 
-    /* "worker_threads_cy.pyx":57
+    /* "worker_threads_cy.pyx":56
  *         return
  *     for i in range(n):
  *         v = arr[i]             # <<<<<<<<<<<<<<
@@ -20237,7 +20676,7 @@ static void __pyx_f_17worker_threads_cy_calc_valid_sum_and_pos_neg(__Pyx_memview
     __pyx_t_5 = __pyx_v_i;
     __pyx_v_v = (*((double *) ( /* dim=0 */ (__pyx_v_arr.data + __pyx_t_5 * __pyx_v_arr.strides[0]) )));
 
-    /* "worker_threads_cy.pyx":58
+    /* "worker_threads_cy.pyx":57
  *     for i in range(n):
  *         v = arr[i]
  *         abs_v = fabs(v)             # <<<<<<<<<<<<<<
@@ -20246,7 +20685,7 @@ static void __pyx_f_17worker_threads_cy_calc_valid_sum_and_pos_neg(__Pyx_memview
 */
     __pyx_v_abs_v = fabs(__pyx_v_v);
 
-    /* "worker_threads_cy.pyx":59
+    /* "worker_threads_cy.pyx":58
  *         v = arr[i]
  *         abs_v = fabs(v)
  *         next_abs = fabs(arr[i+1]) if i < n-1 else 0             # <<<<<<<<<<<<<<
@@ -20262,7 +20701,7 @@ static void __pyx_f_17worker_threads_cy_calc_valid_sum_and_pos_neg(__Pyx_memview
     }
     __pyx_v_next_abs = __pyx_t_6;
 
-    /* "worker_threads_cy.pyx":60
+    /* "worker_threads_cy.pyx":59
  *         abs_v = fabs(v)
  *         next_abs = fabs(arr[i+1]) if i < n-1 else 0
  *         if i < n-1 and next_abs > abs_v:             # <<<<<<<<<<<<<<
@@ -20280,7 +20719,7 @@ static void __pyx_f_17worker_threads_cy_calc_valid_sum_and_pos_neg(__Pyx_memview
     __pyx_L7_bool_binop_done:;
     if (__pyx_t_1) {
 
-      /* "worker_threads_cy.pyx":61
+      /* "worker_threads_cy.pyx":60
  *         next_abs = fabs(arr[i+1]) if i < n-1 else 0
  *         if i < n-1 and next_abs > abs_v:
  *             valid_sum[valid_idx] = v             # <<<<<<<<<<<<<<
@@ -20289,7 +20728,7 @@ static void __pyx_f_17worker_threads_cy_calc_valid_sum_and_pos_neg(__Pyx_memview
 */
       (__pyx_v_valid_sum[__pyx_v_valid_idx]) = __pyx_v_v;
 
-      /* "worker_threads_cy.pyx":60
+      /* "worker_threads_cy.pyx":59
  *         abs_v = fabs(v)
  *         next_abs = fabs(arr[i+1]) if i < n-1 else 0
  *         if i < n-1 and next_abs > abs_v:             # <<<<<<<<<<<<<<
@@ -20299,7 +20738,7 @@ static void __pyx_f_17worker_threads_cy_calc_valid_sum_and_pos_neg(__Pyx_memview
       goto __pyx_L6;
     }
 
-    /* "worker_threads_cy.pyx":62
+    /* "worker_threads_cy.pyx":61
  *         if i < n-1 and next_abs > abs_v:
  *             valid_sum[valid_idx] = v
  *         elif i < n-1:             # <<<<<<<<<<<<<<
@@ -20309,7 +20748,7 @@ static void __pyx_f_17worker_threads_cy_calc_valid_sum_and_pos_neg(__Pyx_memview
     __pyx_t_1 = (__pyx_v_i < (__pyx_v_n - 1));
     if (__pyx_t_1) {
 
-      /* "worker_threads_cy.pyx":63
+      /* "worker_threads_cy.pyx":62
  *             valid_sum[valid_idx] = v
  *         elif i < n-1:
  *             valid_sum[valid_idx] = arr[i+1] if arr[i+1] >= 0 else -fabs(arr[i+1])             # <<<<<<<<<<<<<<
@@ -20327,7 +20766,7 @@ static void __pyx_f_17worker_threads_cy_calc_valid_sum_and_pos_neg(__Pyx_memview
       }
       (__pyx_v_valid_sum[__pyx_v_valid_idx]) = __pyx_t_6;
 
-      /* "worker_threads_cy.pyx":62
+      /* "worker_threads_cy.pyx":61
  *         if i < n-1 and next_abs > abs_v:
  *             valid_sum[valid_idx] = v
  *         elif i < n-1:             # <<<<<<<<<<<<<<
@@ -20337,7 +20776,7 @@ static void __pyx_f_17worker_threads_cy_calc_valid_sum_and_pos_neg(__Pyx_memview
       goto __pyx_L6;
     }
 
-    /* "worker_threads_cy.pyx":65
+    /* "worker_threads_cy.pyx":64
  *             valid_sum[valid_idx] = arr[i+1] if arr[i+1] >= 0 else -fabs(arr[i+1])
  *         else:
  *             valid_sum[valid_idx] = v             # <<<<<<<<<<<<<<
@@ -20349,7 +20788,7 @@ static void __pyx_f_17worker_threads_cy_calc_valid_sum_and_pos_neg(__Pyx_memview
     }
     __pyx_L6:;
 
-    /* "worker_threads_cy.pyx":66
+    /* "worker_threads_cy.pyx":65
  *         else:
  *             valid_sum[valid_idx] = v
  *         if valid_sum[valid_idx] > 0:             # <<<<<<<<<<<<<<
@@ -20359,7 +20798,7 @@ static void __pyx_f_17worker_threads_cy_calc_valid_sum_and_pos_neg(__Pyx_memview
     __pyx_t_1 = ((__pyx_v_valid_sum[__pyx_v_valid_idx]) > 0.0);
     if (__pyx_t_1) {
 
-      /* "worker_threads_cy.pyx":67
+      /* "worker_threads_cy.pyx":66
  *             valid_sum[valid_idx] = v
  *         if valid_sum[valid_idx] > 0:
  *             pos_sum[0] += valid_sum[valid_idx]             # <<<<<<<<<<<<<<
@@ -20369,7 +20808,7 @@ static void __pyx_f_17worker_threads_cy_calc_valid_sum_and_pos_neg(__Pyx_memview
       __pyx_t_8 = 0;
       (__pyx_v_pos_sum[__pyx_t_8]) = ((__pyx_v_pos_sum[__pyx_t_8]) + (__pyx_v_valid_sum[__pyx_v_valid_idx]));
 
-      /* "worker_threads_cy.pyx":66
+      /* "worker_threads_cy.pyx":65
  *         else:
  *             valid_sum[valid_idx] = v
  *         if valid_sum[valid_idx] > 0:             # <<<<<<<<<<<<<<
@@ -20379,7 +20818,7 @@ static void __pyx_f_17worker_threads_cy_calc_valid_sum_and_pos_neg(__Pyx_memview
       goto __pyx_L9;
     }
 
-    /* "worker_threads_cy.pyx":68
+    /* "worker_threads_cy.pyx":67
  *         if valid_sum[valid_idx] > 0:
  *             pos_sum[0] += valid_sum[valid_idx]
  *         elif valid_sum[valid_idx] < 0:             # <<<<<<<<<<<<<<
@@ -20389,7 +20828,7 @@ static void __pyx_f_17worker_threads_cy_calc_valid_sum_and_pos_neg(__Pyx_memview
     __pyx_t_1 = ((__pyx_v_valid_sum[__pyx_v_valid_idx]) < 0.0);
     if (__pyx_t_1) {
 
-      /* "worker_threads_cy.pyx":69
+      /* "worker_threads_cy.pyx":68
  *             pos_sum[0] += valid_sum[valid_idx]
  *         elif valid_sum[valid_idx] < 0:
  *             neg_sum[0] += valid_sum[valid_idx]             # <<<<<<<<<<<<<<
@@ -20399,7 +20838,7 @@ static void __pyx_f_17worker_threads_cy_calc_valid_sum_and_pos_neg(__Pyx_memview
       __pyx_t_8 = 0;
       (__pyx_v_neg_sum[__pyx_t_8]) = ((__pyx_v_neg_sum[__pyx_t_8]) + (__pyx_v_valid_sum[__pyx_v_valid_idx]));
 
-      /* "worker_threads_cy.pyx":68
+      /* "worker_threads_cy.pyx":67
  *         if valid_sum[valid_idx] > 0:
  *             pos_sum[0] += valid_sum[valid_idx]
  *         elif valid_sum[valid_idx] < 0:             # <<<<<<<<<<<<<<
@@ -20409,7 +20848,7 @@ static void __pyx_f_17worker_threads_cy_calc_valid_sum_and_pos_neg(__Pyx_memview
     }
     __pyx_L9:;
 
-    /* "worker_threads_cy.pyx":70
+    /* "worker_threads_cy.pyx":69
  *         elif valid_sum[valid_idx] < 0:
  *             neg_sum[0] += valid_sum[valid_idx]
  *         valid_idx += 1             # <<<<<<<<<<<<<<
@@ -20419,7 +20858,7 @@ static void __pyx_f_17worker_threads_cy_calc_valid_sum_and_pos_neg(__Pyx_memview
     __pyx_v_valid_idx = (__pyx_v_valid_idx + 1);
   }
 
-  /* "worker_threads_cy.pyx":71
+  /* "worker_threads_cy.pyx":70
  *             neg_sum[0] += valid_sum[valid_idx]
  *         valid_idx += 1
  *     valid_len[0] = valid_idx             # <<<<<<<<<<<<<<
@@ -20428,7 +20867,7 @@ static void __pyx_f_17worker_threads_cy_calc_valid_sum_and_pos_neg(__Pyx_memview
 */
   (__pyx_v_valid_len[0]) = __pyx_v_valid_idx;
 
-  /* "worker_threads_cy.pyx":45
+  /* "worker_threads_cy.pyx":44
  *         cont_sum.push_back(round_to_2(cur_sum))
  * 
  * cdef void calc_valid_sum_and_pos_neg(double[:] arr, double* valid_sum, int* valid_len, double* pos_sum, double* neg_sum) nogil:             # <<<<<<<<<<<<<<
@@ -20440,7 +20879,7 @@ static void __pyx_f_17worker_threads_cy_calc_valid_sum_and_pos_neg(__Pyx_memview
   __pyx_L0:;
 }
 
-/* "worker_threads_cy.pyx":73
+/* "worker_threads_cy.pyx":72
  *     valid_len[0] = valid_idx
  * 
  * def calculate_batch_cy(             # <<<<<<<<<<<<<<
@@ -20478,11 +20917,18 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   double __pyx_v_user_range_ratio;
   double __pyx_v_continuous_abs_threshold;
   int __pyx_v_n_days_max;
+  int __pyx_v_op_days;
+  double __pyx_v_inc_rate;
+  double __pyx_v_after_gt_end_ratio;
+  double __pyx_v_after_gt_start_ratio;
+  PyObject *__pyx_v_expr = 0;
+  double __pyx_v_ops_change_input;
+  PyObject *__pyx_v_formula_expr = 0;
   #if !CYTHON_METH_FASTCALL
   CYTHON_UNUSED Py_ssize_t __pyx_nargs;
   #endif
   CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
-  PyObject* values[14] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+  PyObject* values[21] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
@@ -20498,125 +20944,195 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   #endif
   __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
   {
-    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_price_data,&__pyx_mstate_global->__pyx_n_u_date_columns,&__pyx_mstate_global->__pyx_n_u_width,&__pyx_mstate_global->__pyx_n_u_start_option,&__pyx_mstate_global->__pyx_n_u_shift_days,&__pyx_mstate_global->__pyx_n_u_end_date_start_idx,&__pyx_mstate_global->__pyx_n_u_end_date_end_idx,&__pyx_mstate_global->__pyx_n_u_diff_data,&__pyx_mstate_global->__pyx_n_u_stock_idx_arr,&__pyx_mstate_global->__pyx_n_u_is_forward,&__pyx_mstate_global->__pyx_n_u_n_days,&__pyx_mstate_global->__pyx_n_u_user_range_ratio,&__pyx_mstate_global->__pyx_n_u_continuous_abs_threshold,&__pyx_mstate_global->__pyx_n_u_n_days_max,0};
+    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_price_data,&__pyx_mstate_global->__pyx_n_u_date_columns,&__pyx_mstate_global->__pyx_n_u_width,&__pyx_mstate_global->__pyx_n_u_start_option,&__pyx_mstate_global->__pyx_n_u_shift_days,&__pyx_mstate_global->__pyx_n_u_end_date_start_idx,&__pyx_mstate_global->__pyx_n_u_end_date_end_idx,&__pyx_mstate_global->__pyx_n_u_diff_data,&__pyx_mstate_global->__pyx_n_u_stock_idx_arr,&__pyx_mstate_global->__pyx_n_u_is_forward,&__pyx_mstate_global->__pyx_n_u_n_days,&__pyx_mstate_global->__pyx_n_u_user_range_ratio,&__pyx_mstate_global->__pyx_n_u_continuous_abs_threshold,&__pyx_mstate_global->__pyx_n_u_n_days_max,&__pyx_mstate_global->__pyx_n_u_op_days,&__pyx_mstate_global->__pyx_n_u_inc_rate,&__pyx_mstate_global->__pyx_n_u_after_gt_end_ratio,&__pyx_mstate_global->__pyx_n_u_after_gt_start_ratio,&__pyx_mstate_global->__pyx_n_u_expr,&__pyx_mstate_global->__pyx_n_u_ops_change_input,&__pyx_mstate_global->__pyx_n_u_formula_expr,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 73, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 72, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
+        case 21:
+        values[20] = __Pyx_ArgRef_FASTCALL(__pyx_args, 20);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[20])) __PYX_ERR(0, 72, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case 20:
+        values[19] = __Pyx_ArgRef_FASTCALL(__pyx_args, 19);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[19])) __PYX_ERR(0, 72, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case 19:
+        values[18] = __Pyx_ArgRef_FASTCALL(__pyx_args, 18);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[18])) __PYX_ERR(0, 72, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case 18:
+        values[17] = __Pyx_ArgRef_FASTCALL(__pyx_args, 17);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[17])) __PYX_ERR(0, 72, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case 17:
+        values[16] = __Pyx_ArgRef_FASTCALL(__pyx_args, 16);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[16])) __PYX_ERR(0, 72, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case 16:
+        values[15] = __Pyx_ArgRef_FASTCALL(__pyx_args, 15);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[15])) __PYX_ERR(0, 72, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case 15:
+        values[14] = __Pyx_ArgRef_FASTCALL(__pyx_args, 14);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[14])) __PYX_ERR(0, 72, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
         case 14:
         values[13] = __Pyx_ArgRef_FASTCALL(__pyx_args, 13);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[13])) __PYX_ERR(0, 73, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[13])) __PYX_ERR(0, 72, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case 13:
         values[12] = __Pyx_ArgRef_FASTCALL(__pyx_args, 12);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[12])) __PYX_ERR(0, 73, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[12])) __PYX_ERR(0, 72, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case 12:
         values[11] = __Pyx_ArgRef_FASTCALL(__pyx_args, 11);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[11])) __PYX_ERR(0, 73, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[11])) __PYX_ERR(0, 72, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case 11:
         values[10] = __Pyx_ArgRef_FASTCALL(__pyx_args, 10);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[10])) __PYX_ERR(0, 73, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[10])) __PYX_ERR(0, 72, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case 10:
         values[9] = __Pyx_ArgRef_FASTCALL(__pyx_args, 9);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[9])) __PYX_ERR(0, 73, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[9])) __PYX_ERR(0, 72, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  9:
         values[8] = __Pyx_ArgRef_FASTCALL(__pyx_args, 8);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[8])) __PYX_ERR(0, 73, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[8])) __PYX_ERR(0, 72, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  8:
         values[7] = __Pyx_ArgRef_FASTCALL(__pyx_args, 7);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[7])) __PYX_ERR(0, 73, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[7])) __PYX_ERR(0, 72, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  7:
         values[6] = __Pyx_ArgRef_FASTCALL(__pyx_args, 6);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 73, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 72, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  6:
         values[5] = __Pyx_ArgRef_FASTCALL(__pyx_args, 5);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 73, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 72, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  5:
         values[4] = __Pyx_ArgRef_FASTCALL(__pyx_args, 4);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 73, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 72, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  4:
         values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 73, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 72, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 73, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 72, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 73, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 72, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 73, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 72, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "calculate_batch_cy", 0) < 0) __PYX_ERR(0, 73, __pyx_L3_error)
-      for (Py_ssize_t i = __pyx_nargs; i < 14; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("calculate_batch_cy", 1, 14, 14, i); __PYX_ERR(0, 73, __pyx_L3_error) }
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "calculate_batch_cy", 0) < 0) __PYX_ERR(0, 72, __pyx_L3_error)
+
+      /* "worker_threads_cy.pyx":93
+ *     str expr,
+ *     double ops_change_input=0.09,
+ *     str formula_expr=None             # <<<<<<<<<<<<<<
+ * ):
+ *     cdef int num_stocks = price_data.shape[0]
+*/
+      if (!values[20]) values[20] = __Pyx_NewRef(((PyObject*)Py_None));
+      for (Py_ssize_t i = __pyx_nargs; i < 19; i++) {
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("calculate_batch_cy", 0, 19, 21, i); __PYX_ERR(0, 72, __pyx_L3_error) }
       }
-    } else if (unlikely(__pyx_nargs != 14)) {
-      goto __pyx_L5_argtuple_error;
     } else {
-      values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 73, __pyx_L3_error)
-      values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 73, __pyx_L3_error)
-      values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 73, __pyx_L3_error)
-      values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 73, __pyx_L3_error)
-      values[4] = __Pyx_ArgRef_FASTCALL(__pyx_args, 4);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 73, __pyx_L3_error)
-      values[5] = __Pyx_ArgRef_FASTCALL(__pyx_args, 5);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 73, __pyx_L3_error)
-      values[6] = __Pyx_ArgRef_FASTCALL(__pyx_args, 6);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 73, __pyx_L3_error)
-      values[7] = __Pyx_ArgRef_FASTCALL(__pyx_args, 7);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[7])) __PYX_ERR(0, 73, __pyx_L3_error)
-      values[8] = __Pyx_ArgRef_FASTCALL(__pyx_args, 8);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[8])) __PYX_ERR(0, 73, __pyx_L3_error)
-      values[9] = __Pyx_ArgRef_FASTCALL(__pyx_args, 9);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[9])) __PYX_ERR(0, 73, __pyx_L3_error)
-      values[10] = __Pyx_ArgRef_FASTCALL(__pyx_args, 10);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[10])) __PYX_ERR(0, 73, __pyx_L3_error)
-      values[11] = __Pyx_ArgRef_FASTCALL(__pyx_args, 11);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[11])) __PYX_ERR(0, 73, __pyx_L3_error)
-      values[12] = __Pyx_ArgRef_FASTCALL(__pyx_args, 12);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[12])) __PYX_ERR(0, 73, __pyx_L3_error)
-      values[13] = __Pyx_ArgRef_FASTCALL(__pyx_args, 13);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[13])) __PYX_ERR(0, 73, __pyx_L3_error)
+      switch (__pyx_nargs) {
+        case 21:
+        values[20] = __Pyx_ArgRef_FASTCALL(__pyx_args, 20);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[20])) __PYX_ERR(0, 72, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case 20:
+        values[19] = __Pyx_ArgRef_FASTCALL(__pyx_args, 19);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[19])) __PYX_ERR(0, 72, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case 19:
+        values[18] = __Pyx_ArgRef_FASTCALL(__pyx_args, 18);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[18])) __PYX_ERR(0, 72, __pyx_L3_error)
+        values[17] = __Pyx_ArgRef_FASTCALL(__pyx_args, 17);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[17])) __PYX_ERR(0, 72, __pyx_L3_error)
+        values[16] = __Pyx_ArgRef_FASTCALL(__pyx_args, 16);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[16])) __PYX_ERR(0, 72, __pyx_L3_error)
+        values[15] = __Pyx_ArgRef_FASTCALL(__pyx_args, 15);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[15])) __PYX_ERR(0, 72, __pyx_L3_error)
+        values[14] = __Pyx_ArgRef_FASTCALL(__pyx_args, 14);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[14])) __PYX_ERR(0, 72, __pyx_L3_error)
+        values[13] = __Pyx_ArgRef_FASTCALL(__pyx_args, 13);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[13])) __PYX_ERR(0, 72, __pyx_L3_error)
+        values[12] = __Pyx_ArgRef_FASTCALL(__pyx_args, 12);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[12])) __PYX_ERR(0, 72, __pyx_L3_error)
+        values[11] = __Pyx_ArgRef_FASTCALL(__pyx_args, 11);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[11])) __PYX_ERR(0, 72, __pyx_L3_error)
+        values[10] = __Pyx_ArgRef_FASTCALL(__pyx_args, 10);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[10])) __PYX_ERR(0, 72, __pyx_L3_error)
+        values[9] = __Pyx_ArgRef_FASTCALL(__pyx_args, 9);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[9])) __PYX_ERR(0, 72, __pyx_L3_error)
+        values[8] = __Pyx_ArgRef_FASTCALL(__pyx_args, 8);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[8])) __PYX_ERR(0, 72, __pyx_L3_error)
+        values[7] = __Pyx_ArgRef_FASTCALL(__pyx_args, 7);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[7])) __PYX_ERR(0, 72, __pyx_L3_error)
+        values[6] = __Pyx_ArgRef_FASTCALL(__pyx_args, 6);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[6])) __PYX_ERR(0, 72, __pyx_L3_error)
+        values[5] = __Pyx_ArgRef_FASTCALL(__pyx_args, 5);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 72, __pyx_L3_error)
+        values[4] = __Pyx_ArgRef_FASTCALL(__pyx_args, 4);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 72, __pyx_L3_error)
+        values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 72, __pyx_L3_error)
+        values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 72, __pyx_L3_error)
+        values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 72, __pyx_L3_error)
+        values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 72, __pyx_L3_error)
+        break;
+        default: goto __pyx_L5_argtuple_error;
+      }
+      if (!values[20]) values[20] = __Pyx_NewRef(((PyObject*)Py_None));
     }
     __pyx_v_price_data = ((PyArrayObject *)values[0]);
     __pyx_v_date_columns = ((PyObject*)values[1]);
-    __pyx_v_width = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_width == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 76, __pyx_L3_error)
+    __pyx_v_width = __Pyx_PyLong_As_int(values[2]); if (unlikely((__pyx_v_width == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 75, __pyx_L3_error)
     __pyx_v_start_option = ((PyObject*)values[3]);
-    __pyx_v_shift_days = __Pyx_PyLong_As_int(values[4]); if (unlikely((__pyx_v_shift_days == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 78, __pyx_L3_error)
-    __pyx_v_end_date_start_idx = __Pyx_PyLong_As_int(values[5]); if (unlikely((__pyx_v_end_date_start_idx == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 79, __pyx_L3_error)
-    __pyx_v_end_date_end_idx = __Pyx_PyLong_As_int(values[6]); if (unlikely((__pyx_v_end_date_end_idx == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 80, __pyx_L3_error)
+    __pyx_v_shift_days = __Pyx_PyLong_As_int(values[4]); if (unlikely((__pyx_v_shift_days == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 77, __pyx_L3_error)
+    __pyx_v_end_date_start_idx = __Pyx_PyLong_As_int(values[5]); if (unlikely((__pyx_v_end_date_start_idx == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 78, __pyx_L3_error)
+    __pyx_v_end_date_end_idx = __Pyx_PyLong_As_int(values[6]); if (unlikely((__pyx_v_end_date_end_idx == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 79, __pyx_L3_error)
     __pyx_v_diff_data = ((PyArrayObject *)values[7]);
     __pyx_v_stock_idx_arr = ((PyArrayObject *)values[8]);
-    __pyx_v_is_forward = __Pyx_PyObject_IsTrue(values[9]); if (unlikely((__pyx_v_is_forward == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 83, __pyx_L3_error)
-    __pyx_v_n_days = __Pyx_PyLong_As_int(values[10]); if (unlikely((__pyx_v_n_days == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 84, __pyx_L3_error)
-    __pyx_v_user_range_ratio = __Pyx_PyFloat_AsDouble(values[11]); if (unlikely((__pyx_v_user_range_ratio == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 85, __pyx_L3_error)
-    __pyx_v_continuous_abs_threshold = __Pyx_PyFloat_AsDouble(values[12]); if (unlikely((__pyx_v_continuous_abs_threshold == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 86, __pyx_L3_error)
-    __pyx_v_n_days_max = __Pyx_PyLong_As_int(values[13]); if (unlikely((__pyx_v_n_days_max == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 87, __pyx_L3_error)
+    __pyx_v_is_forward = __Pyx_PyObject_IsTrue(values[9]); if (unlikely((__pyx_v_is_forward == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 82, __pyx_L3_error)
+    __pyx_v_n_days = __Pyx_PyLong_As_int(values[10]); if (unlikely((__pyx_v_n_days == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 83, __pyx_L3_error)
+    __pyx_v_user_range_ratio = __Pyx_PyFloat_AsDouble(values[11]); if (unlikely((__pyx_v_user_range_ratio == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 84, __pyx_L3_error)
+    __pyx_v_continuous_abs_threshold = __Pyx_PyFloat_AsDouble(values[12]); if (unlikely((__pyx_v_continuous_abs_threshold == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 85, __pyx_L3_error)
+    __pyx_v_n_days_max = __Pyx_PyLong_As_int(values[13]); if (unlikely((__pyx_v_n_days_max == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 86, __pyx_L3_error)
+    __pyx_v_op_days = __Pyx_PyLong_As_int(values[14]); if (unlikely((__pyx_v_op_days == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 87, __pyx_L3_error)
+    __pyx_v_inc_rate = __Pyx_PyFloat_AsDouble(values[15]); if (unlikely((__pyx_v_inc_rate == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 88, __pyx_L3_error)
+    __pyx_v_after_gt_end_ratio = __Pyx_PyFloat_AsDouble(values[16]); if (unlikely((__pyx_v_after_gt_end_ratio == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 89, __pyx_L3_error)
+    __pyx_v_after_gt_start_ratio = __Pyx_PyFloat_AsDouble(values[17]); if (unlikely((__pyx_v_after_gt_start_ratio == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 90, __pyx_L3_error)
+    __pyx_v_expr = ((PyObject*)values[18]);
+    if (values[19]) {
+      __pyx_v_ops_change_input = __Pyx_PyFloat_AsDouble(values[19]); if (unlikely((__pyx_v_ops_change_input == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 92, __pyx_L3_error)
+    } else {
+      __pyx_v_ops_change_input = ((double)((double)0.09));
+    }
+    __pyx_v_formula_expr = ((PyObject*)values[20]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("calculate_batch_cy", 1, 14, 14, __pyx_nargs); __PYX_ERR(0, 73, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("calculate_batch_cy", 0, 19, 21, __pyx_nargs); __PYX_ERR(0, 72, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -20627,12 +21143,22 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_price_data), __pyx_mstate_global->__pyx_ptype_5numpy_ndarray, 1, "price_data", 0))) __PYX_ERR(0, 74, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_date_columns), (&PyList_Type), 1, "date_columns", 1))) __PYX_ERR(0, 75, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_start_option), (&PyUnicode_Type), 1, "start_option", 1))) __PYX_ERR(0, 77, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_diff_data), __pyx_mstate_global->__pyx_ptype_5numpy_ndarray, 1, "diff_data", 0))) __PYX_ERR(0, 81, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_stock_idx_arr), __pyx_mstate_global->__pyx_ptype_5numpy_ndarray, 1, "stock_idx_arr", 0))) __PYX_ERR(0, 82, __pyx_L1_error)
-  __pyx_r = __pyx_pf_17worker_threads_cy_calculate_batch_cy(__pyx_self, __pyx_v_price_data, __pyx_v_date_columns, __pyx_v_width, __pyx_v_start_option, __pyx_v_shift_days, __pyx_v_end_date_start_idx, __pyx_v_end_date_end_idx, __pyx_v_diff_data, __pyx_v_stock_idx_arr, __pyx_v_is_forward, __pyx_v_n_days, __pyx_v_user_range_ratio, __pyx_v_continuous_abs_threshold, __pyx_v_n_days_max);
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_price_data), __pyx_mstate_global->__pyx_ptype_5numpy_ndarray, 1, "price_data", 0))) __PYX_ERR(0, 73, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_date_columns), (&PyList_Type), 1, "date_columns", 1))) __PYX_ERR(0, 74, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_start_option), (&PyUnicode_Type), 1, "start_option", 1))) __PYX_ERR(0, 76, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_diff_data), __pyx_mstate_global->__pyx_ptype_5numpy_ndarray, 1, "diff_data", 0))) __PYX_ERR(0, 80, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_stock_idx_arr), __pyx_mstate_global->__pyx_ptype_5numpy_ndarray, 1, "stock_idx_arr", 0))) __PYX_ERR(0, 81, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_expr), (&PyUnicode_Type), 1, "expr", 1))) __PYX_ERR(0, 91, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_formula_expr), (&PyUnicode_Type), 1, "formula_expr", 1))) __PYX_ERR(0, 93, __pyx_L1_error)
+  __pyx_r = __pyx_pf_17worker_threads_cy_calculate_batch_cy(__pyx_self, __pyx_v_price_data, __pyx_v_date_columns, __pyx_v_width, __pyx_v_start_option, __pyx_v_shift_days, __pyx_v_end_date_start_idx, __pyx_v_end_date_end_idx, __pyx_v_diff_data, __pyx_v_stock_idx_arr, __pyx_v_is_forward, __pyx_v_n_days, __pyx_v_user_range_ratio, __pyx_v_continuous_abs_threshold, __pyx_v_n_days_max, __pyx_v_op_days, __pyx_v_inc_rate, __pyx_v_after_gt_end_ratio, __pyx_v_after_gt_start_ratio, __pyx_v_expr, __pyx_v_ops_change_input, __pyx_v_formula_expr);
+
+  /* "worker_threads_cy.pyx":72
+ *     valid_len[0] = valid_idx
+ * 
+ * def calculate_batch_cy(             # <<<<<<<<<<<<<<
+ *     np.ndarray[DTYPE_t, ndim=2] price_data,
+ *     list date_columns,
+*/
 
   /* function exit code */
   goto __pyx_L0;
@@ -20651,7 +21177,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_17worker_threads_cy_calculate_batch_cy(CYTHON_UNUSED PyObject *__pyx_self, PyArrayObject *__pyx_v_price_data, PyObject *__pyx_v_date_columns, int __pyx_v_width, PyObject *__pyx_v_start_option, int __pyx_v_shift_days, int __pyx_v_end_date_start_idx, int __pyx_v_end_date_end_idx, PyArrayObject *__pyx_v_diff_data, PyArrayObject *__pyx_v_stock_idx_arr, int __pyx_v_is_forward, int __pyx_v_n_days, double __pyx_v_user_range_ratio, double __pyx_v_continuous_abs_threshold, int __pyx_v_n_days_max) {
+static PyObject *__pyx_pf_17worker_threads_cy_calculate_batch_cy(CYTHON_UNUSED PyObject *__pyx_self, PyArrayObject *__pyx_v_price_data, PyObject *__pyx_v_date_columns, int __pyx_v_width, PyObject *__pyx_v_start_option, int __pyx_v_shift_days, int __pyx_v_end_date_start_idx, int __pyx_v_end_date_end_idx, PyArrayObject *__pyx_v_diff_data, PyArrayObject *__pyx_v_stock_idx_arr, int __pyx_v_is_forward, int __pyx_v_n_days, double __pyx_v_user_range_ratio, double __pyx_v_continuous_abs_threshold, int __pyx_v_n_days_max, int __pyx_v_op_days, double __pyx_v_inc_rate, double __pyx_v_after_gt_end_ratio, double __pyx_v_after_gt_start_ratio, PyObject *__pyx_v_expr, double __pyx_v_ops_change_input, PyObject *__pyx_v_formula_expr) {
   CYTHON_UNUSED int __pyx_v_num_stocks;
   int __pyx_v_num_dates;
   int __pyx_v_stock_idx;
@@ -20720,7 +21246,25 @@ static PyObject *__pyx_pf_17worker_threads_cy_calculate_batch_cy(CYTHON_UNUSED P
   int __pyx_v_forward_min_valid_sum_len;
   double __pyx_v_forward_min_valid_pos_sum;
   double __pyx_v_forward_min_valid_neg_sum;
+  double __pyx_v_increment_value;
+  double __pyx_v_after_gt_end_value;
+  double __pyx_v_after_gt_start_value;
+  int __pyx_v_increment_days;
+  int __pyx_v_after_gt_end_days;
+  int __pyx_v_after_gt_start_days;
+  double __pyx_v_increment_threshold;
+  double __pyx_v_after_gt_end_threshold;
+  double __pyx_v_after_gt_start_threshold;
+  double __pyx_v_v;
+  int __pyx_v_k;
+  PyObject *__pyx_v_user_func = 0;
+  PyObject *__pyx_v_score_func = 0;
+  PyObject *__pyx_v_make_user_func = NULL;
   PyObject *__pyx_v_end_date = NULL;
+  int __pyx_v_found;
+  int __pyx_v_fallback_idx;
+  double __pyx_v_v_now;
+  double __pyx_v_v_prev;
   PyObject *__pyx_v_py_cont_sum = NULL;
   PyObject *__pyx_v_forward_max_result = NULL;
   PyObject *__pyx_v_forward_min_result = NULL;
@@ -20739,12 +21283,33 @@ static PyObject *__pyx_pf_17worker_threads_cy_calculate_batch_cy(CYTHON_UNUSED P
   PyObject *__pyx_v_forward_min_valid_abs_sum_block4 = NULL;
   PyObject *__pyx_v_max_abs_val = NULL;
   PyObject *__pyx_v_continuous_abs_is_less = NULL;
-  PyObject *__pyx_v_maxv = NULL;
-  PyObject *__pyx_v_v = NULL;
+  double __pyx_v_maxv;
+  std::vector<double> ::size_type __pyx_v_forward_max_result_len;
+  std::vector<double> ::size_type __pyx_v_forward_min_result_len;
+  PyObject *__pyx_v_continuous_start_value = NULL;
+  PyObject *__pyx_v_continuous_start_next_value = NULL;
+  PyObject *__pyx_v_continuous_start_next_next_value = NULL;
+  PyObject *__pyx_v_continuous_end_value = NULL;
+  PyObject *__pyx_v_continuous_end_prev_value = NULL;
+  PyObject *__pyx_v_continuous_end_prev_prev_value = NULL;
+  double __pyx_v_inc_value;
+  double __pyx_v_age_value;
+  double __pyx_v_ags_value;
+  PyObject *__pyx_v_result_value = NULL;
+  PyObject *__pyx_v_ops_value = NULL;
+  PyObject *__pyx_v_hold_days = NULL;
+  CYTHON_UNUSED PyObject *__pyx_v_e = NULL;
+  PyObject *__pyx_v_score = NULL;
+  PyObject *__pyx_v_ops_change = NULL;
+  PyObject *__pyx_v_adjust_days = NULL;
+  PyObject *__pyx_v_ops_incre_rate = NULL;
+  PyObject *__pyx_v_end_value_for_ops = NULL;
   PyObject *__pyx_v_row_result = NULL;
   PyObject *__pyx_v_sorted_results = NULL;
-  PyObject *__pyx_7genexpr__pyx_v_v = NULL;
-  int __pyx_8genexpr1__pyx_v_i;
+  double __pyx_7genexpr__pyx_v_v;
+  int __pyx_8genexpr1__pyx_v_j;
+  int __pyx_8genexpr2__pyx_v_j;
+  int __pyx_8genexpr3__pyx_v_j;
   __Pyx_LocalBuf_ND __pyx_pybuffernd_cont_sum_np;
   __Pyx_Buffer __pyx_pybuffer_cont_sum_np;
   __Pyx_LocalBuf_ND __pyx_pybuffernd_diff_data;
@@ -20758,37 +21323,43 @@ static PyObject *__pyx_pf_17worker_threads_cy_calculate_batch_cy(CYTHON_UNUSED P
   PyObject *__pyx_t_1 = NULL;
   __Pyx_memviewslice __pyx_t_2 = { 0, 0, { 0 }, { 0 }, { 0 } };
   __Pyx_memviewslice __pyx_t_3 = { 0, 0, { 0 }, { 0 }, { 0 } };
-  long __pyx_t_4;
-  long __pyx_t_5;
-  int __pyx_t_6;
-  Py_ssize_t __pyx_t_7;
-  Py_ssize_t __pyx_t_8;
-  Py_ssize_t __pyx_t_9;
-  Py_ssize_t __pyx_t_10;
+  PyObject *__pyx_t_4 = NULL;
+  PyObject *__pyx_t_5 = NULL;
+  size_t __pyx_t_6;
+  int __pyx_t_7;
+  PyObject *__pyx_t_8 = NULL;
+  long __pyx_t_9;
+  long __pyx_t_10;
   int __pyx_t_11;
-  int __pyx_t_12;
-  int __pyx_t_13;
+  Py_ssize_t __pyx_t_12;
+  Py_ssize_t __pyx_t_13;
   Py_ssize_t __pyx_t_14;
   int __pyx_t_15;
-  double __pyx_t_16;
+  int __pyx_t_16;
   int __pyx_t_17;
-  __Pyx_memviewslice __pyx_t_18 = { 0, 0, { 0 }, { 0 }, { 0 } };
-  __Pyx_memviewslice __pyx_t_19 = { 0, 0, { 0 }, { 0 }, { 0 } };
-  PyObject *__pyx_t_20 = NULL;
-  PyObject *__pyx_t_21 = NULL;
-  PyObject *__pyx_t_22 = NULL;
-  PyObject *__pyx_t_23 = NULL;
-  size_t __pyx_t_24;
-  PyObject *__pyx_t_25 = NULL;
-  PyObject *__pyx_t_26 = NULL;
+  int __pyx_t_18;
+  Py_ssize_t __pyx_t_19;
+  double __pyx_t_20;
+  int __pyx_t_21;
+  __Pyx_memviewslice __pyx_t_22 = { 0, 0, { 0 }, { 0 }, { 0 } };
+  __Pyx_memviewslice __pyx_t_23 = { 0, 0, { 0 }, { 0 }, { 0 } };
+  long __pyx_t_24;
+  long __pyx_t_25;
+  int __pyx_t_26;
   PyObject *__pyx_t_27 = NULL;
-  Py_ssize_t __pyx_t_28;
-  Py_ssize_t __pyx_t_29;
-  double __pyx_t_30;
-  PyObject *__pyx_t_31 = NULL;
-  long double __pyx_t_32;
-  double __pyx_t_33[0];
-  int __pyx_t_34;
+  PyObject *__pyx_t_28 = NULL;
+  PyObject *__pyx_t_29 = NULL;
+  PyObject *__pyx_t_30 = NULL;
+  Py_ssize_t __pyx_t_31;
+  Py_ssize_t __pyx_t_32;
+  double __pyx_t_33;
+  PyObject *__pyx_t_34 = NULL;
+  double __pyx_t_35[0x64];
+  std::vector<double> ::size_type __pyx_t_36;
+  std::vector<double> ::size_type __pyx_t_37;
+  int __pyx_t_38;
+  long double __pyx_t_39;
+  int __pyx_t_40;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
@@ -20811,22 +21382,22 @@ static PyObject *__pyx_pf_17worker_threads_cy_calculate_batch_cy(CYTHON_UNUSED P
   __pyx_pybuffernd_stock_idx_arr.rcbuffer = &__pyx_pybuffer_stock_idx_arr;
   {
     __Pyx_BufFmt_StackElem __pyx_stack[1];
-    if (unlikely(__Pyx_GetBufferAndValidate(&__pyx_pybuffernd_price_data.rcbuffer->pybuffer, (PyObject*)__pyx_v_price_data, &__Pyx_TypeInfo_nn___pyx_t_17worker_threads_cy_DTYPE_t, PyBUF_FORMAT| PyBUF_STRIDES, 2, 0, __pyx_stack) == -1)) __PYX_ERR(0, 73, __pyx_L1_error)
+    if (unlikely(__Pyx_GetBufferAndValidate(&__pyx_pybuffernd_price_data.rcbuffer->pybuffer, (PyObject*)__pyx_v_price_data, &__Pyx_TypeInfo_nn___pyx_t_17worker_threads_cy_DTYPE_t, PyBUF_FORMAT| PyBUF_STRIDES, 2, 0, __pyx_stack) == -1)) __PYX_ERR(0, 72, __pyx_L1_error)
   }
   __pyx_pybuffernd_price_data.diminfo[0].strides = __pyx_pybuffernd_price_data.rcbuffer->pybuffer.strides[0]; __pyx_pybuffernd_price_data.diminfo[0].shape = __pyx_pybuffernd_price_data.rcbuffer->pybuffer.shape[0]; __pyx_pybuffernd_price_data.diminfo[1].strides = __pyx_pybuffernd_price_data.rcbuffer->pybuffer.strides[1]; __pyx_pybuffernd_price_data.diminfo[1].shape = __pyx_pybuffernd_price_data.rcbuffer->pybuffer.shape[1];
   {
     __Pyx_BufFmt_StackElem __pyx_stack[1];
-    if (unlikely(__Pyx_GetBufferAndValidate(&__pyx_pybuffernd_diff_data.rcbuffer->pybuffer, (PyObject*)__pyx_v_diff_data, &__Pyx_TypeInfo_nn___pyx_t_17worker_threads_cy_DTYPE_t, PyBUF_FORMAT| PyBUF_STRIDES, 2, 0, __pyx_stack) == -1)) __PYX_ERR(0, 73, __pyx_L1_error)
+    if (unlikely(__Pyx_GetBufferAndValidate(&__pyx_pybuffernd_diff_data.rcbuffer->pybuffer, (PyObject*)__pyx_v_diff_data, &__Pyx_TypeInfo_nn___pyx_t_17worker_threads_cy_DTYPE_t, PyBUF_FORMAT| PyBUF_STRIDES, 2, 0, __pyx_stack) == -1)) __PYX_ERR(0, 72, __pyx_L1_error)
   }
   __pyx_pybuffernd_diff_data.diminfo[0].strides = __pyx_pybuffernd_diff_data.rcbuffer->pybuffer.strides[0]; __pyx_pybuffernd_diff_data.diminfo[0].shape = __pyx_pybuffernd_diff_data.rcbuffer->pybuffer.shape[0]; __pyx_pybuffernd_diff_data.diminfo[1].strides = __pyx_pybuffernd_diff_data.rcbuffer->pybuffer.strides[1]; __pyx_pybuffernd_diff_data.diminfo[1].shape = __pyx_pybuffernd_diff_data.rcbuffer->pybuffer.shape[1];
   {
     __Pyx_BufFmt_StackElem __pyx_stack[1];
-    if (unlikely(__Pyx_GetBufferAndValidate(&__pyx_pybuffernd_stock_idx_arr.rcbuffer->pybuffer, (PyObject*)__pyx_v_stock_idx_arr, &__Pyx_TypeInfo_nn___pyx_t_5numpy_int32_t, PyBUF_FORMAT| PyBUF_STRIDES, 1, 0, __pyx_stack) == -1)) __PYX_ERR(0, 73, __pyx_L1_error)
+    if (unlikely(__Pyx_GetBufferAndValidate(&__pyx_pybuffernd_stock_idx_arr.rcbuffer->pybuffer, (PyObject*)__pyx_v_stock_idx_arr, &__Pyx_TypeInfo_nn___pyx_t_5numpy_int32_t, PyBUF_FORMAT| PyBUF_STRIDES, 1, 0, __pyx_stack) == -1)) __PYX_ERR(0, 72, __pyx_L1_error)
   }
   __pyx_pybuffernd_stock_idx_arr.diminfo[0].strides = __pyx_pybuffernd_stock_idx_arr.rcbuffer->pybuffer.strides[0]; __pyx_pybuffernd_stock_idx_arr.diminfo[0].shape = __pyx_pybuffernd_stock_idx_arr.rcbuffer->pybuffer.shape[0];
 
-  /* "worker_threads_cy.pyx":89
- *     int n_days_max
+  /* "worker_threads_cy.pyx":95
+ *     str formula_expr=None
  * ):
  *     cdef int num_stocks = price_data.shape[0]             # <<<<<<<<<<<<<<
  *     cdef int num_dates = price_data.shape[1]
@@ -20834,7 +21405,7 @@ static PyObject *__pyx_pf_17worker_threads_cy_calculate_batch_cy(CYTHON_UNUSED P
 */
   __pyx_v_num_stocks = (__pyx_f_5numpy_7ndarray_5shape_shape(((PyArrayObject *)__pyx_v_price_data))[0]);
 
-  /* "worker_threads_cy.pyx":90
+  /* "worker_threads_cy.pyx":96
  * ):
  *     cdef int num_stocks = price_data.shape[0]
  *     cdef int num_dates = price_data.shape[1]             # <<<<<<<<<<<<<<
@@ -20843,55 +21414,55 @@ static PyObject *__pyx_pf_17worker_threads_cy_calculate_batch_cy(CYTHON_UNUSED P
 */
   __pyx_v_num_dates = (__pyx_f_5numpy_7ndarray_5shape_shape(((PyArrayObject *)__pyx_v_price_data))[1]);
 
-  /* "worker_threads_cy.pyx":95
+  /* "worker_threads_cy.pyx":101
  *     cdef int max_idx_in_window, min_idx_in_window, closest_idx_in_window
  *     cdef int i, j, window_len, base_idx, actual_idx
  *     cdef dict all_results = {}             # <<<<<<<<<<<<<<
  *     cdef vector[double] cont_sum
  *     cdef vector[double] forward_max_result_c, forward_min_result_c
 */
-  __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 95, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 101, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_all_results = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "worker_threads_cy.pyx":98
+  /* "worker_threads_cy.pyx":104
  *     cdef vector[double] cont_sum
  *     cdef vector[double] forward_max_result_c, forward_min_result_c
  *     cdef double[:, :] price_data_view = price_data             # <<<<<<<<<<<<<<
  *     cdef double[:, :] diff_data_view = diff_data
  *     cdef int[:] stock_idx_arr_view = stock_idx_arr
 */
-  __pyx_t_2 = __Pyx_PyObject_to_MemoryviewSlice_dsds_double(((PyObject *)__pyx_v_price_data), PyBUF_WRITABLE); if (unlikely(!__pyx_t_2.memview)) __PYX_ERR(0, 98, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_to_MemoryviewSlice_dsds_double(((PyObject *)__pyx_v_price_data), PyBUF_WRITABLE); if (unlikely(!__pyx_t_2.memview)) __PYX_ERR(0, 104, __pyx_L1_error)
   __pyx_v_price_data_view = __pyx_t_2;
   __pyx_t_2.memview = NULL;
   __pyx_t_2.data = NULL;
 
-  /* "worker_threads_cy.pyx":99
+  /* "worker_threads_cy.pyx":105
  *     cdef vector[double] forward_max_result_c, forward_min_result_c
  *     cdef double[:, :] price_data_view = price_data
  *     cdef double[:, :] diff_data_view = diff_data             # <<<<<<<<<<<<<<
  *     cdef int[:] stock_idx_arr_view = stock_idx_arr
  *     cdef double min_diff, diff
 */
-  __pyx_t_2 = __Pyx_PyObject_to_MemoryviewSlice_dsds_double(((PyObject *)__pyx_v_diff_data), PyBUF_WRITABLE); if (unlikely(!__pyx_t_2.memview)) __PYX_ERR(0, 99, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_to_MemoryviewSlice_dsds_double(((PyObject *)__pyx_v_diff_data), PyBUF_WRITABLE); if (unlikely(!__pyx_t_2.memview)) __PYX_ERR(0, 105, __pyx_L1_error)
   __pyx_v_diff_data_view = __pyx_t_2;
   __pyx_t_2.memview = NULL;
   __pyx_t_2.data = NULL;
 
-  /* "worker_threads_cy.pyx":100
+  /* "worker_threads_cy.pyx":106
  *     cdef double[:, :] price_data_view = price_data
  *     cdef double[:, :] diff_data_view = diff_data
  *     cdef int[:] stock_idx_arr_view = stock_idx_arr             # <<<<<<<<<<<<<<
  *     cdef double min_diff, diff
  *     cdef int n, half, q1, q2, q3
 */
-  __pyx_t_3 = __Pyx_PyObject_to_MemoryviewSlice_ds_int(((PyObject *)__pyx_v_stock_idx_arr), PyBUF_WRITABLE); if (unlikely(!__pyx_t_3.memview)) __PYX_ERR(0, 100, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_to_MemoryviewSlice_ds_int(((PyObject *)__pyx_v_stock_idx_arr), PyBUF_WRITABLE); if (unlikely(!__pyx_t_3.memview)) __PYX_ERR(0, 106, __pyx_L1_error)
   __pyx_v_stock_idx_arr_view = __pyx_t_3;
   __pyx_t_3.memview = NULL;
   __pyx_t_3.data = NULL;
 
-  /* "worker_threads_cy.pyx":109
+  /* "worker_threads_cy.pyx":115
  *     cdef double valid_pos_sum, valid_neg_sum
  *     cdef np.ndarray[np.float64_t, ndim=1] cont_sum_np
  *     cdef double prev_day_change = NAN             # <<<<<<<<<<<<<<
@@ -20900,7 +21471,7 @@ static PyObject *__pyx_pf_17worker_threads_cy_calculate_batch_cy(CYTHON_UNUSED P
 */
   __pyx_v_prev_day_change = __pyx_v_17worker_threads_cy_NAN;
 
-  /* "worker_threads_cy.pyx":110
+  /* "worker_threads_cy.pyx":116
  *     cdef np.ndarray[np.float64_t, ndim=1] cont_sum_np
  *     cdef double prev_day_change = NAN
  *     cdef double end_day_change = NAN             # <<<<<<<<<<<<<<
@@ -20909,7 +21480,7 @@ static PyObject *__pyx_pf_17worker_threads_cy_calculate_batch_cy(CYTHON_UNUSED P
 */
   __pyx_v_end_day_change = __pyx_v_17worker_threads_cy_NAN;
 
-  /* "worker_threads_cy.pyx":111
+  /* "worker_threads_cy.pyx":117
  *     cdef double prev_day_change = NAN
  *     cdef double end_day_change = NAN
  *     cdef double n_days_max_value = NAN             # <<<<<<<<<<<<<<
@@ -20918,19 +21489,190 @@ static PyObject *__pyx_pf_17worker_threads_cy_calculate_batch_cy(CYTHON_UNUSED P
 */
   __pyx_v_n_days_max_value = __pyx_v_17worker_threads_cy_NAN;
 
-  /* "worker_threads_cy.pyx":124
+  /* "worker_threads_cy.pyx":128
+ *     cdef int forward_min_valid_sum_len
+ *     cdef double forward_min_valid_pos_sum, forward_min_valid_neg_sum
+ *     cdef double increment_value = NAN             # <<<<<<<<<<<<<<
+ *     cdef double after_gt_end_value = NAN
+ *     cdef double after_gt_start_value = NAN
+*/
+  __pyx_v_increment_value = __pyx_v_17worker_threads_cy_NAN;
+
+  /* "worker_threads_cy.pyx":129
+ *     cdef double forward_min_valid_pos_sum, forward_min_valid_neg_sum
+ *     cdef double increment_value = NAN
+ *     cdef double after_gt_end_value = NAN             # <<<<<<<<<<<<<<
+ *     cdef double after_gt_start_value = NAN
+ *     cdef int increment_days = -1
+*/
+  __pyx_v_after_gt_end_value = __pyx_v_17worker_threads_cy_NAN;
+
+  /* "worker_threads_cy.pyx":130
+ *     cdef double increment_value = NAN
+ *     cdef double after_gt_end_value = NAN
+ *     cdef double after_gt_start_value = NAN             # <<<<<<<<<<<<<<
+ *     cdef int increment_days = -1
+ *     cdef int after_gt_end_days = -1
+*/
+  __pyx_v_after_gt_start_value = __pyx_v_17worker_threads_cy_NAN;
+
+  /* "worker_threads_cy.pyx":131
+ *     cdef double after_gt_end_value = NAN
+ *     cdef double after_gt_start_value = NAN
+ *     cdef int increment_days = -1             # <<<<<<<<<<<<<<
+ *     cdef int after_gt_end_days = -1
+ *     cdef int after_gt_start_days = -1
+*/
+  __pyx_v_increment_days = -1;
+
+  /* "worker_threads_cy.pyx":132
+ *     cdef double after_gt_start_value = NAN
+ *     cdef int increment_days = -1
+ *     cdef int after_gt_end_days = -1             # <<<<<<<<<<<<<<
+ *     cdef int after_gt_start_days = -1
+ *     cdef double increment_threshold
+*/
+  __pyx_v_after_gt_end_days = -1;
+
+  /* "worker_threads_cy.pyx":133
+ *     cdef int increment_days = -1
+ *     cdef int after_gt_end_days = -1
+ *     cdef int after_gt_start_days = -1             # <<<<<<<<<<<<<<
+ *     cdef double increment_threshold
+ *     cdef double after_gt_end_threshold
+*/
+  __pyx_v_after_gt_start_days = -1;
+
+  /* "worker_threads_cy.pyx":140
+ *     cdef double v, prev_v
+ *     cdef int k
+ *     cdef object user_func = None             # <<<<<<<<<<<<<<
+ *     cdef object score_func = None
+ *     from worker_threads import make_user_func
+*/
+  __Pyx_INCREF(Py_None);
+  __pyx_v_user_func = Py_None;
+
+  /* "worker_threads_cy.pyx":141
+ *     cdef int k
+ *     cdef object user_func = None
+ *     cdef object score_func = None             # <<<<<<<<<<<<<<
+ *     from worker_threads import make_user_func
+ *     user_func = make_user_func(expr)
+*/
+  __Pyx_INCREF(Py_None);
+  __pyx_v_score_func = Py_None;
+
+  /* "worker_threads_cy.pyx":142
+ *     cdef object user_func = None
+ *     cdef object score_func = None
+ *     from worker_threads import make_user_func             # <<<<<<<<<<<<<<
+ *     user_func = make_user_func(expr)
+ *     score_func = make_user_func(formula_expr) if formula_expr else None
+*/
+  __pyx_t_1 = PyList_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 142, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_make_user_func);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_n_u_make_user_func);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 0, __pyx_mstate_global->__pyx_n_u_make_user_func) != (0)) __PYX_ERR(0, 142, __pyx_L1_error);
+  __pyx_t_4 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_worker_threads, __pyx_t_1, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 142, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __pyx_t_1 = __Pyx_ImportFrom(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_make_user_func); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 142, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __Pyx_INCREF(__pyx_t_1);
+  __pyx_v_make_user_func = __pyx_t_1;
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+
+  /* "worker_threads_cy.pyx":143
+ *     cdef object score_func = None
+ *     from worker_threads import make_user_func
+ *     user_func = make_user_func(expr)             # <<<<<<<<<<<<<<
+ *     score_func = make_user_func(formula_expr) if formula_expr else None
+ * 
+*/
+  __pyx_t_1 = NULL;
+  __Pyx_INCREF(__pyx_v_make_user_func);
+  __pyx_t_5 = __pyx_v_make_user_func; 
+  __pyx_t_6 = 1;
+  #if CYTHON_UNPACK_METHODS
+  if (unlikely(PyMethod_Check(__pyx_t_5))) {
+    __pyx_t_1 = PyMethod_GET_SELF(__pyx_t_5);
+    assert(__pyx_t_1);
+    PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_5);
+    __Pyx_INCREF(__pyx_t_1);
+    __Pyx_INCREF(__pyx__function);
+    __Pyx_DECREF_SET(__pyx_t_5, __pyx__function);
+    __pyx_t_6 = 0;
+  }
+  #endif
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_1, __pyx_v_expr};
+    __pyx_t_4 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
+    __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 143, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_4);
+  }
+  __Pyx_DECREF_SET(__pyx_v_user_func, __pyx_t_4);
+  __pyx_t_4 = 0;
+
+  /* "worker_threads_cy.pyx":144
+ *     from worker_threads import make_user_func
+ *     user_func = make_user_func(expr)
+ *     score_func = make_user_func(formula_expr) if formula_expr else None             # <<<<<<<<<<<<<<
+ * 
+ *     #
+*/
+  __pyx_t_7 = (__pyx_v_formula_expr != Py_None)&&(__Pyx_PyUnicode_IS_TRUE(__pyx_v_formula_expr) != 0);
+  if (unlikely(((!CYTHON_ASSUME_SAFE_MACROS) && __pyx_t_7 < 0))) __PYX_ERR(0, 144, __pyx_L1_error)
+  if (__pyx_t_7) {
+    __pyx_t_1 = NULL;
+    __Pyx_INCREF(__pyx_v_make_user_func);
+    __pyx_t_8 = __pyx_v_make_user_func; 
+    __pyx_t_6 = 1;
+    #if CYTHON_UNPACK_METHODS
+    if (unlikely(PyMethod_Check(__pyx_t_8))) {
+      __pyx_t_1 = PyMethod_GET_SELF(__pyx_t_8);
+      assert(__pyx_t_1);
+      PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_8);
+      __Pyx_INCREF(__pyx_t_1);
+      __Pyx_INCREF(__pyx__function);
+      __Pyx_DECREF_SET(__pyx_t_8, __pyx__function);
+      __pyx_t_6 = 0;
+    }
+    #endif
+    {
+      PyObject *__pyx_callargs[2] = {__pyx_t_1, __pyx_v_formula_expr};
+      __pyx_t_5 = __Pyx_PyObject_FastCall(__pyx_t_8, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
+      __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+      if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 144, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_5);
+    }
+    __pyx_t_4 = __pyx_t_5;
+    __pyx_t_5 = 0;
+  } else {
+    __Pyx_INCREF(Py_None);
+    __pyx_t_4 = Py_None;
+  }
+  __Pyx_DECREF_SET(__pyx_v_score_func, __pyx_t_4);
+  __pyx_t_4 = 0;
+
+  /* "worker_threads_cy.pyx":147
  * 
  *     #
  *     for idx in range(end_date_start_idx, end_date_end_idx-1, -1):             # <<<<<<<<<<<<<<
  *         end_date = date_columns[idx]
  *         all_results[end_date] = []
 */
-  __pyx_t_4 = (__pyx_v_end_date_end_idx - 1);
-  __pyx_t_5 = __pyx_t_4;
-  for (__pyx_t_6 = __pyx_v_end_date_start_idx; __pyx_t_6 > __pyx_t_5; __pyx_t_6-=1) {
-    __pyx_v_idx = __pyx_t_6;
+  __pyx_t_9 = (__pyx_v_end_date_end_idx - 1);
+  __pyx_t_10 = __pyx_t_9;
+  for (__pyx_t_11 = __pyx_v_end_date_start_idx; __pyx_t_11 > __pyx_t_10; __pyx_t_11-=1) {
+    __pyx_v_idx = __pyx_t_11;
 
-    /* "worker_threads_cy.pyx":125
+    /* "worker_threads_cy.pyx":148
  *     #
  *     for idx in range(end_date_start_idx, end_date_end_idx-1, -1):
  *         end_date = date_columns[idx]             # <<<<<<<<<<<<<<
@@ -20939,742 +21681,598 @@ static PyObject *__pyx_pf_17worker_threads_cy_calculate_batch_cy(CYTHON_UNUSED P
 */
     if (unlikely(__pyx_v_date_columns == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-      __PYX_ERR(0, 125, __pyx_L1_error)
+      __PYX_ERR(0, 148, __pyx_L1_error)
     }
-    __pyx_t_1 = __Pyx_PyList_GET_ITEM(__pyx_v_date_columns, __pyx_v_idx);
-    __Pyx_INCREF(__pyx_t_1);
-    __Pyx_XDECREF_SET(__pyx_v_end_date, __pyx_t_1);
-    __pyx_t_1 = 0;
+    __pyx_t_4 = __Pyx_PyList_GET_ITEM(__pyx_v_date_columns, __pyx_v_idx);
+    __Pyx_INCREF(__pyx_t_4);
+    __Pyx_XDECREF_SET(__pyx_v_end_date, __pyx_t_4);
+    __pyx_t_4 = 0;
 
-    /* "worker_threads_cy.pyx":126
+    /* "worker_threads_cy.pyx":149
  *     for idx in range(end_date_start_idx, end_date_end_idx-1, -1):
  *         end_date = date_columns[idx]
  *         all_results[end_date] = []             # <<<<<<<<<<<<<<
  * 
  *     #
 */
-    __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 126, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_1);
-    if (unlikely((PyDict_SetItem(__pyx_v_all_results, __pyx_v_end_date, __pyx_t_1) < 0))) __PYX_ERR(0, 126, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+    __pyx_t_4 = PyList_New(0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 149, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_4);
+    if (unlikely((PyDict_SetItem(__pyx_v_all_results, __pyx_v_end_date, __pyx_t_4) < 0))) __PYX_ERR(0, 149, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   }
 
-  /* "worker_threads_cy.pyx":129
+  /* "worker_threads_cy.pyx":152
  * 
  *     #
- *     for i in prange(stock_idx_arr_view.shape[0], nogil=True):             # <<<<<<<<<<<<<<
+ *     for i in range(stock_idx_arr_view.shape[0]):             # <<<<<<<<<<<<<<
  *         stock_idx = stock_idx_arr_view[i]
  * 
 */
-  {
-      PyThreadState *_save;
-      _save = NULL;
-      Py_UNBLOCK_THREADS
-      __Pyx_FastGIL_Remember();
-      /*try:*/ {
-        __pyx_t_7 = (__pyx_v_stock_idx_arr_view.shape[0]);
-        {
-            int __pyx_parallel_temp0 = ((int)0xbad0bad0);
-            double __pyx_parallel_temp1 = ((double)__PYX_NAN());
-            int __pyx_parallel_temp2 = ((int)0xbad0bad0);
-            int __pyx_parallel_temp3 = ((int)0xbad0bad0);
-            double __pyx_parallel_temp4 = ((double)__PYX_NAN());
-            double __pyx_parallel_temp5 = ((double)__PYX_NAN());
-            double __pyx_parallel_temp6 = ((double)__PYX_NAN());
-            double __pyx_parallel_temp7 = ((double)__PYX_NAN());
-            double __pyx_parallel_temp8 = ((double)__PYX_NAN());
-            double __pyx_parallel_temp9 = ((double)__PYX_NAN());
-            double __pyx_parallel_temp10 = ((double)__PYX_NAN());
-            double __pyx_parallel_temp11 = ((double)__PYX_NAN());
-            int __pyx_parallel_temp12 = ((int)0xbad0bad0);
-            double __pyx_parallel_temp13 = ((double)__PYX_NAN());
-            double __pyx_parallel_temp14 = ((double)__PYX_NAN());
-            double __pyx_parallel_temp15 = ((double)__PYX_NAN());
-            double __pyx_parallel_temp16 = ((double)__PYX_NAN());
-            int __pyx_parallel_temp17 = ((int)0xbad0bad0);
-            double __pyx_parallel_temp18 = ((double)__PYX_NAN());
-            double __pyx_parallel_temp19 = ((double)__PYX_NAN());
-            int __pyx_parallel_temp20 = ((int)0xbad0bad0);
-            int __pyx_parallel_temp21 = ((int)0xbad0bad0);
-            int __pyx_parallel_temp22 = ((int)0xbad0bad0);
-            int __pyx_parallel_temp23 = ((int)0xbad0bad0);
-            int __pyx_parallel_temp24 = ((int)0xbad0bad0);
-            int __pyx_parallel_temp25 = ((int)0xbad0bad0);
-            int __pyx_parallel_temp26 = ((int)0xbad0bad0);
-            int __pyx_parallel_temp27 = ((int)0xbad0bad0);
-            double __pyx_parallel_temp28 = ((double)__PYX_NAN());
-            double __pyx_parallel_temp29 = ((double)__PYX_NAN());
-            int __pyx_parallel_temp30 = ((int)0xbad0bad0);
-            double __pyx_parallel_temp31 = ((double)__PYX_NAN());
-            int __pyx_parallel_temp32 = ((int)0xbad0bad0);
-            double __pyx_parallel_temp33 = ((double)__PYX_NAN());
-            int __pyx_parallel_temp34 = ((int)0xbad0bad0);
-            double __pyx_parallel_temp35 = ((double)__PYX_NAN());
-            double [0x64] __pyx_parallel_temp36;
-            int __pyx_parallel_temp37 = ((int)0xbad0bad0);
-            int __pyx_parallel_temp38 = ((int)0xbad0bad0);
-            int __pyx_parallel_temp39 = ((int)0xbad0bad0);
-            int __pyx_parallel_temp40 = ((int)0xbad0bad0);
-            int __pyx_parallel_temp41 = ((int)0xbad0bad0);
-            int __pyx_parallel_temp42 = ((int)0xbad0bad0);
-            int __pyx_parallel_temp43 = ((int)0xbad0bad0);
-            double __pyx_parallel_temp44 = ((double)__PYX_NAN());
-            int __pyx_parallel_temp45 = ((int)0xbad0bad0);
-            double __pyx_parallel_temp46 = ((double)__PYX_NAN());
-            double __pyx_parallel_temp47 = ((double)__PYX_NAN());
-            double __pyx_parallel_temp48 = ((double)__PYX_NAN());
-            double __pyx_parallel_temp49 = ((double)__PYX_NAN());
-            double __pyx_parallel_temp50 = ((double)__PYX_NAN());
-            double __pyx_parallel_temp51 = ((double)__PYX_NAN());
-            double __pyx_parallel_temp52 = ((double)__PYX_NAN());
-            double __pyx_parallel_temp53 = ((double)__PYX_NAN());
-            int __pyx_parallel_temp54 = ((int)0xbad0bad0);
-            const char *__pyx_parallel_filename = NULL; int __pyx_parallel_lineno = 0, __pyx_parallel_clineno = 0;
-            PyObject *__pyx_parallel_exc_type = NULL, *__pyx_parallel_exc_value = NULL, *__pyx_parallel_exc_tb = NULL;
-            #if CYTHON_COMPILING_IN_CPYTHON_FREETHREADING
-            PyMutex __pyx_parallel_freethreading_mutex = {0};
-            #endif
-            int __pyx_parallel_why;
-            __pyx_parallel_why = 0;
-            #if ((defined(__APPLE__) || defined(__OSX__)) && (defined(__GNUC__) && (__GNUC__ > 2 || (__GNUC__ == 2 && (__GNUC_MINOR__ > 95)))))
-                #undef likely
-                #undef unlikely
-                #define likely(x)   (x)
-                #define unlikely(x) (x)
-            #endif
-            __pyx_t_9 = (__pyx_t_7 - 0 + 1 - 1/abs(1)) / 1;
-            if (__pyx_t_9 > 0)
-            {
-                #ifdef _OPENMP
-                #pragma omp parallel private(__pyx_t_10, __pyx_t_11, __pyx_t_12, __pyx_t_13, __pyx_t_14, __pyx_t_15, __pyx_t_16, __pyx_t_17, __pyx_t_24, __pyx_t_28, __pyx_t_29, __pyx_t_30, __pyx_t_32, __pyx_t_33, __pyx_t_34, __pyx_t_4, __pyx_t_5, __pyx_t_6) firstprivate(__pyx_t_1, __pyx_t_18, __pyx_t_19, __pyx_t_20, __pyx_t_21, __pyx_t_22, __pyx_t_23, __pyx_t_25, __pyx_t_26, __pyx_t_27, __pyx_t_31) __Pyx_shared_in_cpython_freethreading(__pyx_parallel_freethreading_mutex) private(__pyx_filename, __pyx_lineno, __pyx_clineno) shared(__pyx_parallel_why, __pyx_parallel_exc_type, __pyx_parallel_exc_value, __pyx_parallel_exc_tb)
-                #endif /* _OPENMP */
-                {
-                    #ifdef _OPENMP
-                    PyGILState_STATE __pyx_gilstate_save = __Pyx_PyGILState_Ensure();
-                    Py_BEGIN_ALLOW_THREADS
-                    #endif /* _OPENMP */
-                    #ifdef _OPENMP
-                    #pragma omp for lastprivate(__pyx_v_actual_idx) lastprivate(__pyx_v_actual_value) lastprivate(__pyx_v_base_idx) lastprivate(__pyx_v_closest_idx_in_window) lastprivate(__pyx_v_closest_value) lastprivate(__pyx_v_continuous_abs_sum_block1) lastprivate(__pyx_v_continuous_abs_sum_block2) lastprivate(__pyx_v_continuous_abs_sum_block3) lastprivate(__pyx_v_continuous_abs_sum_block4) lastprivate(__pyx_v_continuous_abs_sum_first_half) lastprivate(__pyx_v_continuous_abs_sum_second_half) lastprivate(__pyx_v_diff) lastprivate(__pyx_v_end_date_idx) lastprivate(__pyx_v_end_day_change) lastprivate(__pyx_v_end_value) lastprivate(__pyx_v_forward_max_valid_neg_sum) lastprivate(__pyx_v_forward_max_valid_pos_sum) lastprivate(__pyx_v_forward_max_valid_sum_len) lastprivate(__pyx_v_forward_min_valid_neg_sum) lastprivate(__pyx_v_forward_min_valid_pos_sum) lastprivate(__pyx_v_forward_min_valid_sum_len) lastprivate(__pyx_v_half) lastprivate(__pyx_v_half_valid) lastprivate(__pyx_8genexpr1__pyx_v_i) firstprivate(__pyx_v_i) lastprivate(__pyx_v_i) lastprivate(__pyx_v_idx) lastprivate(__pyx_v_j) lastprivate(__pyx_v_max_idx_in_window) lastprivate(__pyx_v_max_price) lastprivate(__pyx_v_min_diff) lastprivate(__pyx_v_min_idx_in_window) lastprivate(__pyx_v_min_price) lastprivate(__pyx_v_n) lastprivate(__pyx_v_n_days_max_value) lastprivate(__pyx_v_n_valid) lastprivate(__pyx_v_prev_day_change) lastprivate(__pyx_v_price_arr) lastprivate(__pyx_v_q1) lastprivate(__pyx_v_q1_valid) lastprivate(__pyx_v_q2) lastprivate(__pyx_v_q2_valid) lastprivate(__pyx_v_q3) lastprivate(__pyx_v_q3_valid) lastprivate(__pyx_v_start_date_idx) lastprivate(__pyx_v_start_value) lastprivate(__pyx_v_stock_idx) lastprivate(__pyx_v_valid_abs_sum_block1) lastprivate(__pyx_v_valid_abs_sum_block2) lastprivate(__pyx_v_valid_abs_sum_block3) lastprivate(__pyx_v_valid_abs_sum_block4) lastprivate(__pyx_v_valid_abs_sum_first_half) lastprivate(__pyx_v_valid_abs_sum_second_half) lastprivate(__pyx_v_valid_neg_sum) lastprivate(__pyx_v_valid_pos_sum) lastprivate(__pyx_v_window_len)
-                    #endif /* _OPENMP */
-                    for (__pyx_t_8 = 0; __pyx_t_8 < __pyx_t_9; __pyx_t_8++){
-                        if (__pyx_parallel_why < 2)
-                        {
-                            __pyx_v_i = (int)(0 + 1 * __pyx_t_8);
-                            /* Initialize private variables to invalid values */
-                            __pyx_v_actual_idx = ((int)0xbad0bad0);
-                            __pyx_v_actual_value = ((double)__PYX_NAN());
-                            __pyx_v_base_idx = ((int)0xbad0bad0);
-                            __pyx_v_closest_idx_in_window = ((int)0xbad0bad0);
-                            __pyx_v_closest_value = ((double)__PYX_NAN());
-                            __pyx_v_continuous_abs_sum_block1 = ((double)__PYX_NAN());
-                            __pyx_v_continuous_abs_sum_block2 = ((double)__PYX_NAN());
-                            __pyx_v_continuous_abs_sum_block3 = ((double)__PYX_NAN());
-                            __pyx_v_continuous_abs_sum_block4 = ((double)__PYX_NAN());
-                            __pyx_v_continuous_abs_sum_first_half = ((double)__PYX_NAN());
-                            __pyx_v_continuous_abs_sum_second_half = ((double)__PYX_NAN());
-                            __pyx_v_diff = ((double)__PYX_NAN());
-                            __pyx_v_end_date_idx = ((int)0xbad0bad0);
-                            __pyx_v_end_day_change = ((double)__PYX_NAN());
-                            __pyx_v_end_value = ((double)__PYX_NAN());
-                            __pyx_v_forward_max_valid_neg_sum = ((double)__PYX_NAN());
-                            __pyx_v_forward_max_valid_pos_sum = ((double)__PYX_NAN());
-                            __pyx_v_forward_max_valid_sum_len = ((int)0xbad0bad0);
-                            __pyx_v_forward_min_valid_neg_sum = ((double)__PYX_NAN());
-                            __pyx_v_forward_min_valid_pos_sum = ((double)__PYX_NAN());
-                            __pyx_v_forward_min_valid_sum_len = ((int)0xbad0bad0);
-                            __pyx_v_half = ((int)0xbad0bad0);
-                            __pyx_v_half_valid = ((int)0xbad0bad0);
-                            __pyx_8genexpr1__pyx_v_i = ((int)0xbad0bad0);
-                            __pyx_v_idx = ((int)0xbad0bad0);
-                            __pyx_v_j = ((int)0xbad0bad0);
-                            __pyx_v_max_idx_in_window = ((int)0xbad0bad0);
-                            __pyx_v_max_price = ((double)__PYX_NAN());
-                            __pyx_v_min_diff = ((double)__PYX_NAN());
-                            __pyx_v_min_idx_in_window = ((int)0xbad0bad0);
-                            __pyx_v_min_price = ((double)__PYX_NAN());
-                            __pyx_v_n = ((int)0xbad0bad0);
-                            __pyx_v_n_days_max_value = ((double)__PYX_NAN());
-                            __pyx_v_n_valid = ((int)0xbad0bad0);
-                            __pyx_v_prev_day_change = ((double)__PYX_NAN());
-                            __pyx_v_q1 = ((int)0xbad0bad0);
-                            __pyx_v_q1_valid = ((int)0xbad0bad0);
-                            __pyx_v_q2 = ((int)0xbad0bad0);
-                            __pyx_v_q2_valid = ((int)0xbad0bad0);
-                            __pyx_v_q3 = ((int)0xbad0bad0);
-                            __pyx_v_q3_valid = ((int)0xbad0bad0);
-                            __pyx_v_start_date_idx = ((int)0xbad0bad0);
-                            __pyx_v_start_value = ((double)__PYX_NAN());
-                            __pyx_v_stock_idx = ((int)0xbad0bad0);
-                            __pyx_v_valid_abs_sum_block1 = ((double)__PYX_NAN());
-                            __pyx_v_valid_abs_sum_block2 = ((double)__PYX_NAN());
-                            __pyx_v_valid_abs_sum_block3 = ((double)__PYX_NAN());
-                            __pyx_v_valid_abs_sum_block4 = ((double)__PYX_NAN());
-                            __pyx_v_valid_abs_sum_first_half = ((double)__PYX_NAN());
-                            __pyx_v_valid_abs_sum_second_half = ((double)__PYX_NAN());
-                            __pyx_v_valid_neg_sum = ((double)__PYX_NAN());
-                            __pyx_v_valid_pos_sum = ((double)__PYX_NAN());
-                            __pyx_v_window_len = ((int)0xbad0bad0);
+  __pyx_t_12 = (__pyx_v_stock_idx_arr_view.shape[0]);
+  __pyx_t_13 = __pyx_t_12;
+  for (__pyx_t_11 = 0; __pyx_t_11 < __pyx_t_13; __pyx_t_11+=1) {
+    __pyx_v_i = __pyx_t_11;
 
-                            /* "worker_threads_cy.pyx":130
+    /* "worker_threads_cy.pyx":153
  *     #
- *     for i in prange(stock_idx_arr_view.shape[0], nogil=True):
+ *     for i in range(stock_idx_arr_view.shape[0]):
  *         stock_idx = stock_idx_arr_view[i]             # <<<<<<<<<<<<<<
  * 
  *         #
 */
-                            __pyx_t_10 = __pyx_v_i;
-                            __pyx_v_stock_idx = (*((int *) ( /* dim=0 */ (__pyx_v_stock_idx_arr_view.data + __pyx_t_10 * __pyx_v_stock_idx_arr_view.strides[0]) )));
+    __pyx_t_14 = __pyx_v_i;
+    __pyx_v_stock_idx = (*((int *) ( /* dim=0 */ (__pyx_v_stock_idx_arr_view.data + __pyx_t_14 * __pyx_v_stock_idx_arr_view.strides[0]) )));
 
-                            /* "worker_threads_cy.pyx":133
+    /* "worker_threads_cy.pyx":156
  * 
  *         #
  *         for idx in range(end_date_start_idx, end_date_end_idx-1, -1):             # <<<<<<<<<<<<<<
  *             # --- nogil  ---
  *             end_date_idx = idx
 */
-                            __pyx_t_4 = (__pyx_v_end_date_end_idx - 1);
-                            __pyx_t_5 = __pyx_t_4;
-                            for (__pyx_t_6 = __pyx_v_end_date_start_idx; __pyx_t_6 > __pyx_t_5; __pyx_t_6-=1) {
-                              __pyx_v_idx = __pyx_t_6;
+    __pyx_t_9 = (__pyx_v_end_date_end_idx - 1);
+    __pyx_t_10 = __pyx_t_9;
+    for (__pyx_t_15 = __pyx_v_end_date_start_idx; __pyx_t_15 > __pyx_t_10; __pyx_t_15-=1) {
+      __pyx_v_idx = __pyx_t_15;
 
-                              /* "worker_threads_cy.pyx":135
+      /* "worker_threads_cy.pyx":158
  *         for idx in range(end_date_start_idx, end_date_end_idx-1, -1):
  *             # --- nogil  ---
  *             end_date_idx = idx             # <<<<<<<<<<<<<<
  *             start_date_idx = end_date_idx + width
  *             max_price = -1e308
 */
-                              __pyx_v_end_date_idx = __pyx_v_idx;
+      __pyx_v_end_date_idx = __pyx_v_idx;
 
-                              /* "worker_threads_cy.pyx":136
+      /* "worker_threads_cy.pyx":159
  *             # --- nogil  ---
  *             end_date_idx = idx
  *             start_date_idx = end_date_idx + width             # <<<<<<<<<<<<<<
  *             max_price = -1e308
  *             min_price = 1e308
 */
-                              __pyx_v_start_date_idx = (__pyx_v_end_date_idx + __pyx_v_width);
+      __pyx_v_start_date_idx = (__pyx_v_end_date_idx + __pyx_v_width);
 
-                              /* "worker_threads_cy.pyx":137
+      /* "worker_threads_cy.pyx":160
  *             end_date_idx = idx
  *             start_date_idx = end_date_idx + width
  *             max_price = -1e308             # <<<<<<<<<<<<<<
  *             min_price = 1e308
  *             max_idx_in_window = -1
 */
-                              __pyx_v_max_price = -1e308;
+      __pyx_v_max_price = -1e308;
 
-                              /* "worker_threads_cy.pyx":138
+      /* "worker_threads_cy.pyx":161
  *             start_date_idx = end_date_idx + width
  *             max_price = -1e308
  *             min_price = 1e308             # <<<<<<<<<<<<<<
  *             max_idx_in_window = -1
  *             min_idx_in_window = -1
 */
-                              __pyx_v_min_price = 1e308;
+      __pyx_v_min_price = 1e308;
 
-                              /* "worker_threads_cy.pyx":139
+      /* "worker_threads_cy.pyx":162
  *             max_price = -1e308
  *             min_price = 1e308
  *             max_idx_in_window = -1             # <<<<<<<<<<<<<<
  *             min_idx_in_window = -1
  *             window_len = width + 1
 */
-                              __pyx_v_max_idx_in_window = -1;
+      __pyx_v_max_idx_in_window = -1;
 
-                              /* "worker_threads_cy.pyx":140
+      /* "worker_threads_cy.pyx":163
  *             min_price = 1e308
  *             max_idx_in_window = -1
  *             min_idx_in_window = -1             # <<<<<<<<<<<<<<
  *             window_len = width + 1
  * 
 */
-                              __pyx_v_min_idx_in_window = -1;
+      __pyx_v_min_idx_in_window = -1;
 
-                              /* "worker_threads_cy.pyx":141
+      /* "worker_threads_cy.pyx":164
  *             max_idx_in_window = -1
  *             min_idx_in_window = -1
  *             window_len = width + 1             # <<<<<<<<<<<<<<
  * 
  *             for j in range(window_len):
 */
-                              __pyx_v_window_len = (__pyx_v_width + 1);
+      __pyx_v_window_len = (__pyx_v_width + 1);
 
-                              /* "worker_threads_cy.pyx":143
+      /* "worker_threads_cy.pyx":166
  *             window_len = width + 1
  * 
  *             for j in range(window_len):             # <<<<<<<<<<<<<<
  *                 if not isnan(price_data_view[stock_idx, end_date_idx + j]):
  *                     if price_data_view[stock_idx, end_date_idx + j] > max_price:
 */
-                              __pyx_t_11 = __pyx_v_window_len;
-                              __pyx_t_12 = __pyx_t_11;
-                              for (__pyx_t_13 = 0; __pyx_t_13 < __pyx_t_12; __pyx_t_13+=1) {
-                                __pyx_v_j = __pyx_t_13;
+      __pyx_t_16 = __pyx_v_window_len;
+      __pyx_t_17 = __pyx_t_16;
+      for (__pyx_t_18 = 0; __pyx_t_18 < __pyx_t_17; __pyx_t_18+=1) {
+        __pyx_v_j = __pyx_t_18;
 
-                                /* "worker_threads_cy.pyx":144
+        /* "worker_threads_cy.pyx":167
  * 
  *             for j in range(window_len):
  *                 if not isnan(price_data_view[stock_idx, end_date_idx + j]):             # <<<<<<<<<<<<<<
  *                     if price_data_view[stock_idx, end_date_idx + j] > max_price:
  *                         max_price = price_data_view[stock_idx, end_date_idx + j]
 */
-                                __pyx_t_10 = __pyx_v_stock_idx;
-                                __pyx_t_14 = (__pyx_v_end_date_idx + __pyx_v_j);
-                                __pyx_t_15 = (!isnan((*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_price_data_view.data + __pyx_t_10 * __pyx_v_price_data_view.strides[0]) ) + __pyx_t_14 * __pyx_v_price_data_view.strides[1]) )))));
-                                if (__pyx_t_15) {
+        __pyx_t_14 = __pyx_v_stock_idx;
+        __pyx_t_19 = (__pyx_v_end_date_idx + __pyx_v_j);
+        __pyx_t_7 = (!isnan((*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_price_data_view.data + __pyx_t_14 * __pyx_v_price_data_view.strides[0]) ) + __pyx_t_19 * __pyx_v_price_data_view.strides[1]) )))));
+        if (__pyx_t_7) {
 
-                                  /* "worker_threads_cy.pyx":145
+          /* "worker_threads_cy.pyx":168
  *             for j in range(window_len):
  *                 if not isnan(price_data_view[stock_idx, end_date_idx + j]):
  *                     if price_data_view[stock_idx, end_date_idx + j] > max_price:             # <<<<<<<<<<<<<<
  *                         max_price = price_data_view[stock_idx, end_date_idx + j]
  *                         max_idx_in_window = j
 */
-                                  __pyx_t_14 = __pyx_v_stock_idx;
-                                  __pyx_t_10 = (__pyx_v_end_date_idx + __pyx_v_j);
-                                  __pyx_t_15 = ((*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_price_data_view.data + __pyx_t_14 * __pyx_v_price_data_view.strides[0]) ) + __pyx_t_10 * __pyx_v_price_data_view.strides[1]) ))) > __pyx_v_max_price);
-                                  if (__pyx_t_15) {
+          __pyx_t_19 = __pyx_v_stock_idx;
+          __pyx_t_14 = (__pyx_v_end_date_idx + __pyx_v_j);
+          __pyx_t_7 = ((*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_price_data_view.data + __pyx_t_19 * __pyx_v_price_data_view.strides[0]) ) + __pyx_t_14 * __pyx_v_price_data_view.strides[1]) ))) > __pyx_v_max_price);
+          if (__pyx_t_7) {
 
-                                    /* "worker_threads_cy.pyx":146
+            /* "worker_threads_cy.pyx":169
  *                 if not isnan(price_data_view[stock_idx, end_date_idx + j]):
  *                     if price_data_view[stock_idx, end_date_idx + j] > max_price:
  *                         max_price = price_data_view[stock_idx, end_date_idx + j]             # <<<<<<<<<<<<<<
  *                         max_idx_in_window = j
  *                     if price_data_view[stock_idx, end_date_idx + j] < min_price:
 */
-                                    __pyx_t_10 = __pyx_v_stock_idx;
-                                    __pyx_t_14 = (__pyx_v_end_date_idx + __pyx_v_j);
-                                    __pyx_v_max_price = (*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_price_data_view.data + __pyx_t_10 * __pyx_v_price_data_view.strides[0]) ) + __pyx_t_14 * __pyx_v_price_data_view.strides[1]) )));
+            __pyx_t_14 = __pyx_v_stock_idx;
+            __pyx_t_19 = (__pyx_v_end_date_idx + __pyx_v_j);
+            __pyx_v_max_price = (*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_price_data_view.data + __pyx_t_14 * __pyx_v_price_data_view.strides[0]) ) + __pyx_t_19 * __pyx_v_price_data_view.strides[1]) )));
 
-                                    /* "worker_threads_cy.pyx":147
+            /* "worker_threads_cy.pyx":170
  *                     if price_data_view[stock_idx, end_date_idx + j] > max_price:
  *                         max_price = price_data_view[stock_idx, end_date_idx + j]
  *                         max_idx_in_window = j             # <<<<<<<<<<<<<<
  *                     if price_data_view[stock_idx, end_date_idx + j] < min_price:
  *                         min_price = price_data_view[stock_idx, end_date_idx + j]
 */
-                                    __pyx_v_max_idx_in_window = __pyx_v_j;
+            __pyx_v_max_idx_in_window = __pyx_v_j;
 
-                                    /* "worker_threads_cy.pyx":145
+            /* "worker_threads_cy.pyx":168
  *             for j in range(window_len):
  *                 if not isnan(price_data_view[stock_idx, end_date_idx + j]):
  *                     if price_data_view[stock_idx, end_date_idx + j] > max_price:             # <<<<<<<<<<<<<<
  *                         max_price = price_data_view[stock_idx, end_date_idx + j]
  *                         max_idx_in_window = j
 */
-                                  }
+          }
 
-                                  /* "worker_threads_cy.pyx":148
+          /* "worker_threads_cy.pyx":171
  *                         max_price = price_data_view[stock_idx, end_date_idx + j]
  *                         max_idx_in_window = j
  *                     if price_data_view[stock_idx, end_date_idx + j] < min_price:             # <<<<<<<<<<<<<<
  *                         min_price = price_data_view[stock_idx, end_date_idx + j]
  *                         min_idx_in_window = j
 */
-                                  __pyx_t_14 = __pyx_v_stock_idx;
-                                  __pyx_t_10 = (__pyx_v_end_date_idx + __pyx_v_j);
-                                  __pyx_t_15 = ((*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_price_data_view.data + __pyx_t_14 * __pyx_v_price_data_view.strides[0]) ) + __pyx_t_10 * __pyx_v_price_data_view.strides[1]) ))) < __pyx_v_min_price);
-                                  if (__pyx_t_15) {
+          __pyx_t_19 = __pyx_v_stock_idx;
+          __pyx_t_14 = (__pyx_v_end_date_idx + __pyx_v_j);
+          __pyx_t_7 = ((*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_price_data_view.data + __pyx_t_19 * __pyx_v_price_data_view.strides[0]) ) + __pyx_t_14 * __pyx_v_price_data_view.strides[1]) ))) < __pyx_v_min_price);
+          if (__pyx_t_7) {
 
-                                    /* "worker_threads_cy.pyx":149
+            /* "worker_threads_cy.pyx":172
  *                         max_idx_in_window = j
  *                     if price_data_view[stock_idx, end_date_idx + j] < min_price:
  *                         min_price = price_data_view[stock_idx, end_date_idx + j]             # <<<<<<<<<<<<<<
  *                         min_idx_in_window = j
  * 
 */
-                                    __pyx_t_10 = __pyx_v_stock_idx;
-                                    __pyx_t_14 = (__pyx_v_end_date_idx + __pyx_v_j);
-                                    __pyx_v_min_price = (*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_price_data_view.data + __pyx_t_10 * __pyx_v_price_data_view.strides[0]) ) + __pyx_t_14 * __pyx_v_price_data_view.strides[1]) )));
+            __pyx_t_14 = __pyx_v_stock_idx;
+            __pyx_t_19 = (__pyx_v_end_date_idx + __pyx_v_j);
+            __pyx_v_min_price = (*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_price_data_view.data + __pyx_t_14 * __pyx_v_price_data_view.strides[0]) ) + __pyx_t_19 * __pyx_v_price_data_view.strides[1]) )));
 
-                                    /* "worker_threads_cy.pyx":150
+            /* "worker_threads_cy.pyx":173
  *                     if price_data_view[stock_idx, end_date_idx + j] < min_price:
  *                         min_price = price_data_view[stock_idx, end_date_idx + j]
  *                         min_idx_in_window = j             # <<<<<<<<<<<<<<
  * 
  *             end_value = price_data_view[stock_idx, end_date_idx]
 */
-                                    __pyx_v_min_idx_in_window = __pyx_v_j;
+            __pyx_v_min_idx_in_window = __pyx_v_j;
 
-                                    /* "worker_threads_cy.pyx":148
+            /* "worker_threads_cy.pyx":171
  *                         max_price = price_data_view[stock_idx, end_date_idx + j]
  *                         max_idx_in_window = j
  *                     if price_data_view[stock_idx, end_date_idx + j] < min_price:             # <<<<<<<<<<<<<<
  *                         min_price = price_data_view[stock_idx, end_date_idx + j]
  *                         min_idx_in_window = j
 */
-                                  }
+          }
 
-                                  /* "worker_threads_cy.pyx":144
+          /* "worker_threads_cy.pyx":167
  * 
  *             for j in range(window_len):
  *                 if not isnan(price_data_view[stock_idx, end_date_idx + j]):             # <<<<<<<<<<<<<<
  *                     if price_data_view[stock_idx, end_date_idx + j] > max_price:
  *                         max_price = price_data_view[stock_idx, end_date_idx + j]
 */
-                                }
-                              }
+        }
+      }
 
-                              /* "worker_threads_cy.pyx":152
+      /* "worker_threads_cy.pyx":175
  *                         min_idx_in_window = j
  * 
  *             end_value = price_data_view[stock_idx, end_date_idx]             # <<<<<<<<<<<<<<
  *             start_value = price_data_view[stock_idx, start_date_idx]
  * 
 */
-                              __pyx_t_14 = __pyx_v_stock_idx;
-                              __pyx_t_10 = __pyx_v_end_date_idx;
-                              __pyx_v_end_value = (*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_price_data_view.data + __pyx_t_14 * __pyx_v_price_data_view.strides[0]) ) + __pyx_t_10 * __pyx_v_price_data_view.strides[1]) )));
+      __pyx_t_19 = __pyx_v_stock_idx;
+      __pyx_t_14 = __pyx_v_end_date_idx;
+      __pyx_v_end_value = (*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_price_data_view.data + __pyx_t_19 * __pyx_v_price_data_view.strides[0]) ) + __pyx_t_14 * __pyx_v_price_data_view.strides[1]) )));
 
-                              /* "worker_threads_cy.pyx":153
+      /* "worker_threads_cy.pyx":176
  * 
  *             end_value = price_data_view[stock_idx, end_date_idx]
  *             start_value = price_data_view[stock_idx, start_date_idx]             # <<<<<<<<<<<<<<
  * 
  *             #
 */
-                              __pyx_t_10 = __pyx_v_stock_idx;
-                              __pyx_t_14 = __pyx_v_start_date_idx;
-                              __pyx_v_start_value = (*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_price_data_view.data + __pyx_t_10 * __pyx_v_price_data_view.strides[0]) ) + __pyx_t_14 * __pyx_v_price_data_view.strides[1]) )));
+      __pyx_t_14 = __pyx_v_stock_idx;
+      __pyx_t_19 = __pyx_v_start_date_idx;
+      __pyx_v_start_value = (*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_price_data_view.data + __pyx_t_14 * __pyx_v_price_data_view.strides[0]) ) + __pyx_t_19 * __pyx_v_price_data_view.strides[1]) )));
 
-                              /* "worker_threads_cy.pyx":156
+      /* "worker_threads_cy.pyx":179
  * 
  *             #
  *             closest_value = NAN             # <<<<<<<<<<<<<<
  *             closest_idx_in_window = -1
  *             if not isnan(end_value):
 */
-                              __pyx_v_closest_value = __pyx_v_17worker_threads_cy_NAN;
+      __pyx_v_closest_value = __pyx_v_17worker_threads_cy_NAN;
 
-                              /* "worker_threads_cy.pyx":157
+      /* "worker_threads_cy.pyx":180
  *             #
  *             closest_value = NAN
  *             closest_idx_in_window = -1             # <<<<<<<<<<<<<<
  *             if not isnan(end_value):
  *                 min_diff = 1e308
 */
-                              __pyx_v_closest_idx_in_window = -1;
+      __pyx_v_closest_idx_in_window = -1;
 
-                              /* "worker_threads_cy.pyx":158
+      /* "worker_threads_cy.pyx":181
  *             closest_value = NAN
  *             closest_idx_in_window = -1
  *             if not isnan(end_value):             # <<<<<<<<<<<<<<
  *                 min_diff = 1e308
  *                 for j in range(window_len):
 */
-                              __pyx_t_15 = (!isnan(__pyx_v_end_value));
-                              if (__pyx_t_15) {
+      __pyx_t_7 = (!isnan(__pyx_v_end_value));
+      if (__pyx_t_7) {
 
-                                /* "worker_threads_cy.pyx":159
+        /* "worker_threads_cy.pyx":182
  *             closest_idx_in_window = -1
  *             if not isnan(end_value):
  *                 min_diff = 1e308             # <<<<<<<<<<<<<<
  *                 for j in range(window_len):
  *                     if not isnan(price_data_view[stock_idx, end_date_idx + j]):
 */
-                                __pyx_v_min_diff = 1e308;
+        __pyx_v_min_diff = 1e308;
 
-                                /* "worker_threads_cy.pyx":160
+        /* "worker_threads_cy.pyx":183
  *             if not isnan(end_value):
  *                 min_diff = 1e308
  *                 for j in range(window_len):             # <<<<<<<<<<<<<<
  *                     if not isnan(price_data_view[stock_idx, end_date_idx + j]):
  *                         diff = fabs(price_data_view[stock_idx, end_date_idx + j] - end_value)
 */
-                                __pyx_t_11 = __pyx_v_window_len;
-                                __pyx_t_12 = __pyx_t_11;
-                                for (__pyx_t_13 = 0; __pyx_t_13 < __pyx_t_12; __pyx_t_13+=1) {
-                                  __pyx_v_j = __pyx_t_13;
+        __pyx_t_16 = __pyx_v_window_len;
+        __pyx_t_17 = __pyx_t_16;
+        for (__pyx_t_18 = 0; __pyx_t_18 < __pyx_t_17; __pyx_t_18+=1) {
+          __pyx_v_j = __pyx_t_18;
 
-                                  /* "worker_threads_cy.pyx":161
+          /* "worker_threads_cy.pyx":184
  *                 min_diff = 1e308
  *                 for j in range(window_len):
  *                     if not isnan(price_data_view[stock_idx, end_date_idx + j]):             # <<<<<<<<<<<<<<
  *                         diff = fabs(price_data_view[stock_idx, end_date_idx + j] - end_value)
  *                         if diff < min_diff:
 */
-                                  __pyx_t_14 = __pyx_v_stock_idx;
-                                  __pyx_t_10 = (__pyx_v_end_date_idx + __pyx_v_j);
-                                  __pyx_t_15 = (!isnan((*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_price_data_view.data + __pyx_t_14 * __pyx_v_price_data_view.strides[0]) ) + __pyx_t_10 * __pyx_v_price_data_view.strides[1]) )))));
-                                  if (__pyx_t_15) {
+          __pyx_t_19 = __pyx_v_stock_idx;
+          __pyx_t_14 = (__pyx_v_end_date_idx + __pyx_v_j);
+          __pyx_t_7 = (!isnan((*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_price_data_view.data + __pyx_t_19 * __pyx_v_price_data_view.strides[0]) ) + __pyx_t_14 * __pyx_v_price_data_view.strides[1]) )))));
+          if (__pyx_t_7) {
 
-                                    /* "worker_threads_cy.pyx":162
+            /* "worker_threads_cy.pyx":185
  *                 for j in range(window_len):
  *                     if not isnan(price_data_view[stock_idx, end_date_idx + j]):
  *                         diff = fabs(price_data_view[stock_idx, end_date_idx + j] - end_value)             # <<<<<<<<<<<<<<
  *                         if diff < min_diff:
  *                             min_diff = diff
 */
-                                    __pyx_t_10 = __pyx_v_stock_idx;
-                                    __pyx_t_14 = (__pyx_v_end_date_idx + __pyx_v_j);
-                                    __pyx_v_diff = fabs(((*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_price_data_view.data + __pyx_t_10 * __pyx_v_price_data_view.strides[0]) ) + __pyx_t_14 * __pyx_v_price_data_view.strides[1]) ))) - __pyx_v_end_value));
+            __pyx_t_14 = __pyx_v_stock_idx;
+            __pyx_t_19 = (__pyx_v_end_date_idx + __pyx_v_j);
+            __pyx_v_diff = fabs(((*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_price_data_view.data + __pyx_t_14 * __pyx_v_price_data_view.strides[0]) ) + __pyx_t_19 * __pyx_v_price_data_view.strides[1]) ))) - __pyx_v_end_value));
 
-                                    /* "worker_threads_cy.pyx":163
+            /* "worker_threads_cy.pyx":186
  *                     if not isnan(price_data_view[stock_idx, end_date_idx + j]):
  *                         diff = fabs(price_data_view[stock_idx, end_date_idx + j] - end_value)
  *                         if diff < min_diff:             # <<<<<<<<<<<<<<
  *                             min_diff = diff
  *                             closest_value = price_data_view[stock_idx, end_date_idx + j]
 */
-                                    __pyx_t_15 = (__pyx_v_diff < __pyx_v_min_diff);
-                                    if (__pyx_t_15) {
+            __pyx_t_7 = (__pyx_v_diff < __pyx_v_min_diff);
+            if (__pyx_t_7) {
 
-                                      /* "worker_threads_cy.pyx":164
+              /* "worker_threads_cy.pyx":187
  *                         diff = fabs(price_data_view[stock_idx, end_date_idx + j] - end_value)
  *                         if diff < min_diff:
  *                             min_diff = diff             # <<<<<<<<<<<<<<
  *                             closest_value = price_data_view[stock_idx, end_date_idx + j]
  *                             closest_idx_in_window = j
 */
-                                      __pyx_v_min_diff = __pyx_v_diff;
+              __pyx_v_min_diff = __pyx_v_diff;
 
-                                      /* "worker_threads_cy.pyx":165
+              /* "worker_threads_cy.pyx":188
  *                         if diff < min_diff:
  *                             min_diff = diff
  *                             closest_value = price_data_view[stock_idx, end_date_idx + j]             # <<<<<<<<<<<<<<
  *                             closest_idx_in_window = j
  * 
 */
-                                      __pyx_t_14 = __pyx_v_stock_idx;
-                                      __pyx_t_10 = (__pyx_v_end_date_idx + __pyx_v_j);
-                                      __pyx_v_closest_value = (*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_price_data_view.data + __pyx_t_14 * __pyx_v_price_data_view.strides[0]) ) + __pyx_t_10 * __pyx_v_price_data_view.strides[1]) )));
+              __pyx_t_19 = __pyx_v_stock_idx;
+              __pyx_t_14 = (__pyx_v_end_date_idx + __pyx_v_j);
+              __pyx_v_closest_value = (*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_price_data_view.data + __pyx_t_19 * __pyx_v_price_data_view.strides[0]) ) + __pyx_t_14 * __pyx_v_price_data_view.strides[1]) )));
 
-                                      /* "worker_threads_cy.pyx":166
+              /* "worker_threads_cy.pyx":189
  *                             min_diff = diff
  *                             closest_value = price_data_view[stock_idx, end_date_idx + j]
  *                             closest_idx_in_window = j             # <<<<<<<<<<<<<<
  * 
  *             #
 */
-                                      __pyx_v_closest_idx_in_window = __pyx_v_j;
+              __pyx_v_closest_idx_in_window = __pyx_v_j;
 
-                                      /* "worker_threads_cy.pyx":163
+              /* "worker_threads_cy.pyx":186
  *                     if not isnan(price_data_view[stock_idx, end_date_idx + j]):
  *                         diff = fabs(price_data_view[stock_idx, end_date_idx + j] - end_value)
  *                         if diff < min_diff:             # <<<<<<<<<<<<<<
  *                             min_diff = diff
  *                             closest_value = price_data_view[stock_idx, end_date_idx + j]
 */
-                                    }
+            }
 
-                                    /* "worker_threads_cy.pyx":161
+            /* "worker_threads_cy.pyx":184
  *                 min_diff = 1e308
  *                 for j in range(window_len):
  *                     if not isnan(price_data_view[stock_idx, end_date_idx + j]):             # <<<<<<<<<<<<<<
  *                         diff = fabs(price_data_view[stock_idx, end_date_idx + j] - end_value)
  *                         if diff < min_diff:
 */
-                                  }
-                                }
+          }
+        }
 
-                                /* "worker_threads_cy.pyx":158
+        /* "worker_threads_cy.pyx":181
  *             closest_value = NAN
  *             closest_idx_in_window = -1
  *             if not isnan(end_value):             # <<<<<<<<<<<<<<
  *                 min_diff = 1e308
  *                 for j in range(window_len):
 */
-                              }
+      }
 
-                              /* "worker_threads_cy.pyx":169
+      /* "worker_threads_cy.pyx":192
  * 
  *             #
  *             if start_option == "":             # <<<<<<<<<<<<<<
  *                 base_idx = end_date_idx + max_idx_in_window if max_idx_in_window >= 0 else -1
  *             elif start_option == "":
 */
-                              __pyx_t_15 = (__Pyx_PyUnicode_Equals(__pyx_v_start_option, __pyx_mstate_global->__pyx_n_u__6, Py_EQ)); if (unlikely((__pyx_t_15 < 0))) __PYX_ERR(0, 169, __pyx_L10_error)
-                              if (__pyx_t_15) {
+      __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_v_start_option, __pyx_mstate_global->__pyx_n_u__6, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 192, __pyx_L1_error)
+      if (__pyx_t_7) {
 
-                                /* "worker_threads_cy.pyx":170
+        /* "worker_threads_cy.pyx":193
  *             #
  *             if start_option == "":
  *                 base_idx = end_date_idx + max_idx_in_window if max_idx_in_window >= 0 else -1             # <<<<<<<<<<<<<<
  *             elif start_option == "":
  *                 base_idx = end_date_idx + min_idx_in_window if min_idx_in_window >= 0 else -1
 */
-                                __pyx_t_15 = (__pyx_v_max_idx_in_window >= 0);
-                                if (__pyx_t_15) {
-                                  __pyx_t_11 = (__pyx_v_end_date_idx + __pyx_v_max_idx_in_window);
-                                } else {
-                                  __pyx_t_11 = -1;
-                                }
-                                __pyx_v_base_idx = __pyx_t_11;
+        __pyx_t_7 = (__pyx_v_max_idx_in_window >= 0);
+        if (__pyx_t_7) {
+          __pyx_t_16 = (__pyx_v_end_date_idx + __pyx_v_max_idx_in_window);
+        } else {
+          __pyx_t_16 = -1;
+        }
+        __pyx_v_base_idx = __pyx_t_16;
 
-                                /* "worker_threads_cy.pyx":169
+        /* "worker_threads_cy.pyx":192
  * 
  *             #
  *             if start_option == "":             # <<<<<<<<<<<<<<
  *                 base_idx = end_date_idx + max_idx_in_window if max_idx_in_window >= 0 else -1
  *             elif start_option == "":
 */
-                                goto __pyx_L24;
-                              }
+        goto __pyx_L19;
+      }
 
-                              /* "worker_threads_cy.pyx":171
+      /* "worker_threads_cy.pyx":194
  *             if start_option == "":
  *                 base_idx = end_date_idx + max_idx_in_window if max_idx_in_window >= 0 else -1
  *             elif start_option == "":             # <<<<<<<<<<<<<<
  *                 base_idx = end_date_idx + min_idx_in_window if min_idx_in_window >= 0 else -1
  *             elif start_option == "":
 */
-                              __pyx_t_15 = (__Pyx_PyUnicode_Equals(__pyx_v_start_option, __pyx_mstate_global->__pyx_n_u__7, Py_EQ)); if (unlikely((__pyx_t_15 < 0))) __PYX_ERR(0, 171, __pyx_L10_error)
-                              if (__pyx_t_15) {
+      __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_v_start_option, __pyx_mstate_global->__pyx_n_u__7, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 194, __pyx_L1_error)
+      if (__pyx_t_7) {
 
-                                /* "worker_threads_cy.pyx":172
+        /* "worker_threads_cy.pyx":195
  *                 base_idx = end_date_idx + max_idx_in_window if max_idx_in_window >= 0 else -1
  *             elif start_option == "":
  *                 base_idx = end_date_idx + min_idx_in_window if min_idx_in_window >= 0 else -1             # <<<<<<<<<<<<<<
  *             elif start_option == "":
  *                 base_idx = end_date_idx + closest_idx_in_window if closest_idx_in_window >= 0 else -1
 */
-                                __pyx_t_15 = (__pyx_v_min_idx_in_window >= 0);
-                                if (__pyx_t_15) {
-                                  __pyx_t_11 = (__pyx_v_end_date_idx + __pyx_v_min_idx_in_window);
-                                } else {
-                                  __pyx_t_11 = -1;
-                                }
-                                __pyx_v_base_idx = __pyx_t_11;
+        __pyx_t_7 = (__pyx_v_min_idx_in_window >= 0);
+        if (__pyx_t_7) {
+          __pyx_t_16 = (__pyx_v_end_date_idx + __pyx_v_min_idx_in_window);
+        } else {
+          __pyx_t_16 = -1;
+        }
+        __pyx_v_base_idx = __pyx_t_16;
 
-                                /* "worker_threads_cy.pyx":171
+        /* "worker_threads_cy.pyx":194
  *             if start_option == "":
  *                 base_idx = end_date_idx + max_idx_in_window if max_idx_in_window >= 0 else -1
  *             elif start_option == "":             # <<<<<<<<<<<<<<
  *                 base_idx = end_date_idx + min_idx_in_window if min_idx_in_window >= 0 else -1
  *             elif start_option == "":
 */
-                                goto __pyx_L24;
-                              }
+        goto __pyx_L19;
+      }
 
-                              /* "worker_threads_cy.pyx":173
+      /* "worker_threads_cy.pyx":196
  *             elif start_option == "":
  *                 base_idx = end_date_idx + min_idx_in_window if min_idx_in_window >= 0 else -1
  *             elif start_option == "":             # <<<<<<<<<<<<<<
  *                 base_idx = end_date_idx + closest_idx_in_window if closest_idx_in_window >= 0 else -1
  *             else:
 */
-                              __pyx_t_15 = (__Pyx_PyUnicode_Equals(__pyx_v_start_option, __pyx_mstate_global->__pyx_n_u__8, Py_EQ)); if (unlikely((__pyx_t_15 < 0))) __PYX_ERR(0, 173, __pyx_L10_error)
-                              if (__pyx_t_15) {
+      __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_v_start_option, __pyx_mstate_global->__pyx_n_u__8, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 196, __pyx_L1_error)
+      if (__pyx_t_7) {
 
-                                /* "worker_threads_cy.pyx":174
+        /* "worker_threads_cy.pyx":197
  *                 base_idx = end_date_idx + min_idx_in_window if min_idx_in_window >= 0 else -1
  *             elif start_option == "":
  *                 base_idx = end_date_idx + closest_idx_in_window if closest_idx_in_window >= 0 else -1             # <<<<<<<<<<<<<<
  *             else:
  *                 base_idx = start_date_idx
 */
-                                __pyx_t_15 = (__pyx_v_closest_idx_in_window >= 0);
-                                if (__pyx_t_15) {
-                                  __pyx_t_11 = (__pyx_v_end_date_idx + __pyx_v_closest_idx_in_window);
-                                } else {
-                                  __pyx_t_11 = -1;
-                                }
-                                __pyx_v_base_idx = __pyx_t_11;
+        __pyx_t_7 = (__pyx_v_closest_idx_in_window >= 0);
+        if (__pyx_t_7) {
+          __pyx_t_16 = (__pyx_v_end_date_idx + __pyx_v_closest_idx_in_window);
+        } else {
+          __pyx_t_16 = -1;
+        }
+        __pyx_v_base_idx = __pyx_t_16;
 
-                                /* "worker_threads_cy.pyx":173
+        /* "worker_threads_cy.pyx":196
  *             elif start_option == "":
  *                 base_idx = end_date_idx + min_idx_in_window if min_idx_in_window >= 0 else -1
  *             elif start_option == "":             # <<<<<<<<<<<<<<
  *                 base_idx = end_date_idx + closest_idx_in_window if closest_idx_in_window >= 0 else -1
  *             else:
 */
-                                goto __pyx_L24;
-                              }
+        goto __pyx_L19;
+      }
 
-                              /* "worker_threads_cy.pyx":176
+      /* "worker_threads_cy.pyx":199
  *                 base_idx = end_date_idx + closest_idx_in_window if closest_idx_in_window >= 0 else -1
  *             else:
  *                 base_idx = start_date_idx             # <<<<<<<<<<<<<<
  * 
  *             actual_idx = base_idx - shift_days if base_idx >= 0 else -1
 */
-                              /*else*/ {
-                                __pyx_v_base_idx = __pyx_v_start_date_idx;
-                              }
-                              __pyx_L24:;
+      /*else*/ {
+        __pyx_v_base_idx = __pyx_v_start_date_idx;
+      }
+      __pyx_L19:;
 
-                              /* "worker_threads_cy.pyx":178
+      /* "worker_threads_cy.pyx":201
  *                 base_idx = start_date_idx
  * 
  *             actual_idx = base_idx - shift_days if base_idx >= 0 else -1             # <<<<<<<<<<<<<<
  *             actual_value = price_data_view[stock_idx, actual_idx] if actual_idx >= 0 and actual_idx < num_dates else NAN
  * 
 */
-                              __pyx_t_15 = (__pyx_v_base_idx >= 0);
-                              if (__pyx_t_15) {
-                                __pyx_t_11 = (__pyx_v_base_idx - __pyx_v_shift_days);
-                              } else {
-                                __pyx_t_11 = -1;
-                              }
-                              __pyx_v_actual_idx = __pyx_t_11;
+      __pyx_t_7 = (__pyx_v_base_idx >= 0);
+      if (__pyx_t_7) {
+        __pyx_t_16 = (__pyx_v_base_idx - __pyx_v_shift_days);
+      } else {
+        __pyx_t_16 = -1;
+      }
+      __pyx_v_actual_idx = __pyx_t_16;
 
-                              /* "worker_threads_cy.pyx":179
+      /* "worker_threads_cy.pyx":202
  * 
  *             actual_idx = base_idx - shift_days if base_idx >= 0 else -1
  *             actual_value = price_data_view[stock_idx, actual_idx] if actual_idx >= 0 and actual_idx < num_dates else NAN             # <<<<<<<<<<<<<<
  * 
  *             #
 */
-                              __pyx_t_17 = (__pyx_v_actual_idx >= 0);
-                              if (__pyx_t_17) {
-                              } else {
-                                __pyx_t_15 = __pyx_t_17;
-                                goto __pyx_L25_bool_binop_done;
-                              }
-                              __pyx_t_17 = (__pyx_v_actual_idx < __pyx_v_num_dates);
-                              __pyx_t_15 = __pyx_t_17;
-                              __pyx_L25_bool_binop_done:;
-                              if (__pyx_t_15) {
-                                __pyx_t_10 = __pyx_v_stock_idx;
-                                __pyx_t_14 = __pyx_v_actual_idx;
-                                __pyx_t_16 = (*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_price_data_view.data + __pyx_t_10 * __pyx_v_price_data_view.strides[0]) ) + __pyx_t_14 * __pyx_v_price_data_view.strides[1]) )));
-                              } else {
-                                __pyx_t_16 = __pyx_v_17worker_threads_cy_NAN;
-                              }
-                              __pyx_v_actual_value = __pyx_t_16;
+      __pyx_t_21 = (__pyx_v_actual_idx >= 0);
+      if (__pyx_t_21) {
+      } else {
+        __pyx_t_7 = __pyx_t_21;
+        goto __pyx_L20_bool_binop_done;
+      }
+      __pyx_t_21 = (__pyx_v_actual_idx < __pyx_v_num_dates);
+      __pyx_t_7 = __pyx_t_21;
+      __pyx_L20_bool_binop_done:;
+      if (__pyx_t_7) {
+        __pyx_t_14 = __pyx_v_stock_idx;
+        __pyx_t_19 = __pyx_v_actual_idx;
+        __pyx_t_20 = (*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_price_data_view.data + __pyx_t_14 * __pyx_v_price_data_view.strides[0]) ) + __pyx_t_19 * __pyx_v_price_data_view.strides[1]) )));
+      } else {
+        __pyx_t_20 = __pyx_v_17worker_threads_cy_NAN;
+      }
+      __pyx_v_actual_value = __pyx_t_20;
 
-                              /* "worker_threads_cy.pyx":182
+      /* "worker_threads_cy.pyx":205
  * 
  *             #
  *             if actual_idx >= 0 and actual_idx >= end_date_idx:             # <<<<<<<<<<<<<<
  *                 calc_continuous_sum(diff_data_view[stock_idx, end_date_idx:actual_idx+1][::-1], cont_sum)
  *             else:
 */
-                              __pyx_t_17 = (__pyx_v_actual_idx >= 0);
-                              if (__pyx_t_17) {
-                              } else {
-                                __pyx_t_15 = __pyx_t_17;
-                                goto __pyx_L28_bool_binop_done;
-                              }
-                              __pyx_t_17 = (__pyx_v_actual_idx >= __pyx_v_end_date_idx);
-                              __pyx_t_15 = __pyx_t_17;
-                              __pyx_L28_bool_binop_done:;
-                              if (__pyx_t_15) {
+      __pyx_t_21 = (__pyx_v_actual_idx >= 0);
+      if (__pyx_t_21) {
+      } else {
+        __pyx_t_7 = __pyx_t_21;
+        goto __pyx_L23_bool_binop_done;
+      }
+      __pyx_t_21 = (__pyx_v_actual_idx >= __pyx_v_end_date_idx);
+      __pyx_t_7 = __pyx_t_21;
+      __pyx_L23_bool_binop_done:;
+      if (__pyx_t_7) {
 
-                                /* "worker_threads_cy.pyx":183
+        /* "worker_threads_cy.pyx":206
  *             #
  *             if actual_idx >= 0 and actual_idx >= end_date_idx:
  *                 calc_continuous_sum(diff_data_view[stock_idx, end_date_idx:actual_idx+1][::-1], cont_sum)             # <<<<<<<<<<<<<<
  *             else:
  *                 cont_sum.clear()
 */
-                                __pyx_t_18.data = __pyx_v_diff_data_view.data;
-                                __pyx_t_18.memview = __pyx_v_diff_data_view.memview;
-                                __PYX_INC_MEMVIEW(&__pyx_t_18, 0);
-                                {
+        __pyx_t_22.data = __pyx_v_diff_data_view.data;
+        __pyx_t_22.memview = __pyx_v_diff_data_view.memview;
+        __PYX_INC_MEMVIEW(&__pyx_t_22, 1);
+        {
     Py_ssize_t __pyx_tmp_idx = __pyx_v_stock_idx;
     Py_ssize_t __pyx_tmp_stride = __pyx_v_diff_data_view.strides[0];
-        __pyx_t_18.data += __pyx_tmp_idx * __pyx_tmp_stride;
+        __pyx_t_22.data += __pyx_tmp_idx * __pyx_tmp_stride;
 }
 
-__pyx_t_11 = -1;
-                                if (unlikely(__pyx_memoryview_slice_memviewslice(
-    &__pyx_t_18,
+__pyx_t_16 = -1;
+        if (unlikely(__pyx_memoryview_slice_memviewslice(
+    &__pyx_t_22,
     __pyx_v_diff_data_view.shape[1], __pyx_v_diff_data_view.strides[1], __pyx_v_diff_data_view.suboffsets[1],
     1,
     0,
-    &__pyx_t_11,
+    &__pyx_t_16,
     __pyx_v_end_date_idx,
     (__pyx_v_actual_idx + 1),
     0,
@@ -21683,19 +22281,19 @@ __pyx_t_11 = -1;
     0,
     1) < 0))
 {
-    __PYX_ERR(0, 183, __pyx_L10_error)
+    __PYX_ERR(0, 206, __pyx_L1_error)
 }
 
-__pyx_t_19.data = __pyx_t_18.data;
-                                __pyx_t_19.memview = __pyx_t_18.memview;
-                                __PYX_INC_MEMVIEW(&__pyx_t_19, 0);
-                                __pyx_t_11 = -1;
-                                if (unlikely(__pyx_memoryview_slice_memviewslice(
-    &__pyx_t_19,
-    __pyx_t_18.shape[0], __pyx_t_18.strides[0], __pyx_t_18.suboffsets[0],
+__pyx_t_23.data = __pyx_t_22.data;
+        __pyx_t_23.memview = __pyx_t_22.memview;
+        __PYX_INC_MEMVIEW(&__pyx_t_23, 1);
+        __pyx_t_16 = -1;
+        if (unlikely(__pyx_memoryview_slice_memviewslice(
+    &__pyx_t_23,
+    __pyx_t_22.shape[0], __pyx_t_22.strides[0], __pyx_t_22.suboffsets[0],
     0,
     0,
-    &__pyx_t_11,
+    &__pyx_t_16,
     0,
     0,
     -1L,
@@ -21704,83 +22302,83 @@ __pyx_t_19.data = __pyx_t_18.data;
     1,
     1) < 0))
 {
-    __PYX_ERR(0, 183, __pyx_L10_error)
+    __PYX_ERR(0, 206, __pyx_L1_error)
 }
 
-__PYX_XCLEAR_MEMVIEW(&__pyx_t_18, 0);
-                                __pyx_t_18.memview = NULL; __pyx_t_18.data = NULL;
-                                __pyx_f_17worker_threads_cy_calc_continuous_sum(__pyx_t_19, __pyx_v_cont_sum); if (unlikely(__Pyx_ErrOccurredWithGIL())) __PYX_ERR(0, 183, __pyx_L10_error)
-                                __PYX_XCLEAR_MEMVIEW(&__pyx_t_19, 0);
-                                __pyx_t_19.memview = NULL; __pyx_t_19.data = NULL;
+__PYX_XCLEAR_MEMVIEW(&__pyx_t_22, 1);
+        __pyx_t_22.memview = NULL; __pyx_t_22.data = NULL;
+        __pyx_f_17worker_threads_cy_calc_continuous_sum(__pyx_t_23, __pyx_v_cont_sum); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 206, __pyx_L1_error)
+        __PYX_XCLEAR_MEMVIEW(&__pyx_t_23, 1);
+        __pyx_t_23.memview = NULL; __pyx_t_23.data = NULL;
 
-                                /* "worker_threads_cy.pyx":182
+        /* "worker_threads_cy.pyx":205
  * 
  *             #
  *             if actual_idx >= 0 and actual_idx >= end_date_idx:             # <<<<<<<<<<<<<<
  *                 calc_continuous_sum(diff_data_view[stock_idx, end_date_idx:actual_idx+1][::-1], cont_sum)
  *             else:
 */
-                                goto __pyx_L27;
-                              }
+        goto __pyx_L22;
+      }
 
-                              /* "worker_threads_cy.pyx":185
+      /* "worker_threads_cy.pyx":208
  *                 calc_continuous_sum(diff_data_view[stock_idx, end_date_idx:actual_idx+1][::-1], cont_sum)
  *             else:
  *                 cont_sum.clear()             # <<<<<<<<<<<<<<
  * 
  *             #
 */
-                              /*else*/ {
-                                __pyx_v_cont_sum.clear();
-                              }
-                              __pyx_L27:;
+      /*else*/ {
+        __pyx_v_cont_sum.clear();
+      }
+      __pyx_L22:;
 
-                              /* "worker_threads_cy.pyx":188
+      /* "worker_threads_cy.pyx":211
  * 
  *             #
  *             if is_forward and max_idx_in_window >= 0 and end_date_idx + max_idx_in_window >= end_date_idx:             # <<<<<<<<<<<<<<
  *                 calc_continuous_sum(
  *                     diff_data_view[stock_idx, end_date_idx:end_date_idx + max_idx_in_window + 1][::-1],
 */
-                              if (__pyx_v_is_forward) {
-                              } else {
-                                __pyx_t_15 = __pyx_v_is_forward;
-                                goto __pyx_L31_bool_binop_done;
-                              }
-                              __pyx_t_17 = (__pyx_v_max_idx_in_window >= 0);
-                              if (__pyx_t_17) {
-                              } else {
-                                __pyx_t_15 = __pyx_t_17;
-                                goto __pyx_L31_bool_binop_done;
-                              }
-                              __pyx_t_17 = ((__pyx_v_end_date_idx + __pyx_v_max_idx_in_window) >= __pyx_v_end_date_idx);
-                              __pyx_t_15 = __pyx_t_17;
-                              __pyx_L31_bool_binop_done:;
-                              if (__pyx_t_15) {
+      if (__pyx_v_is_forward) {
+      } else {
+        __pyx_t_7 = __pyx_v_is_forward;
+        goto __pyx_L26_bool_binop_done;
+      }
+      __pyx_t_21 = (__pyx_v_max_idx_in_window >= 0);
+      if (__pyx_t_21) {
+      } else {
+        __pyx_t_7 = __pyx_t_21;
+        goto __pyx_L26_bool_binop_done;
+      }
+      __pyx_t_21 = ((__pyx_v_end_date_idx + __pyx_v_max_idx_in_window) >= __pyx_v_end_date_idx);
+      __pyx_t_7 = __pyx_t_21;
+      __pyx_L26_bool_binop_done:;
+      if (__pyx_t_7) {
 
-                                /* "worker_threads_cy.pyx":190
+        /* "worker_threads_cy.pyx":213
  *             if is_forward and max_idx_in_window >= 0 and end_date_idx + max_idx_in_window >= end_date_idx:
  *                 calc_continuous_sum(
  *                     diff_data_view[stock_idx, end_date_idx:end_date_idx + max_idx_in_window + 1][::-1],             # <<<<<<<<<<<<<<
  *                     forward_max_result_c
  *                 )
 */
-                                __pyx_t_19.data = __pyx_v_diff_data_view.data;
-                                __pyx_t_19.memview = __pyx_v_diff_data_view.memview;
-                                __PYX_INC_MEMVIEW(&__pyx_t_19, 0);
-                                {
+        __pyx_t_23.data = __pyx_v_diff_data_view.data;
+        __pyx_t_23.memview = __pyx_v_diff_data_view.memview;
+        __PYX_INC_MEMVIEW(&__pyx_t_23, 1);
+        {
     Py_ssize_t __pyx_tmp_idx = __pyx_v_stock_idx;
     Py_ssize_t __pyx_tmp_stride = __pyx_v_diff_data_view.strides[0];
-        __pyx_t_19.data += __pyx_tmp_idx * __pyx_tmp_stride;
+        __pyx_t_23.data += __pyx_tmp_idx * __pyx_tmp_stride;
 }
 
-__pyx_t_11 = -1;
-                                if (unlikely(__pyx_memoryview_slice_memviewslice(
-    &__pyx_t_19,
+__pyx_t_16 = -1;
+        if (unlikely(__pyx_memoryview_slice_memviewslice(
+    &__pyx_t_23,
     __pyx_v_diff_data_view.shape[1], __pyx_v_diff_data_view.strides[1], __pyx_v_diff_data_view.suboffsets[1],
     1,
     0,
-    &__pyx_t_11,
+    &__pyx_t_16,
     __pyx_v_end_date_idx,
     ((__pyx_v_end_date_idx + __pyx_v_max_idx_in_window) + 1),
     0,
@@ -21789,19 +22387,19 @@ __pyx_t_11 = -1;
     0,
     1) < 0))
 {
-    __PYX_ERR(0, 190, __pyx_L10_error)
+    __PYX_ERR(0, 213, __pyx_L1_error)
 }
 
-__pyx_t_18.data = __pyx_t_19.data;
-                                __pyx_t_18.memview = __pyx_t_19.memview;
-                                __PYX_INC_MEMVIEW(&__pyx_t_18, 0);
-                                __pyx_t_11 = -1;
-                                if (unlikely(__pyx_memoryview_slice_memviewslice(
-    &__pyx_t_18,
-    __pyx_t_19.shape[0], __pyx_t_19.strides[0], __pyx_t_19.suboffsets[0],
+__pyx_t_22.data = __pyx_t_23.data;
+        __pyx_t_22.memview = __pyx_t_23.memview;
+        __PYX_INC_MEMVIEW(&__pyx_t_22, 1);
+        __pyx_t_16 = -1;
+        if (unlikely(__pyx_memoryview_slice_memviewslice(
+    &__pyx_t_22,
+    __pyx_t_23.shape[0], __pyx_t_23.strides[0], __pyx_t_23.suboffsets[0],
     0,
     0,
-    &__pyx_t_11,
+    &__pyx_t_16,
     0,
     0,
     -1L,
@@ -21810,91 +22408,91 @@ __pyx_t_18.data = __pyx_t_19.data;
     1,
     1) < 0))
 {
-    __PYX_ERR(0, 190, __pyx_L10_error)
+    __PYX_ERR(0, 213, __pyx_L1_error)
 }
 
-__PYX_XCLEAR_MEMVIEW(&__pyx_t_19, 0);
-                                __pyx_t_19.memview = NULL; __pyx_t_19.data = NULL;
+__PYX_XCLEAR_MEMVIEW(&__pyx_t_23, 1);
+        __pyx_t_23.memview = NULL; __pyx_t_23.data = NULL;
 
-                                /* "worker_threads_cy.pyx":189
+        /* "worker_threads_cy.pyx":212
  *             #
  *             if is_forward and max_idx_in_window >= 0 and end_date_idx + max_idx_in_window >= end_date_idx:
  *                 calc_continuous_sum(             # <<<<<<<<<<<<<<
  *                     diff_data_view[stock_idx, end_date_idx:end_date_idx + max_idx_in_window + 1][::-1],
  *                     forward_max_result_c
 */
-                                __pyx_f_17worker_threads_cy_calc_continuous_sum(__pyx_t_18, __pyx_v_forward_max_result_c); if (unlikely(__Pyx_ErrOccurredWithGIL())) __PYX_ERR(0, 189, __pyx_L10_error)
-                                __PYX_XCLEAR_MEMVIEW(&__pyx_t_18, 0);
-                                __pyx_t_18.memview = NULL; __pyx_t_18.data = NULL;
+        __pyx_f_17worker_threads_cy_calc_continuous_sum(__pyx_t_22, __pyx_v_forward_max_result_c); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 212, __pyx_L1_error)
+        __PYX_XCLEAR_MEMVIEW(&__pyx_t_22, 1);
+        __pyx_t_22.memview = NULL; __pyx_t_22.data = NULL;
 
-                                /* "worker_threads_cy.pyx":188
+        /* "worker_threads_cy.pyx":211
  * 
  *             #
  *             if is_forward and max_idx_in_window >= 0 and end_date_idx + max_idx_in_window >= end_date_idx:             # <<<<<<<<<<<<<<
  *                 calc_continuous_sum(
  *                     diff_data_view[stock_idx, end_date_idx:end_date_idx + max_idx_in_window + 1][::-1],
 */
-                                goto __pyx_L30;
-                              }
+        goto __pyx_L25;
+      }
 
-                              /* "worker_threads_cy.pyx":194
+      /* "worker_threads_cy.pyx":217
  *                 )
  *             else:
  *                 forward_max_result_c.clear()             # <<<<<<<<<<<<<<
  * 
  *             #
 */
-                              /*else*/ {
-                                __pyx_v_forward_max_result_c.clear();
-                              }
-                              __pyx_L30:;
+      /*else*/ {
+        __pyx_v_forward_max_result_c.clear();
+      }
+      __pyx_L25:;
 
-                              /* "worker_threads_cy.pyx":197
+      /* "worker_threads_cy.pyx":220
  * 
  *             #
  *             if is_forward and min_idx_in_window >= 0 and end_date_idx + min_idx_in_window >= end_date_idx:             # <<<<<<<<<<<<<<
  *                 calc_continuous_sum(
  *                     diff_data_view[stock_idx, end_date_idx:end_date_idx + min_idx_in_window + 1][::-1],
 */
-                              if (__pyx_v_is_forward) {
-                              } else {
-                                __pyx_t_15 = __pyx_v_is_forward;
-                                goto __pyx_L35_bool_binop_done;
-                              }
-                              __pyx_t_17 = (__pyx_v_min_idx_in_window >= 0);
-                              if (__pyx_t_17) {
-                              } else {
-                                __pyx_t_15 = __pyx_t_17;
-                                goto __pyx_L35_bool_binop_done;
-                              }
-                              __pyx_t_17 = ((__pyx_v_end_date_idx + __pyx_v_min_idx_in_window) >= __pyx_v_end_date_idx);
-                              __pyx_t_15 = __pyx_t_17;
-                              __pyx_L35_bool_binop_done:;
-                              if (__pyx_t_15) {
+      if (__pyx_v_is_forward) {
+      } else {
+        __pyx_t_7 = __pyx_v_is_forward;
+        goto __pyx_L30_bool_binop_done;
+      }
+      __pyx_t_21 = (__pyx_v_min_idx_in_window >= 0);
+      if (__pyx_t_21) {
+      } else {
+        __pyx_t_7 = __pyx_t_21;
+        goto __pyx_L30_bool_binop_done;
+      }
+      __pyx_t_21 = ((__pyx_v_end_date_idx + __pyx_v_min_idx_in_window) >= __pyx_v_end_date_idx);
+      __pyx_t_7 = __pyx_t_21;
+      __pyx_L30_bool_binop_done:;
+      if (__pyx_t_7) {
 
-                                /* "worker_threads_cy.pyx":199
+        /* "worker_threads_cy.pyx":222
  *             if is_forward and min_idx_in_window >= 0 and end_date_idx + min_idx_in_window >= end_date_idx:
  *                 calc_continuous_sum(
  *                     diff_data_view[stock_idx, end_date_idx:end_date_idx + min_idx_in_window + 1][::-1],             # <<<<<<<<<<<<<<
  *                     forward_min_result_c
  *                 )
 */
-                                __pyx_t_18.data = __pyx_v_diff_data_view.data;
-                                __pyx_t_18.memview = __pyx_v_diff_data_view.memview;
-                                __PYX_INC_MEMVIEW(&__pyx_t_18, 0);
-                                {
+        __pyx_t_22.data = __pyx_v_diff_data_view.data;
+        __pyx_t_22.memview = __pyx_v_diff_data_view.memview;
+        __PYX_INC_MEMVIEW(&__pyx_t_22, 1);
+        {
     Py_ssize_t __pyx_tmp_idx = __pyx_v_stock_idx;
     Py_ssize_t __pyx_tmp_stride = __pyx_v_diff_data_view.strides[0];
-        __pyx_t_18.data += __pyx_tmp_idx * __pyx_tmp_stride;
+        __pyx_t_22.data += __pyx_tmp_idx * __pyx_tmp_stride;
 }
 
-__pyx_t_11 = -1;
-                                if (unlikely(__pyx_memoryview_slice_memviewslice(
-    &__pyx_t_18,
+__pyx_t_16 = -1;
+        if (unlikely(__pyx_memoryview_slice_memviewslice(
+    &__pyx_t_22,
     __pyx_v_diff_data_view.shape[1], __pyx_v_diff_data_view.strides[1], __pyx_v_diff_data_view.suboffsets[1],
     1,
     0,
-    &__pyx_t_11,
+    &__pyx_t_16,
     __pyx_v_end_date_idx,
     ((__pyx_v_end_date_idx + __pyx_v_min_idx_in_window) + 1),
     0,
@@ -21903,19 +22501,19 @@ __pyx_t_11 = -1;
     0,
     1) < 0))
 {
-    __PYX_ERR(0, 199, __pyx_L10_error)
+    __PYX_ERR(0, 222, __pyx_L1_error)
 }
 
-__pyx_t_19.data = __pyx_t_18.data;
-                                __pyx_t_19.memview = __pyx_t_18.memview;
-                                __PYX_INC_MEMVIEW(&__pyx_t_19, 0);
-                                __pyx_t_11 = -1;
-                                if (unlikely(__pyx_memoryview_slice_memviewslice(
-    &__pyx_t_19,
-    __pyx_t_18.shape[0], __pyx_t_18.strides[0], __pyx_t_18.suboffsets[0],
+__pyx_t_23.data = __pyx_t_22.data;
+        __pyx_t_23.memview = __pyx_t_22.memview;
+        __PYX_INC_MEMVIEW(&__pyx_t_23, 1);
+        __pyx_t_16 = -1;
+        if (unlikely(__pyx_memoryview_slice_memviewslice(
+    &__pyx_t_23,
+    __pyx_t_22.shape[0], __pyx_t_22.strides[0], __pyx_t_22.suboffsets[0],
     0,
     0,
-    &__pyx_t_11,
+    &__pyx_t_16,
     0,
     0,
     -1L,
@@ -21924,3874 +22522,6777 @@ __pyx_t_19.data = __pyx_t_18.data;
     1,
     1) < 0))
 {
-    __PYX_ERR(0, 199, __pyx_L10_error)
+    __PYX_ERR(0, 222, __pyx_L1_error)
 }
 
-__PYX_XCLEAR_MEMVIEW(&__pyx_t_18, 0);
-                                __pyx_t_18.memview = NULL; __pyx_t_18.data = NULL;
+__PYX_XCLEAR_MEMVIEW(&__pyx_t_22, 1);
+        __pyx_t_22.memview = NULL; __pyx_t_22.data = NULL;
 
-                                /* "worker_threads_cy.pyx":198
+        /* "worker_threads_cy.pyx":221
  *             #
  *             if is_forward and min_idx_in_window >= 0 and end_date_idx + min_idx_in_window >= end_date_idx:
  *                 calc_continuous_sum(             # <<<<<<<<<<<<<<
  *                     diff_data_view[stock_idx, end_date_idx:end_date_idx + min_idx_in_window + 1][::-1],
  *                     forward_min_result_c
 */
-                                __pyx_f_17worker_threads_cy_calc_continuous_sum(__pyx_t_19, __pyx_v_forward_min_result_c); if (unlikely(__Pyx_ErrOccurredWithGIL())) __PYX_ERR(0, 198, __pyx_L10_error)
-                                __PYX_XCLEAR_MEMVIEW(&__pyx_t_19, 0);
-                                __pyx_t_19.memview = NULL; __pyx_t_19.data = NULL;
+        __pyx_f_17worker_threads_cy_calc_continuous_sum(__pyx_t_23, __pyx_v_forward_min_result_c); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 221, __pyx_L1_error)
+        __PYX_XCLEAR_MEMVIEW(&__pyx_t_23, 1);
+        __pyx_t_23.memview = NULL; __pyx_t_23.data = NULL;
 
-                                /* "worker_threads_cy.pyx":197
+        /* "worker_threads_cy.pyx":220
  * 
  *             #
  *             if is_forward and min_idx_in_window >= 0 and end_date_idx + min_idx_in_window >= end_date_idx:             # <<<<<<<<<<<<<<
  *                 calc_continuous_sum(
  *                     diff_data_view[stock_idx, end_date_idx:end_date_idx + min_idx_in_window + 1][::-1],
 */
-                                goto __pyx_L34;
-                              }
+        goto __pyx_L29;
+      }
 
-                              /* "worker_threads_cy.pyx":203
+      /* "worker_threads_cy.pyx":226
  *                 )
  *             else:
  *                 forward_min_result_c.clear()             # <<<<<<<<<<<<<<
+ * 
+ *             #
+*/
+      /*else*/ {
+        __pyx_v_forward_min_result_c.clear();
+      }
+      __pyx_L29:;
+
+      /* "worker_threads_cy.pyx":229
+ * 
+ *             #
+ *             increment_value = NAN             # <<<<<<<<<<<<<<
+ *             increment_days = -1
+ *             after_gt_end_value = NAN
+*/
+      __pyx_v_increment_value = __pyx_v_17worker_threads_cy_NAN;
+
+      /* "worker_threads_cy.pyx":230
+ *             #
+ *             increment_value = NAN
+ *             increment_days = -1             # <<<<<<<<<<<<<<
+ *             after_gt_end_value = NAN
+ *             after_gt_end_days = -1
+*/
+      __pyx_v_increment_days = -1;
+
+      /* "worker_threads_cy.pyx":231
+ *             increment_value = NAN
+ *             increment_days = -1
+ *             after_gt_end_value = NAN             # <<<<<<<<<<<<<<
+ *             after_gt_end_days = -1
+ *             after_gt_start_value = NAN
+*/
+      __pyx_v_after_gt_end_value = __pyx_v_17worker_threads_cy_NAN;
+
+      /* "worker_threads_cy.pyx":232
+ *             increment_days = -1
+ *             after_gt_end_value = NAN
+ *             after_gt_end_days = -1             # <<<<<<<<<<<<<<
+ *             after_gt_start_value = NAN
+ *             after_gt_start_days = -1
+*/
+      __pyx_v_after_gt_end_days = -1;
+
+      /* "worker_threads_cy.pyx":233
+ *             after_gt_end_value = NAN
+ *             after_gt_end_days = -1
+ *             after_gt_start_value = NAN             # <<<<<<<<<<<<<<
+ *             after_gt_start_days = -1
+ *             if op_days > 0:
+*/
+      __pyx_v_after_gt_start_value = __pyx_v_17worker_threads_cy_NAN;
+
+      /* "worker_threads_cy.pyx":234
+ *             after_gt_end_days = -1
+ *             after_gt_start_value = NAN
+ *             after_gt_start_days = -1             # <<<<<<<<<<<<<<
+ *             if op_days > 0:
+ *                 end_value = price_data_view[stock_idx, end_date_idx]
+*/
+      __pyx_v_after_gt_start_days = -1;
+
+      /* "worker_threads_cy.pyx":235
+ *             after_gt_start_value = NAN
+ *             after_gt_start_days = -1
+ *             if op_days > 0:             # <<<<<<<<<<<<<<
+ *                 end_value = price_data_view[stock_idx, end_date_idx]
+ *                 if not isnan(end_value):
+*/
+      __pyx_t_7 = (__pyx_v_op_days > 0);
+      if (__pyx_t_7) {
+
+        /* "worker_threads_cy.pyx":236
+ *             after_gt_start_days = -1
+ *             if op_days > 0:
+ *                 end_value = price_data_view[stock_idx, end_date_idx]             # <<<<<<<<<<<<<<
+ *                 if not isnan(end_value):
+ *                     #
+*/
+        __pyx_t_19 = __pyx_v_stock_idx;
+        __pyx_t_14 = __pyx_v_end_date_idx;
+        __pyx_v_end_value = (*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_price_data_view.data + __pyx_t_19 * __pyx_v_price_data_view.strides[0]) ) + __pyx_t_14 * __pyx_v_price_data_view.strides[1]) )));
+
+        /* "worker_threads_cy.pyx":237
+ *             if op_days > 0:
+ *                 end_value = price_data_view[stock_idx, end_date_idx]
+ *                 if not isnan(end_value):             # <<<<<<<<<<<<<<
+ *                     #
+ *                     found = False
+*/
+        __pyx_t_7 = (!isnan(__pyx_v_end_value));
+        if (__pyx_t_7) {
+
+          /* "worker_threads_cy.pyx":239
+ *                 if not isnan(end_value):
+ *                     #
+ *                     found = False             # <<<<<<<<<<<<<<
+ *                     for n, k in enumerate(range(end_date_idx - 1, end_date_idx - op_days - 1, -1), 1):
+ *                         if k < 0:
+*/
+          __pyx_v_found = 0;
+
+          /* "worker_threads_cy.pyx":240
+ *                     #
+ *                     found = False
+ *                     for n, k in enumerate(range(end_date_idx - 1, end_date_idx - op_days - 1, -1), 1):             # <<<<<<<<<<<<<<
+ *                         if k < 0:
+ *                             break
+*/
+          __pyx_t_16 = 1;
+          __pyx_t_24 = ((__pyx_v_end_date_idx - __pyx_v_op_days) - 1);
+          __pyx_t_25 = __pyx_t_24;
+          for (__pyx_t_17 = (__pyx_v_end_date_idx - 1); __pyx_t_17 > __pyx_t_25; __pyx_t_17-=1) {
+            __pyx_v_k = __pyx_t_17;
+            __pyx_v_n = __pyx_t_16;
+            __pyx_t_16 = (__pyx_t_16 + 1);
+
+            /* "worker_threads_cy.pyx":241
+ *                     found = False
+ *                     for n, k in enumerate(range(end_date_idx - 1, end_date_idx - op_days - 1, -1), 1):
+ *                         if k < 0:             # <<<<<<<<<<<<<<
+ *                             break
+ *                         v = price_data_view[stock_idx, k]
+*/
+            __pyx_t_7 = (__pyx_v_k < 0);
+            if (__pyx_t_7) {
+
+              /* "worker_threads_cy.pyx":242
+ *                     for n, k in enumerate(range(end_date_idx - 1, end_date_idx - op_days - 1, -1), 1):
+ *                         if k < 0:
+ *                             break             # <<<<<<<<<<<<<<
+ *                         v = price_data_view[stock_idx, k]
+ *                         if isnan(v):
+*/
+              goto __pyx_L36_break;
+
+              /* "worker_threads_cy.pyx":241
+ *                     found = False
+ *                     for n, k in enumerate(range(end_date_idx - 1, end_date_idx - op_days - 1, -1), 1):
+ *                         if k < 0:             # <<<<<<<<<<<<<<
+ *                             break
+ *                         v = price_data_view[stock_idx, k]
+*/
+            }
+
+            /* "worker_threads_cy.pyx":243
+ *                         if k < 0:
+ *                             break
+ *                         v = price_data_view[stock_idx, k]             # <<<<<<<<<<<<<<
+ *                         if isnan(v):
+ *                             continue
+*/
+            __pyx_t_14 = __pyx_v_stock_idx;
+            __pyx_t_19 = __pyx_v_k;
+            __pyx_v_v = (*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_price_data_view.data + __pyx_t_14 * __pyx_v_price_data_view.strides[0]) ) + __pyx_t_19 * __pyx_v_price_data_view.strides[1]) )));
+
+            /* "worker_threads_cy.pyx":244
+ *                             break
+ *                         v = price_data_view[stock_idx, k]
+ *                         if isnan(v):             # <<<<<<<<<<<<<<
+ *                             continue
+ *                         increment_threshold = end_value * inc_rate * n
+*/
+            __pyx_t_7 = isnan(__pyx_v_v);
+            if (__pyx_t_7) {
+
+              /* "worker_threads_cy.pyx":245
+ *                         v = price_data_view[stock_idx, k]
+ *                         if isnan(v):
+ *                             continue             # <<<<<<<<<<<<<<
+ *                         increment_threshold = end_value * inc_rate * n
+ *                         if increment_threshold != 0 and (v - end_value) > increment_threshold:
+*/
+              goto __pyx_L35_continue;
+
+              /* "worker_threads_cy.pyx":244
+ *                             break
+ *                         v = price_data_view[stock_idx, k]
+ *                         if isnan(v):             # <<<<<<<<<<<<<<
+ *                             continue
+ *                         increment_threshold = end_value * inc_rate * n
+*/
+            }
+
+            /* "worker_threads_cy.pyx":246
+ *                         if isnan(v):
+ *                             continue
+ *                         increment_threshold = end_value * inc_rate * n             # <<<<<<<<<<<<<<
+ *                         if increment_threshold != 0 and (v - end_value) > increment_threshold:
+ *                             increment_value = v
+*/
+            __pyx_v_increment_threshold = ((__pyx_v_end_value * __pyx_v_inc_rate) * __pyx_v_n);
+
+            /* "worker_threads_cy.pyx":247
+ *                             continue
+ *                         increment_threshold = end_value * inc_rate * n
+ *                         if increment_threshold != 0 and (v - end_value) > increment_threshold:             # <<<<<<<<<<<<<<
+ *                             increment_value = v
+ *                             increment_days = n
+*/
+            __pyx_t_21 = (__pyx_v_increment_threshold != 0.0);
+            if (__pyx_t_21) {
+            } else {
+              __pyx_t_7 = __pyx_t_21;
+              goto __pyx_L40_bool_binop_done;
+            }
+            __pyx_t_21 = ((__pyx_v_v - __pyx_v_end_value) > __pyx_v_increment_threshold);
+            __pyx_t_7 = __pyx_t_21;
+            __pyx_L40_bool_binop_done:;
+            if (__pyx_t_7) {
+
+              /* "worker_threads_cy.pyx":248
+ *                         increment_threshold = end_value * inc_rate * n
+ *                         if increment_threshold != 0 and (v - end_value) > increment_threshold:
+ *                             increment_value = v             # <<<<<<<<<<<<<<
+ *                             increment_days = n
+ *                             found = True
+*/
+              __pyx_v_increment_value = __pyx_v_v;
+
+              /* "worker_threads_cy.pyx":249
+ *                         if increment_threshold != 0 and (v - end_value) > increment_threshold:
+ *                             increment_value = v
+ *                             increment_days = n             # <<<<<<<<<<<<<<
+ *                             found = True
+ *                             break
+*/
+              __pyx_v_increment_days = __pyx_v_n;
+
+              /* "worker_threads_cy.pyx":250
+ *                             increment_value = v
+ *                             increment_days = n
+ *                             found = True             # <<<<<<<<<<<<<<
+ *                             break
+ *                     if not found:
+*/
+              __pyx_v_found = 1;
+
+              /* "worker_threads_cy.pyx":251
+ *                             increment_days = n
+ *                             found = True
+ *                             break             # <<<<<<<<<<<<<<
+ *                     if not found:
+ *                         fallback_idx = end_date_idx - op_days
+*/
+              goto __pyx_L36_break;
+
+              /* "worker_threads_cy.pyx":247
+ *                             continue
+ *                         increment_threshold = end_value * inc_rate * n
+ *                         if increment_threshold != 0 and (v - end_value) > increment_threshold:             # <<<<<<<<<<<<<<
+ *                             increment_value = v
+ *                             increment_days = n
+*/
+            }
+            __pyx_L35_continue:;
+          }
+          __pyx_L36_break:;
+
+          /* "worker_threads_cy.pyx":252
+ *                             found = True
+ *                             break
+ *                     if not found:             # <<<<<<<<<<<<<<
+ *                         fallback_idx = end_date_idx - op_days
+ *                         if fallback_idx >= 0:
+*/
+          __pyx_t_7 = (!__pyx_v_found);
+          if (__pyx_t_7) {
+
+            /* "worker_threads_cy.pyx":253
+ *                             break
+ *                     if not found:
+ *                         fallback_idx = end_date_idx - op_days             # <<<<<<<<<<<<<<
+ *                         if fallback_idx >= 0:
+ *                             increment_value = price_data_view[stock_idx, fallback_idx]
+*/
+            __pyx_v_fallback_idx = (__pyx_v_end_date_idx - __pyx_v_op_days);
+
+            /* "worker_threads_cy.pyx":254
+ *                     if not found:
+ *                         fallback_idx = end_date_idx - op_days
+ *                         if fallback_idx >= 0:             # <<<<<<<<<<<<<<
+ *                             increment_value = price_data_view[stock_idx, fallback_idx]
+ *                             increment_days = op_days
+*/
+            __pyx_t_7 = (__pyx_v_fallback_idx >= 0);
+            if (__pyx_t_7) {
+
+              /* "worker_threads_cy.pyx":255
+ *                         fallback_idx = end_date_idx - op_days
+ *                         if fallback_idx >= 0:
+ *                             increment_value = price_data_view[stock_idx, fallback_idx]             # <<<<<<<<<<<<<<
+ *                             increment_days = op_days
+ *                 # after_gt_end_value end_date_idx-1  end_date_idx-op_days
+*/
+              __pyx_t_19 = __pyx_v_stock_idx;
+              __pyx_t_14 = __pyx_v_fallback_idx;
+              __pyx_v_increment_value = (*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_price_data_view.data + __pyx_t_19 * __pyx_v_price_data_view.strides[0]) ) + __pyx_t_14 * __pyx_v_price_data_view.strides[1]) )));
+
+              /* "worker_threads_cy.pyx":256
+ *                         if fallback_idx >= 0:
+ *                             increment_value = price_data_view[stock_idx, fallback_idx]
+ *                             increment_days = op_days             # <<<<<<<<<<<<<<
+ *                 # after_gt_end_value end_date_idx-1  end_date_idx-op_days
+ *                 if not isnan(end_value):
+*/
+              __pyx_v_increment_days = __pyx_v_op_days;
+
+              /* "worker_threads_cy.pyx":254
+ *                     if not found:
+ *                         fallback_idx = end_date_idx - op_days
+ *                         if fallback_idx >= 0:             # <<<<<<<<<<<<<<
+ *                             increment_value = price_data_view[stock_idx, fallback_idx]
+ *                             increment_days = op_days
+*/
+            }
+
+            /* "worker_threads_cy.pyx":252
+ *                             found = True
+ *                             break
+ *                     if not found:             # <<<<<<<<<<<<<<
+ *                         fallback_idx = end_date_idx - op_days
+ *                         if fallback_idx >= 0:
+*/
+          }
+
+          /* "worker_threads_cy.pyx":237
+ *             if op_days > 0:
+ *                 end_value = price_data_view[stock_idx, end_date_idx]
+ *                 if not isnan(end_value):             # <<<<<<<<<<<<<<
+ *                     #
+ *                     found = False
+*/
+        }
+
+        /* "worker_threads_cy.pyx":258
+ *                             increment_days = op_days
+ *                 # after_gt_end_value end_date_idx-1  end_date_idx-op_days
+ *                 if not isnan(end_value):             # <<<<<<<<<<<<<<
+ *                     found = False
+ *                     for n, k in enumerate(range(end_date_idx - 1, end_date_idx - op_days - 1, -1), 1):
+*/
+        __pyx_t_7 = (!isnan(__pyx_v_end_value));
+        if (__pyx_t_7) {
+
+          /* "worker_threads_cy.pyx":259
+ *                 # after_gt_end_value end_date_idx-1  end_date_idx-op_days
+ *                 if not isnan(end_value):
+ *                     found = False             # <<<<<<<<<<<<<<
+ *                     for n, k in enumerate(range(end_date_idx - 1, end_date_idx - op_days - 1, -1), 1):
+ *                         if k < 0:
+*/
+          __pyx_v_found = 0;
+
+          /* "worker_threads_cy.pyx":260
+ *                 if not isnan(end_value):
+ *                     found = False
+ *                     for n, k in enumerate(range(end_date_idx - 1, end_date_idx - op_days - 1, -1), 1):             # <<<<<<<<<<<<<<
+ *                         if k < 0:
+ *                             break
+*/
+          __pyx_t_16 = 1;
+          __pyx_t_24 = ((__pyx_v_end_date_idx - __pyx_v_op_days) - 1);
+          __pyx_t_25 = __pyx_t_24;
+          for (__pyx_t_17 = (__pyx_v_end_date_idx - 1); __pyx_t_17 > __pyx_t_25; __pyx_t_17-=1) {
+            __pyx_v_k = __pyx_t_17;
+            __pyx_v_n = __pyx_t_16;
+            __pyx_t_16 = (__pyx_t_16 + 1);
+
+            /* "worker_threads_cy.pyx":261
+ *                     found = False
+ *                     for n, k in enumerate(range(end_date_idx - 1, end_date_idx - op_days - 1, -1), 1):
+ *                         if k < 0:             # <<<<<<<<<<<<<<
+ *                             break
+ *                         v = price_data_view[stock_idx, k]
+*/
+            __pyx_t_7 = (__pyx_v_k < 0);
+            if (__pyx_t_7) {
+
+              /* "worker_threads_cy.pyx":262
+ *                     for n, k in enumerate(range(end_date_idx - 1, end_date_idx - op_days - 1, -1), 1):
+ *                         if k < 0:
+ *                             break             # <<<<<<<<<<<<<<
+ *                         v = price_data_view[stock_idx, k]
+ *                         if isnan(v):
+*/
+              goto __pyx_L46_break;
+
+              /* "worker_threads_cy.pyx":261
+ *                     found = False
+ *                     for n, k in enumerate(range(end_date_idx - 1, end_date_idx - op_days - 1, -1), 1):
+ *                         if k < 0:             # <<<<<<<<<<<<<<
+ *                             break
+ *                         v = price_data_view[stock_idx, k]
+*/
+            }
+
+            /* "worker_threads_cy.pyx":263
+ *                         if k < 0:
+ *                             break
+ *                         v = price_data_view[stock_idx, k]             # <<<<<<<<<<<<<<
+ *                         if isnan(v):
+ *                             continue
+*/
+            __pyx_t_14 = __pyx_v_stock_idx;
+            __pyx_t_19 = __pyx_v_k;
+            __pyx_v_v = (*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_price_data_view.data + __pyx_t_14 * __pyx_v_price_data_view.strides[0]) ) + __pyx_t_19 * __pyx_v_price_data_view.strides[1]) )));
+
+            /* "worker_threads_cy.pyx":264
+ *                             break
+ *                         v = price_data_view[stock_idx, k]
+ *                         if isnan(v):             # <<<<<<<<<<<<<<
+ *                             continue
+ *                         after_gt_end_threshold = end_value * after_gt_end_ratio
+*/
+            __pyx_t_7 = isnan(__pyx_v_v);
+            if (__pyx_t_7) {
+
+              /* "worker_threads_cy.pyx":265
+ *                         v = price_data_view[stock_idx, k]
+ *                         if isnan(v):
+ *                             continue             # <<<<<<<<<<<<<<
+ *                         after_gt_end_threshold = end_value * after_gt_end_ratio
+ *                         if after_gt_end_ratio != 0 and (v - end_value) > after_gt_end_threshold:
+*/
+              goto __pyx_L45_continue;
+
+              /* "worker_threads_cy.pyx":264
+ *                             break
+ *                         v = price_data_view[stock_idx, k]
+ *                         if isnan(v):             # <<<<<<<<<<<<<<
+ *                             continue
+ *                         after_gt_end_threshold = end_value * after_gt_end_ratio
+*/
+            }
+
+            /* "worker_threads_cy.pyx":266
+ *                         if isnan(v):
+ *                             continue
+ *                         after_gt_end_threshold = end_value * after_gt_end_ratio             # <<<<<<<<<<<<<<
+ *                         if after_gt_end_ratio != 0 and (v - end_value) > after_gt_end_threshold:
+ *                             after_gt_end_value = v
+*/
+            __pyx_v_after_gt_end_threshold = (__pyx_v_end_value * __pyx_v_after_gt_end_ratio);
+
+            /* "worker_threads_cy.pyx":267
+ *                             continue
+ *                         after_gt_end_threshold = end_value * after_gt_end_ratio
+ *                         if after_gt_end_ratio != 0 and (v - end_value) > after_gt_end_threshold:             # <<<<<<<<<<<<<<
+ *                             after_gt_end_value = v
+ *                             after_gt_end_days = n
+*/
+            __pyx_t_21 = (__pyx_v_after_gt_end_ratio != 0.0);
+            if (__pyx_t_21) {
+            } else {
+              __pyx_t_7 = __pyx_t_21;
+              goto __pyx_L50_bool_binop_done;
+            }
+            __pyx_t_21 = ((__pyx_v_v - __pyx_v_end_value) > __pyx_v_after_gt_end_threshold);
+            __pyx_t_7 = __pyx_t_21;
+            __pyx_L50_bool_binop_done:;
+            if (__pyx_t_7) {
+
+              /* "worker_threads_cy.pyx":268
+ *                         after_gt_end_threshold = end_value * after_gt_end_ratio
+ *                         if after_gt_end_ratio != 0 and (v - end_value) > after_gt_end_threshold:
+ *                             after_gt_end_value = v             # <<<<<<<<<<<<<<
+ *                             after_gt_end_days = n
+ *                             found = True
+*/
+              __pyx_v_after_gt_end_value = __pyx_v_v;
+
+              /* "worker_threads_cy.pyx":269
+ *                         if after_gt_end_ratio != 0 and (v - end_value) > after_gt_end_threshold:
+ *                             after_gt_end_value = v
+ *                             after_gt_end_days = n             # <<<<<<<<<<<<<<
+ *                             found = True
+ *                             break
+*/
+              __pyx_v_after_gt_end_days = __pyx_v_n;
+
+              /* "worker_threads_cy.pyx":270
+ *                             after_gt_end_value = v
+ *                             after_gt_end_days = n
+ *                             found = True             # <<<<<<<<<<<<<<
+ *                             break
+ *                     if not found:
+*/
+              __pyx_v_found = 1;
+
+              /* "worker_threads_cy.pyx":271
+ *                             after_gt_end_days = n
+ *                             found = True
+ *                             break             # <<<<<<<<<<<<<<
+ *                     if not found:
+ *                         fallback_idx = end_date_idx - op_days
+*/
+              goto __pyx_L46_break;
+
+              /* "worker_threads_cy.pyx":267
+ *                             continue
+ *                         after_gt_end_threshold = end_value * after_gt_end_ratio
+ *                         if after_gt_end_ratio != 0 and (v - end_value) > after_gt_end_threshold:             # <<<<<<<<<<<<<<
+ *                             after_gt_end_value = v
+ *                             after_gt_end_days = n
+*/
+            }
+            __pyx_L45_continue:;
+          }
+          __pyx_L46_break:;
+
+          /* "worker_threads_cy.pyx":272
+ *                             found = True
+ *                             break
+ *                     if not found:             # <<<<<<<<<<<<<<
+ *                         fallback_idx = end_date_idx - op_days
+ *                         if fallback_idx >= 0:
+*/
+          __pyx_t_7 = (!__pyx_v_found);
+          if (__pyx_t_7) {
+
+            /* "worker_threads_cy.pyx":273
+ *                             break
+ *                     if not found:
+ *                         fallback_idx = end_date_idx - op_days             # <<<<<<<<<<<<<<
+ *                         if fallback_idx >= 0:
+ *                             after_gt_end_value = price_data_view[stock_idx, fallback_idx]
+*/
+            __pyx_v_fallback_idx = (__pyx_v_end_date_idx - __pyx_v_op_days);
+
+            /* "worker_threads_cy.pyx":274
+ *                     if not found:
+ *                         fallback_idx = end_date_idx - op_days
+ *                         if fallback_idx >= 0:             # <<<<<<<<<<<<<<
+ *                             after_gt_end_value = price_data_view[stock_idx, fallback_idx]
+ *                             after_gt_end_days = op_days
+*/
+            __pyx_t_7 = (__pyx_v_fallback_idx >= 0);
+            if (__pyx_t_7) {
+
+              /* "worker_threads_cy.pyx":275
+ *                         fallback_idx = end_date_idx - op_days
+ *                         if fallback_idx >= 0:
+ *                             after_gt_end_value = price_data_view[stock_idx, fallback_idx]             # <<<<<<<<<<<<<<
+ *                             after_gt_end_days = op_days
+ *                 # after_gt_start_value end_date_idx  end_date_idx-op_dayskk-1
+*/
+              __pyx_t_19 = __pyx_v_stock_idx;
+              __pyx_t_14 = __pyx_v_fallback_idx;
+              __pyx_v_after_gt_end_value = (*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_price_data_view.data + __pyx_t_19 * __pyx_v_price_data_view.strides[0]) ) + __pyx_t_14 * __pyx_v_price_data_view.strides[1]) )));
+
+              /* "worker_threads_cy.pyx":276
+ *                         if fallback_idx >= 0:
+ *                             after_gt_end_value = price_data_view[stock_idx, fallback_idx]
+ *                             after_gt_end_days = op_days             # <<<<<<<<<<<<<<
+ *                 # after_gt_start_value end_date_idx  end_date_idx-op_dayskk-1
+ *                 found = False
+*/
+              __pyx_v_after_gt_end_days = __pyx_v_op_days;
+
+              /* "worker_threads_cy.pyx":274
+ *                     if not found:
+ *                         fallback_idx = end_date_idx - op_days
+ *                         if fallback_idx >= 0:             # <<<<<<<<<<<<<<
+ *                             after_gt_end_value = price_data_view[stock_idx, fallback_idx]
+ *                             after_gt_end_days = op_days
+*/
+            }
+
+            /* "worker_threads_cy.pyx":272
+ *                             found = True
+ *                             break
+ *                     if not found:             # <<<<<<<<<<<<<<
+ *                         fallback_idx = end_date_idx - op_days
+ *                         if fallback_idx >= 0:
+*/
+          }
+
+          /* "worker_threads_cy.pyx":258
+ *                             increment_days = op_days
+ *                 # after_gt_end_value end_date_idx-1  end_date_idx-op_days
+ *                 if not isnan(end_value):             # <<<<<<<<<<<<<<
+ *                     found = False
+ *                     for n, k in enumerate(range(end_date_idx - 1, end_date_idx - op_days - 1, -1), 1):
+*/
+        }
+
+        /* "worker_threads_cy.pyx":278
+ *                             after_gt_end_days = op_days
+ *                 # after_gt_start_value end_date_idx  end_date_idx-op_dayskk-1
+ *                 found = False             # <<<<<<<<<<<<<<
+ *                 for n, k in enumerate(range(end_date_idx, end_date_idx - op_days, -1), 1):
+ *                     if k - 1 < 0 or k >= num_dates:
+*/
+        __pyx_v_found = 0;
+
+        /* "worker_threads_cy.pyx":279
+ *                 # after_gt_start_value end_date_idx  end_date_idx-op_dayskk-1
+ *                 found = False
+ *                 for n, k in enumerate(range(end_date_idx, end_date_idx - op_days, -1), 1):             # <<<<<<<<<<<<<<
+ *                     if k - 1 < 0 or k >= num_dates:
+ *                         continue
+*/
+        __pyx_t_16 = 1;
+        __pyx_t_17 = (__pyx_v_end_date_idx - __pyx_v_op_days);
+        __pyx_t_18 = __pyx_t_17;
+        for (__pyx_t_26 = __pyx_v_end_date_idx; __pyx_t_26 > __pyx_t_18; __pyx_t_26-=1) {
+          __pyx_v_k = __pyx_t_26;
+          __pyx_v_n = __pyx_t_16;
+          __pyx_t_16 = (__pyx_t_16 + 1);
+
+          /* "worker_threads_cy.pyx":280
+ *                 found = False
+ *                 for n, k in enumerate(range(end_date_idx, end_date_idx - op_days, -1), 1):
+ *                     if k - 1 < 0 or k >= num_dates:             # <<<<<<<<<<<<<<
+ *                         continue
+ *                     v_now = price_data_view[stock_idx, k]
+*/
+          __pyx_t_21 = ((__pyx_v_k - 1) < 0);
+          if (!__pyx_t_21) {
+          } else {
+            __pyx_t_7 = __pyx_t_21;
+            goto __pyx_L57_bool_binop_done;
+          }
+          __pyx_t_21 = (__pyx_v_k >= __pyx_v_num_dates);
+          __pyx_t_7 = __pyx_t_21;
+          __pyx_L57_bool_binop_done:;
+          if (__pyx_t_7) {
+
+            /* "worker_threads_cy.pyx":281
+ *                 for n, k in enumerate(range(end_date_idx, end_date_idx - op_days, -1), 1):
+ *                     if k - 1 < 0 or k >= num_dates:
+ *                         continue             # <<<<<<<<<<<<<<
+ *                     v_now = price_data_view[stock_idx, k]
+ *                     v_prev = price_data_view[stock_idx, k - 1]
+*/
+            goto __pyx_L54_continue;
+
+            /* "worker_threads_cy.pyx":280
+ *                 found = False
+ *                 for n, k in enumerate(range(end_date_idx, end_date_idx - op_days, -1), 1):
+ *                     if k - 1 < 0 or k >= num_dates:             # <<<<<<<<<<<<<<
+ *                         continue
+ *                     v_now = price_data_view[stock_idx, k]
+*/
+          }
+
+          /* "worker_threads_cy.pyx":282
+ *                     if k - 1 < 0 or k >= num_dates:
+ *                         continue
+ *                     v_now = price_data_view[stock_idx, k]             # <<<<<<<<<<<<<<
+ *                     v_prev = price_data_view[stock_idx, k - 1]
+ *                     if isnan(v_now) or isnan(v_prev):
+*/
+          __pyx_t_14 = __pyx_v_stock_idx;
+          __pyx_t_19 = __pyx_v_k;
+          __pyx_v_v_now = (*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_price_data_view.data + __pyx_t_14 * __pyx_v_price_data_view.strides[0]) ) + __pyx_t_19 * __pyx_v_price_data_view.strides[1]) )));
+
+          /* "worker_threads_cy.pyx":283
+ *                         continue
+ *                     v_now = price_data_view[stock_idx, k]
+ *                     v_prev = price_data_view[stock_idx, k - 1]             # <<<<<<<<<<<<<<
+ *                     if isnan(v_now) or isnan(v_prev):
+ *                         continue
+*/
+          __pyx_t_19 = __pyx_v_stock_idx;
+          __pyx_t_14 = (__pyx_v_k - 1);
+          __pyx_v_v_prev = (*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_price_data_view.data + __pyx_t_19 * __pyx_v_price_data_view.strides[0]) ) + __pyx_t_14 * __pyx_v_price_data_view.strides[1]) )));
+
+          /* "worker_threads_cy.pyx":284
+ *                     v_now = price_data_view[stock_idx, k]
+ *                     v_prev = price_data_view[stock_idx, k - 1]
+ *                     if isnan(v_now) or isnan(v_prev):             # <<<<<<<<<<<<<<
+ *                         continue
+ *                     after_gt_start_threshold = v_now * after_gt_start_ratio
+*/
+          __pyx_t_21 = isnan(__pyx_v_v_now);
+          if (!__pyx_t_21) {
+          } else {
+            __pyx_t_7 = __pyx_t_21;
+            goto __pyx_L60_bool_binop_done;
+          }
+          __pyx_t_21 = isnan(__pyx_v_v_prev);
+          __pyx_t_7 = __pyx_t_21;
+          __pyx_L60_bool_binop_done:;
+          if (__pyx_t_7) {
+
+            /* "worker_threads_cy.pyx":285
+ *                     v_prev = price_data_view[stock_idx, k - 1]
+ *                     if isnan(v_now) or isnan(v_prev):
+ *                         continue             # <<<<<<<<<<<<<<
+ *                     after_gt_start_threshold = v_now * after_gt_start_ratio
+ *                     if after_gt_start_ratio != 0 and (v_prev - v_now) > after_gt_start_threshold:
+*/
+            goto __pyx_L54_continue;
+
+            /* "worker_threads_cy.pyx":284
+ *                     v_now = price_data_view[stock_idx, k]
+ *                     v_prev = price_data_view[stock_idx, k - 1]
+ *                     if isnan(v_now) or isnan(v_prev):             # <<<<<<<<<<<<<<
+ *                         continue
+ *                     after_gt_start_threshold = v_now * after_gt_start_ratio
+*/
+          }
+
+          /* "worker_threads_cy.pyx":286
+ *                     if isnan(v_now) or isnan(v_prev):
+ *                         continue
+ *                     after_gt_start_threshold = v_now * after_gt_start_ratio             # <<<<<<<<<<<<<<
+ *                     if after_gt_start_ratio != 0 and (v_prev - v_now) > after_gt_start_threshold:
+ *                         after_gt_start_value = v_prev
+*/
+          __pyx_v_after_gt_start_threshold = (__pyx_v_v_now * __pyx_v_after_gt_start_ratio);
+
+          /* "worker_threads_cy.pyx":287
+ *                         continue
+ *                     after_gt_start_threshold = v_now * after_gt_start_ratio
+ *                     if after_gt_start_ratio != 0 and (v_prev - v_now) > after_gt_start_threshold:             # <<<<<<<<<<<<<<
+ *                         after_gt_start_value = v_prev
+ *                         after_gt_start_days = n
+*/
+          __pyx_t_21 = (__pyx_v_after_gt_start_ratio != 0.0);
+          if (__pyx_t_21) {
+          } else {
+            __pyx_t_7 = __pyx_t_21;
+            goto __pyx_L63_bool_binop_done;
+          }
+          __pyx_t_21 = ((__pyx_v_v_prev - __pyx_v_v_now) > __pyx_v_after_gt_start_threshold);
+          __pyx_t_7 = __pyx_t_21;
+          __pyx_L63_bool_binop_done:;
+          if (__pyx_t_7) {
+
+            /* "worker_threads_cy.pyx":288
+ *                     after_gt_start_threshold = v_now * after_gt_start_ratio
+ *                     if after_gt_start_ratio != 0 and (v_prev - v_now) > after_gt_start_threshold:
+ *                         after_gt_start_value = v_prev             # <<<<<<<<<<<<<<
+ *                         after_gt_start_days = n
+ *                         found = True
+*/
+            __pyx_v_after_gt_start_value = __pyx_v_v_prev;
+
+            /* "worker_threads_cy.pyx":289
+ *                     if after_gt_start_ratio != 0 and (v_prev - v_now) > after_gt_start_threshold:
+ *                         after_gt_start_value = v_prev
+ *                         after_gt_start_days = n             # <<<<<<<<<<<<<<
+ *                         found = True
+ *                         break
+*/
+            __pyx_v_after_gt_start_days = __pyx_v_n;
+
+            /* "worker_threads_cy.pyx":290
+ *                         after_gt_start_value = v_prev
+ *                         after_gt_start_days = n
+ *                         found = True             # <<<<<<<<<<<<<<
+ *                         break
+ *                 if not found:
+*/
+            __pyx_v_found = 1;
+
+            /* "worker_threads_cy.pyx":291
+ *                         after_gt_start_days = n
+ *                         found = True
+ *                         break             # <<<<<<<<<<<<<<
+ *                 if not found:
+ *                     fallback_idx = end_date_idx - op_days
+*/
+            goto __pyx_L55_break;
+
+            /* "worker_threads_cy.pyx":287
+ *                         continue
+ *                     after_gt_start_threshold = v_now * after_gt_start_ratio
+ *                     if after_gt_start_ratio != 0 and (v_prev - v_now) > after_gt_start_threshold:             # <<<<<<<<<<<<<<
+ *                         after_gt_start_value = v_prev
+ *                         after_gt_start_days = n
+*/
+          }
+          __pyx_L54_continue:;
+        }
+        __pyx_L55_break:;
+
+        /* "worker_threads_cy.pyx":292
+ *                         found = True
+ *                         break
+ *                 if not found:             # <<<<<<<<<<<<<<
+ *                     fallback_idx = end_date_idx - op_days
+ *                     if fallback_idx >= 0:
+*/
+        __pyx_t_7 = (!__pyx_v_found);
+        if (__pyx_t_7) {
+
+          /* "worker_threads_cy.pyx":293
+ *                         break
+ *                 if not found:
+ *                     fallback_idx = end_date_idx - op_days             # <<<<<<<<<<<<<<
+ *                     if fallback_idx >= 0:
+ *                         after_gt_start_value = price_data_view[stock_idx, fallback_idx]
+*/
+          __pyx_v_fallback_idx = (__pyx_v_end_date_idx - __pyx_v_op_days);
+
+          /* "worker_threads_cy.pyx":294
+ *                 if not found:
+ *                     fallback_idx = end_date_idx - op_days
+ *                     if fallback_idx >= 0:             # <<<<<<<<<<<<<<
+ *                         after_gt_start_value = price_data_view[stock_idx, fallback_idx]
+ *                         after_gt_start_days = op_days
+*/
+          __pyx_t_7 = (__pyx_v_fallback_idx >= 0);
+          if (__pyx_t_7) {
+
+            /* "worker_threads_cy.pyx":295
+ *                     fallback_idx = end_date_idx - op_days
+ *                     if fallback_idx >= 0:
+ *                         after_gt_start_value = price_data_view[stock_idx, fallback_idx]             # <<<<<<<<<<<<<<
+ *                         after_gt_start_days = op_days
+ * 
+*/
+            __pyx_t_14 = __pyx_v_stock_idx;
+            __pyx_t_19 = __pyx_v_fallback_idx;
+            __pyx_v_after_gt_start_value = (*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_price_data_view.data + __pyx_t_14 * __pyx_v_price_data_view.strides[0]) ) + __pyx_t_19 * __pyx_v_price_data_view.strides[1]) )));
+
+            /* "worker_threads_cy.pyx":296
+ *                     if fallback_idx >= 0:
+ *                         after_gt_start_value = price_data_view[stock_idx, fallback_idx]
+ *                         after_gt_start_days = op_days             # <<<<<<<<<<<<<<
+ * 
  *             # --- with gil  ---
- *             with gil:
 */
-                              /*else*/ {
-                                __pyx_v_forward_min_result_c.clear();
-                              }
-                              __pyx_L34:;
+            __pyx_v_after_gt_start_days = __pyx_v_op_days;
 
-                              /* "worker_threads_cy.pyx":205
- *                 forward_min_result_c.clear()
+            /* "worker_threads_cy.pyx":294
+ *                 if not found:
+ *                     fallback_idx = end_date_idx - op_days
+ *                     if fallback_idx >= 0:             # <<<<<<<<<<<<<<
+ *                         after_gt_start_value = price_data_view[stock_idx, fallback_idx]
+ *                         after_gt_start_days = op_days
+*/
+          }
+
+          /* "worker_threads_cy.pyx":292
+ *                         found = True
+ *                         break
+ *                 if not found:             # <<<<<<<<<<<<<<
+ *                     fallback_idx = end_date_idx - op_days
+ *                     if fallback_idx >= 0:
+*/
+        }
+
+        /* "worker_threads_cy.pyx":235
+ *             after_gt_start_value = NAN
+ *             after_gt_start_days = -1
+ *             if op_days > 0:             # <<<<<<<<<<<<<<
+ *                 end_value = price_data_view[stock_idx, end_date_idx]
+ *                 if not isnan(end_value):
+*/
+      }
+
+      /* "worker_threads_cy.pyx":299
+ * 
  *             # --- with gil  ---
- *             with gil:             # <<<<<<<<<<<<<<
- *                 py_cont_sum = list(cont_sum)
- *                 cont_sum_np = np.array(py_cont_sum, dtype=np.float64)
+ *             py_cont_sum = list(cont_sum)             # <<<<<<<<<<<<<<
+ *             cont_sum_np = np.array(py_cont_sum, dtype=np.float64)
+ *             calc_valid_sum_and_pos_neg(
 */
-                              {
-                                  PyGILState_STATE __pyx_gilstate_save = __Pyx_PyGILState_Ensure();
-                                  /*try:*/ {
+      __pyx_t_4 = __pyx_convert_vector_to_py_double(__pyx_v_cont_sum); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 299, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_4);
+      __pyx_t_5 = __Pyx_PySequence_ListKeepNew(__pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 299, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_5);
+      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+      __Pyx_XDECREF_SET(__pyx_v_py_cont_sum, ((PyObject*)__pyx_t_5));
+      __pyx_t_5 = 0;
 
-                                    /* "worker_threads_cy.pyx":206
+      /* "worker_threads_cy.pyx":300
  *             # --- with gil  ---
- *             with gil:
- *                 py_cont_sum = list(cont_sum)             # <<<<<<<<<<<<<<
- *                 cont_sum_np = np.array(py_cont_sum, dtype=np.float64)
- *                 calc_valid_sum_and_pos_neg(
+ *             py_cont_sum = list(cont_sum)
+ *             cont_sum_np = np.array(py_cont_sum, dtype=np.float64)             # <<<<<<<<<<<<<<
+ *             calc_valid_sum_and_pos_neg(
+ *                 cont_sum_np, valid_sum_arr, &valid_sum_len, &valid_pos_sum, &valid_neg_sum)
 */
-                                    __pyx_t_1 = __pyx_convert_vector_to_py_double(__pyx_v_cont_sum); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 206, __pyx_L41_error)
-                                    __Pyx_GOTREF(__pyx_t_1);
-                                    __pyx_t_20 = __Pyx_PySequence_ListKeepNew(__pyx_t_1); if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 206, __pyx_L41_error)
-                                    __Pyx_GOTREF(__pyx_t_20);
-                                    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-                                    __Pyx_XDECREF_SET(__pyx_v_py_cont_sum, ((PyObject*)__pyx_t_20));
-                                    __pyx_t_20 = 0;
+      __pyx_t_4 = NULL;
+      __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 300, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_8);
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_array); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 300, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_1);
+      __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+      __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 300, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_8);
+      __pyx_t_27 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_float64); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 300, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_27);
+      __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+      __pyx_t_6 = 1;
+      #if CYTHON_UNPACK_METHODS
+      if (unlikely(PyMethod_Check(__pyx_t_1))) {
+        __pyx_t_4 = PyMethod_GET_SELF(__pyx_t_1);
+        assert(__pyx_t_4);
+        PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_1);
+        __Pyx_INCREF(__pyx_t_4);
+        __Pyx_INCREF(__pyx__function);
+        __Pyx_DECREF_SET(__pyx_t_1, __pyx__function);
+        __pyx_t_6 = 0;
+      }
+      #endif
+      {
+        PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_4, __pyx_v_py_cont_sum};
+        __pyx_t_8 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 300, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_8);
+        if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_dtype, __pyx_t_27, __pyx_t_8, __pyx_callargs+2, 0) < 0) __PYX_ERR(0, 300, __pyx_L1_error)
+        __pyx_t_5 = __Pyx_Object_Vectorcall_CallFromBuilder(__pyx_t_1, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_8);
+        __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
+        __Pyx_DECREF(__pyx_t_27); __pyx_t_27 = 0;
+        __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+        __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+        if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 300, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_5);
+      }
+      if (!(likely(((__pyx_t_5) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_5, __pyx_mstate_global->__pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 300, __pyx_L1_error)
+      {
+        __Pyx_BufFmt_StackElem __pyx_stack[1];
+        __Pyx_SafeReleaseBuffer(&__pyx_pybuffernd_cont_sum_np.rcbuffer->pybuffer);
+        __pyx_t_16 = __Pyx_GetBufferAndValidate(&__pyx_pybuffernd_cont_sum_np.rcbuffer->pybuffer, (PyObject*)((PyArrayObject *)__pyx_t_5), &__Pyx_TypeInfo_nn___pyx_t_5numpy_float64_t, PyBUF_FORMAT| PyBUF_STRIDES, 1, 0, __pyx_stack);
+        if (unlikely(__pyx_t_16 < 0)) {
+          PyErr_Fetch(&__pyx_t_28, &__pyx_t_29, &__pyx_t_30);
+          if (unlikely(__Pyx_GetBufferAndValidate(&__pyx_pybuffernd_cont_sum_np.rcbuffer->pybuffer, (PyObject*)__pyx_v_cont_sum_np, &__Pyx_TypeInfo_nn___pyx_t_5numpy_float64_t, PyBUF_FORMAT| PyBUF_STRIDES, 1, 0, __pyx_stack) == -1)) {
+            Py_XDECREF(__pyx_t_28); Py_XDECREF(__pyx_t_29); Py_XDECREF(__pyx_t_30);
+            __Pyx_RaiseBufferFallbackError();
+          } else {
+            PyErr_Restore(__pyx_t_28, __pyx_t_29, __pyx_t_30);
+          }
+          __pyx_t_28 = __pyx_t_29 = __pyx_t_30 = 0;
+        }
+        __pyx_pybuffernd_cont_sum_np.diminfo[0].strides = __pyx_pybuffernd_cont_sum_np.rcbuffer->pybuffer.strides[0]; __pyx_pybuffernd_cont_sum_np.diminfo[0].shape = __pyx_pybuffernd_cont_sum_np.rcbuffer->pybuffer.shape[0];
+        if (unlikely((__pyx_t_16 < 0))) __PYX_ERR(0, 300, __pyx_L1_error)
+      }
+      __Pyx_XDECREF_SET(__pyx_v_cont_sum_np, ((PyArrayObject *)__pyx_t_5));
+      __pyx_t_5 = 0;
 
-                                    /* "worker_threads_cy.pyx":207
- *             with gil:
- *                 py_cont_sum = list(cont_sum)
- *                 cont_sum_np = np.array(py_cont_sum, dtype=np.float64)             # <<<<<<<<<<<<<<
- *                 calc_valid_sum_and_pos_neg(
- *                     cont_sum_np, valid_sum_arr, &valid_sum_len, &valid_pos_sum, &valid_neg_sum)
+      /* "worker_threads_cy.pyx":302
+ *             cont_sum_np = np.array(py_cont_sum, dtype=np.float64)
+ *             calc_valid_sum_and_pos_neg(
+ *                 cont_sum_np, valid_sum_arr, &valid_sum_len, &valid_pos_sum, &valid_neg_sum)             # <<<<<<<<<<<<<<
+ *             forward_max_result = list(forward_max_result_c)
+ *             forward_min_result = list(forward_min_result_c)
 */
-                                    __pyx_t_1 = NULL;
-                                    __Pyx_GetModuleGlobalName(__pyx_t_21, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_21)) __PYX_ERR(0, 207, __pyx_L41_error)
-                                    __Pyx_GOTREF(__pyx_t_21);
-                                    __pyx_t_22 = __Pyx_PyObject_GetAttrStr(__pyx_t_21, __pyx_mstate_global->__pyx_n_u_array); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 207, __pyx_L41_error)
-                                    __Pyx_GOTREF(__pyx_t_22);
-                                    __Pyx_DECREF(__pyx_t_21); __pyx_t_21 = 0;
-                                    __Pyx_GetModuleGlobalName(__pyx_t_21, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_21)) __PYX_ERR(0, 207, __pyx_L41_error)
-                                    __Pyx_GOTREF(__pyx_t_21);
-                                    __pyx_t_23 = __Pyx_PyObject_GetAttrStr(__pyx_t_21, __pyx_mstate_global->__pyx_n_u_float64); if (unlikely(!__pyx_t_23)) __PYX_ERR(0, 207, __pyx_L41_error)
-                                    __Pyx_GOTREF(__pyx_t_23);
-                                    __Pyx_DECREF(__pyx_t_21); __pyx_t_21 = 0;
-                                    __pyx_t_24 = 1;
-                                    #if CYTHON_UNPACK_METHODS
-                                    if (unlikely(PyMethod_Check(__pyx_t_22))) {
-                                      __pyx_t_1 = PyMethod_GET_SELF(__pyx_t_22);
-                                      assert(__pyx_t_1);
-                                      PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_22);
-                                      __Pyx_INCREF(__pyx_t_1);
-                                      __Pyx_INCREF(__pyx__function);
-                                      __Pyx_DECREF_SET(__pyx_t_22, __pyx__function);
-                                      __pyx_t_24 = 0;
-                                    }
-                                    #endif
-                                    {
-                                      PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_1, __pyx_v_py_cont_sum};
-                                      __pyx_t_21 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_21)) __PYX_ERR(0, 207, __pyx_L41_error)
-                                      __Pyx_GOTREF(__pyx_t_21);
-                                      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_dtype, __pyx_t_23, __pyx_t_21, __pyx_callargs+2, 0) < 0) __PYX_ERR(0, 207, __pyx_L41_error)
-                                      __pyx_t_20 = __Pyx_Object_Vectorcall_CallFromBuilder(__pyx_t_22, __pyx_callargs+__pyx_t_24, (2-__pyx_t_24) | (__pyx_t_24*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_21);
-                                      __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-                                      __Pyx_DECREF(__pyx_t_23); __pyx_t_23 = 0;
-                                      __Pyx_DECREF(__pyx_t_21); __pyx_t_21 = 0;
-                                      __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
-                                      if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 207, __pyx_L41_error)
-                                      __Pyx_GOTREF(__pyx_t_20);
-                                    }
-                                    if (!(likely(((__pyx_t_20) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_20, __pyx_mstate_global->__pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 207, __pyx_L41_error)
-                                    {
-                                      __Pyx_BufFmt_StackElem __pyx_stack[1];
-                                      __Pyx_SafeReleaseBuffer(&__pyx_pybuffernd_cont_sum_np.rcbuffer->pybuffer);
-                                      __pyx_t_11 = __Pyx_GetBufferAndValidate(&__pyx_pybuffernd_cont_sum_np.rcbuffer->pybuffer, (PyObject*)((PyArrayObject *)__pyx_t_20), &__Pyx_TypeInfo_nn___pyx_t_5numpy_float64_t, PyBUF_FORMAT| PyBUF_STRIDES, 1, 0, __pyx_stack);
-                                      if (unlikely(__pyx_t_11 < 0)) {
-                                        PyErr_Fetch(&__pyx_t_25, &__pyx_t_26, &__pyx_t_27);
-                                        if (unlikely(__Pyx_GetBufferAndValidate(&__pyx_pybuffernd_cont_sum_np.rcbuffer->pybuffer, (PyObject*)__pyx_v_cont_sum_np, &__Pyx_TypeInfo_nn___pyx_t_5numpy_float64_t, PyBUF_FORMAT| PyBUF_STRIDES, 1, 0, __pyx_stack) == -1)) {
-                                          Py_XDECREF(__pyx_t_25); Py_XDECREF(__pyx_t_26); Py_XDECREF(__pyx_t_27);
-                                          __Pyx_RaiseBufferFallbackError();
-                                        } else {
-                                          PyErr_Restore(__pyx_t_25, __pyx_t_26, __pyx_t_27);
-                                        }
-                                        __pyx_t_25 = __pyx_t_26 = __pyx_t_27 = 0;
-                                      }
-                                      __pyx_pybuffernd_cont_sum_np.diminfo[0].strides = __pyx_pybuffernd_cont_sum_np.rcbuffer->pybuffer.strides[0]; __pyx_pybuffernd_cont_sum_np.diminfo[0].shape = __pyx_pybuffernd_cont_sum_np.rcbuffer->pybuffer.shape[0];
-                                      if (unlikely((__pyx_t_11 < 0))) __PYX_ERR(0, 207, __pyx_L41_error)
-                                    }
-                                    __Pyx_XDECREF_SET(__pyx_v_cont_sum_np, ((PyArrayObject *)__pyx_t_20));
-                                    __pyx_t_20 = 0;
+      __pyx_t_23 = __Pyx_PyObject_to_MemoryviewSlice_ds_double(((PyObject *)__pyx_v_cont_sum_np), PyBUF_WRITABLE); if (unlikely(!__pyx_t_23.memview)) __PYX_ERR(0, 302, __pyx_L1_error)
 
-                                    /* "worker_threads_cy.pyx":209
- *                 cont_sum_np = np.array(py_cont_sum, dtype=np.float64)
- *                 calc_valid_sum_and_pos_neg(
- *                     cont_sum_np, valid_sum_arr, &valid_sum_len, &valid_pos_sum, &valid_neg_sum)             # <<<<<<<<<<<<<<
- *                 forward_max_result = list(forward_max_result_c)
- *                 forward_min_result = list(forward_min_result_c)
+      /* "worker_threads_cy.pyx":301
+ *             py_cont_sum = list(cont_sum)
+ *             cont_sum_np = np.array(py_cont_sum, dtype=np.float64)
+ *             calc_valid_sum_and_pos_neg(             # <<<<<<<<<<<<<<
+ *                 cont_sum_np, valid_sum_arr, &valid_sum_len, &valid_pos_sum, &valid_neg_sum)
+ *             forward_max_result = list(forward_max_result_c)
 */
-                                    __pyx_t_19 = __Pyx_PyObject_to_MemoryviewSlice_ds_double(((PyObject *)__pyx_v_cont_sum_np), PyBUF_WRITABLE); if (unlikely(!__pyx_t_19.memview)) __PYX_ERR(0, 209, __pyx_L41_error)
+      __pyx_f_17worker_threads_cy_calc_valid_sum_and_pos_neg(__pyx_t_23, __pyx_v_valid_sum_arr, (&__pyx_v_valid_sum_len), (&__pyx_v_valid_pos_sum), (&__pyx_v_valid_neg_sum)); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 301, __pyx_L1_error)
+      __PYX_XCLEAR_MEMVIEW(&__pyx_t_23, 1);
+      __pyx_t_23.memview = NULL; __pyx_t_23.data = NULL;
 
-                                    /* "worker_threads_cy.pyx":208
- *                 py_cont_sum = list(cont_sum)
- *                 cont_sum_np = np.array(py_cont_sum, dtype=np.float64)
+      /* "worker_threads_cy.pyx":303
+ *             calc_valid_sum_and_pos_neg(
+ *                 cont_sum_np, valid_sum_arr, &valid_sum_len, &valid_pos_sum, &valid_neg_sum)
+ *             forward_max_result = list(forward_max_result_c)             # <<<<<<<<<<<<<<
+ *             forward_min_result = list(forward_min_result_c)
+ *             n = len(py_cont_sum)
+*/
+      __pyx_t_5 = __pyx_convert_vector_to_py_double(__pyx_v_forward_max_result_c); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 303, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_5);
+      __pyx_t_1 = __Pyx_PySequence_ListKeepNew(__pyx_t_5); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 303, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_1);
+      __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+      __Pyx_XDECREF_SET(__pyx_v_forward_max_result, ((PyObject*)__pyx_t_1));
+      __pyx_t_1 = 0;
+
+      /* "worker_threads_cy.pyx":304
+ *                 cont_sum_np, valid_sum_arr, &valid_sum_len, &valid_pos_sum, &valid_neg_sum)
+ *             forward_max_result = list(forward_max_result_c)
+ *             forward_min_result = list(forward_min_result_c)             # <<<<<<<<<<<<<<
+ *             n = len(py_cont_sum)
+ *             half = int(round(n / 2.0))
+*/
+      __pyx_t_1 = __pyx_convert_vector_to_py_double(__pyx_v_forward_min_result_c); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 304, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_1);
+      __pyx_t_5 = __Pyx_PySequence_ListKeepNew(__pyx_t_1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 304, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_5);
+      __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+      __Pyx_XDECREF_SET(__pyx_v_forward_min_result, ((PyObject*)__pyx_t_5));
+      __pyx_t_5 = 0;
+
+      /* "worker_threads_cy.pyx":305
+ *             forward_max_result = list(forward_max_result_c)
+ *             forward_min_result = list(forward_min_result_c)
+ *             n = len(py_cont_sum)             # <<<<<<<<<<<<<<
+ *             half = int(round(n / 2.0))
+ *             q1 = int(round(n / 4.0))
+*/
+      __pyx_t_31 = __Pyx_PyList_GET_SIZE(__pyx_v_py_cont_sum); if (unlikely(__pyx_t_31 == ((Py_ssize_t)-1))) __PYX_ERR(0, 305, __pyx_L1_error)
+      __pyx_v_n = __pyx_t_31;
+
+      /* "worker_threads_cy.pyx":306
+ *             forward_min_result = list(forward_min_result_c)
+ *             n = len(py_cont_sum)
+ *             half = int(round(n / 2.0))             # <<<<<<<<<<<<<<
+ *             q1 = int(round(n / 4.0))
+ *             q2 = int(round(n / 2.0))
+*/
+      __pyx_v_half = ((int)round((((double)__pyx_v_n) / 2.0)));
+
+      /* "worker_threads_cy.pyx":307
+ *             n = len(py_cont_sum)
+ *             half = int(round(n / 2.0))
+ *             q1 = int(round(n / 4.0))             # <<<<<<<<<<<<<<
+ *             q2 = int(round(n / 2.0))
+ *             q3 = int(round(3 * n / 4.0))
+*/
+      __pyx_v_q1 = ((int)round((((double)__pyx_v_n) / 4.0)));
+
+      /* "worker_threads_cy.pyx":308
+ *             half = int(round(n / 2.0))
+ *             q1 = int(round(n / 4.0))
+ *             q2 = int(round(n / 2.0))             # <<<<<<<<<<<<<<
+ *             q3 = int(round(3 * n / 4.0))
+ *             continuous_abs_sum_first_half = 0
+*/
+      __pyx_v_q2 = ((int)round((((double)__pyx_v_n) / 2.0)));
+
+      /* "worker_threads_cy.pyx":309
+ *             q1 = int(round(n / 4.0))
+ *             q2 = int(round(n / 2.0))
+ *             q3 = int(round(3 * n / 4.0))             # <<<<<<<<<<<<<<
+ *             continuous_abs_sum_first_half = 0
+ *             continuous_abs_sum_second_half = 0
+*/
+      __pyx_v_q3 = ((int)round((((double)(3 * __pyx_v_n)) / 4.0)));
+
+      /* "worker_threads_cy.pyx":310
+ *             q2 = int(round(n / 2.0))
+ *             q3 = int(round(3 * n / 4.0))
+ *             continuous_abs_sum_first_half = 0             # <<<<<<<<<<<<<<
+ *             continuous_abs_sum_second_half = 0
+ *             continuous_abs_sum_block1 = 0
+*/
+      __pyx_v_continuous_abs_sum_first_half = 0.0;
+
+      /* "worker_threads_cy.pyx":311
+ *             q3 = int(round(3 * n / 4.0))
+ *             continuous_abs_sum_first_half = 0
+ *             continuous_abs_sum_second_half = 0             # <<<<<<<<<<<<<<
+ *             continuous_abs_sum_block1 = 0
+ *             continuous_abs_sum_block2 = 0
+*/
+      __pyx_v_continuous_abs_sum_second_half = 0.0;
+
+      /* "worker_threads_cy.pyx":312
+ *             continuous_abs_sum_first_half = 0
+ *             continuous_abs_sum_second_half = 0
+ *             continuous_abs_sum_block1 = 0             # <<<<<<<<<<<<<<
+ *             continuous_abs_sum_block2 = 0
+ *             continuous_abs_sum_block3 = 0
+*/
+      __pyx_v_continuous_abs_sum_block1 = 0.0;
+
+      /* "worker_threads_cy.pyx":313
+ *             continuous_abs_sum_second_half = 0
+ *             continuous_abs_sum_block1 = 0
+ *             continuous_abs_sum_block2 = 0             # <<<<<<<<<<<<<<
+ *             continuous_abs_sum_block3 = 0
+ *             continuous_abs_sum_block4 = 0
+*/
+      __pyx_v_continuous_abs_sum_block2 = 0.0;
+
+      /* "worker_threads_cy.pyx":314
+ *             continuous_abs_sum_block1 = 0
+ *             continuous_abs_sum_block2 = 0
+ *             continuous_abs_sum_block3 = 0             # <<<<<<<<<<<<<<
+ *             continuous_abs_sum_block4 = 0
+ *             for j in range(half):
+*/
+      __pyx_v_continuous_abs_sum_block3 = 0.0;
+
+      /* "worker_threads_cy.pyx":315
+ *             continuous_abs_sum_block2 = 0
+ *             continuous_abs_sum_block3 = 0
+ *             continuous_abs_sum_block4 = 0             # <<<<<<<<<<<<<<
+ *             for j in range(half):
+ *                 continuous_abs_sum_first_half += abs(py_cont_sum[j])
+*/
+      __pyx_v_continuous_abs_sum_block4 = 0.0;
+
+      /* "worker_threads_cy.pyx":316
+ *             continuous_abs_sum_block3 = 0
+ *             continuous_abs_sum_block4 = 0
+ *             for j in range(half):             # <<<<<<<<<<<<<<
+ *                 continuous_abs_sum_first_half += abs(py_cont_sum[j])
+ *             for j in range(half, n):
+*/
+      __pyx_t_16 = __pyx_v_half;
+      __pyx_t_17 = __pyx_t_16;
+      for (__pyx_t_18 = 0; __pyx_t_18 < __pyx_t_17; __pyx_t_18+=1) {
+        __pyx_v_j = __pyx_t_18;
+
+        /* "worker_threads_cy.pyx":317
+ *             continuous_abs_sum_block4 = 0
+ *             for j in range(half):
+ *                 continuous_abs_sum_first_half += abs(py_cont_sum[j])             # <<<<<<<<<<<<<<
+ *             for j in range(half, n):
+ *                 continuous_abs_sum_second_half += abs(py_cont_sum[j])
+*/
+        __pyx_t_5 = PyFloat_FromDouble(__pyx_v_continuous_abs_sum_first_half); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 317, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_5);
+        __pyx_t_1 = __Pyx_PyList_GET_ITEM(__pyx_v_py_cont_sum, __pyx_v_j);
+        __Pyx_INCREF(__pyx_t_1);
+        __pyx_t_8 = __Pyx_PyNumber_Absolute(__pyx_t_1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 317, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_8);
+        __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+        __pyx_t_1 = PyNumber_InPlaceAdd(__pyx_t_5, __pyx_t_8); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 317, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_1);
+        __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+        __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+        __pyx_t_20 = __Pyx_PyFloat_AsDouble(__pyx_t_1); if (unlikely((__pyx_t_20 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 317, __pyx_L1_error)
+        __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+        __pyx_v_continuous_abs_sum_first_half = __pyx_t_20;
+      }
+
+      /* "worker_threads_cy.pyx":318
+ *             for j in range(half):
+ *                 continuous_abs_sum_first_half += abs(py_cont_sum[j])
+ *             for j in range(half, n):             # <<<<<<<<<<<<<<
+ *                 continuous_abs_sum_second_half += abs(py_cont_sum[j])
+ *             for j in range(q1):
+*/
+      __pyx_t_16 = __pyx_v_n;
+      __pyx_t_17 = __pyx_t_16;
+      for (__pyx_t_18 = __pyx_v_half; __pyx_t_18 < __pyx_t_17; __pyx_t_18+=1) {
+        __pyx_v_j = __pyx_t_18;
+
+        /* "worker_threads_cy.pyx":319
+ *                 continuous_abs_sum_first_half += abs(py_cont_sum[j])
+ *             for j in range(half, n):
+ *                 continuous_abs_sum_second_half += abs(py_cont_sum[j])             # <<<<<<<<<<<<<<
+ *             for j in range(q1):
+ *                 continuous_abs_sum_block1 += abs(py_cont_sum[j])
+*/
+        __pyx_t_1 = PyFloat_FromDouble(__pyx_v_continuous_abs_sum_second_half); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 319, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_1);
+        __pyx_t_8 = __Pyx_PyList_GET_ITEM(__pyx_v_py_cont_sum, __pyx_v_j);
+        __Pyx_INCREF(__pyx_t_8);
+        __pyx_t_5 = __Pyx_PyNumber_Absolute(__pyx_t_8); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 319, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_5);
+        __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+        __pyx_t_8 = PyNumber_InPlaceAdd(__pyx_t_1, __pyx_t_5); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 319, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_8);
+        __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+        __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+        __pyx_t_20 = __Pyx_PyFloat_AsDouble(__pyx_t_8); if (unlikely((__pyx_t_20 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 319, __pyx_L1_error)
+        __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+        __pyx_v_continuous_abs_sum_second_half = __pyx_t_20;
+      }
+
+      /* "worker_threads_cy.pyx":320
+ *             for j in range(half, n):
+ *                 continuous_abs_sum_second_half += abs(py_cont_sum[j])
+ *             for j in range(q1):             # <<<<<<<<<<<<<<
+ *                 continuous_abs_sum_block1 += abs(py_cont_sum[j])
+ *             for j in range(q1, q2):
+*/
+      __pyx_t_16 = __pyx_v_q1;
+      __pyx_t_17 = __pyx_t_16;
+      for (__pyx_t_18 = 0; __pyx_t_18 < __pyx_t_17; __pyx_t_18+=1) {
+        __pyx_v_j = __pyx_t_18;
+
+        /* "worker_threads_cy.pyx":321
+ *                 continuous_abs_sum_second_half += abs(py_cont_sum[j])
+ *             for j in range(q1):
+ *                 continuous_abs_sum_block1 += abs(py_cont_sum[j])             # <<<<<<<<<<<<<<
+ *             for j in range(q1, q2):
+ *                 continuous_abs_sum_block2 += abs(py_cont_sum[j])
+*/
+        __pyx_t_8 = PyFloat_FromDouble(__pyx_v_continuous_abs_sum_block1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 321, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_8);
+        __pyx_t_5 = __Pyx_PyList_GET_ITEM(__pyx_v_py_cont_sum, __pyx_v_j);
+        __Pyx_INCREF(__pyx_t_5);
+        __pyx_t_1 = __Pyx_PyNumber_Absolute(__pyx_t_5); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 321, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_1);
+        __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+        __pyx_t_5 = PyNumber_InPlaceAdd(__pyx_t_8, __pyx_t_1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 321, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_5);
+        __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+        __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+        __pyx_t_20 = __Pyx_PyFloat_AsDouble(__pyx_t_5); if (unlikely((__pyx_t_20 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 321, __pyx_L1_error)
+        __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+        __pyx_v_continuous_abs_sum_block1 = __pyx_t_20;
+      }
+
+      /* "worker_threads_cy.pyx":322
+ *             for j in range(q1):
+ *                 continuous_abs_sum_block1 += abs(py_cont_sum[j])
+ *             for j in range(q1, q2):             # <<<<<<<<<<<<<<
+ *                 continuous_abs_sum_block2 += abs(py_cont_sum[j])
+ *             for j in range(q2, q3):
+*/
+      __pyx_t_16 = __pyx_v_q2;
+      __pyx_t_17 = __pyx_t_16;
+      for (__pyx_t_18 = __pyx_v_q1; __pyx_t_18 < __pyx_t_17; __pyx_t_18+=1) {
+        __pyx_v_j = __pyx_t_18;
+
+        /* "worker_threads_cy.pyx":323
+ *                 continuous_abs_sum_block1 += abs(py_cont_sum[j])
+ *             for j in range(q1, q2):
+ *                 continuous_abs_sum_block2 += abs(py_cont_sum[j])             # <<<<<<<<<<<<<<
+ *             for j in range(q2, q3):
+ *                 continuous_abs_sum_block3 += abs(py_cont_sum[j])
+*/
+        __pyx_t_5 = PyFloat_FromDouble(__pyx_v_continuous_abs_sum_block2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 323, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_5);
+        __pyx_t_1 = __Pyx_PyList_GET_ITEM(__pyx_v_py_cont_sum, __pyx_v_j);
+        __Pyx_INCREF(__pyx_t_1);
+        __pyx_t_8 = __Pyx_PyNumber_Absolute(__pyx_t_1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 323, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_8);
+        __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+        __pyx_t_1 = PyNumber_InPlaceAdd(__pyx_t_5, __pyx_t_8); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 323, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_1);
+        __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+        __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+        __pyx_t_20 = __Pyx_PyFloat_AsDouble(__pyx_t_1); if (unlikely((__pyx_t_20 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 323, __pyx_L1_error)
+        __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+        __pyx_v_continuous_abs_sum_block2 = __pyx_t_20;
+      }
+
+      /* "worker_threads_cy.pyx":324
+ *             for j in range(q1, q2):
+ *                 continuous_abs_sum_block2 += abs(py_cont_sum[j])
+ *             for j in range(q2, q3):             # <<<<<<<<<<<<<<
+ *                 continuous_abs_sum_block3 += abs(py_cont_sum[j])
+ *             for j in range(q3, n):
+*/
+      __pyx_t_16 = __pyx_v_q3;
+      __pyx_t_17 = __pyx_t_16;
+      for (__pyx_t_18 = __pyx_v_q2; __pyx_t_18 < __pyx_t_17; __pyx_t_18+=1) {
+        __pyx_v_j = __pyx_t_18;
+
+        /* "worker_threads_cy.pyx":325
+ *                 continuous_abs_sum_block2 += abs(py_cont_sum[j])
+ *             for j in range(q2, q3):
+ *                 continuous_abs_sum_block3 += abs(py_cont_sum[j])             # <<<<<<<<<<<<<<
+ *             for j in range(q3, n):
+ *                 continuous_abs_sum_block4 += abs(py_cont_sum[j])
+*/
+        __pyx_t_1 = PyFloat_FromDouble(__pyx_v_continuous_abs_sum_block3); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 325, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_1);
+        __pyx_t_8 = __Pyx_PyList_GET_ITEM(__pyx_v_py_cont_sum, __pyx_v_j);
+        __Pyx_INCREF(__pyx_t_8);
+        __pyx_t_5 = __Pyx_PyNumber_Absolute(__pyx_t_8); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 325, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_5);
+        __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+        __pyx_t_8 = PyNumber_InPlaceAdd(__pyx_t_1, __pyx_t_5); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 325, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_8);
+        __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+        __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+        __pyx_t_20 = __Pyx_PyFloat_AsDouble(__pyx_t_8); if (unlikely((__pyx_t_20 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 325, __pyx_L1_error)
+        __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+        __pyx_v_continuous_abs_sum_block3 = __pyx_t_20;
+      }
+
+      /* "worker_threads_cy.pyx":326
+ *             for j in range(q2, q3):
+ *                 continuous_abs_sum_block3 += abs(py_cont_sum[j])
+ *             for j in range(q3, n):             # <<<<<<<<<<<<<<
+ *                 continuous_abs_sum_block4 += abs(py_cont_sum[j])
+ *             continuous_abs_sum_first_half = round_to_2(continuous_abs_sum_first_half)
+*/
+      __pyx_t_16 = __pyx_v_n;
+      __pyx_t_17 = __pyx_t_16;
+      for (__pyx_t_18 = __pyx_v_q3; __pyx_t_18 < __pyx_t_17; __pyx_t_18+=1) {
+        __pyx_v_j = __pyx_t_18;
+
+        /* "worker_threads_cy.pyx":327
+ *                 continuous_abs_sum_block3 += abs(py_cont_sum[j])
+ *             for j in range(q3, n):
+ *                 continuous_abs_sum_block4 += abs(py_cont_sum[j])             # <<<<<<<<<<<<<<
+ *             continuous_abs_sum_first_half = round_to_2(continuous_abs_sum_first_half)
+ *             continuous_abs_sum_second_half = round_to_2(continuous_abs_sum_second_half)
+*/
+        __pyx_t_8 = PyFloat_FromDouble(__pyx_v_continuous_abs_sum_block4); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 327, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_8);
+        __pyx_t_5 = __Pyx_PyList_GET_ITEM(__pyx_v_py_cont_sum, __pyx_v_j);
+        __Pyx_INCREF(__pyx_t_5);
+        __pyx_t_1 = __Pyx_PyNumber_Absolute(__pyx_t_5); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 327, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_1);
+        __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+        __pyx_t_5 = PyNumber_InPlaceAdd(__pyx_t_8, __pyx_t_1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 327, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_5);
+        __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+        __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+        __pyx_t_20 = __Pyx_PyFloat_AsDouble(__pyx_t_5); if (unlikely((__pyx_t_20 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 327, __pyx_L1_error)
+        __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+        __pyx_v_continuous_abs_sum_block4 = __pyx_t_20;
+      }
+
+      /* "worker_threads_cy.pyx":328
+ *             for j in range(q3, n):
+ *                 continuous_abs_sum_block4 += abs(py_cont_sum[j])
+ *             continuous_abs_sum_first_half = round_to_2(continuous_abs_sum_first_half)             # <<<<<<<<<<<<<<
+ *             continuous_abs_sum_second_half = round_to_2(continuous_abs_sum_second_half)
+ *             continuous_abs_sum_block1 = round_to_2(continuous_abs_sum_block1)
+*/
+      __pyx_t_20 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_v_continuous_abs_sum_first_half); if (unlikely(__pyx_t_20 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 328, __pyx_L1_error)
+      __pyx_v_continuous_abs_sum_first_half = __pyx_t_20;
+
+      /* "worker_threads_cy.pyx":329
+ *                 continuous_abs_sum_block4 += abs(py_cont_sum[j])
+ *             continuous_abs_sum_first_half = round_to_2(continuous_abs_sum_first_half)
+ *             continuous_abs_sum_second_half = round_to_2(continuous_abs_sum_second_half)             # <<<<<<<<<<<<<<
+ *             continuous_abs_sum_block1 = round_to_2(continuous_abs_sum_block1)
+ *             continuous_abs_sum_block2 = round_to_2(continuous_abs_sum_block2)
+*/
+      __pyx_t_20 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_v_continuous_abs_sum_second_half); if (unlikely(__pyx_t_20 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 329, __pyx_L1_error)
+      __pyx_v_continuous_abs_sum_second_half = __pyx_t_20;
+
+      /* "worker_threads_cy.pyx":330
+ *             continuous_abs_sum_first_half = round_to_2(continuous_abs_sum_first_half)
+ *             continuous_abs_sum_second_half = round_to_2(continuous_abs_sum_second_half)
+ *             continuous_abs_sum_block1 = round_to_2(continuous_abs_sum_block1)             # <<<<<<<<<<<<<<
+ *             continuous_abs_sum_block2 = round_to_2(continuous_abs_sum_block2)
+ *             continuous_abs_sum_block3 = round_to_2(continuous_abs_sum_block3)
+*/
+      __pyx_t_20 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_v_continuous_abs_sum_block1); if (unlikely(__pyx_t_20 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 330, __pyx_L1_error)
+      __pyx_v_continuous_abs_sum_block1 = __pyx_t_20;
+
+      /* "worker_threads_cy.pyx":331
+ *             continuous_abs_sum_second_half = round_to_2(continuous_abs_sum_second_half)
+ *             continuous_abs_sum_block1 = round_to_2(continuous_abs_sum_block1)
+ *             continuous_abs_sum_block2 = round_to_2(continuous_abs_sum_block2)             # <<<<<<<<<<<<<<
+ *             continuous_abs_sum_block3 = round_to_2(continuous_abs_sum_block3)
+ *             continuous_abs_sum_block4 = round_to_2(continuous_abs_sum_block4)
+*/
+      __pyx_t_20 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_v_continuous_abs_sum_block2); if (unlikely(__pyx_t_20 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 331, __pyx_L1_error)
+      __pyx_v_continuous_abs_sum_block2 = __pyx_t_20;
+
+      /* "worker_threads_cy.pyx":332
+ *             continuous_abs_sum_block1 = round_to_2(continuous_abs_sum_block1)
+ *             continuous_abs_sum_block2 = round_to_2(continuous_abs_sum_block2)
+ *             continuous_abs_sum_block3 = round_to_2(continuous_abs_sum_block3)             # <<<<<<<<<<<<<<
+ *             continuous_abs_sum_block4 = round_to_2(continuous_abs_sum_block4)
+ * 
+*/
+      __pyx_t_20 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_v_continuous_abs_sum_block3); if (unlikely(__pyx_t_20 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 332, __pyx_L1_error)
+      __pyx_v_continuous_abs_sum_block3 = __pyx_t_20;
+
+      /* "worker_threads_cy.pyx":333
+ *             continuous_abs_sum_block2 = round_to_2(continuous_abs_sum_block2)
+ *             continuous_abs_sum_block3 = round_to_2(continuous_abs_sum_block3)
+ *             continuous_abs_sum_block4 = round_to_2(continuous_abs_sum_block4)             # <<<<<<<<<<<<<<
+ * 
+ *             #
+*/
+      __pyx_t_20 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_v_continuous_abs_sum_block4); if (unlikely(__pyx_t_20 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 333, __pyx_L1_error)
+      __pyx_v_continuous_abs_sum_block4 = __pyx_t_20;
+
+      /* "worker_threads_cy.pyx":336
+ * 
+ *             #
+ *             if is_forward:             # <<<<<<<<<<<<<<
+ *                 #
+ *                 forward_max_valid_sum_len = len(forward_max_result) if forward_max_result else 0
+*/
+      if (__pyx_v_is_forward) {
+
+        /* "worker_threads_cy.pyx":338
+ *             if is_forward:
+ *                 #
+ *                 forward_max_valid_sum_len = len(forward_max_result) if forward_max_result else 0             # <<<<<<<<<<<<<<
+ *                 if forward_max_valid_sum_len > 0:
+ *                     abs_arr = np.abs(forward_max_result)
+*/
+        __pyx_t_7 = (__Pyx_PyList_GET_SIZE(__pyx_v_forward_max_result) != 0);
+        if (unlikely(((!CYTHON_ASSUME_SAFE_MACROS) && __pyx_t_7 < 0))) __PYX_ERR(0, 338, __pyx_L1_error)
+        if (__pyx_t_7) {
+          __pyx_t_32 = __Pyx_PyList_GET_SIZE(__pyx_v_forward_max_result); if (unlikely(__pyx_t_32 == ((Py_ssize_t)-1))) __PYX_ERR(0, 338, __pyx_L1_error)
+          __pyx_t_31 = __pyx_t_32;
+        } else {
+          __pyx_t_31 = 0;
+        }
+        __pyx_v_forward_max_valid_sum_len = __pyx_t_31;
+
+        /* "worker_threads_cy.pyx":339
+ *                 #
+ *                 forward_max_valid_sum_len = len(forward_max_result) if forward_max_result else 0
+ *                 if forward_max_valid_sum_len > 0:             # <<<<<<<<<<<<<<
+ *                     abs_arr = np.abs(forward_max_result)
+ *                     half = int(round(forward_max_valid_sum_len / 2.0))
+*/
+        __pyx_t_7 = (__pyx_v_forward_max_valid_sum_len > 0);
+        if (__pyx_t_7) {
+
+          /* "worker_threads_cy.pyx":340
+ *                 forward_max_valid_sum_len = len(forward_max_result) if forward_max_result else 0
+ *                 if forward_max_valid_sum_len > 0:
+ *                     abs_arr = np.abs(forward_max_result)             # <<<<<<<<<<<<<<
+ *                     half = int(round(forward_max_valid_sum_len / 2.0))
+ *                     forward_max_valid_abs_sum_first_half = round_to_2(np.sum(abs_arr[:half]))
+*/
+          __pyx_t_1 = NULL;
+          __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 340, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_8);
+          __pyx_t_27 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_abs); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 340, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_27);
+          __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+          __pyx_t_6 = 1;
+          #if CYTHON_UNPACK_METHODS
+          if (unlikely(PyMethod_Check(__pyx_t_27))) {
+            __pyx_t_1 = PyMethod_GET_SELF(__pyx_t_27);
+            assert(__pyx_t_1);
+            PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_27);
+            __Pyx_INCREF(__pyx_t_1);
+            __Pyx_INCREF(__pyx__function);
+            __Pyx_DECREF_SET(__pyx_t_27, __pyx__function);
+            __pyx_t_6 = 0;
+          }
+          #endif
+          {
+            PyObject *__pyx_callargs[2] = {__pyx_t_1, __pyx_v_forward_max_result};
+            __pyx_t_5 = __Pyx_PyObject_FastCall(__pyx_t_27, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+            __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
+            __Pyx_DECREF(__pyx_t_27); __pyx_t_27 = 0;
+            if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 340, __pyx_L1_error)
+            __Pyx_GOTREF(__pyx_t_5);
+          }
+          __Pyx_XDECREF_SET(__pyx_v_abs_arr, __pyx_t_5);
+          __pyx_t_5 = 0;
+
+          /* "worker_threads_cy.pyx":341
+ *                 if forward_max_valid_sum_len > 0:
+ *                     abs_arr = np.abs(forward_max_result)
+ *                     half = int(round(forward_max_valid_sum_len / 2.0))             # <<<<<<<<<<<<<<
+ *                     forward_max_valid_abs_sum_first_half = round_to_2(np.sum(abs_arr[:half]))
+ *                     forward_max_valid_abs_sum_second_half = round_to_2(np.sum(abs_arr[half:]))
+*/
+          __pyx_v_half = ((int)round((((double)__pyx_v_forward_max_valid_sum_len) / 2.0)));
+
+          /* "worker_threads_cy.pyx":342
+ *                     abs_arr = np.abs(forward_max_result)
+ *                     half = int(round(forward_max_valid_sum_len / 2.0))
+ *                     forward_max_valid_abs_sum_first_half = round_to_2(np.sum(abs_arr[:half]))             # <<<<<<<<<<<<<<
+ *                     forward_max_valid_abs_sum_second_half = round_to_2(np.sum(abs_arr[half:]))
+ *                     #
+*/
+          __pyx_t_27 = NULL;
+          __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 342, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_1);
+          __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_sum); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 342, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_8);
+          __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+          __pyx_t_1 = __Pyx_PyObject_GetSlice(__pyx_v_abs_arr, 0, __pyx_v_half, NULL, NULL, NULL, 0, 1, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 342, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_1);
+          __pyx_t_6 = 1;
+          #if CYTHON_UNPACK_METHODS
+          if (unlikely(PyMethod_Check(__pyx_t_8))) {
+            __pyx_t_27 = PyMethod_GET_SELF(__pyx_t_8);
+            assert(__pyx_t_27);
+            PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_8);
+            __Pyx_INCREF(__pyx_t_27);
+            __Pyx_INCREF(__pyx__function);
+            __Pyx_DECREF_SET(__pyx_t_8, __pyx__function);
+            __pyx_t_6 = 0;
+          }
+          #endif
+          {
+            PyObject *__pyx_callargs[2] = {__pyx_t_27, __pyx_t_1};
+            __pyx_t_5 = __Pyx_PyObject_FastCall(__pyx_t_8, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+            __Pyx_XDECREF(__pyx_t_27); __pyx_t_27 = 0;
+            __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+            __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+            if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 342, __pyx_L1_error)
+            __Pyx_GOTREF(__pyx_t_5);
+          }
+          __pyx_t_20 = __Pyx_PyFloat_AsDouble(__pyx_t_5); if (unlikely((__pyx_t_20 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 342, __pyx_L1_error)
+          __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+          __pyx_t_33 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_t_20); if (unlikely(__pyx_t_33 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 342, __pyx_L1_error)
+          __pyx_t_5 = PyFloat_FromDouble(__pyx_t_33); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 342, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_5);
+          __Pyx_XDECREF_SET(__pyx_v_forward_max_valid_abs_sum_first_half, __pyx_t_5);
+          __pyx_t_5 = 0;
+
+          /* "worker_threads_cy.pyx":343
+ *                     half = int(round(forward_max_valid_sum_len / 2.0))
+ *                     forward_max_valid_abs_sum_first_half = round_to_2(np.sum(abs_arr[:half]))
+ *                     forward_max_valid_abs_sum_second_half = round_to_2(np.sum(abs_arr[half:]))             # <<<<<<<<<<<<<<
+ *                     #
+ *                     n = len(abs_arr)
+*/
+          __pyx_t_8 = NULL;
+          __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 343, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_1);
+          __pyx_t_27 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_sum); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 343, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_27);
+          __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+          __pyx_t_1 = __Pyx_PyObject_GetSlice(__pyx_v_abs_arr, __pyx_v_half, 0, NULL, NULL, NULL, 1, 0, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 343, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_1);
+          __pyx_t_6 = 1;
+          #if CYTHON_UNPACK_METHODS
+          if (unlikely(PyMethod_Check(__pyx_t_27))) {
+            __pyx_t_8 = PyMethod_GET_SELF(__pyx_t_27);
+            assert(__pyx_t_8);
+            PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_27);
+            __Pyx_INCREF(__pyx_t_8);
+            __Pyx_INCREF(__pyx__function);
+            __Pyx_DECREF_SET(__pyx_t_27, __pyx__function);
+            __pyx_t_6 = 0;
+          }
+          #endif
+          {
+            PyObject *__pyx_callargs[2] = {__pyx_t_8, __pyx_t_1};
+            __pyx_t_5 = __Pyx_PyObject_FastCall(__pyx_t_27, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+            __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
+            __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+            __Pyx_DECREF(__pyx_t_27); __pyx_t_27 = 0;
+            if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 343, __pyx_L1_error)
+            __Pyx_GOTREF(__pyx_t_5);
+          }
+          __pyx_t_33 = __Pyx_PyFloat_AsDouble(__pyx_t_5); if (unlikely((__pyx_t_33 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 343, __pyx_L1_error)
+          __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+          __pyx_t_20 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_t_33); if (unlikely(__pyx_t_20 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 343, __pyx_L1_error)
+          __pyx_t_5 = PyFloat_FromDouble(__pyx_t_20); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 343, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_5);
+          __Pyx_XDECREF_SET(__pyx_v_forward_max_valid_abs_sum_second_half, __pyx_t_5);
+          __pyx_t_5 = 0;
+
+          /* "worker_threads_cy.pyx":345
+ *                     forward_max_valid_abs_sum_second_half = round_to_2(np.sum(abs_arr[half:]))
+ *                     #
+ *                     n = len(abs_arr)             # <<<<<<<<<<<<<<
+ *                     q1 = int(round(n / 4.0))
+ *                     q2 = int(round(n / 2.0))
+*/
+          __pyx_t_31 = PyObject_Length(__pyx_v_abs_arr); if (unlikely(__pyx_t_31 == ((Py_ssize_t)-1))) __PYX_ERR(0, 345, __pyx_L1_error)
+          __pyx_v_n = __pyx_t_31;
+
+          /* "worker_threads_cy.pyx":346
+ *                     #
+ *                     n = len(abs_arr)
+ *                     q1 = int(round(n / 4.0))             # <<<<<<<<<<<<<<
+ *                     q2 = int(round(n / 2.0))
+ *                     q3 = int(round(3 * n / 4.0))
+*/
+          __pyx_v_q1 = ((int)round((((double)__pyx_v_n) / 4.0)));
+
+          /* "worker_threads_cy.pyx":347
+ *                     n = len(abs_arr)
+ *                     q1 = int(round(n / 4.0))
+ *                     q2 = int(round(n / 2.0))             # <<<<<<<<<<<<<<
+ *                     q3 = int(round(3 * n / 4.0))
+ *                     forward_max_valid_abs_sum_block1 = round_to_2(np.sum(abs_arr[:q1]))
+*/
+          __pyx_v_q2 = ((int)round((((double)__pyx_v_n) / 2.0)));
+
+          /* "worker_threads_cy.pyx":348
+ *                     q1 = int(round(n / 4.0))
+ *                     q2 = int(round(n / 2.0))
+ *                     q3 = int(round(3 * n / 4.0))             # <<<<<<<<<<<<<<
+ *                     forward_max_valid_abs_sum_block1 = round_to_2(np.sum(abs_arr[:q1]))
+ *                     forward_max_valid_abs_sum_block2 = round_to_2(np.sum(abs_arr[q1:q2]))
+*/
+          __pyx_v_q3 = ((int)round((((double)(3 * __pyx_v_n)) / 4.0)));
+
+          /* "worker_threads_cy.pyx":349
+ *                     q2 = int(round(n / 2.0))
+ *                     q3 = int(round(3 * n / 4.0))
+ *                     forward_max_valid_abs_sum_block1 = round_to_2(np.sum(abs_arr[:q1]))             # <<<<<<<<<<<<<<
+ *                     forward_max_valid_abs_sum_block2 = round_to_2(np.sum(abs_arr[q1:q2]))
+ *                     forward_max_valid_abs_sum_block3 = round_to_2(np.sum(abs_arr[q2:q3]))
+*/
+          __pyx_t_27 = NULL;
+          __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 349, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_1);
+          __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_sum); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 349, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_8);
+          __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+          __pyx_t_1 = __Pyx_PyObject_GetSlice(__pyx_v_abs_arr, 0, __pyx_v_q1, NULL, NULL, NULL, 0, 1, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 349, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_1);
+          __pyx_t_6 = 1;
+          #if CYTHON_UNPACK_METHODS
+          if (unlikely(PyMethod_Check(__pyx_t_8))) {
+            __pyx_t_27 = PyMethod_GET_SELF(__pyx_t_8);
+            assert(__pyx_t_27);
+            PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_8);
+            __Pyx_INCREF(__pyx_t_27);
+            __Pyx_INCREF(__pyx__function);
+            __Pyx_DECREF_SET(__pyx_t_8, __pyx__function);
+            __pyx_t_6 = 0;
+          }
+          #endif
+          {
+            PyObject *__pyx_callargs[2] = {__pyx_t_27, __pyx_t_1};
+            __pyx_t_5 = __Pyx_PyObject_FastCall(__pyx_t_8, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+            __Pyx_XDECREF(__pyx_t_27); __pyx_t_27 = 0;
+            __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+            __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+            if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 349, __pyx_L1_error)
+            __Pyx_GOTREF(__pyx_t_5);
+          }
+          __pyx_t_20 = __Pyx_PyFloat_AsDouble(__pyx_t_5); if (unlikely((__pyx_t_20 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 349, __pyx_L1_error)
+          __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+          __pyx_t_33 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_t_20); if (unlikely(__pyx_t_33 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 349, __pyx_L1_error)
+          __pyx_t_5 = PyFloat_FromDouble(__pyx_t_33); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 349, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_5);
+          __Pyx_XDECREF_SET(__pyx_v_forward_max_valid_abs_sum_block1, __pyx_t_5);
+          __pyx_t_5 = 0;
+
+          /* "worker_threads_cy.pyx":350
+ *                     q3 = int(round(3 * n / 4.0))
+ *                     forward_max_valid_abs_sum_block1 = round_to_2(np.sum(abs_arr[:q1]))
+ *                     forward_max_valid_abs_sum_block2 = round_to_2(np.sum(abs_arr[q1:q2]))             # <<<<<<<<<<<<<<
+ *                     forward_max_valid_abs_sum_block3 = round_to_2(np.sum(abs_arr[q2:q3]))
+ *                     forward_max_valid_abs_sum_block4 = round_to_2(np.sum(abs_arr[q3:]))
+*/
+          __pyx_t_8 = NULL;
+          __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 350, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_1);
+          __pyx_t_27 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_sum); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 350, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_27);
+          __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+          __pyx_t_1 = __Pyx_PyObject_GetSlice(__pyx_v_abs_arr, __pyx_v_q1, __pyx_v_q2, NULL, NULL, NULL, 1, 1, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 350, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_1);
+          __pyx_t_6 = 1;
+          #if CYTHON_UNPACK_METHODS
+          if (unlikely(PyMethod_Check(__pyx_t_27))) {
+            __pyx_t_8 = PyMethod_GET_SELF(__pyx_t_27);
+            assert(__pyx_t_8);
+            PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_27);
+            __Pyx_INCREF(__pyx_t_8);
+            __Pyx_INCREF(__pyx__function);
+            __Pyx_DECREF_SET(__pyx_t_27, __pyx__function);
+            __pyx_t_6 = 0;
+          }
+          #endif
+          {
+            PyObject *__pyx_callargs[2] = {__pyx_t_8, __pyx_t_1};
+            __pyx_t_5 = __Pyx_PyObject_FastCall(__pyx_t_27, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+            __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
+            __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+            __Pyx_DECREF(__pyx_t_27); __pyx_t_27 = 0;
+            if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 350, __pyx_L1_error)
+            __Pyx_GOTREF(__pyx_t_5);
+          }
+          __pyx_t_33 = __Pyx_PyFloat_AsDouble(__pyx_t_5); if (unlikely((__pyx_t_33 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 350, __pyx_L1_error)
+          __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+          __pyx_t_20 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_t_33); if (unlikely(__pyx_t_20 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 350, __pyx_L1_error)
+          __pyx_t_5 = PyFloat_FromDouble(__pyx_t_20); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 350, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_5);
+          __Pyx_XDECREF_SET(__pyx_v_forward_max_valid_abs_sum_block2, __pyx_t_5);
+          __pyx_t_5 = 0;
+
+          /* "worker_threads_cy.pyx":351
+ *                     forward_max_valid_abs_sum_block1 = round_to_2(np.sum(abs_arr[:q1]))
+ *                     forward_max_valid_abs_sum_block2 = round_to_2(np.sum(abs_arr[q1:q2]))
+ *                     forward_max_valid_abs_sum_block3 = round_to_2(np.sum(abs_arr[q2:q3]))             # <<<<<<<<<<<<<<
+ *                     forward_max_valid_abs_sum_block4 = round_to_2(np.sum(abs_arr[q3:]))
+ *                 else:
+*/
+          __pyx_t_27 = NULL;
+          __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 351, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_1);
+          __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_sum); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 351, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_8);
+          __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+          __pyx_t_1 = __Pyx_PyObject_GetSlice(__pyx_v_abs_arr, __pyx_v_q2, __pyx_v_q3, NULL, NULL, NULL, 1, 1, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 351, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_1);
+          __pyx_t_6 = 1;
+          #if CYTHON_UNPACK_METHODS
+          if (unlikely(PyMethod_Check(__pyx_t_8))) {
+            __pyx_t_27 = PyMethod_GET_SELF(__pyx_t_8);
+            assert(__pyx_t_27);
+            PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_8);
+            __Pyx_INCREF(__pyx_t_27);
+            __Pyx_INCREF(__pyx__function);
+            __Pyx_DECREF_SET(__pyx_t_8, __pyx__function);
+            __pyx_t_6 = 0;
+          }
+          #endif
+          {
+            PyObject *__pyx_callargs[2] = {__pyx_t_27, __pyx_t_1};
+            __pyx_t_5 = __Pyx_PyObject_FastCall(__pyx_t_8, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+            __Pyx_XDECREF(__pyx_t_27); __pyx_t_27 = 0;
+            __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+            __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+            if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 351, __pyx_L1_error)
+            __Pyx_GOTREF(__pyx_t_5);
+          }
+          __pyx_t_20 = __Pyx_PyFloat_AsDouble(__pyx_t_5); if (unlikely((__pyx_t_20 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 351, __pyx_L1_error)
+          __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+          __pyx_t_33 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_t_20); if (unlikely(__pyx_t_33 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 351, __pyx_L1_error)
+          __pyx_t_5 = PyFloat_FromDouble(__pyx_t_33); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 351, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_5);
+          __Pyx_XDECREF_SET(__pyx_v_forward_max_valid_abs_sum_block3, __pyx_t_5);
+          __pyx_t_5 = 0;
+
+          /* "worker_threads_cy.pyx":352
+ *                     forward_max_valid_abs_sum_block2 = round_to_2(np.sum(abs_arr[q1:q2]))
+ *                     forward_max_valid_abs_sum_block3 = round_to_2(np.sum(abs_arr[q2:q3]))
+ *                     forward_max_valid_abs_sum_block4 = round_to_2(np.sum(abs_arr[q3:]))             # <<<<<<<<<<<<<<
+ *                 else:
+ *                     forward_max_valid_abs_sum_first_half = 0
+*/
+          __pyx_t_8 = NULL;
+          __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 352, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_1);
+          __pyx_t_27 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_sum); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 352, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_27);
+          __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+          __pyx_t_1 = __Pyx_PyObject_GetSlice(__pyx_v_abs_arr, __pyx_v_q3, 0, NULL, NULL, NULL, 1, 0, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 352, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_1);
+          __pyx_t_6 = 1;
+          #if CYTHON_UNPACK_METHODS
+          if (unlikely(PyMethod_Check(__pyx_t_27))) {
+            __pyx_t_8 = PyMethod_GET_SELF(__pyx_t_27);
+            assert(__pyx_t_8);
+            PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_27);
+            __Pyx_INCREF(__pyx_t_8);
+            __Pyx_INCREF(__pyx__function);
+            __Pyx_DECREF_SET(__pyx_t_27, __pyx__function);
+            __pyx_t_6 = 0;
+          }
+          #endif
+          {
+            PyObject *__pyx_callargs[2] = {__pyx_t_8, __pyx_t_1};
+            __pyx_t_5 = __Pyx_PyObject_FastCall(__pyx_t_27, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+            __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
+            __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+            __Pyx_DECREF(__pyx_t_27); __pyx_t_27 = 0;
+            if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 352, __pyx_L1_error)
+            __Pyx_GOTREF(__pyx_t_5);
+          }
+          __pyx_t_33 = __Pyx_PyFloat_AsDouble(__pyx_t_5); if (unlikely((__pyx_t_33 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 352, __pyx_L1_error)
+          __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+          __pyx_t_20 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_t_33); if (unlikely(__pyx_t_20 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 352, __pyx_L1_error)
+          __pyx_t_5 = PyFloat_FromDouble(__pyx_t_20); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 352, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_5);
+          __Pyx_XDECREF_SET(__pyx_v_forward_max_valid_abs_sum_block4, __pyx_t_5);
+          __pyx_t_5 = 0;
+
+          /* "worker_threads_cy.pyx":339
+ *                 #
+ *                 forward_max_valid_sum_len = len(forward_max_result) if forward_max_result else 0
+ *                 if forward_max_valid_sum_len > 0:             # <<<<<<<<<<<<<<
+ *                     abs_arr = np.abs(forward_max_result)
+ *                     half = int(round(forward_max_valid_sum_len / 2.0))
+*/
+          goto __pyx_L80;
+        }
+
+        /* "worker_threads_cy.pyx":354
+ *                     forward_max_valid_abs_sum_block4 = round_to_2(np.sum(abs_arr[q3:]))
+ *                 else:
+ *                     forward_max_valid_abs_sum_first_half = 0             # <<<<<<<<<<<<<<
+ *                     forward_max_valid_abs_sum_second_half = 0
+ *                     forward_max_valid_abs_sum_block1 = 0
+*/
+        /*else*/ {
+          __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
+          __Pyx_XDECREF_SET(__pyx_v_forward_max_valid_abs_sum_first_half, __pyx_mstate_global->__pyx_int_0);
+
+          /* "worker_threads_cy.pyx":355
+ *                 else:
+ *                     forward_max_valid_abs_sum_first_half = 0
+ *                     forward_max_valid_abs_sum_second_half = 0             # <<<<<<<<<<<<<<
+ *                     forward_max_valid_abs_sum_block1 = 0
+ *                     forward_max_valid_abs_sum_block2 = 0
+*/
+          __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
+          __Pyx_XDECREF_SET(__pyx_v_forward_max_valid_abs_sum_second_half, __pyx_mstate_global->__pyx_int_0);
+
+          /* "worker_threads_cy.pyx":356
+ *                     forward_max_valid_abs_sum_first_half = 0
+ *                     forward_max_valid_abs_sum_second_half = 0
+ *                     forward_max_valid_abs_sum_block1 = 0             # <<<<<<<<<<<<<<
+ *                     forward_max_valid_abs_sum_block2 = 0
+ *                     forward_max_valid_abs_sum_block3 = 0
+*/
+          __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
+          __Pyx_XDECREF_SET(__pyx_v_forward_max_valid_abs_sum_block1, __pyx_mstate_global->__pyx_int_0);
+
+          /* "worker_threads_cy.pyx":357
+ *                     forward_max_valid_abs_sum_second_half = 0
+ *                     forward_max_valid_abs_sum_block1 = 0
+ *                     forward_max_valid_abs_sum_block2 = 0             # <<<<<<<<<<<<<<
+ *                     forward_max_valid_abs_sum_block3 = 0
+ *                     forward_max_valid_abs_sum_block4 = 0
+*/
+          __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
+          __Pyx_XDECREF_SET(__pyx_v_forward_max_valid_abs_sum_block2, __pyx_mstate_global->__pyx_int_0);
+
+          /* "worker_threads_cy.pyx":358
+ *                     forward_max_valid_abs_sum_block1 = 0
+ *                     forward_max_valid_abs_sum_block2 = 0
+ *                     forward_max_valid_abs_sum_block3 = 0             # <<<<<<<<<<<<<<
+ *                     forward_max_valid_abs_sum_block4 = 0
+ * 
+*/
+          __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
+          __Pyx_XDECREF_SET(__pyx_v_forward_max_valid_abs_sum_block3, __pyx_mstate_global->__pyx_int_0);
+
+          /* "worker_threads_cy.pyx":359
+ *                     forward_max_valid_abs_sum_block2 = 0
+ *                     forward_max_valid_abs_sum_block3 = 0
+ *                     forward_max_valid_abs_sum_block4 = 0             # <<<<<<<<<<<<<<
+ * 
+ *                 #
+*/
+          __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
+          __Pyx_XDECREF_SET(__pyx_v_forward_max_valid_abs_sum_block4, __pyx_mstate_global->__pyx_int_0);
+        }
+        __pyx_L80:;
+
+        /* "worker_threads_cy.pyx":362
+ * 
+ *                 #
+ *                 forward_min_valid_sum_len = len(forward_min_result) if forward_min_result else 0             # <<<<<<<<<<<<<<
+ *                 if forward_min_valid_sum_len > 0:
+ *                     abs_arr = np.abs(forward_min_result)
+*/
+        __pyx_t_7 = (__Pyx_PyList_GET_SIZE(__pyx_v_forward_min_result) != 0);
+        if (unlikely(((!CYTHON_ASSUME_SAFE_MACROS) && __pyx_t_7 < 0))) __PYX_ERR(0, 362, __pyx_L1_error)
+        if (__pyx_t_7) {
+          __pyx_t_32 = __Pyx_PyList_GET_SIZE(__pyx_v_forward_min_result); if (unlikely(__pyx_t_32 == ((Py_ssize_t)-1))) __PYX_ERR(0, 362, __pyx_L1_error)
+          __pyx_t_31 = __pyx_t_32;
+        } else {
+          __pyx_t_31 = 0;
+        }
+        __pyx_v_forward_min_valid_sum_len = __pyx_t_31;
+
+        /* "worker_threads_cy.pyx":363
+ *                 #
+ *                 forward_min_valid_sum_len = len(forward_min_result) if forward_min_result else 0
+ *                 if forward_min_valid_sum_len > 0:             # <<<<<<<<<<<<<<
+ *                     abs_arr = np.abs(forward_min_result)
+ *                     half = int(round(forward_min_valid_sum_len / 2.0))
+*/
+        __pyx_t_7 = (__pyx_v_forward_min_valid_sum_len > 0);
+        if (__pyx_t_7) {
+
+          /* "worker_threads_cy.pyx":364
+ *                 forward_min_valid_sum_len = len(forward_min_result) if forward_min_result else 0
+ *                 if forward_min_valid_sum_len > 0:
+ *                     abs_arr = np.abs(forward_min_result)             # <<<<<<<<<<<<<<
+ *                     half = int(round(forward_min_valid_sum_len / 2.0))
+ *                     forward_min_valid_abs_sum_first_half = round_to_2(np.sum(abs_arr[:half]))
+*/
+          __pyx_t_27 = NULL;
+          __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 364, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_1);
+          __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_abs); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 364, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_8);
+          __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+          __pyx_t_6 = 1;
+          #if CYTHON_UNPACK_METHODS
+          if (unlikely(PyMethod_Check(__pyx_t_8))) {
+            __pyx_t_27 = PyMethod_GET_SELF(__pyx_t_8);
+            assert(__pyx_t_27);
+            PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_8);
+            __Pyx_INCREF(__pyx_t_27);
+            __Pyx_INCREF(__pyx__function);
+            __Pyx_DECREF_SET(__pyx_t_8, __pyx__function);
+            __pyx_t_6 = 0;
+          }
+          #endif
+          {
+            PyObject *__pyx_callargs[2] = {__pyx_t_27, __pyx_v_forward_min_result};
+            __pyx_t_5 = __Pyx_PyObject_FastCall(__pyx_t_8, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+            __Pyx_XDECREF(__pyx_t_27); __pyx_t_27 = 0;
+            __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+            if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 364, __pyx_L1_error)
+            __Pyx_GOTREF(__pyx_t_5);
+          }
+          __Pyx_XDECREF_SET(__pyx_v_abs_arr, __pyx_t_5);
+          __pyx_t_5 = 0;
+
+          /* "worker_threads_cy.pyx":365
+ *                 if forward_min_valid_sum_len > 0:
+ *                     abs_arr = np.abs(forward_min_result)
+ *                     half = int(round(forward_min_valid_sum_len / 2.0))             # <<<<<<<<<<<<<<
+ *                     forward_min_valid_abs_sum_first_half = round_to_2(np.sum(abs_arr[:half]))
+ *                     forward_min_valid_abs_sum_second_half = round_to_2(np.sum(abs_arr[half:]))
+*/
+          __pyx_v_half = ((int)round((((double)__pyx_v_forward_min_valid_sum_len) / 2.0)));
+
+          /* "worker_threads_cy.pyx":366
+ *                     abs_arr = np.abs(forward_min_result)
+ *                     half = int(round(forward_min_valid_sum_len / 2.0))
+ *                     forward_min_valid_abs_sum_first_half = round_to_2(np.sum(abs_arr[:half]))             # <<<<<<<<<<<<<<
+ *                     forward_min_valid_abs_sum_second_half = round_to_2(np.sum(abs_arr[half:]))
+ *                     #
+*/
+          __pyx_t_8 = NULL;
+          __Pyx_GetModuleGlobalName(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 366, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_27);
+          __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_sum); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 366, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_1);
+          __Pyx_DECREF(__pyx_t_27); __pyx_t_27 = 0;
+          __pyx_t_27 = __Pyx_PyObject_GetSlice(__pyx_v_abs_arr, 0, __pyx_v_half, NULL, NULL, NULL, 0, 1, 0); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 366, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_27);
+          __pyx_t_6 = 1;
+          #if CYTHON_UNPACK_METHODS
+          if (unlikely(PyMethod_Check(__pyx_t_1))) {
+            __pyx_t_8 = PyMethod_GET_SELF(__pyx_t_1);
+            assert(__pyx_t_8);
+            PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_1);
+            __Pyx_INCREF(__pyx_t_8);
+            __Pyx_INCREF(__pyx__function);
+            __Pyx_DECREF_SET(__pyx_t_1, __pyx__function);
+            __pyx_t_6 = 0;
+          }
+          #endif
+          {
+            PyObject *__pyx_callargs[2] = {__pyx_t_8, __pyx_t_27};
+            __pyx_t_5 = __Pyx_PyObject_FastCall(__pyx_t_1, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+            __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
+            __Pyx_DECREF(__pyx_t_27); __pyx_t_27 = 0;
+            __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+            if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 366, __pyx_L1_error)
+            __Pyx_GOTREF(__pyx_t_5);
+          }
+          __pyx_t_20 = __Pyx_PyFloat_AsDouble(__pyx_t_5); if (unlikely((__pyx_t_20 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 366, __pyx_L1_error)
+          __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+          __pyx_t_33 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_t_20); if (unlikely(__pyx_t_33 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 366, __pyx_L1_error)
+          __pyx_t_5 = PyFloat_FromDouble(__pyx_t_33); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 366, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_5);
+          __Pyx_XDECREF_SET(__pyx_v_forward_min_valid_abs_sum_first_half, __pyx_t_5);
+          __pyx_t_5 = 0;
+
+          /* "worker_threads_cy.pyx":367
+ *                     half = int(round(forward_min_valid_sum_len / 2.0))
+ *                     forward_min_valid_abs_sum_first_half = round_to_2(np.sum(abs_arr[:half]))
+ *                     forward_min_valid_abs_sum_second_half = round_to_2(np.sum(abs_arr[half:]))             # <<<<<<<<<<<<<<
+ *                     #
+ *                     n = len(abs_arr)
+*/
+          __pyx_t_1 = NULL;
+          __Pyx_GetModuleGlobalName(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 367, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_27);
+          __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_sum); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 367, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_8);
+          __Pyx_DECREF(__pyx_t_27); __pyx_t_27 = 0;
+          __pyx_t_27 = __Pyx_PyObject_GetSlice(__pyx_v_abs_arr, __pyx_v_half, 0, NULL, NULL, NULL, 1, 0, 0); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 367, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_27);
+          __pyx_t_6 = 1;
+          #if CYTHON_UNPACK_METHODS
+          if (unlikely(PyMethod_Check(__pyx_t_8))) {
+            __pyx_t_1 = PyMethod_GET_SELF(__pyx_t_8);
+            assert(__pyx_t_1);
+            PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_8);
+            __Pyx_INCREF(__pyx_t_1);
+            __Pyx_INCREF(__pyx__function);
+            __Pyx_DECREF_SET(__pyx_t_8, __pyx__function);
+            __pyx_t_6 = 0;
+          }
+          #endif
+          {
+            PyObject *__pyx_callargs[2] = {__pyx_t_1, __pyx_t_27};
+            __pyx_t_5 = __Pyx_PyObject_FastCall(__pyx_t_8, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+            __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
+            __Pyx_DECREF(__pyx_t_27); __pyx_t_27 = 0;
+            __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+            if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 367, __pyx_L1_error)
+            __Pyx_GOTREF(__pyx_t_5);
+          }
+          __pyx_t_33 = __Pyx_PyFloat_AsDouble(__pyx_t_5); if (unlikely((__pyx_t_33 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 367, __pyx_L1_error)
+          __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+          __pyx_t_20 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_t_33); if (unlikely(__pyx_t_20 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 367, __pyx_L1_error)
+          __pyx_t_5 = PyFloat_FromDouble(__pyx_t_20); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 367, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_5);
+          __Pyx_XDECREF_SET(__pyx_v_forward_min_valid_abs_sum_second_half, __pyx_t_5);
+          __pyx_t_5 = 0;
+
+          /* "worker_threads_cy.pyx":369
+ *                     forward_min_valid_abs_sum_second_half = round_to_2(np.sum(abs_arr[half:]))
+ *                     #
+ *                     n = len(abs_arr)             # <<<<<<<<<<<<<<
+ *                     q1 = int(round(n / 4.0))
+ *                     q2 = int(round(n / 2.0))
+*/
+          __pyx_t_31 = PyObject_Length(__pyx_v_abs_arr); if (unlikely(__pyx_t_31 == ((Py_ssize_t)-1))) __PYX_ERR(0, 369, __pyx_L1_error)
+          __pyx_v_n = __pyx_t_31;
+
+          /* "worker_threads_cy.pyx":370
+ *                     #
+ *                     n = len(abs_arr)
+ *                     q1 = int(round(n / 4.0))             # <<<<<<<<<<<<<<
+ *                     q2 = int(round(n / 2.0))
+ *                     q3 = int(round(3 * n / 4.0))
+*/
+          __pyx_v_q1 = ((int)round((((double)__pyx_v_n) / 4.0)));
+
+          /* "worker_threads_cy.pyx":371
+ *                     n = len(abs_arr)
+ *                     q1 = int(round(n / 4.0))
+ *                     q2 = int(round(n / 2.0))             # <<<<<<<<<<<<<<
+ *                     q3 = int(round(3 * n / 4.0))
+ *                     forward_min_valid_abs_sum_block1 = round_to_2(np.sum(abs_arr[:q1]))
+*/
+          __pyx_v_q2 = ((int)round((((double)__pyx_v_n) / 2.0)));
+
+          /* "worker_threads_cy.pyx":372
+ *                     q1 = int(round(n / 4.0))
+ *                     q2 = int(round(n / 2.0))
+ *                     q3 = int(round(3 * n / 4.0))             # <<<<<<<<<<<<<<
+ *                     forward_min_valid_abs_sum_block1 = round_to_2(np.sum(abs_arr[:q1]))
+ *                     forward_min_valid_abs_sum_block2 = round_to_2(np.sum(abs_arr[q1:q2]))
+*/
+          __pyx_v_q3 = ((int)round((((double)(3 * __pyx_v_n)) / 4.0)));
+
+          /* "worker_threads_cy.pyx":373
+ *                     q2 = int(round(n / 2.0))
+ *                     q3 = int(round(3 * n / 4.0))
+ *                     forward_min_valid_abs_sum_block1 = round_to_2(np.sum(abs_arr[:q1]))             # <<<<<<<<<<<<<<
+ *                     forward_min_valid_abs_sum_block2 = round_to_2(np.sum(abs_arr[q1:q2]))
+ *                     forward_min_valid_abs_sum_block3 = round_to_2(np.sum(abs_arr[q2:q3]))
+*/
+          __pyx_t_8 = NULL;
+          __Pyx_GetModuleGlobalName(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 373, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_27);
+          __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_sum); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 373, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_1);
+          __Pyx_DECREF(__pyx_t_27); __pyx_t_27 = 0;
+          __pyx_t_27 = __Pyx_PyObject_GetSlice(__pyx_v_abs_arr, 0, __pyx_v_q1, NULL, NULL, NULL, 0, 1, 0); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 373, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_27);
+          __pyx_t_6 = 1;
+          #if CYTHON_UNPACK_METHODS
+          if (unlikely(PyMethod_Check(__pyx_t_1))) {
+            __pyx_t_8 = PyMethod_GET_SELF(__pyx_t_1);
+            assert(__pyx_t_8);
+            PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_1);
+            __Pyx_INCREF(__pyx_t_8);
+            __Pyx_INCREF(__pyx__function);
+            __Pyx_DECREF_SET(__pyx_t_1, __pyx__function);
+            __pyx_t_6 = 0;
+          }
+          #endif
+          {
+            PyObject *__pyx_callargs[2] = {__pyx_t_8, __pyx_t_27};
+            __pyx_t_5 = __Pyx_PyObject_FastCall(__pyx_t_1, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+            __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
+            __Pyx_DECREF(__pyx_t_27); __pyx_t_27 = 0;
+            __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+            if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 373, __pyx_L1_error)
+            __Pyx_GOTREF(__pyx_t_5);
+          }
+          __pyx_t_20 = __Pyx_PyFloat_AsDouble(__pyx_t_5); if (unlikely((__pyx_t_20 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 373, __pyx_L1_error)
+          __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+          __pyx_t_33 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_t_20); if (unlikely(__pyx_t_33 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 373, __pyx_L1_error)
+          __pyx_t_5 = PyFloat_FromDouble(__pyx_t_33); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 373, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_5);
+          __Pyx_XDECREF_SET(__pyx_v_forward_min_valid_abs_sum_block1, __pyx_t_5);
+          __pyx_t_5 = 0;
+
+          /* "worker_threads_cy.pyx":374
+ *                     q3 = int(round(3 * n / 4.0))
+ *                     forward_min_valid_abs_sum_block1 = round_to_2(np.sum(abs_arr[:q1]))
+ *                     forward_min_valid_abs_sum_block2 = round_to_2(np.sum(abs_arr[q1:q2]))             # <<<<<<<<<<<<<<
+ *                     forward_min_valid_abs_sum_block3 = round_to_2(np.sum(abs_arr[q2:q3]))
+ *                     forward_min_valid_abs_sum_block4 = round_to_2(np.sum(abs_arr[q3:]))
+*/
+          __pyx_t_1 = NULL;
+          __Pyx_GetModuleGlobalName(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 374, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_27);
+          __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_sum); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 374, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_8);
+          __Pyx_DECREF(__pyx_t_27); __pyx_t_27 = 0;
+          __pyx_t_27 = __Pyx_PyObject_GetSlice(__pyx_v_abs_arr, __pyx_v_q1, __pyx_v_q2, NULL, NULL, NULL, 1, 1, 0); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 374, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_27);
+          __pyx_t_6 = 1;
+          #if CYTHON_UNPACK_METHODS
+          if (unlikely(PyMethod_Check(__pyx_t_8))) {
+            __pyx_t_1 = PyMethod_GET_SELF(__pyx_t_8);
+            assert(__pyx_t_1);
+            PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_8);
+            __Pyx_INCREF(__pyx_t_1);
+            __Pyx_INCREF(__pyx__function);
+            __Pyx_DECREF_SET(__pyx_t_8, __pyx__function);
+            __pyx_t_6 = 0;
+          }
+          #endif
+          {
+            PyObject *__pyx_callargs[2] = {__pyx_t_1, __pyx_t_27};
+            __pyx_t_5 = __Pyx_PyObject_FastCall(__pyx_t_8, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+            __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
+            __Pyx_DECREF(__pyx_t_27); __pyx_t_27 = 0;
+            __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+            if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 374, __pyx_L1_error)
+            __Pyx_GOTREF(__pyx_t_5);
+          }
+          __pyx_t_33 = __Pyx_PyFloat_AsDouble(__pyx_t_5); if (unlikely((__pyx_t_33 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 374, __pyx_L1_error)
+          __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+          __pyx_t_20 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_t_33); if (unlikely(__pyx_t_20 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 374, __pyx_L1_error)
+          __pyx_t_5 = PyFloat_FromDouble(__pyx_t_20); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 374, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_5);
+          __Pyx_XDECREF_SET(__pyx_v_forward_min_valid_abs_sum_block2, __pyx_t_5);
+          __pyx_t_5 = 0;
+
+          /* "worker_threads_cy.pyx":375
+ *                     forward_min_valid_abs_sum_block1 = round_to_2(np.sum(abs_arr[:q1]))
+ *                     forward_min_valid_abs_sum_block2 = round_to_2(np.sum(abs_arr[q1:q2]))
+ *                     forward_min_valid_abs_sum_block3 = round_to_2(np.sum(abs_arr[q2:q3]))             # <<<<<<<<<<<<<<
+ *                     forward_min_valid_abs_sum_block4 = round_to_2(np.sum(abs_arr[q3:]))
+ *                 else:
+*/
+          __pyx_t_8 = NULL;
+          __Pyx_GetModuleGlobalName(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 375, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_27);
+          __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_sum); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 375, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_1);
+          __Pyx_DECREF(__pyx_t_27); __pyx_t_27 = 0;
+          __pyx_t_27 = __Pyx_PyObject_GetSlice(__pyx_v_abs_arr, __pyx_v_q2, __pyx_v_q3, NULL, NULL, NULL, 1, 1, 0); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 375, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_27);
+          __pyx_t_6 = 1;
+          #if CYTHON_UNPACK_METHODS
+          if (unlikely(PyMethod_Check(__pyx_t_1))) {
+            __pyx_t_8 = PyMethod_GET_SELF(__pyx_t_1);
+            assert(__pyx_t_8);
+            PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_1);
+            __Pyx_INCREF(__pyx_t_8);
+            __Pyx_INCREF(__pyx__function);
+            __Pyx_DECREF_SET(__pyx_t_1, __pyx__function);
+            __pyx_t_6 = 0;
+          }
+          #endif
+          {
+            PyObject *__pyx_callargs[2] = {__pyx_t_8, __pyx_t_27};
+            __pyx_t_5 = __Pyx_PyObject_FastCall(__pyx_t_1, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+            __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
+            __Pyx_DECREF(__pyx_t_27); __pyx_t_27 = 0;
+            __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+            if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 375, __pyx_L1_error)
+            __Pyx_GOTREF(__pyx_t_5);
+          }
+          __pyx_t_20 = __Pyx_PyFloat_AsDouble(__pyx_t_5); if (unlikely((__pyx_t_20 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 375, __pyx_L1_error)
+          __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+          __pyx_t_33 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_t_20); if (unlikely(__pyx_t_33 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 375, __pyx_L1_error)
+          __pyx_t_5 = PyFloat_FromDouble(__pyx_t_33); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 375, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_5);
+          __Pyx_XDECREF_SET(__pyx_v_forward_min_valid_abs_sum_block3, __pyx_t_5);
+          __pyx_t_5 = 0;
+
+          /* "worker_threads_cy.pyx":376
+ *                     forward_min_valid_abs_sum_block2 = round_to_2(np.sum(abs_arr[q1:q2]))
+ *                     forward_min_valid_abs_sum_block3 = round_to_2(np.sum(abs_arr[q2:q3]))
+ *                     forward_min_valid_abs_sum_block4 = round_to_2(np.sum(abs_arr[q3:]))             # <<<<<<<<<<<<<<
+ *                 else:
+ *                     forward_min_valid_abs_sum_first_half = 0
+*/
+          __pyx_t_1 = NULL;
+          __Pyx_GetModuleGlobalName(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 376, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_27);
+          __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_sum); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 376, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_8);
+          __Pyx_DECREF(__pyx_t_27); __pyx_t_27 = 0;
+          __pyx_t_27 = __Pyx_PyObject_GetSlice(__pyx_v_abs_arr, __pyx_v_q3, 0, NULL, NULL, NULL, 1, 0, 0); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 376, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_27);
+          __pyx_t_6 = 1;
+          #if CYTHON_UNPACK_METHODS
+          if (unlikely(PyMethod_Check(__pyx_t_8))) {
+            __pyx_t_1 = PyMethod_GET_SELF(__pyx_t_8);
+            assert(__pyx_t_1);
+            PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_8);
+            __Pyx_INCREF(__pyx_t_1);
+            __Pyx_INCREF(__pyx__function);
+            __Pyx_DECREF_SET(__pyx_t_8, __pyx__function);
+            __pyx_t_6 = 0;
+          }
+          #endif
+          {
+            PyObject *__pyx_callargs[2] = {__pyx_t_1, __pyx_t_27};
+            __pyx_t_5 = __Pyx_PyObject_FastCall(__pyx_t_8, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+            __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
+            __Pyx_DECREF(__pyx_t_27); __pyx_t_27 = 0;
+            __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+            if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 376, __pyx_L1_error)
+            __Pyx_GOTREF(__pyx_t_5);
+          }
+          __pyx_t_33 = __Pyx_PyFloat_AsDouble(__pyx_t_5); if (unlikely((__pyx_t_33 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 376, __pyx_L1_error)
+          __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+          __pyx_t_20 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_t_33); if (unlikely(__pyx_t_20 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 376, __pyx_L1_error)
+          __pyx_t_5 = PyFloat_FromDouble(__pyx_t_20); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 376, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_5);
+          __Pyx_XDECREF_SET(__pyx_v_forward_min_valid_abs_sum_block4, __pyx_t_5);
+          __pyx_t_5 = 0;
+
+          /* "worker_threads_cy.pyx":363
+ *                 #
+ *                 forward_min_valid_sum_len = len(forward_min_result) if forward_min_result else 0
+ *                 if forward_min_valid_sum_len > 0:             # <<<<<<<<<<<<<<
+ *                     abs_arr = np.abs(forward_min_result)
+ *                     half = int(round(forward_min_valid_sum_len / 2.0))
+*/
+          goto __pyx_L81;
+        }
+
+        /* "worker_threads_cy.pyx":378
+ *                     forward_min_valid_abs_sum_block4 = round_to_2(np.sum(abs_arr[q3:]))
+ *                 else:
+ *                     forward_min_valid_abs_sum_first_half = 0             # <<<<<<<<<<<<<<
+ *                     forward_min_valid_abs_sum_second_half = 0
+ *                     forward_min_valid_abs_sum_block1 = 0
+*/
+        /*else*/ {
+          __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
+          __Pyx_XDECREF_SET(__pyx_v_forward_min_valid_abs_sum_first_half, __pyx_mstate_global->__pyx_int_0);
+
+          /* "worker_threads_cy.pyx":379
+ *                 else:
+ *                     forward_min_valid_abs_sum_first_half = 0
+ *                     forward_min_valid_abs_sum_second_half = 0             # <<<<<<<<<<<<<<
+ *                     forward_min_valid_abs_sum_block1 = 0
+ *                     forward_min_valid_abs_sum_block2 = 0
+*/
+          __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
+          __Pyx_XDECREF_SET(__pyx_v_forward_min_valid_abs_sum_second_half, __pyx_mstate_global->__pyx_int_0);
+
+          /* "worker_threads_cy.pyx":380
+ *                     forward_min_valid_abs_sum_first_half = 0
+ *                     forward_min_valid_abs_sum_second_half = 0
+ *                     forward_min_valid_abs_sum_block1 = 0             # <<<<<<<<<<<<<<
+ *                     forward_min_valid_abs_sum_block2 = 0
+ *                     forward_min_valid_abs_sum_block3 = 0
+*/
+          __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
+          __Pyx_XDECREF_SET(__pyx_v_forward_min_valid_abs_sum_block1, __pyx_mstate_global->__pyx_int_0);
+
+          /* "worker_threads_cy.pyx":381
+ *                     forward_min_valid_abs_sum_second_half = 0
+ *                     forward_min_valid_abs_sum_block1 = 0
+ *                     forward_min_valid_abs_sum_block2 = 0             # <<<<<<<<<<<<<<
+ *                     forward_min_valid_abs_sum_block3 = 0
+ *                     forward_min_valid_abs_sum_block4 = 0
+*/
+          __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
+          __Pyx_XDECREF_SET(__pyx_v_forward_min_valid_abs_sum_block2, __pyx_mstate_global->__pyx_int_0);
+
+          /* "worker_threads_cy.pyx":382
+ *                     forward_min_valid_abs_sum_block1 = 0
+ *                     forward_min_valid_abs_sum_block2 = 0
+ *                     forward_min_valid_abs_sum_block3 = 0             # <<<<<<<<<<<<<<
+ *                     forward_min_valid_abs_sum_block4 = 0
+ * 
+*/
+          __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
+          __Pyx_XDECREF_SET(__pyx_v_forward_min_valid_abs_sum_block3, __pyx_mstate_global->__pyx_int_0);
+
+          /* "worker_threads_cy.pyx":383
+ *                     forward_min_valid_abs_sum_block2 = 0
+ *                     forward_min_valid_abs_sum_block3 = 0
+ *                     forward_min_valid_abs_sum_block4 = 0             # <<<<<<<<<<<<<<
+ * 
+ *             else:
+*/
+          __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
+          __Pyx_XDECREF_SET(__pyx_v_forward_min_valid_abs_sum_block4, __pyx_mstate_global->__pyx_int_0);
+        }
+        __pyx_L81:;
+
+        /* "worker_threads_cy.pyx":336
+ * 
+ *             #
+ *             if is_forward:             # <<<<<<<<<<<<<<
+ *                 #
+ *                 forward_max_valid_sum_len = len(forward_max_result) if forward_max_result else 0
+*/
+        goto __pyx_L79;
+      }
+
+      /* "worker_threads_cy.pyx":386
+ * 
+ *             else:
+ *                 forward_max_valid_sum_len = 0             # <<<<<<<<<<<<<<
+ *                 forward_max_valid_abs_sum_first_half = None
+ *                 forward_max_valid_abs_sum_second_half = None
+*/
+      /*else*/ {
+        __pyx_v_forward_max_valid_sum_len = 0;
+
+        /* "worker_threads_cy.pyx":387
+ *             else:
+ *                 forward_max_valid_sum_len = 0
+ *                 forward_max_valid_abs_sum_first_half = None             # <<<<<<<<<<<<<<
+ *                 forward_max_valid_abs_sum_second_half = None
+ *                 forward_max_valid_abs_sum_block1 = None
+*/
+        __Pyx_INCREF(Py_None);
+        __Pyx_XDECREF_SET(__pyx_v_forward_max_valid_abs_sum_first_half, Py_None);
+
+        /* "worker_threads_cy.pyx":388
+ *                 forward_max_valid_sum_len = 0
+ *                 forward_max_valid_abs_sum_first_half = None
+ *                 forward_max_valid_abs_sum_second_half = None             # <<<<<<<<<<<<<<
+ *                 forward_max_valid_abs_sum_block1 = None
+ *                 forward_max_valid_abs_sum_block2 = None
+*/
+        __Pyx_INCREF(Py_None);
+        __Pyx_XDECREF_SET(__pyx_v_forward_max_valid_abs_sum_second_half, Py_None);
+
+        /* "worker_threads_cy.pyx":389
+ *                 forward_max_valid_abs_sum_first_half = None
+ *                 forward_max_valid_abs_sum_second_half = None
+ *                 forward_max_valid_abs_sum_block1 = None             # <<<<<<<<<<<<<<
+ *                 forward_max_valid_abs_sum_block2 = None
+ *                 forward_max_valid_abs_sum_block3 = None
+*/
+        __Pyx_INCREF(Py_None);
+        __Pyx_XDECREF_SET(__pyx_v_forward_max_valid_abs_sum_block1, Py_None);
+
+        /* "worker_threads_cy.pyx":390
+ *                 forward_max_valid_abs_sum_second_half = None
+ *                 forward_max_valid_abs_sum_block1 = None
+ *                 forward_max_valid_abs_sum_block2 = None             # <<<<<<<<<<<<<<
+ *                 forward_max_valid_abs_sum_block3 = None
+ *                 forward_max_valid_abs_sum_block4 = None
+*/
+        __Pyx_INCREF(Py_None);
+        __Pyx_XDECREF_SET(__pyx_v_forward_max_valid_abs_sum_block2, Py_None);
+
+        /* "worker_threads_cy.pyx":391
+ *                 forward_max_valid_abs_sum_block1 = None
+ *                 forward_max_valid_abs_sum_block2 = None
+ *                 forward_max_valid_abs_sum_block3 = None             # <<<<<<<<<<<<<<
+ *                 forward_max_valid_abs_sum_block4 = None
+ *                 forward_min_valid_sum_len = 0
+*/
+        __Pyx_INCREF(Py_None);
+        __Pyx_XDECREF_SET(__pyx_v_forward_max_valid_abs_sum_block3, Py_None);
+
+        /* "worker_threads_cy.pyx":392
+ *                 forward_max_valid_abs_sum_block2 = None
+ *                 forward_max_valid_abs_sum_block3 = None
+ *                 forward_max_valid_abs_sum_block4 = None             # <<<<<<<<<<<<<<
+ *                 forward_min_valid_sum_len = 0
+ *                 forward_min_valid_abs_sum_first_half = None
+*/
+        __Pyx_INCREF(Py_None);
+        __Pyx_XDECREF_SET(__pyx_v_forward_max_valid_abs_sum_block4, Py_None);
+
+        /* "worker_threads_cy.pyx":393
+ *                 forward_max_valid_abs_sum_block3 = None
+ *                 forward_max_valid_abs_sum_block4 = None
+ *                 forward_min_valid_sum_len = 0             # <<<<<<<<<<<<<<
+ *                 forward_min_valid_abs_sum_first_half = None
+ *                 forward_min_valid_abs_sum_second_half = None
+*/
+        __pyx_v_forward_min_valid_sum_len = 0;
+
+        /* "worker_threads_cy.pyx":394
+ *                 forward_max_valid_abs_sum_block4 = None
+ *                 forward_min_valid_sum_len = 0
+ *                 forward_min_valid_abs_sum_first_half = None             # <<<<<<<<<<<<<<
+ *                 forward_min_valid_abs_sum_second_half = None
+ *                 forward_min_valid_abs_sum_block1 = None
+*/
+        __Pyx_INCREF(Py_None);
+        __Pyx_XDECREF_SET(__pyx_v_forward_min_valid_abs_sum_first_half, Py_None);
+
+        /* "worker_threads_cy.pyx":395
+ *                 forward_min_valid_sum_len = 0
+ *                 forward_min_valid_abs_sum_first_half = None
+ *                 forward_min_valid_abs_sum_second_half = None             # <<<<<<<<<<<<<<
+ *                 forward_min_valid_abs_sum_block1 = None
+ *                 forward_min_valid_abs_sum_block2 = None
+*/
+        __Pyx_INCREF(Py_None);
+        __Pyx_XDECREF_SET(__pyx_v_forward_min_valid_abs_sum_second_half, Py_None);
+
+        /* "worker_threads_cy.pyx":396
+ *                 forward_min_valid_abs_sum_first_half = None
+ *                 forward_min_valid_abs_sum_second_half = None
+ *                 forward_min_valid_abs_sum_block1 = None             # <<<<<<<<<<<<<<
+ *                 forward_min_valid_abs_sum_block2 = None
+ *                 forward_min_valid_abs_sum_block3 = None
+*/
+        __Pyx_INCREF(Py_None);
+        __Pyx_XDECREF_SET(__pyx_v_forward_min_valid_abs_sum_block1, Py_None);
+
+        /* "worker_threads_cy.pyx":397
+ *                 forward_min_valid_abs_sum_second_half = None
+ *                 forward_min_valid_abs_sum_block1 = None
+ *                 forward_min_valid_abs_sum_block2 = None             # <<<<<<<<<<<<<<
+ *                 forward_min_valid_abs_sum_block3 = None
+ *                 forward_min_valid_abs_sum_block4 = None
+*/
+        __Pyx_INCREF(Py_None);
+        __Pyx_XDECREF_SET(__pyx_v_forward_min_valid_abs_sum_block2, Py_None);
+
+        /* "worker_threads_cy.pyx":398
+ *                 forward_min_valid_abs_sum_block1 = None
+ *                 forward_min_valid_abs_sum_block2 = None
+ *                 forward_min_valid_abs_sum_block3 = None             # <<<<<<<<<<<<<<
+ *                 forward_min_valid_abs_sum_block4 = None
+ * 
+*/
+        __Pyx_INCREF(Py_None);
+        __Pyx_XDECREF_SET(__pyx_v_forward_min_valid_abs_sum_block3, Py_None);
+
+        /* "worker_threads_cy.pyx":399
+ *                 forward_min_valid_abs_sum_block2 = None
+ *                 forward_min_valid_abs_sum_block3 = None
+ *                 forward_min_valid_abs_sum_block4 = None             # <<<<<<<<<<<<<<
+ * 
+ *             #
+*/
+        __Pyx_INCREF(Py_None);
+        __Pyx_XDECREF_SET(__pyx_v_forward_min_valid_abs_sum_block4, Py_None);
+      }
+      __pyx_L79:;
+
+      /* "worker_threads_cy.pyx":402
+ * 
+ *             #
+ *             valid_pos_sum, valid_neg_sum = valid_pos_sum, valid_neg_sum             # <<<<<<<<<<<<<<
+ *             forward_max_valid_pos_sum, forward_max_valid_neg_sum = valid_pos_sum, valid_neg_sum
+ *             forward_min_valid_pos_sum, forward_min_valid_neg_sum = valid_pos_sum, valid_neg_sum
+*/
+      __pyx_t_20 = __pyx_v_valid_pos_sum;
+      __pyx_t_33 = __pyx_v_valid_neg_sum;
+      __pyx_v_valid_pos_sum = __pyx_t_20;
+      __pyx_v_valid_neg_sum = __pyx_t_33;
+
+      /* "worker_threads_cy.pyx":403
+ *             #
+ *             valid_pos_sum, valid_neg_sum = valid_pos_sum, valid_neg_sum
+ *             forward_max_valid_pos_sum, forward_max_valid_neg_sum = valid_pos_sum, valid_neg_sum             # <<<<<<<<<<<<<<
+ *             forward_min_valid_pos_sum, forward_min_valid_neg_sum = valid_pos_sum, valid_neg_sum
+ * 
+*/
+      __pyx_t_33 = __pyx_v_valid_pos_sum;
+      __pyx_t_20 = __pyx_v_valid_neg_sum;
+      __pyx_v_forward_max_valid_pos_sum = __pyx_t_33;
+      __pyx_v_forward_max_valid_neg_sum = __pyx_t_20;
+
+      /* "worker_threads_cy.pyx":404
+ *             valid_pos_sum, valid_neg_sum = valid_pos_sum, valid_neg_sum
+ *             forward_max_valid_pos_sum, forward_max_valid_neg_sum = valid_pos_sum, valid_neg_sum
+ *             forward_min_valid_pos_sum, forward_min_valid_neg_sum = valid_pos_sum, valid_neg_sum             # <<<<<<<<<<<<<<
+ * 
+ *             #
+*/
+      __pyx_t_20 = __pyx_v_valid_pos_sum;
+      __pyx_t_33 = __pyx_v_valid_neg_sum;
+      __pyx_v_forward_min_valid_pos_sum = __pyx_t_20;
+      __pyx_v_forward_min_valid_neg_sum = __pyx_t_33;
+
+      /* "worker_threads_cy.pyx":407
+ * 
+ *             #
+ *             if continuous_abs_threshold == continuous_abs_threshold and len(py_cont_sum) > 0:             # <<<<<<<<<<<<<<
+ *                 max_abs_val = max([abs(v) for v in py_cont_sum])
+ *                 continuous_abs_is_less = max_abs_val < continuous_abs_threshold
+*/
+      __pyx_t_21 = (__pyx_v_continuous_abs_threshold == __pyx_v_continuous_abs_threshold);
+      if (__pyx_t_21) {
+      } else {
+        __pyx_t_7 = __pyx_t_21;
+        goto __pyx_L83_bool_binop_done;
+      }
+      __pyx_t_31 = __Pyx_PyList_GET_SIZE(__pyx_v_py_cont_sum); if (unlikely(__pyx_t_31 == ((Py_ssize_t)-1))) __PYX_ERR(0, 407, __pyx_L1_error)
+      __pyx_t_21 = (__pyx_t_31 > 0);
+      __pyx_t_7 = __pyx_t_21;
+      __pyx_L83_bool_binop_done:;
+      if (__pyx_t_7) {
+
+        /* "worker_threads_cy.pyx":408
+ *             #
+ *             if continuous_abs_threshold == continuous_abs_threshold and len(py_cont_sum) > 0:
+ *                 max_abs_val = max([abs(v) for v in py_cont_sum])             # <<<<<<<<<<<<<<
+ *                 continuous_abs_is_less = max_abs_val < continuous_abs_threshold
+ *             else:
+*/
+        __pyx_t_8 = NULL;
+        __Pyx_INCREF(__pyx_builtin_max);
+        __pyx_t_27 = __pyx_builtin_max; 
+        { /* enter inner scope */
+          __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 408, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_1);
+          __pyx_t_4 = __pyx_v_py_cont_sum; __Pyx_INCREF(__pyx_t_4);
+          __pyx_t_31 = 0;
+          for (;;) {
+            {
+              Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_4);
+              #if !CYTHON_ASSUME_SAFE_SIZE
+              if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 408, __pyx_L1_error)
+              #endif
+              if (__pyx_t_31 >= __pyx_temp) break;
+            }
+            __pyx_t_34 = __Pyx_PyList_GetItemRef(__pyx_t_4, __pyx_t_31);
+            ++__pyx_t_31;
+            if (unlikely(!__pyx_t_34)) __PYX_ERR(0, 408, __pyx_L1_error)
+            __Pyx_GOTREF(__pyx_t_34);
+            __pyx_t_33 = __Pyx_PyFloat_AsDouble(__pyx_t_34); if (unlikely((__pyx_t_33 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 408, __pyx_L1_error)
+            __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
+            __pyx_7genexpr__pyx_v_v = __pyx_t_33;
+            __pyx_t_33 = fabs(__pyx_7genexpr__pyx_v_v); 
+            __pyx_t_34 = PyFloat_FromDouble(__pyx_t_33); if (unlikely(!__pyx_t_34)) __PYX_ERR(0, 408, __pyx_L1_error)
+            __Pyx_GOTREF(__pyx_t_34);
+            if (unlikely(__Pyx_ListComp_Append(__pyx_t_1, (PyObject*)__pyx_t_34))) __PYX_ERR(0, 408, __pyx_L1_error)
+            __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
+          }
+          __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+        } /* exit inner scope */
+        __pyx_t_6 = 1;
+        {
+          PyObject *__pyx_callargs[2] = {__pyx_t_8, __pyx_t_1};
+          __pyx_t_5 = __Pyx_PyObject_FastCall(__pyx_t_27, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+          __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
+          __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+          __Pyx_DECREF(__pyx_t_27); __pyx_t_27 = 0;
+          if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 408, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_5);
+        }
+        __Pyx_XDECREF_SET(__pyx_v_max_abs_val, __pyx_t_5);
+        __pyx_t_5 = 0;
+
+        /* "worker_threads_cy.pyx":409
+ *             if continuous_abs_threshold == continuous_abs_threshold and len(py_cont_sum) > 0:
+ *                 max_abs_val = max([abs(v) for v in py_cont_sum])
+ *                 continuous_abs_is_less = max_abs_val < continuous_abs_threshold             # <<<<<<<<<<<<<<
+ *             else:
+ *                 continuous_abs_is_less = False
+*/
+        __pyx_t_5 = PyFloat_FromDouble(__pyx_v_continuous_abs_threshold); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 409, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_5);
+        __pyx_t_27 = PyObject_RichCompare(__pyx_v_max_abs_val, __pyx_t_5, Py_LT); __Pyx_XGOTREF(__pyx_t_27); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 409, __pyx_L1_error)
+        __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+        __Pyx_XDECREF_SET(__pyx_v_continuous_abs_is_less, __pyx_t_27);
+        __pyx_t_27 = 0;
+
+        /* "worker_threads_cy.pyx":407
+ * 
+ *             #
+ *             if continuous_abs_threshold == continuous_abs_threshold and len(py_cont_sum) > 0:             # <<<<<<<<<<<<<<
+ *                 max_abs_val = max([abs(v) for v in py_cont_sum])
+ *                 continuous_abs_is_less = max_abs_val < continuous_abs_threshold
+*/
+        goto __pyx_L82;
+      }
+
+      /* "worker_threads_cy.pyx":411
+ *                 continuous_abs_is_less = max_abs_val < continuous_abs_threshold
+ *             else:
+ *                 continuous_abs_is_less = False             # <<<<<<<<<<<<<<
+ * 
+ *             # n_days_max
+*/
+      /*else*/ {
+        __Pyx_INCREF(Py_False);
+        __Pyx_XDECREF_SET(__pyx_v_continuous_abs_is_less, Py_False);
+      }
+      __pyx_L82:;
+
+      /* "worker_threads_cy.pyx":414
+ * 
+ *             # n_days_max
+ *             n_days_max_value = NAN             # <<<<<<<<<<<<<<
+ *             if n_days_max > 0 and end_date_idx + n_days_max <= num_dates:
+ *                 maxv = -1e308
+*/
+      __pyx_v_n_days_max_value = __pyx_v_17worker_threads_cy_NAN;
+
+      /* "worker_threads_cy.pyx":415
+ *             # n_days_max
+ *             n_days_max_value = NAN
+ *             if n_days_max > 0 and end_date_idx + n_days_max <= num_dates:             # <<<<<<<<<<<<<<
+ *                 maxv = -1e308
+ *                 for j in range(n_days_max):
+*/
+      __pyx_t_21 = (__pyx_v_n_days_max > 0);
+      if (__pyx_t_21) {
+      } else {
+        __pyx_t_7 = __pyx_t_21;
+        goto __pyx_L89_bool_binop_done;
+      }
+      __pyx_t_21 = ((__pyx_v_end_date_idx + __pyx_v_n_days_max) <= __pyx_v_num_dates);
+      __pyx_t_7 = __pyx_t_21;
+      __pyx_L89_bool_binop_done:;
+      if (__pyx_t_7) {
+
+        /* "worker_threads_cy.pyx":416
+ *             n_days_max_value = NAN
+ *             if n_days_max > 0 and end_date_idx + n_days_max <= num_dates:
+ *                 maxv = -1e308             # <<<<<<<<<<<<<<
+ *                 for j in range(n_days_max):
+ *                     v = price_data_view[stock_idx, end_date_idx + j]
+*/
+        __pyx_v_maxv = -1e308;
+
+        /* "worker_threads_cy.pyx":417
+ *             if n_days_max > 0 and end_date_idx + n_days_max <= num_dates:
+ *                 maxv = -1e308
+ *                 for j in range(n_days_max):             # <<<<<<<<<<<<<<
+ *                     v = price_data_view[stock_idx, end_date_idx + j]
+ *                     if not isnan(v) and v > maxv:
+*/
+        __pyx_t_16 = __pyx_v_n_days_max;
+        __pyx_t_17 = __pyx_t_16;
+        for (__pyx_t_18 = 0; __pyx_t_18 < __pyx_t_17; __pyx_t_18+=1) {
+          __pyx_v_j = __pyx_t_18;
+
+          /* "worker_threads_cy.pyx":418
+ *                 maxv = -1e308
+ *                 for j in range(n_days_max):
+ *                     v = price_data_view[stock_idx, end_date_idx + j]             # <<<<<<<<<<<<<<
+ *                     if not isnan(v) and v > maxv:
+ *                         maxv = v
+*/
+          __pyx_t_19 = __pyx_v_stock_idx;
+          __pyx_t_14 = (__pyx_v_end_date_idx + __pyx_v_j);
+          __pyx_v_v = (*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_price_data_view.data + __pyx_t_19 * __pyx_v_price_data_view.strides[0]) ) + __pyx_t_14 * __pyx_v_price_data_view.strides[1]) )));
+
+          /* "worker_threads_cy.pyx":419
+ *                 for j in range(n_days_max):
+ *                     v = price_data_view[stock_idx, end_date_idx + j]
+ *                     if not isnan(v) and v > maxv:             # <<<<<<<<<<<<<<
+ *                         maxv = v
+ *                 n_days_max_value = maxv if maxv > -1e308 else NAN
+*/
+          __pyx_t_21 = (!isnan(__pyx_v_v));
+          if (__pyx_t_21) {
+          } else {
+            __pyx_t_7 = __pyx_t_21;
+            goto __pyx_L94_bool_binop_done;
+          }
+          __pyx_t_21 = (__pyx_v_v > __pyx_v_maxv);
+          __pyx_t_7 = __pyx_t_21;
+          __pyx_L94_bool_binop_done:;
+          if (__pyx_t_7) {
+
+            /* "worker_threads_cy.pyx":420
+ *                     v = price_data_view[stock_idx, end_date_idx + j]
+ *                     if not isnan(v) and v > maxv:
+ *                         maxv = v             # <<<<<<<<<<<<<<
+ *                 n_days_max_value = maxv if maxv > -1e308 else NAN
+ * 
+*/
+            __pyx_v_maxv = __pyx_v_v;
+
+            /* "worker_threads_cy.pyx":419
+ *                 for j in range(n_days_max):
+ *                     v = price_data_view[stock_idx, end_date_idx + j]
+ *                     if not isnan(v) and v > maxv:             # <<<<<<<<<<<<<<
+ *                         maxv = v
+ *                 n_days_max_value = maxv if maxv > -1e308 else NAN
+*/
+          }
+        }
+
+        /* "worker_threads_cy.pyx":421
+ *                     if not isnan(v) and v > maxv:
+ *                         maxv = v
+ *                 n_days_max_value = maxv if maxv > -1e308 else NAN             # <<<<<<<<<<<<<<
+ * 
+ *             # 1
+*/
+        __pyx_t_7 = (__pyx_v_maxv > -1e308);
+        if (__pyx_t_7) {
+          __pyx_t_33 = __pyx_v_maxv;
+        } else {
+          __pyx_t_33 = __pyx_v_17worker_threads_cy_NAN;
+        }
+        __pyx_v_n_days_max_value = __pyx_t_33;
+
+        /* "worker_threads_cy.pyx":415
+ *             # n_days_max
+ *             n_days_max_value = NAN
+ *             if n_days_max > 0 and end_date_idx + n_days_max <= num_dates:             # <<<<<<<<<<<<<<
+ *                 maxv = -1e308
+ *                 for j in range(n_days_max):
+*/
+      }
+
+      /* "worker_threads_cy.pyx":424
+ * 
+ *             # 1
+ *             prev_day_change = NAN             # <<<<<<<<<<<<<<
+ *             end_day_change = NAN
+ *             price_arr = np.empty(100, dtype=np.float64)
+*/
+      __pyx_v_prev_day_change = __pyx_v_17worker_threads_cy_NAN;
+
+      /* "worker_threads_cy.pyx":425
+ *             # 1
+ *             prev_day_change = NAN
+ *             end_day_change = NAN             # <<<<<<<<<<<<<<
+ *             price_arr = np.empty(100, dtype=np.float64)
+ *             for j in range(window_len):
+*/
+      __pyx_v_end_day_change = __pyx_v_17worker_threads_cy_NAN;
+
+      /* "worker_threads_cy.pyx":426
+ *             prev_day_change = NAN
+ *             end_day_change = NAN
+ *             price_arr = np.empty(100, dtype=np.float64)             # <<<<<<<<<<<<<<
+ *             for j in range(window_len):
+ *                 price_arr[j] = price_data_view[stock_idx, end_date_idx + j]
+*/
+      __pyx_t_5 = NULL;
+      __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 426, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_1);
+      __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_empty); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 426, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_8);
+      __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+      __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 426, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_1);
+      __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_float64); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 426, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_4);
+      __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+      __pyx_t_6 = 1;
+      #if CYTHON_UNPACK_METHODS
+      if (unlikely(PyMethod_Check(__pyx_t_8))) {
+        __pyx_t_5 = PyMethod_GET_SELF(__pyx_t_8);
+        assert(__pyx_t_5);
+        PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_8);
+        __Pyx_INCREF(__pyx_t_5);
+        __Pyx_INCREF(__pyx__function);
+        __Pyx_DECREF_SET(__pyx_t_8, __pyx__function);
+        __pyx_t_6 = 0;
+      }
+      #endif
+      {
+        PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_5, __pyx_mstate_global->__pyx_int_100};
+        __pyx_t_1 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 426, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_1);
+        if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_dtype, __pyx_t_4, __pyx_t_1, __pyx_callargs+2, 0) < 0) __PYX_ERR(0, 426, __pyx_L1_error)
+        __pyx_t_27 = __Pyx_Object_Vectorcall_CallFromBuilder(__pyx_t_8, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_1);
+        __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
+        __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+        __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+        __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+        if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 426, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_27);
+      }
+      if (unlikely((__Pyx_carray_from_py_double(__pyx_t_27, __pyx_t_35, 0x64) < 0))) __PYX_ERR(0, 426, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_27); __pyx_t_27 = 0;
+      if (unlikely((0x64) != (0x64))) {
+        PyErr_Format(PyExc_ValueError, "Assignment to slice of wrong length, expected %" CYTHON_FORMAT_SSIZE_T "d, got %" CYTHON_FORMAT_SSIZE_T "d", (Py_ssize_t)(0x64), (Py_ssize_t)(0x64));
+        __PYX_ERR(0, 426, __pyx_L1_error)
+      }
+      memcpy(&(__pyx_v_price_arr[0]), __pyx_t_35, sizeof(__pyx_v_price_arr[0]) * (0x64));
+
+      /* "worker_threads_cy.pyx":427
+ *             end_day_change = NAN
+ *             price_arr = np.empty(100, dtype=np.float64)
+ *             for j in range(window_len):             # <<<<<<<<<<<<<<
+ *                 price_arr[j] = price_data_view[stock_idx, end_date_idx + j]
+ *             if len(price_arr) >= 3:
+*/
+      __pyx_t_16 = __pyx_v_window_len;
+      __pyx_t_17 = __pyx_t_16;
+      for (__pyx_t_18 = 0; __pyx_t_18 < __pyx_t_17; __pyx_t_18+=1) {
+        __pyx_v_j = __pyx_t_18;
+
+        /* "worker_threads_cy.pyx":428
+ *             price_arr = np.empty(100, dtype=np.float64)
+ *             for j in range(window_len):
+ *                 price_arr[j] = price_data_view[stock_idx, end_date_idx + j]             # <<<<<<<<<<<<<<
+ *             if len(price_arr) >= 3:
+ *                 if price_arr[2] != 0 and not isnan(price_arr[2]):
+*/
+        __pyx_t_14 = __pyx_v_stock_idx;
+        __pyx_t_19 = (__pyx_v_end_date_idx + __pyx_v_j);
+        (__pyx_v_price_arr[__pyx_v_j]) = (*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_price_data_view.data + __pyx_t_14 * __pyx_v_price_data_view.strides[0]) ) + __pyx_t_19 * __pyx_v_price_data_view.strides[1]) )));
+      }
+
+      /* "worker_threads_cy.pyx":429
+ *             for j in range(window_len):
+ *                 price_arr[j] = price_data_view[stock_idx, end_date_idx + j]
+ *             if len(price_arr) >= 3:             # <<<<<<<<<<<<<<
+ *                 if price_arr[2] != 0 and not isnan(price_arr[2]):
+ *                     prev_day_change = round_to_2(((price_arr[1] - price_arr[2]) / price_arr[2]) * 100)
+*/
+      __pyx_t_27 = __Pyx_carray_to_py_double(__pyx_v_price_arr, 0x64); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 429, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_27);
+      __pyx_t_31 = PyObject_Length(__pyx_t_27); if (unlikely(__pyx_t_31 == ((Py_ssize_t)-1))) __PYX_ERR(0, 429, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_27); __pyx_t_27 = 0;
+      __pyx_t_7 = (__pyx_t_31 >= 3);
+      if (__pyx_t_7) {
+
+        /* "worker_threads_cy.pyx":430
+ *                 price_arr[j] = price_data_view[stock_idx, end_date_idx + j]
+ *             if len(price_arr) >= 3:
+ *                 if price_arr[2] != 0 and not isnan(price_arr[2]):             # <<<<<<<<<<<<<<
+ *                     prev_day_change = round_to_2(((price_arr[1] - price_arr[2]) / price_arr[2]) * 100)
+ *                 if price_arr[1] != 0 and not isnan(price_arr[1]):
+*/
+        __pyx_t_21 = ((__pyx_v_price_arr[2]) != 0.0);
+        if (__pyx_t_21) {
+        } else {
+          __pyx_t_7 = __pyx_t_21;
+          goto __pyx_L100_bool_binop_done;
+        }
+        __pyx_t_21 = (!isnan((__pyx_v_price_arr[2])));
+        __pyx_t_7 = __pyx_t_21;
+        __pyx_L100_bool_binop_done:;
+        if (__pyx_t_7) {
+
+          /* "worker_threads_cy.pyx":431
+ *             if len(price_arr) >= 3:
+ *                 if price_arr[2] != 0 and not isnan(price_arr[2]):
+ *                     prev_day_change = round_to_2(((price_arr[1] - price_arr[2]) / price_arr[2]) * 100)             # <<<<<<<<<<<<<<
+ *                 if price_arr[1] != 0 and not isnan(price_arr[1]):
+ *                     end_day_change = round_to_2(((price_arr[0] - price_arr[1]) / price_arr[1]) * 100)
+*/
+          __pyx_t_33 = __pyx_f_17worker_threads_cy_round_to_2(((((__pyx_v_price_arr[1]) - (__pyx_v_price_arr[2])) / (__pyx_v_price_arr[2])) * 100.0)); if (unlikely(__pyx_t_33 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 431, __pyx_L1_error)
+          __pyx_v_prev_day_change = __pyx_t_33;
+
+          /* "worker_threads_cy.pyx":430
+ *                 price_arr[j] = price_data_view[stock_idx, end_date_idx + j]
+ *             if len(price_arr) >= 3:
+ *                 if price_arr[2] != 0 and not isnan(price_arr[2]):             # <<<<<<<<<<<<<<
+ *                     prev_day_change = round_to_2(((price_arr[1] - price_arr[2]) / price_arr[2]) * 100)
+ *                 if price_arr[1] != 0 and not isnan(price_arr[1]):
+*/
+        }
+
+        /* "worker_threads_cy.pyx":432
+ *                 if price_arr[2] != 0 and not isnan(price_arr[2]):
+ *                     prev_day_change = round_to_2(((price_arr[1] - price_arr[2]) / price_arr[2]) * 100)
+ *                 if price_arr[1] != 0 and not isnan(price_arr[1]):             # <<<<<<<<<<<<<<
+ *                     end_day_change = round_to_2(((price_arr[0] - price_arr[1]) / price_arr[1]) * 100)
+ *             elif len(price_arr) == 2:
+*/
+        __pyx_t_21 = ((__pyx_v_price_arr[1]) != 0.0);
+        if (__pyx_t_21) {
+        } else {
+          __pyx_t_7 = __pyx_t_21;
+          goto __pyx_L103_bool_binop_done;
+        }
+        __pyx_t_21 = (!isnan((__pyx_v_price_arr[1])));
+        __pyx_t_7 = __pyx_t_21;
+        __pyx_L103_bool_binop_done:;
+        if (__pyx_t_7) {
+
+          /* "worker_threads_cy.pyx":433
+ *                     prev_day_change = round_to_2(((price_arr[1] - price_arr[2]) / price_arr[2]) * 100)
+ *                 if price_arr[1] != 0 and not isnan(price_arr[1]):
+ *                     end_day_change = round_to_2(((price_arr[0] - price_arr[1]) / price_arr[1]) * 100)             # <<<<<<<<<<<<<<
+ *             elif len(price_arr) == 2:
+ *                 if price_arr[1] != 0 and not isnan(price_arr[1]):
+*/
+          __pyx_t_33 = __pyx_f_17worker_threads_cy_round_to_2(((((__pyx_v_price_arr[0]) - (__pyx_v_price_arr[1])) / (__pyx_v_price_arr[1])) * 100.0)); if (unlikely(__pyx_t_33 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 433, __pyx_L1_error)
+          __pyx_v_end_day_change = __pyx_t_33;
+
+          /* "worker_threads_cy.pyx":432
+ *                 if price_arr[2] != 0 and not isnan(price_arr[2]):
+ *                     prev_day_change = round_to_2(((price_arr[1] - price_arr[2]) / price_arr[2]) * 100)
+ *                 if price_arr[1] != 0 and not isnan(price_arr[1]):             # <<<<<<<<<<<<<<
+ *                     end_day_change = round_to_2(((price_arr[0] - price_arr[1]) / price_arr[1]) * 100)
+ *             elif len(price_arr) == 2:
+*/
+        }
+
+        /* "worker_threads_cy.pyx":429
+ *             for j in range(window_len):
+ *                 price_arr[j] = price_data_view[stock_idx, end_date_idx + j]
+ *             if len(price_arr) >= 3:             # <<<<<<<<<<<<<<
+ *                 if price_arr[2] != 0 and not isnan(price_arr[2]):
+ *                     prev_day_change = round_to_2(((price_arr[1] - price_arr[2]) / price_arr[2]) * 100)
+*/
+        goto __pyx_L98;
+      }
+
+      /* "worker_threads_cy.pyx":434
+ *                 if price_arr[1] != 0 and not isnan(price_arr[1]):
+ *                     end_day_change = round_to_2(((price_arr[0] - price_arr[1]) / price_arr[1]) * 100)
+ *             elif len(price_arr) == 2:             # <<<<<<<<<<<<<<
+ *                 if price_arr[1] != 0 and not isnan(price_arr[1]):
+ *                     end_day_change = round_to_2(((price_arr[0] - price_arr[1]) / price_arr[1]) * 100)
+*/
+      __pyx_t_27 = __Pyx_carray_to_py_double(__pyx_v_price_arr, 0x64); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 434, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_27);
+      __pyx_t_31 = PyObject_Length(__pyx_t_27); if (unlikely(__pyx_t_31 == ((Py_ssize_t)-1))) __PYX_ERR(0, 434, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_27); __pyx_t_27 = 0;
+      __pyx_t_7 = (__pyx_t_31 == 2);
+      if (__pyx_t_7) {
+
+        /* "worker_threads_cy.pyx":435
+ *                     end_day_change = round_to_2(((price_arr[0] - price_arr[1]) / price_arr[1]) * 100)
+ *             elif len(price_arr) == 2:
+ *                 if price_arr[1] != 0 and not isnan(price_arr[1]):             # <<<<<<<<<<<<<<
+ *                     end_day_change = round_to_2(((price_arr[0] - price_arr[1]) / price_arr[1]) * 100)
+ * 
+*/
+        __pyx_t_21 = ((__pyx_v_price_arr[1]) != 0.0);
+        if (__pyx_t_21) {
+        } else {
+          __pyx_t_7 = __pyx_t_21;
+          goto __pyx_L106_bool_binop_done;
+        }
+        __pyx_t_21 = (!isnan((__pyx_v_price_arr[1])));
+        __pyx_t_7 = __pyx_t_21;
+        __pyx_L106_bool_binop_done:;
+        if (__pyx_t_7) {
+
+          /* "worker_threads_cy.pyx":436
+ *             elif len(price_arr) == 2:
+ *                 if price_arr[1] != 0 and not isnan(price_arr[1]):
+ *                     end_day_change = round_to_2(((price_arr[0] - price_arr[1]) / price_arr[1]) * 100)             # <<<<<<<<<<<<<<
+ * 
+ *             #
+*/
+          __pyx_t_33 = __pyx_f_17worker_threads_cy_round_to_2(((((__pyx_v_price_arr[0]) - (__pyx_v_price_arr[1])) / (__pyx_v_price_arr[1])) * 100.0)); if (unlikely(__pyx_t_33 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 436, __pyx_L1_error)
+          __pyx_v_end_day_change = __pyx_t_33;
+
+          /* "worker_threads_cy.pyx":435
+ *                     end_day_change = round_to_2(((price_arr[0] - price_arr[1]) / price_arr[1]) * 100)
+ *             elif len(price_arr) == 2:
+ *                 if price_arr[1] != 0 and not isnan(price_arr[1]):             # <<<<<<<<<<<<<<
+ *                     end_day_change = round_to_2(((price_arr[0] - price_arr[1]) / price_arr[1]) * 100)
+ * 
+*/
+        }
+
+        /* "worker_threads_cy.pyx":434
+ *                 if price_arr[1] != 0 and not isnan(price_arr[1]):
+ *                     end_day_change = round_to_2(((price_arr[0] - price_arr[1]) / price_arr[1]) * 100)
+ *             elif len(price_arr) == 2:             # <<<<<<<<<<<<<<
+ *                 if price_arr[1] != 0 and not isnan(price_arr[1]):
+ *                     end_day_change = round_to_2(((price_arr[0] - price_arr[1]) / price_arr[1]) * 100)
+*/
+      }
+      __pyx_L98:;
+
+      /* "worker_threads_cy.pyx":439
+ * 
+ *             #
+ *             valid_abs_sum_first_half = 0             # <<<<<<<<<<<<<<
+ *             valid_abs_sum_second_half = 0
+ *             valid_abs_sum_block1 = 0
+*/
+      __pyx_v_valid_abs_sum_first_half = 0.0;
+
+      /* "worker_threads_cy.pyx":440
+ *             #
+ *             valid_abs_sum_first_half = 0
+ *             valid_abs_sum_second_half = 0             # <<<<<<<<<<<<<<
+ *             valid_abs_sum_block1 = 0
+ *             valid_abs_sum_block2 = 0
+*/
+      __pyx_v_valid_abs_sum_second_half = 0.0;
+
+      /* "worker_threads_cy.pyx":441
+ *             valid_abs_sum_first_half = 0
+ *             valid_abs_sum_second_half = 0
+ *             valid_abs_sum_block1 = 0             # <<<<<<<<<<<<<<
+ *             valid_abs_sum_block2 = 0
+ *             valid_abs_sum_block3 = 0
+*/
+      __pyx_v_valid_abs_sum_block1 = 0.0;
+
+      /* "worker_threads_cy.pyx":442
+ *             valid_abs_sum_second_half = 0
+ *             valid_abs_sum_block1 = 0
+ *             valid_abs_sum_block2 = 0             # <<<<<<<<<<<<<<
+ *             valid_abs_sum_block3 = 0
+ *             valid_abs_sum_block4 = 0
+*/
+      __pyx_v_valid_abs_sum_block2 = 0.0;
+
+      /* "worker_threads_cy.pyx":443
+ *             valid_abs_sum_block1 = 0
+ *             valid_abs_sum_block2 = 0
+ *             valid_abs_sum_block3 = 0             # <<<<<<<<<<<<<<
+ *             valid_abs_sum_block4 = 0
+ *             n_valid = valid_sum_len
+*/
+      __pyx_v_valid_abs_sum_block3 = 0.0;
+
+      /* "worker_threads_cy.pyx":444
+ *             valid_abs_sum_block2 = 0
+ *             valid_abs_sum_block3 = 0
+ *             valid_abs_sum_block4 = 0             # <<<<<<<<<<<<<<
+ *             n_valid = valid_sum_len
+ *             half_valid = int(round(n_valid / 2.0))
+*/
+      __pyx_v_valid_abs_sum_block4 = 0.0;
+
+      /* "worker_threads_cy.pyx":445
+ *             valid_abs_sum_block3 = 0
+ *             valid_abs_sum_block4 = 0
+ *             n_valid = valid_sum_len             # <<<<<<<<<<<<<<
+ *             half_valid = int(round(n_valid / 2.0))
+ *             q1_valid = int(round(n_valid / 4.0))
+*/
+      __pyx_v_n_valid = __pyx_v_valid_sum_len;
+
+      /* "worker_threads_cy.pyx":446
+ *             valid_abs_sum_block4 = 0
+ *             n_valid = valid_sum_len
+ *             half_valid = int(round(n_valid / 2.0))             # <<<<<<<<<<<<<<
+ *             q1_valid = int(round(n_valid / 4.0))
+ *             q2_valid = int(round(n_valid / 2.0))
+*/
+      __pyx_v_half_valid = ((int)round((((double)__pyx_v_n_valid) / 2.0)));
+
+      /* "worker_threads_cy.pyx":447
+ *             n_valid = valid_sum_len
+ *             half_valid = int(round(n_valid / 2.0))
+ *             q1_valid = int(round(n_valid / 4.0))             # <<<<<<<<<<<<<<
+ *             q2_valid = int(round(n_valid / 2.0))
+ *             q3_valid = int(round(3 * n_valid / 4.0))
+*/
+      __pyx_v_q1_valid = ((int)round((((double)__pyx_v_n_valid) / 4.0)));
+
+      /* "worker_threads_cy.pyx":448
+ *             half_valid = int(round(n_valid / 2.0))
+ *             q1_valid = int(round(n_valid / 4.0))
+ *             q2_valid = int(round(n_valid / 2.0))             # <<<<<<<<<<<<<<
+ *             q3_valid = int(round(3 * n_valid / 4.0))
+ *             for j in range(half_valid):
+*/
+      __pyx_v_q2_valid = ((int)round((((double)__pyx_v_n_valid) / 2.0)));
+
+      /* "worker_threads_cy.pyx":449
+ *             q1_valid = int(round(n_valid / 4.0))
+ *             q2_valid = int(round(n_valid / 2.0))
+ *             q3_valid = int(round(3 * n_valid / 4.0))             # <<<<<<<<<<<<<<
+ *             for j in range(half_valid):
+ *                 valid_abs_sum_first_half += abs(valid_sum_arr[j])
+*/
+      __pyx_v_q3_valid = ((int)round((((double)(3 * __pyx_v_n_valid)) / 4.0)));
+
+      /* "worker_threads_cy.pyx":450
+ *             q2_valid = int(round(n_valid / 2.0))
+ *             q3_valid = int(round(3 * n_valid / 4.0))
+ *             for j in range(half_valid):             # <<<<<<<<<<<<<<
+ *                 valid_abs_sum_first_half += abs(valid_sum_arr[j])
+ *             for j in range(half_valid, n_valid):
+*/
+      __pyx_t_16 = __pyx_v_half_valid;
+      __pyx_t_17 = __pyx_t_16;
+      for (__pyx_t_18 = 0; __pyx_t_18 < __pyx_t_17; __pyx_t_18+=1) {
+        __pyx_v_j = __pyx_t_18;
+
+        /* "worker_threads_cy.pyx":451
+ *             q3_valid = int(round(3 * n_valid / 4.0))
+ *             for j in range(half_valid):
+ *                 valid_abs_sum_first_half += abs(valid_sum_arr[j])             # <<<<<<<<<<<<<<
+ *             for j in range(half_valid, n_valid):
+ *                 valid_abs_sum_second_half += abs(valid_sum_arr[j])
+*/
+        __pyx_t_33 = fabs((__pyx_v_valid_sum_arr[__pyx_v_j])); 
+        __pyx_v_valid_abs_sum_first_half = (__pyx_v_valid_abs_sum_first_half + __pyx_t_33);
+      }
+
+      /* "worker_threads_cy.pyx":452
+ *             for j in range(half_valid):
+ *                 valid_abs_sum_first_half += abs(valid_sum_arr[j])
+ *             for j in range(half_valid, n_valid):             # <<<<<<<<<<<<<<
+ *                 valid_abs_sum_second_half += abs(valid_sum_arr[j])
+ *             for j in range(q1_valid):
+*/
+      __pyx_t_16 = __pyx_v_n_valid;
+      __pyx_t_17 = __pyx_t_16;
+      for (__pyx_t_18 = __pyx_v_half_valid; __pyx_t_18 < __pyx_t_17; __pyx_t_18+=1) {
+        __pyx_v_j = __pyx_t_18;
+
+        /* "worker_threads_cy.pyx":453
+ *                 valid_abs_sum_first_half += abs(valid_sum_arr[j])
+ *             for j in range(half_valid, n_valid):
+ *                 valid_abs_sum_second_half += abs(valid_sum_arr[j])             # <<<<<<<<<<<<<<
+ *             for j in range(q1_valid):
+ *                 valid_abs_sum_block1 += abs(valid_sum_arr[j])
+*/
+        __pyx_t_33 = fabs((__pyx_v_valid_sum_arr[__pyx_v_j])); 
+        __pyx_v_valid_abs_sum_second_half = (__pyx_v_valid_abs_sum_second_half + __pyx_t_33);
+      }
+
+      /* "worker_threads_cy.pyx":454
+ *             for j in range(half_valid, n_valid):
+ *                 valid_abs_sum_second_half += abs(valid_sum_arr[j])
+ *             for j in range(q1_valid):             # <<<<<<<<<<<<<<
+ *                 valid_abs_sum_block1 += abs(valid_sum_arr[j])
+ *             for j in range(q1_valid, q2_valid):
+*/
+      __pyx_t_16 = __pyx_v_q1_valid;
+      __pyx_t_17 = __pyx_t_16;
+      for (__pyx_t_18 = 0; __pyx_t_18 < __pyx_t_17; __pyx_t_18+=1) {
+        __pyx_v_j = __pyx_t_18;
+
+        /* "worker_threads_cy.pyx":455
+ *                 valid_abs_sum_second_half += abs(valid_sum_arr[j])
+ *             for j in range(q1_valid):
+ *                 valid_abs_sum_block1 += abs(valid_sum_arr[j])             # <<<<<<<<<<<<<<
+ *             for j in range(q1_valid, q2_valid):
+ *                 valid_abs_sum_block2 += abs(valid_sum_arr[j])
+*/
+        __pyx_t_33 = fabs((__pyx_v_valid_sum_arr[__pyx_v_j])); 
+        __pyx_v_valid_abs_sum_block1 = (__pyx_v_valid_abs_sum_block1 + __pyx_t_33);
+      }
+
+      /* "worker_threads_cy.pyx":456
+ *             for j in range(q1_valid):
+ *                 valid_abs_sum_block1 += abs(valid_sum_arr[j])
+ *             for j in range(q1_valid, q2_valid):             # <<<<<<<<<<<<<<
+ *                 valid_abs_sum_block2 += abs(valid_sum_arr[j])
+ *             for j in range(q2_valid, q3_valid):
+*/
+      __pyx_t_16 = __pyx_v_q2_valid;
+      __pyx_t_17 = __pyx_t_16;
+      for (__pyx_t_18 = __pyx_v_q1_valid; __pyx_t_18 < __pyx_t_17; __pyx_t_18+=1) {
+        __pyx_v_j = __pyx_t_18;
+
+        /* "worker_threads_cy.pyx":457
+ *                 valid_abs_sum_block1 += abs(valid_sum_arr[j])
+ *             for j in range(q1_valid, q2_valid):
+ *                 valid_abs_sum_block2 += abs(valid_sum_arr[j])             # <<<<<<<<<<<<<<
+ *             for j in range(q2_valid, q3_valid):
+ *                 valid_abs_sum_block3 += abs(valid_sum_arr[j])
+*/
+        __pyx_t_33 = fabs((__pyx_v_valid_sum_arr[__pyx_v_j])); 
+        __pyx_v_valid_abs_sum_block2 = (__pyx_v_valid_abs_sum_block2 + __pyx_t_33);
+      }
+
+      /* "worker_threads_cy.pyx":458
+ *             for j in range(q1_valid, q2_valid):
+ *                 valid_abs_sum_block2 += abs(valid_sum_arr[j])
+ *             for j in range(q2_valid, q3_valid):             # <<<<<<<<<<<<<<
+ *                 valid_abs_sum_block3 += abs(valid_sum_arr[j])
+ *             for j in range(q3_valid, n_valid):
+*/
+      __pyx_t_16 = __pyx_v_q3_valid;
+      __pyx_t_17 = __pyx_t_16;
+      for (__pyx_t_18 = __pyx_v_q2_valid; __pyx_t_18 < __pyx_t_17; __pyx_t_18+=1) {
+        __pyx_v_j = __pyx_t_18;
+
+        /* "worker_threads_cy.pyx":459
+ *                 valid_abs_sum_block2 += abs(valid_sum_arr[j])
+ *             for j in range(q2_valid, q3_valid):
+ *                 valid_abs_sum_block3 += abs(valid_sum_arr[j])             # <<<<<<<<<<<<<<
+ *             for j in range(q3_valid, n_valid):
+ *                 valid_abs_sum_block4 += abs(valid_sum_arr[j])
+*/
+        __pyx_t_33 = fabs((__pyx_v_valid_sum_arr[__pyx_v_j])); 
+        __pyx_v_valid_abs_sum_block3 = (__pyx_v_valid_abs_sum_block3 + __pyx_t_33);
+      }
+
+      /* "worker_threads_cy.pyx":460
+ *             for j in range(q2_valid, q3_valid):
+ *                 valid_abs_sum_block3 += abs(valid_sum_arr[j])
+ *             for j in range(q3_valid, n_valid):             # <<<<<<<<<<<<<<
+ *                 valid_abs_sum_block4 += abs(valid_sum_arr[j])
+ *             valid_abs_sum_first_half = round_to_2(valid_abs_sum_first_half)
+*/
+      __pyx_t_16 = __pyx_v_n_valid;
+      __pyx_t_17 = __pyx_t_16;
+      for (__pyx_t_18 = __pyx_v_q3_valid; __pyx_t_18 < __pyx_t_17; __pyx_t_18+=1) {
+        __pyx_v_j = __pyx_t_18;
+
+        /* "worker_threads_cy.pyx":461
+ *                 valid_abs_sum_block3 += abs(valid_sum_arr[j])
+ *             for j in range(q3_valid, n_valid):
+ *                 valid_abs_sum_block4 += abs(valid_sum_arr[j])             # <<<<<<<<<<<<<<
+ *             valid_abs_sum_first_half = round_to_2(valid_abs_sum_first_half)
+ *             valid_abs_sum_second_half = round_to_2(valid_abs_sum_second_half)
+*/
+        __pyx_t_33 = fabs((__pyx_v_valid_sum_arr[__pyx_v_j])); 
+        __pyx_v_valid_abs_sum_block4 = (__pyx_v_valid_abs_sum_block4 + __pyx_t_33);
+      }
+
+      /* "worker_threads_cy.pyx":462
+ *             for j in range(q3_valid, n_valid):
+ *                 valid_abs_sum_block4 += abs(valid_sum_arr[j])
+ *             valid_abs_sum_first_half = round_to_2(valid_abs_sum_first_half)             # <<<<<<<<<<<<<<
+ *             valid_abs_sum_second_half = round_to_2(valid_abs_sum_second_half)
+ *             valid_abs_sum_block1 = round_to_2(valid_abs_sum_block1)
+*/
+      __pyx_t_33 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_v_valid_abs_sum_first_half); if (unlikely(__pyx_t_33 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 462, __pyx_L1_error)
+      __pyx_v_valid_abs_sum_first_half = __pyx_t_33;
+
+      /* "worker_threads_cy.pyx":463
+ *                 valid_abs_sum_block4 += abs(valid_sum_arr[j])
+ *             valid_abs_sum_first_half = round_to_2(valid_abs_sum_first_half)
+ *             valid_abs_sum_second_half = round_to_2(valid_abs_sum_second_half)             # <<<<<<<<<<<<<<
+ *             valid_abs_sum_block1 = round_to_2(valid_abs_sum_block1)
+ *             valid_abs_sum_block2 = round_to_2(valid_abs_sum_block2)
+*/
+      __pyx_t_33 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_v_valid_abs_sum_second_half); if (unlikely(__pyx_t_33 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 463, __pyx_L1_error)
+      __pyx_v_valid_abs_sum_second_half = __pyx_t_33;
+
+      /* "worker_threads_cy.pyx":464
+ *             valid_abs_sum_first_half = round_to_2(valid_abs_sum_first_half)
+ *             valid_abs_sum_second_half = round_to_2(valid_abs_sum_second_half)
+ *             valid_abs_sum_block1 = round_to_2(valid_abs_sum_block1)             # <<<<<<<<<<<<<<
+ *             valid_abs_sum_block2 = round_to_2(valid_abs_sum_block2)
+ *             valid_abs_sum_block3 = round_to_2(valid_abs_sum_block3)
+*/
+      __pyx_t_33 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_v_valid_abs_sum_block1); if (unlikely(__pyx_t_33 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 464, __pyx_L1_error)
+      __pyx_v_valid_abs_sum_block1 = __pyx_t_33;
+
+      /* "worker_threads_cy.pyx":465
+ *             valid_abs_sum_second_half = round_to_2(valid_abs_sum_second_half)
+ *             valid_abs_sum_block1 = round_to_2(valid_abs_sum_block1)
+ *             valid_abs_sum_block2 = round_to_2(valid_abs_sum_block2)             # <<<<<<<<<<<<<<
+ *             valid_abs_sum_block3 = round_to_2(valid_abs_sum_block3)
+ *             valid_abs_sum_block4 = round_to_2(valid_abs_sum_block4)
+*/
+      __pyx_t_33 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_v_valid_abs_sum_block2); if (unlikely(__pyx_t_33 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 465, __pyx_L1_error)
+      __pyx_v_valid_abs_sum_block2 = __pyx_t_33;
+
+      /* "worker_threads_cy.pyx":466
+ *             valid_abs_sum_block1 = round_to_2(valid_abs_sum_block1)
+ *             valid_abs_sum_block2 = round_to_2(valid_abs_sum_block2)
+ *             valid_abs_sum_block3 = round_to_2(valid_abs_sum_block3)             # <<<<<<<<<<<<<<
+ *             valid_abs_sum_block4 = round_to_2(valid_abs_sum_block4)
+ * 
+*/
+      __pyx_t_33 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_v_valid_abs_sum_block3); if (unlikely(__pyx_t_33 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 466, __pyx_L1_error)
+      __pyx_v_valid_abs_sum_block3 = __pyx_t_33;
+
+      /* "worker_threads_cy.pyx":467
+ *             valid_abs_sum_block2 = round_to_2(valid_abs_sum_block2)
+ *             valid_abs_sum_block3 = round_to_2(valid_abs_sum_block3)
+ *             valid_abs_sum_block4 = round_to_2(valid_abs_sum_block4)             # <<<<<<<<<<<<<<
+ * 
+ *             #
+*/
+      __pyx_t_33 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_v_valid_abs_sum_block4); if (unlikely(__pyx_t_33 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 467, __pyx_L1_error)
+      __pyx_v_valid_abs_sum_block4 = __pyx_t_33;
+
+      /* "worker_threads_cy.pyx":471
+ *             #
+ *             calc_valid_sum_and_pos_neg(
+ *                 cont_sum_np, valid_sum_arr, &valid_sum_len, &valid_pos_sum, &valid_neg_sum)             # <<<<<<<<<<<<<<
+ * 
+ *             # forward_max_result
+*/
+      __pyx_t_23 = __Pyx_PyObject_to_MemoryviewSlice_ds_double(((PyObject *)__pyx_v_cont_sum_np), PyBUF_WRITABLE); if (unlikely(!__pyx_t_23.memview)) __PYX_ERR(0, 471, __pyx_L1_error)
+
+      /* "worker_threads_cy.pyx":470
+ * 
+ *             #
+ *             calc_valid_sum_and_pos_neg(             # <<<<<<<<<<<<<<
+ *                 cont_sum_np, valid_sum_arr, &valid_sum_len, &valid_pos_sum, &valid_neg_sum)
+ * 
+*/
+      __pyx_f_17worker_threads_cy_calc_valid_sum_and_pos_neg(__pyx_t_23, __pyx_v_valid_sum_arr, (&__pyx_v_valid_sum_len), (&__pyx_v_valid_pos_sum), (&__pyx_v_valid_neg_sum)); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 470, __pyx_L1_error)
+      __PYX_XCLEAR_MEMVIEW(&__pyx_t_23, 1);
+      __pyx_t_23.memview = NULL; __pyx_t_23.data = NULL;
+
+      /* "worker_threads_cy.pyx":474
+ * 
+ *             # forward_max_result
+ *             if len(forward_max_result) > 0:             # <<<<<<<<<<<<<<
+ *                 calc_valid_sum_and_pos_neg(
+ *                     np.array(forward_max_result, dtype=np.float64),
+*/
+      __pyx_t_31 = __Pyx_PyList_GET_SIZE(__pyx_v_forward_max_result); if (unlikely(__pyx_t_31 == ((Py_ssize_t)-1))) __PYX_ERR(0, 474, __pyx_L1_error)
+      __pyx_t_7 = (__pyx_t_31 > 0);
+      if (__pyx_t_7) {
+
+        /* "worker_threads_cy.pyx":476
+ *             if len(forward_max_result) > 0:
+ *                 calc_valid_sum_and_pos_neg(
+ *                     np.array(forward_max_result, dtype=np.float64),             # <<<<<<<<<<<<<<
+ *                     forward_max_valid_sum_arr, &forward_max_valid_sum_len,
+ *                     &forward_max_valid_pos_sum, &forward_max_valid_neg_sum)
+*/
+        __pyx_t_8 = NULL;
+        __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 476, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_1);
+        __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_array); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 476, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_4);
+        __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+        __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 476, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_1);
+        __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_float64); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 476, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_5);
+        __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+        __pyx_t_6 = 1;
+        #if CYTHON_UNPACK_METHODS
+        if (unlikely(PyMethod_Check(__pyx_t_4))) {
+          __pyx_t_8 = PyMethod_GET_SELF(__pyx_t_4);
+          assert(__pyx_t_8);
+          PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_4);
+          __Pyx_INCREF(__pyx_t_8);
+          __Pyx_INCREF(__pyx__function);
+          __Pyx_DECREF_SET(__pyx_t_4, __pyx__function);
+          __pyx_t_6 = 0;
+        }
+        #endif
+        {
+          PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_8, __pyx_v_forward_max_result};
+          __pyx_t_1 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 476, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_1);
+          if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_dtype, __pyx_t_5, __pyx_t_1, __pyx_callargs+2, 0) < 0) __PYX_ERR(0, 476, __pyx_L1_error)
+          __pyx_t_27 = __Pyx_Object_Vectorcall_CallFromBuilder(__pyx_t_4, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_1);
+          __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
+          __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+          __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+          __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+          if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 476, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_27);
+        }
+        __pyx_t_23 = __Pyx_PyObject_to_MemoryviewSlice_ds_double(__pyx_t_27, PyBUF_WRITABLE); if (unlikely(!__pyx_t_23.memview)) __PYX_ERR(0, 476, __pyx_L1_error)
+        __Pyx_DECREF(__pyx_t_27); __pyx_t_27 = 0;
+
+        /* "worker_threads_cy.pyx":475
+ *             # forward_max_result
+ *             if len(forward_max_result) > 0:
  *                 calc_valid_sum_and_pos_neg(             # <<<<<<<<<<<<<<
- *                     cont_sum_np, valid_sum_arr, &valid_sum_len, &valid_pos_sum, &valid_neg_sum)
- *                 forward_max_result = list(forward_max_result_c)
+ *                     np.array(forward_max_result, dtype=np.float64),
+ *                     forward_max_valid_sum_arr, &forward_max_valid_sum_len,
 */
-                                    __pyx_f_17worker_threads_cy_calc_valid_sum_and_pos_neg(__pyx_t_19, __pyx_v_valid_sum_arr, (&__pyx_v_valid_sum_len), (&__pyx_v_valid_pos_sum), (&__pyx_v_valid_neg_sum)); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 208, __pyx_L41_error)
-                                    __PYX_XCLEAR_MEMVIEW(&__pyx_t_19, 1);
-                                    __pyx_t_19.memview = NULL; __pyx_t_19.data = NULL;
+        __pyx_f_17worker_threads_cy_calc_valid_sum_and_pos_neg(__pyx_t_23, __pyx_v_forward_max_valid_sum_arr, (&__pyx_v_forward_max_valid_sum_len), (&__pyx_v_forward_max_valid_pos_sum), (&__pyx_v_forward_max_valid_neg_sum)); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 475, __pyx_L1_error)
+        __PYX_XCLEAR_MEMVIEW(&__pyx_t_23, 1);
+        __pyx_t_23.memview = NULL; __pyx_t_23.data = NULL;
 
-                                    /* "worker_threads_cy.pyx":210
+        /* "worker_threads_cy.pyx":474
+ * 
+ *             # forward_max_result
+ *             if len(forward_max_result) > 0:             # <<<<<<<<<<<<<<
  *                 calc_valid_sum_and_pos_neg(
- *                     cont_sum_np, valid_sum_arr, &valid_sum_len, &valid_pos_sum, &valid_neg_sum)
- *                 forward_max_result = list(forward_max_result_c)             # <<<<<<<<<<<<<<
- *                 forward_min_result = list(forward_min_result_c)
- *                 n = len(py_cont_sum)
+ *                     np.array(forward_max_result, dtype=np.float64),
 */
-                                    __pyx_t_20 = __pyx_convert_vector_to_py_double(__pyx_v_forward_max_result_c); if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 210, __pyx_L41_error)
-                                    __Pyx_GOTREF(__pyx_t_20);
-                                    __pyx_t_22 = __Pyx_PySequence_ListKeepNew(__pyx_t_20); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 210, __pyx_L41_error)
-                                    __Pyx_GOTREF(__pyx_t_22);
-                                    __Pyx_DECREF(__pyx_t_20); __pyx_t_20 = 0;
-                                    __Pyx_XDECREF_SET(__pyx_v_forward_max_result, ((PyObject*)__pyx_t_22));
-                                    __pyx_t_22 = 0;
+        goto __pyx_L120;
+      }
 
-                                    /* "worker_threads_cy.pyx":211
- *                     cont_sum_np, valid_sum_arr, &valid_sum_len, &valid_pos_sum, &valid_neg_sum)
- *                 forward_max_result = list(forward_max_result_c)
- *                 forward_min_result = list(forward_min_result_c)             # <<<<<<<<<<<<<<
- *                 n = len(py_cont_sum)
+      /* "worker_threads_cy.pyx":480
+ *                     &forward_max_valid_pos_sum, &forward_max_valid_neg_sum)
+ *             else:
+ *                 forward_max_valid_sum_len = 0             # <<<<<<<<<<<<<<
+ *                 forward_max_valid_pos_sum = 0
+ *                 forward_max_valid_neg_sum = 0
+*/
+      /*else*/ {
+        __pyx_v_forward_max_valid_sum_len = 0;
+
+        /* "worker_threads_cy.pyx":481
+ *             else:
+ *                 forward_max_valid_sum_len = 0
+ *                 forward_max_valid_pos_sum = 0             # <<<<<<<<<<<<<<
+ *                 forward_max_valid_neg_sum = 0
+ * 
+*/
+        __pyx_v_forward_max_valid_pos_sum = 0.0;
+
+        /* "worker_threads_cy.pyx":482
+ *                 forward_max_valid_sum_len = 0
+ *                 forward_max_valid_pos_sum = 0
+ *                 forward_max_valid_neg_sum = 0             # <<<<<<<<<<<<<<
+ * 
+ *             # forward_min_result
+*/
+        __pyx_v_forward_max_valid_neg_sum = 0.0;
+      }
+      __pyx_L120:;
+
+      /* "worker_threads_cy.pyx":485
+ * 
+ *             # forward_min_result
+ *             if len(forward_min_result) > 0:             # <<<<<<<<<<<<<<
+ *                 calc_valid_sum_and_pos_neg(
+ *                     np.array(forward_min_result, dtype=np.float64),
+*/
+      __pyx_t_31 = __Pyx_PyList_GET_SIZE(__pyx_v_forward_min_result); if (unlikely(__pyx_t_31 == ((Py_ssize_t)-1))) __PYX_ERR(0, 485, __pyx_L1_error)
+      __pyx_t_7 = (__pyx_t_31 > 0);
+      if (__pyx_t_7) {
+
+        /* "worker_threads_cy.pyx":487
+ *             if len(forward_min_result) > 0:
+ *                 calc_valid_sum_and_pos_neg(
+ *                     np.array(forward_min_result, dtype=np.float64),             # <<<<<<<<<<<<<<
+ *                     forward_min_valid_sum_arr, &forward_min_valid_sum_len,
+ *                     &forward_min_valid_pos_sum, &forward_min_valid_neg_sum)
+*/
+        __pyx_t_4 = NULL;
+        __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 487, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_1);
+        __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_array); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 487, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_5);
+        __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+        __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 487, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_1);
+        __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_float64); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 487, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_8);
+        __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+        __pyx_t_6 = 1;
+        #if CYTHON_UNPACK_METHODS
+        if (unlikely(PyMethod_Check(__pyx_t_5))) {
+          __pyx_t_4 = PyMethod_GET_SELF(__pyx_t_5);
+          assert(__pyx_t_4);
+          PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_5);
+          __Pyx_INCREF(__pyx_t_4);
+          __Pyx_INCREF(__pyx__function);
+          __Pyx_DECREF_SET(__pyx_t_5, __pyx__function);
+          __pyx_t_6 = 0;
+        }
+        #endif
+        {
+          PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_4, __pyx_v_forward_min_result};
+          __pyx_t_1 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 487, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_1);
+          if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_dtype, __pyx_t_8, __pyx_t_1, __pyx_callargs+2, 0) < 0) __PYX_ERR(0, 487, __pyx_L1_error)
+          __pyx_t_27 = __Pyx_Object_Vectorcall_CallFromBuilder(__pyx_t_5, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_1);
+          __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
+          __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+          __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+          __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+          if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 487, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_27);
+        }
+        __pyx_t_23 = __Pyx_PyObject_to_MemoryviewSlice_ds_double(__pyx_t_27, PyBUF_WRITABLE); if (unlikely(!__pyx_t_23.memview)) __PYX_ERR(0, 487, __pyx_L1_error)
+        __Pyx_DECREF(__pyx_t_27); __pyx_t_27 = 0;
+
+        /* "worker_threads_cy.pyx":486
+ *             # forward_min_result
+ *             if len(forward_min_result) > 0:
+ *                 calc_valid_sum_and_pos_neg(             # <<<<<<<<<<<<<<
+ *                     np.array(forward_min_result, dtype=np.float64),
+ *                     forward_min_valid_sum_arr, &forward_min_valid_sum_len,
+*/
+        __pyx_f_17worker_threads_cy_calc_valid_sum_and_pos_neg(__pyx_t_23, __pyx_v_forward_min_valid_sum_arr, (&__pyx_v_forward_min_valid_sum_len), (&__pyx_v_forward_min_valid_pos_sum), (&__pyx_v_forward_min_valid_neg_sum)); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 486, __pyx_L1_error)
+        __PYX_XCLEAR_MEMVIEW(&__pyx_t_23, 1);
+        __pyx_t_23.memview = NULL; __pyx_t_23.data = NULL;
+
+        /* "worker_threads_cy.pyx":485
+ * 
+ *             # forward_min_result
+ *             if len(forward_min_result) > 0:             # <<<<<<<<<<<<<<
+ *                 calc_valid_sum_and_pos_neg(
+ *                     np.array(forward_min_result, dtype=np.float64),
+*/
+        goto __pyx_L121;
+      }
+
+      /* "worker_threads_cy.pyx":491
+ *                     &forward_min_valid_pos_sum, &forward_min_valid_neg_sum)
+ *             else:
+ *                 forward_min_valid_sum_len = 0             # <<<<<<<<<<<<<<
+ *                 forward_min_valid_pos_sum = 0
+ *                 forward_min_valid_neg_sum = 0
+*/
+      /*else*/ {
+        __pyx_v_forward_min_valid_sum_len = 0;
+
+        /* "worker_threads_cy.pyx":492
+ *             else:
+ *                 forward_min_valid_sum_len = 0
+ *                 forward_min_valid_pos_sum = 0             # <<<<<<<<<<<<<<
+ *                 forward_min_valid_neg_sum = 0
+ * 
+*/
+        __pyx_v_forward_min_valid_pos_sum = 0.0;
+
+        /* "worker_threads_cy.pyx":493
+ *                 forward_min_valid_sum_len = 0
+ *                 forward_min_valid_pos_sum = 0
+ *                 forward_min_valid_neg_sum = 0             # <<<<<<<<<<<<<<
+ * 
+ *             # Cython
+*/
+        __pyx_v_forward_min_valid_neg_sum = 0.0;
+      }
+      __pyx_L121:;
+
+      /* "worker_threads_cy.pyx":496
+ * 
+ *             # Cython
+ *             forward_max_result_len = forward_max_result_c.size()             # <<<<<<<<<<<<<<
+ *             forward_max_valid_abs_sum_first_half = 0
+ *             forward_max_valid_abs_sum_second_half = 0
+*/
+      __pyx_v_forward_max_result_len = __pyx_v_forward_max_result_c.size();
+
+      /* "worker_threads_cy.pyx":497
+ *             # Cython
+ *             forward_max_result_len = forward_max_result_c.size()
+ *             forward_max_valid_abs_sum_first_half = 0             # <<<<<<<<<<<<<<
+ *             forward_max_valid_abs_sum_second_half = 0
+ *             forward_max_valid_abs_sum_block1 = 0
+*/
+      __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
+      __Pyx_DECREF_SET(__pyx_v_forward_max_valid_abs_sum_first_half, __pyx_mstate_global->__pyx_int_0);
+
+      /* "worker_threads_cy.pyx":498
+ *             forward_max_result_len = forward_max_result_c.size()
+ *             forward_max_valid_abs_sum_first_half = 0
+ *             forward_max_valid_abs_sum_second_half = 0             # <<<<<<<<<<<<<<
+ *             forward_max_valid_abs_sum_block1 = 0
+ *             forward_max_valid_abs_sum_block2 = 0
+*/
+      __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
+      __Pyx_DECREF_SET(__pyx_v_forward_max_valid_abs_sum_second_half, __pyx_mstate_global->__pyx_int_0);
+
+      /* "worker_threads_cy.pyx":499
+ *             forward_max_valid_abs_sum_first_half = 0
+ *             forward_max_valid_abs_sum_second_half = 0
+ *             forward_max_valid_abs_sum_block1 = 0             # <<<<<<<<<<<<<<
+ *             forward_max_valid_abs_sum_block2 = 0
+ *             forward_max_valid_abs_sum_block3 = 0
+*/
+      __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
+      __Pyx_DECREF_SET(__pyx_v_forward_max_valid_abs_sum_block1, __pyx_mstate_global->__pyx_int_0);
+
+      /* "worker_threads_cy.pyx":500
+ *             forward_max_valid_abs_sum_second_half = 0
+ *             forward_max_valid_abs_sum_block1 = 0
+ *             forward_max_valid_abs_sum_block2 = 0             # <<<<<<<<<<<<<<
+ *             forward_max_valid_abs_sum_block3 = 0
+ *             forward_max_valid_abs_sum_block4 = 0
+*/
+      __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
+      __Pyx_DECREF_SET(__pyx_v_forward_max_valid_abs_sum_block2, __pyx_mstate_global->__pyx_int_0);
+
+      /* "worker_threads_cy.pyx":501
+ *             forward_max_valid_abs_sum_block1 = 0
+ *             forward_max_valid_abs_sum_block2 = 0
+ *             forward_max_valid_abs_sum_block3 = 0             # <<<<<<<<<<<<<<
+ *             forward_max_valid_abs_sum_block4 = 0
+ *             if is_forward and forward_max_result_len > 0:
+*/
+      __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
+      __Pyx_DECREF_SET(__pyx_v_forward_max_valid_abs_sum_block3, __pyx_mstate_global->__pyx_int_0);
+
+      /* "worker_threads_cy.pyx":502
+ *             forward_max_valid_abs_sum_block2 = 0
+ *             forward_max_valid_abs_sum_block3 = 0
+ *             forward_max_valid_abs_sum_block4 = 0             # <<<<<<<<<<<<<<
+ *             if is_forward and forward_max_result_len > 0:
+ *                 n = forward_max_result_len
+*/
+      __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
+      __Pyx_DECREF_SET(__pyx_v_forward_max_valid_abs_sum_block4, __pyx_mstate_global->__pyx_int_0);
+
+      /* "worker_threads_cy.pyx":503
+ *             forward_max_valid_abs_sum_block3 = 0
+ *             forward_max_valid_abs_sum_block4 = 0
+ *             if is_forward and forward_max_result_len > 0:             # <<<<<<<<<<<<<<
+ *                 n = forward_max_result_len
  *                 half = int(round(n / 2.0))
 */
-                                    __pyx_t_22 = __pyx_convert_vector_to_py_double(__pyx_v_forward_min_result_c); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 211, __pyx_L41_error)
-                                    __Pyx_GOTREF(__pyx_t_22);
-                                    __pyx_t_20 = __Pyx_PySequence_ListKeepNew(__pyx_t_22); if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 211, __pyx_L41_error)
-                                    __Pyx_GOTREF(__pyx_t_20);
-                                    __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
-                                    __Pyx_XDECREF_SET(__pyx_v_forward_min_result, ((PyObject*)__pyx_t_20));
-                                    __pyx_t_20 = 0;
+      if (__pyx_v_is_forward) {
+      } else {
+        __pyx_t_7 = __pyx_v_is_forward;
+        goto __pyx_L123_bool_binop_done;
+      }
+      __pyx_t_21 = (__pyx_v_forward_max_result_len > 0);
+      __pyx_t_7 = __pyx_t_21;
+      __pyx_L123_bool_binop_done:;
+      if (__pyx_t_7) {
 
-                                    /* "worker_threads_cy.pyx":212
- *                 forward_max_result = list(forward_max_result_c)
- *                 forward_min_result = list(forward_min_result_c)
- *                 n = len(py_cont_sum)             # <<<<<<<<<<<<<<
+        /* "worker_threads_cy.pyx":504
+ *             forward_max_valid_abs_sum_block4 = 0
+ *             if is_forward and forward_max_result_len > 0:
+ *                 n = forward_max_result_len             # <<<<<<<<<<<<<<
  *                 half = int(round(n / 2.0))
  *                 q1 = int(round(n / 4.0))
 */
-                                    __pyx_t_28 = __Pyx_PyList_GET_SIZE(__pyx_v_py_cont_sum); if (unlikely(__pyx_t_28 == ((Py_ssize_t)-1))) __PYX_ERR(0, 212, __pyx_L41_error)
-                                    __pyx_v_n = __pyx_t_28;
+        __pyx_v_n = __pyx_v_forward_max_result_len;
 
-                                    /* "worker_threads_cy.pyx":213
- *                 forward_min_result = list(forward_min_result_c)
- *                 n = len(py_cont_sum)
+        /* "worker_threads_cy.pyx":505
+ *             if is_forward and forward_max_result_len > 0:
+ *                 n = forward_max_result_len
  *                 half = int(round(n / 2.0))             # <<<<<<<<<<<<<<
  *                 q1 = int(round(n / 4.0))
  *                 q2 = int(round(n / 2.0))
 */
-                                    __pyx_v_half = ((int)round((((double)__pyx_v_n) / 2.0)));
+        __pyx_v_half = ((int)round((((double)__pyx_v_n) / 2.0)));
 
-                                    /* "worker_threads_cy.pyx":214
- *                 n = len(py_cont_sum)
+        /* "worker_threads_cy.pyx":506
+ *                 n = forward_max_result_len
  *                 half = int(round(n / 2.0))
  *                 q1 = int(round(n / 4.0))             # <<<<<<<<<<<<<<
  *                 q2 = int(round(n / 2.0))
  *                 q3 = int(round(3 * n / 4.0))
 */
-                                    __pyx_v_q1 = ((int)round((((double)__pyx_v_n) / 4.0)));
+        __pyx_v_q1 = ((int)round((((double)__pyx_v_n) / 4.0)));
 
-                                    /* "worker_threads_cy.pyx":215
+        /* "worker_threads_cy.pyx":507
  *                 half = int(round(n / 2.0))
  *                 q1 = int(round(n / 4.0))
  *                 q2 = int(round(n / 2.0))             # <<<<<<<<<<<<<<
  *                 q3 = int(round(3 * n / 4.0))
- *                 continuous_abs_sum_first_half = 0
+ *                 for j in range(n):
 */
-                                    __pyx_v_q2 = ((int)round((((double)__pyx_v_n) / 2.0)));
+        __pyx_v_q2 = ((int)round((((double)__pyx_v_n) / 2.0)));
 
-                                    /* "worker_threads_cy.pyx":216
+        /* "worker_threads_cy.pyx":508
  *                 q1 = int(round(n / 4.0))
  *                 q2 = int(round(n / 2.0))
  *                 q3 = int(round(3 * n / 4.0))             # <<<<<<<<<<<<<<
- *                 continuous_abs_sum_first_half = 0
- *                 continuous_abs_sum_second_half = 0
+ *                 for j in range(n):
+ *                     v = fabs(forward_max_result_c[j])
 */
-                                    __pyx_v_q3 = ((int)round((((double)(3 * __pyx_v_n)) / 4.0)));
+        __pyx_v_q3 = ((int)round((((double)(3 * __pyx_v_n)) / 4.0)));
 
-                                    /* "worker_threads_cy.pyx":217
+        /* "worker_threads_cy.pyx":509
  *                 q2 = int(round(n / 2.0))
  *                 q3 = int(round(3 * n / 4.0))
- *                 continuous_abs_sum_first_half = 0             # <<<<<<<<<<<<<<
- *                 continuous_abs_sum_second_half = 0
- *                 continuous_abs_sum_block1 = 0
+ *                 for j in range(n):             # <<<<<<<<<<<<<<
+ *                     v = fabs(forward_max_result_c[j])
+ *                     if j < half:
 */
-                                    __pyx_v_continuous_abs_sum_first_half = 0.0;
+        __pyx_t_16 = __pyx_v_n;
+        __pyx_t_17 = __pyx_t_16;
+        for (__pyx_t_18 = 0; __pyx_t_18 < __pyx_t_17; __pyx_t_18+=1) {
+          __pyx_v_j = __pyx_t_18;
 
-                                    /* "worker_threads_cy.pyx":218
+          /* "worker_threads_cy.pyx":510
  *                 q3 = int(round(3 * n / 4.0))
- *                 continuous_abs_sum_first_half = 0
- *                 continuous_abs_sum_second_half = 0             # <<<<<<<<<<<<<<
- *                 continuous_abs_sum_block1 = 0
- *                 continuous_abs_sum_block2 = 0
+ *                 for j in range(n):
+ *                     v = fabs(forward_max_result_c[j])             # <<<<<<<<<<<<<<
+ *                     if j < half:
+ *                         forward_max_valid_abs_sum_first_half += v
 */
-                                    __pyx_v_continuous_abs_sum_second_half = 0.0;
+          __pyx_v_v = fabs((__pyx_v_forward_max_result_c[__pyx_v_j]));
 
-                                    /* "worker_threads_cy.pyx":219
- *                 continuous_abs_sum_first_half = 0
- *                 continuous_abs_sum_second_half = 0
- *                 continuous_abs_sum_block1 = 0             # <<<<<<<<<<<<<<
- *                 continuous_abs_sum_block2 = 0
- *                 continuous_abs_sum_block3 = 0
-*/
-                                    __pyx_v_continuous_abs_sum_block1 = 0.0;
-
-                                    /* "worker_threads_cy.pyx":220
- *                 continuous_abs_sum_second_half = 0
- *                 continuous_abs_sum_block1 = 0
- *                 continuous_abs_sum_block2 = 0             # <<<<<<<<<<<<<<
- *                 continuous_abs_sum_block3 = 0
- *                 continuous_abs_sum_block4 = 0
-*/
-                                    __pyx_v_continuous_abs_sum_block2 = 0.0;
-
-                                    /* "worker_threads_cy.pyx":221
- *                 continuous_abs_sum_block1 = 0
- *                 continuous_abs_sum_block2 = 0
- *                 continuous_abs_sum_block3 = 0             # <<<<<<<<<<<<<<
- *                 continuous_abs_sum_block4 = 0
- *                 for i in range(half):
-*/
-                                    __pyx_v_continuous_abs_sum_block3 = 0.0;
-
-                                    /* "worker_threads_cy.pyx":222
- *                 continuous_abs_sum_block2 = 0
- *                 continuous_abs_sum_block3 = 0
- *                 continuous_abs_sum_block4 = 0             # <<<<<<<<<<<<<<
- *                 for i in range(half):
- *                     continuous_abs_sum_first_half += abs(py_cont_sum[i])
-*/
-                                    __pyx_v_continuous_abs_sum_block4 = 0.0;
-
-                                    /* "worker_threads_cy.pyx":223
- *                 continuous_abs_sum_block3 = 0
- *                 continuous_abs_sum_block4 = 0
- *                 for i in range(half):             # <<<<<<<<<<<<<<
- *                     continuous_abs_sum_first_half += abs(py_cont_sum[i])
- *                 for i in range(half, n):
-*/
-                                    __pyx_t_11 = __pyx_v_half;
-                                    __pyx_t_12 = __pyx_t_11;
-                                    for (__pyx_t_13 = 0; __pyx_t_13 < __pyx_t_12; __pyx_t_13+=1) {
-                                      __pyx_v_i = __pyx_t_13;
-
-                                      /* "worker_threads_cy.pyx":224
- *                 continuous_abs_sum_block4 = 0
- *                 for i in range(half):
- *                     continuous_abs_sum_first_half += abs(py_cont_sum[i])             # <<<<<<<<<<<<<<
- *                 for i in range(half, n):
- *                     continuous_abs_sum_second_half += abs(py_cont_sum[i])
-*/
-                                      __pyx_t_20 = PyFloat_FromDouble(__pyx_v_continuous_abs_sum_first_half); if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 224, __pyx_L41_error)
-                                      __Pyx_GOTREF(__pyx_t_20);
-                                      __pyx_t_22 = __Pyx_PyList_GET_ITEM(__pyx_v_py_cont_sum, __pyx_v_i);
-                                      __Pyx_INCREF(__pyx_t_22);
-                                      __pyx_t_21 = __Pyx_PyNumber_Absolute(__pyx_t_22); if (unlikely(!__pyx_t_21)) __PYX_ERR(0, 224, __pyx_L41_error)
-                                      __Pyx_GOTREF(__pyx_t_21);
-                                      __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
-                                      __pyx_t_22 = PyNumber_InPlaceAdd(__pyx_t_20, __pyx_t_21); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 224, __pyx_L41_error)
-                                      __Pyx_GOTREF(__pyx_t_22);
-                                      __Pyx_DECREF(__pyx_t_20); __pyx_t_20 = 0;
-                                      __Pyx_DECREF(__pyx_t_21); __pyx_t_21 = 0;
-                                      __pyx_t_16 = __Pyx_PyFloat_AsDouble(__pyx_t_22); if (unlikely((__pyx_t_16 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 224, __pyx_L41_error)
-                                      __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
-                                      __pyx_v_continuous_abs_sum_first_half = __pyx_t_16;
-                                    }
-
-                                    /* "worker_threads_cy.pyx":225
- *                 for i in range(half):
- *                     continuous_abs_sum_first_half += abs(py_cont_sum[i])
- *                 for i in range(half, n):             # <<<<<<<<<<<<<<
- *                     continuous_abs_sum_second_half += abs(py_cont_sum[i])
- *                 for i in range(q1):
-*/
-                                    __pyx_t_11 = __pyx_v_n;
-                                    __pyx_t_12 = __pyx_t_11;
-                                    for (__pyx_t_13 = __pyx_v_half; __pyx_t_13 < __pyx_t_12; __pyx_t_13+=1) {
-                                      __pyx_v_i = __pyx_t_13;
-
-                                      /* "worker_threads_cy.pyx":226
- *                     continuous_abs_sum_first_half += abs(py_cont_sum[i])
- *                 for i in range(half, n):
- *                     continuous_abs_sum_second_half += abs(py_cont_sum[i])             # <<<<<<<<<<<<<<
- *                 for i in range(q1):
- *                     continuous_abs_sum_block1 += abs(py_cont_sum[i])
-*/
-                                      __pyx_t_22 = PyFloat_FromDouble(__pyx_v_continuous_abs_sum_second_half); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 226, __pyx_L41_error)
-                                      __Pyx_GOTREF(__pyx_t_22);
-                                      __pyx_t_21 = __Pyx_PyList_GET_ITEM(__pyx_v_py_cont_sum, __pyx_v_i);
-                                      __Pyx_INCREF(__pyx_t_21);
-                                      __pyx_t_20 = __Pyx_PyNumber_Absolute(__pyx_t_21); if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 226, __pyx_L41_error)
-                                      __Pyx_GOTREF(__pyx_t_20);
-                                      __Pyx_DECREF(__pyx_t_21); __pyx_t_21 = 0;
-                                      __pyx_t_21 = PyNumber_InPlaceAdd(__pyx_t_22, __pyx_t_20); if (unlikely(!__pyx_t_21)) __PYX_ERR(0, 226, __pyx_L41_error)
-                                      __Pyx_GOTREF(__pyx_t_21);
-                                      __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
-                                      __Pyx_DECREF(__pyx_t_20); __pyx_t_20 = 0;
-                                      __pyx_t_16 = __Pyx_PyFloat_AsDouble(__pyx_t_21); if (unlikely((__pyx_t_16 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 226, __pyx_L41_error)
-                                      __Pyx_DECREF(__pyx_t_21); __pyx_t_21 = 0;
-                                      __pyx_v_continuous_abs_sum_second_half = __pyx_t_16;
-                                    }
-
-                                    /* "worker_threads_cy.pyx":227
- *                 for i in range(half, n):
- *                     continuous_abs_sum_second_half += abs(py_cont_sum[i])
- *                 for i in range(q1):             # <<<<<<<<<<<<<<
- *                     continuous_abs_sum_block1 += abs(py_cont_sum[i])
- *                 for i in range(q1, q2):
-*/
-                                    __pyx_t_11 = __pyx_v_q1;
-                                    __pyx_t_12 = __pyx_t_11;
-                                    for (__pyx_t_13 = 0; __pyx_t_13 < __pyx_t_12; __pyx_t_13+=1) {
-                                      __pyx_v_i = __pyx_t_13;
-
-                                      /* "worker_threads_cy.pyx":228
- *                     continuous_abs_sum_second_half += abs(py_cont_sum[i])
- *                 for i in range(q1):
- *                     continuous_abs_sum_block1 += abs(py_cont_sum[i])             # <<<<<<<<<<<<<<
- *                 for i in range(q1, q2):
- *                     continuous_abs_sum_block2 += abs(py_cont_sum[i])
-*/
-                                      __pyx_t_21 = PyFloat_FromDouble(__pyx_v_continuous_abs_sum_block1); if (unlikely(!__pyx_t_21)) __PYX_ERR(0, 228, __pyx_L41_error)
-                                      __Pyx_GOTREF(__pyx_t_21);
-                                      __pyx_t_20 = __Pyx_PyList_GET_ITEM(__pyx_v_py_cont_sum, __pyx_v_i);
-                                      __Pyx_INCREF(__pyx_t_20);
-                                      __pyx_t_22 = __Pyx_PyNumber_Absolute(__pyx_t_20); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 228, __pyx_L41_error)
-                                      __Pyx_GOTREF(__pyx_t_22);
-                                      __Pyx_DECREF(__pyx_t_20); __pyx_t_20 = 0;
-                                      __pyx_t_20 = PyNumber_InPlaceAdd(__pyx_t_21, __pyx_t_22); if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 228, __pyx_L41_error)
-                                      __Pyx_GOTREF(__pyx_t_20);
-                                      __Pyx_DECREF(__pyx_t_21); __pyx_t_21 = 0;
-                                      __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
-                                      __pyx_t_16 = __Pyx_PyFloat_AsDouble(__pyx_t_20); if (unlikely((__pyx_t_16 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 228, __pyx_L41_error)
-                                      __Pyx_DECREF(__pyx_t_20); __pyx_t_20 = 0;
-                                      __pyx_v_continuous_abs_sum_block1 = __pyx_t_16;
-                                    }
-
-                                    /* "worker_threads_cy.pyx":229
- *                 for i in range(q1):
- *                     continuous_abs_sum_block1 += abs(py_cont_sum[i])
- *                 for i in range(q1, q2):             # <<<<<<<<<<<<<<
- *                     continuous_abs_sum_block2 += abs(py_cont_sum[i])
- *                 for i in range(q2, q3):
-*/
-                                    __pyx_t_11 = __pyx_v_q2;
-                                    __pyx_t_12 = __pyx_t_11;
-                                    for (__pyx_t_13 = __pyx_v_q1; __pyx_t_13 < __pyx_t_12; __pyx_t_13+=1) {
-                                      __pyx_v_i = __pyx_t_13;
-
-                                      /* "worker_threads_cy.pyx":230
- *                     continuous_abs_sum_block1 += abs(py_cont_sum[i])
- *                 for i in range(q1, q2):
- *                     continuous_abs_sum_block2 += abs(py_cont_sum[i])             # <<<<<<<<<<<<<<
- *                 for i in range(q2, q3):
- *                     continuous_abs_sum_block3 += abs(py_cont_sum[i])
-*/
-                                      __pyx_t_20 = PyFloat_FromDouble(__pyx_v_continuous_abs_sum_block2); if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 230, __pyx_L41_error)
-                                      __Pyx_GOTREF(__pyx_t_20);
-                                      __pyx_t_22 = __Pyx_PyList_GET_ITEM(__pyx_v_py_cont_sum, __pyx_v_i);
-                                      __Pyx_INCREF(__pyx_t_22);
-                                      __pyx_t_21 = __Pyx_PyNumber_Absolute(__pyx_t_22); if (unlikely(!__pyx_t_21)) __PYX_ERR(0, 230, __pyx_L41_error)
-                                      __Pyx_GOTREF(__pyx_t_21);
-                                      __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
-                                      __pyx_t_22 = PyNumber_InPlaceAdd(__pyx_t_20, __pyx_t_21); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 230, __pyx_L41_error)
-                                      __Pyx_GOTREF(__pyx_t_22);
-                                      __Pyx_DECREF(__pyx_t_20); __pyx_t_20 = 0;
-                                      __Pyx_DECREF(__pyx_t_21); __pyx_t_21 = 0;
-                                      __pyx_t_16 = __Pyx_PyFloat_AsDouble(__pyx_t_22); if (unlikely((__pyx_t_16 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 230, __pyx_L41_error)
-                                      __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
-                                      __pyx_v_continuous_abs_sum_block2 = __pyx_t_16;
-                                    }
-
-                                    /* "worker_threads_cy.pyx":231
- *                 for i in range(q1, q2):
- *                     continuous_abs_sum_block2 += abs(py_cont_sum[i])
- *                 for i in range(q2, q3):             # <<<<<<<<<<<<<<
- *                     continuous_abs_sum_block3 += abs(py_cont_sum[i])
- *                 for i in range(q3, n):
-*/
-                                    __pyx_t_11 = __pyx_v_q3;
-                                    __pyx_t_12 = __pyx_t_11;
-                                    for (__pyx_t_13 = __pyx_v_q2; __pyx_t_13 < __pyx_t_12; __pyx_t_13+=1) {
-                                      __pyx_v_i = __pyx_t_13;
-
-                                      /* "worker_threads_cy.pyx":232
- *                     continuous_abs_sum_block2 += abs(py_cont_sum[i])
- *                 for i in range(q2, q3):
- *                     continuous_abs_sum_block3 += abs(py_cont_sum[i])             # <<<<<<<<<<<<<<
- *                 for i in range(q3, n):
- *                     continuous_abs_sum_block4 += abs(py_cont_sum[i])
-*/
-                                      __pyx_t_22 = PyFloat_FromDouble(__pyx_v_continuous_abs_sum_block3); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 232, __pyx_L41_error)
-                                      __Pyx_GOTREF(__pyx_t_22);
-                                      __pyx_t_21 = __Pyx_PyList_GET_ITEM(__pyx_v_py_cont_sum, __pyx_v_i);
-                                      __Pyx_INCREF(__pyx_t_21);
-                                      __pyx_t_20 = __Pyx_PyNumber_Absolute(__pyx_t_21); if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 232, __pyx_L41_error)
-                                      __Pyx_GOTREF(__pyx_t_20);
-                                      __Pyx_DECREF(__pyx_t_21); __pyx_t_21 = 0;
-                                      __pyx_t_21 = PyNumber_InPlaceAdd(__pyx_t_22, __pyx_t_20); if (unlikely(!__pyx_t_21)) __PYX_ERR(0, 232, __pyx_L41_error)
-                                      __Pyx_GOTREF(__pyx_t_21);
-                                      __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
-                                      __Pyx_DECREF(__pyx_t_20); __pyx_t_20 = 0;
-                                      __pyx_t_16 = __Pyx_PyFloat_AsDouble(__pyx_t_21); if (unlikely((__pyx_t_16 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 232, __pyx_L41_error)
-                                      __Pyx_DECREF(__pyx_t_21); __pyx_t_21 = 0;
-                                      __pyx_v_continuous_abs_sum_block3 = __pyx_t_16;
-                                    }
-
-                                    /* "worker_threads_cy.pyx":233
- *                 for i in range(q2, q3):
- *                     continuous_abs_sum_block3 += abs(py_cont_sum[i])
- *                 for i in range(q3, n):             # <<<<<<<<<<<<<<
- *                     continuous_abs_sum_block4 += abs(py_cont_sum[i])
- *                 continuous_abs_sum_first_half = round_to_2(continuous_abs_sum_first_half)
-*/
-                                    __pyx_t_11 = __pyx_v_n;
-                                    __pyx_t_12 = __pyx_t_11;
-                                    for (__pyx_t_13 = __pyx_v_q3; __pyx_t_13 < __pyx_t_12; __pyx_t_13+=1) {
-                                      __pyx_v_i = __pyx_t_13;
-
-                                      /* "worker_threads_cy.pyx":234
- *                     continuous_abs_sum_block3 += abs(py_cont_sum[i])
- *                 for i in range(q3, n):
- *                     continuous_abs_sum_block4 += abs(py_cont_sum[i])             # <<<<<<<<<<<<<<
- *                 continuous_abs_sum_first_half = round_to_2(continuous_abs_sum_first_half)
- *                 continuous_abs_sum_second_half = round_to_2(continuous_abs_sum_second_half)
-*/
-                                      __pyx_t_21 = PyFloat_FromDouble(__pyx_v_continuous_abs_sum_block4); if (unlikely(!__pyx_t_21)) __PYX_ERR(0, 234, __pyx_L41_error)
-                                      __Pyx_GOTREF(__pyx_t_21);
-                                      __pyx_t_20 = __Pyx_PyList_GET_ITEM(__pyx_v_py_cont_sum, __pyx_v_i);
-                                      __Pyx_INCREF(__pyx_t_20);
-                                      __pyx_t_22 = __Pyx_PyNumber_Absolute(__pyx_t_20); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 234, __pyx_L41_error)
-                                      __Pyx_GOTREF(__pyx_t_22);
-                                      __Pyx_DECREF(__pyx_t_20); __pyx_t_20 = 0;
-                                      __pyx_t_20 = PyNumber_InPlaceAdd(__pyx_t_21, __pyx_t_22); if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 234, __pyx_L41_error)
-                                      __Pyx_GOTREF(__pyx_t_20);
-                                      __Pyx_DECREF(__pyx_t_21); __pyx_t_21 = 0;
-                                      __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
-                                      __pyx_t_16 = __Pyx_PyFloat_AsDouble(__pyx_t_20); if (unlikely((__pyx_t_16 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 234, __pyx_L41_error)
-                                      __Pyx_DECREF(__pyx_t_20); __pyx_t_20 = 0;
-                                      __pyx_v_continuous_abs_sum_block4 = __pyx_t_16;
-                                    }
-
-                                    /* "worker_threads_cy.pyx":235
- *                 for i in range(q3, n):
- *                     continuous_abs_sum_block4 += abs(py_cont_sum[i])
- *                 continuous_abs_sum_first_half = round_to_2(continuous_abs_sum_first_half)             # <<<<<<<<<<<<<<
- *                 continuous_abs_sum_second_half = round_to_2(continuous_abs_sum_second_half)
- *                 continuous_abs_sum_block1 = round_to_2(continuous_abs_sum_block1)
-*/
-                                    __pyx_t_16 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_v_continuous_abs_sum_first_half); if (unlikely(__pyx_t_16 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 235, __pyx_L41_error)
-                                    __pyx_v_continuous_abs_sum_first_half = __pyx_t_16;
-
-                                    /* "worker_threads_cy.pyx":236
- *                     continuous_abs_sum_block4 += abs(py_cont_sum[i])
- *                 continuous_abs_sum_first_half = round_to_2(continuous_abs_sum_first_half)
- *                 continuous_abs_sum_second_half = round_to_2(continuous_abs_sum_second_half)             # <<<<<<<<<<<<<<
- *                 continuous_abs_sum_block1 = round_to_2(continuous_abs_sum_block1)
- *                 continuous_abs_sum_block2 = round_to_2(continuous_abs_sum_block2)
-*/
-                                    __pyx_t_16 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_v_continuous_abs_sum_second_half); if (unlikely(__pyx_t_16 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 236, __pyx_L41_error)
-                                    __pyx_v_continuous_abs_sum_second_half = __pyx_t_16;
-
-                                    /* "worker_threads_cy.pyx":237
- *                 continuous_abs_sum_first_half = round_to_2(continuous_abs_sum_first_half)
- *                 continuous_abs_sum_second_half = round_to_2(continuous_abs_sum_second_half)
- *                 continuous_abs_sum_block1 = round_to_2(continuous_abs_sum_block1)             # <<<<<<<<<<<<<<
- *                 continuous_abs_sum_block2 = round_to_2(continuous_abs_sum_block2)
- *                 continuous_abs_sum_block3 = round_to_2(continuous_abs_sum_block3)
-*/
-                                    __pyx_t_16 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_v_continuous_abs_sum_block1); if (unlikely(__pyx_t_16 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 237, __pyx_L41_error)
-                                    __pyx_v_continuous_abs_sum_block1 = __pyx_t_16;
-
-                                    /* "worker_threads_cy.pyx":238
- *                 continuous_abs_sum_second_half = round_to_2(continuous_abs_sum_second_half)
- *                 continuous_abs_sum_block1 = round_to_2(continuous_abs_sum_block1)
- *                 continuous_abs_sum_block2 = round_to_2(continuous_abs_sum_block2)             # <<<<<<<<<<<<<<
- *                 continuous_abs_sum_block3 = round_to_2(continuous_abs_sum_block3)
- *                 continuous_abs_sum_block4 = round_to_2(continuous_abs_sum_block4)
-*/
-                                    __pyx_t_16 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_v_continuous_abs_sum_block2); if (unlikely(__pyx_t_16 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 238, __pyx_L41_error)
-                                    __pyx_v_continuous_abs_sum_block2 = __pyx_t_16;
-
-                                    /* "worker_threads_cy.pyx":239
- *                 continuous_abs_sum_block1 = round_to_2(continuous_abs_sum_block1)
- *                 continuous_abs_sum_block2 = round_to_2(continuous_abs_sum_block2)
- *                 continuous_abs_sum_block3 = round_to_2(continuous_abs_sum_block3)             # <<<<<<<<<<<<<<
- *                 continuous_abs_sum_block4 = round_to_2(continuous_abs_sum_block4)
- * 
-*/
-                                    __pyx_t_16 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_v_continuous_abs_sum_block3); if (unlikely(__pyx_t_16 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 239, __pyx_L41_error)
-                                    __pyx_v_continuous_abs_sum_block3 = __pyx_t_16;
-
-                                    /* "worker_threads_cy.pyx":240
- *                 continuous_abs_sum_block2 = round_to_2(continuous_abs_sum_block2)
- *                 continuous_abs_sum_block3 = round_to_2(continuous_abs_sum_block3)
- *                 continuous_abs_sum_block4 = round_to_2(continuous_abs_sum_block4)             # <<<<<<<<<<<<<<
- * 
- *                 #
-*/
-                                    __pyx_t_16 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_v_continuous_abs_sum_block4); if (unlikely(__pyx_t_16 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 240, __pyx_L41_error)
-                                    __pyx_v_continuous_abs_sum_block4 = __pyx_t_16;
-
-                                    /* "worker_threads_cy.pyx":243
- * 
- *                 #
- *                 if is_forward:             # <<<<<<<<<<<<<<
- *                     #
- *                     forward_max_valid_sum_len = len(forward_max_result) if forward_max_result else 0
-*/
-                                    if (__pyx_v_is_forward) {
-
-                                      /* "worker_threads_cy.pyx":245
- *                 if is_forward:
- *                     #
- *                     forward_max_valid_sum_len = len(forward_max_result) if forward_max_result else 0             # <<<<<<<<<<<<<<
- *                     if forward_max_valid_sum_len > 0:
- *                         abs_arr = np.abs(forward_max_result)
-*/
-                                      __pyx_t_15 = (__Pyx_PyList_GET_SIZE(__pyx_v_forward_max_result) != 0);
-                                      if (unlikely(((!CYTHON_ASSUME_SAFE_MACROS) && __pyx_t_15 < 0))) __PYX_ERR(0, 245, __pyx_L41_error)
-                                      if (__pyx_t_15) {
-                                        __pyx_t_29 = __Pyx_PyList_GET_SIZE(__pyx_v_forward_max_result); if (unlikely(__pyx_t_29 == ((Py_ssize_t)-1))) __PYX_ERR(0, 245, __pyx_L41_error)
-                                        __pyx_t_28 = __pyx_t_29;
-                                      } else {
-                                        __pyx_t_28 = 0;
-                                      }
-                                      __pyx_v_forward_max_valid_sum_len = __pyx_t_28;
-
-                                      /* "worker_threads_cy.pyx":246
- *                     #
- *                     forward_max_valid_sum_len = len(forward_max_result) if forward_max_result else 0
- *                     if forward_max_valid_sum_len > 0:             # <<<<<<<<<<<<<<
- *                         abs_arr = np.abs(forward_max_result)
- *                         half = int(round(forward_max_valid_sum_len / 2.0))
-*/
-                                      __pyx_t_15 = (__pyx_v_forward_max_valid_sum_len > 0);
-                                      if (__pyx_t_15) {
-
-                                        /* "worker_threads_cy.pyx":247
- *                     forward_max_valid_sum_len = len(forward_max_result) if forward_max_result else 0
- *                     if forward_max_valid_sum_len > 0:
- *                         abs_arr = np.abs(forward_max_result)             # <<<<<<<<<<<<<<
- *                         half = int(round(forward_max_valid_sum_len / 2.0))
- *                         forward_max_valid_abs_sum_first_half = round_to_2(np.sum(abs_arr[:half]))
-*/
-                                        __pyx_t_22 = NULL;
-                                        __Pyx_GetModuleGlobalName(__pyx_t_21, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_21)) __PYX_ERR(0, 247, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_21);
-                                        __pyx_t_23 = __Pyx_PyObject_GetAttrStr(__pyx_t_21, __pyx_mstate_global->__pyx_n_u_abs); if (unlikely(!__pyx_t_23)) __PYX_ERR(0, 247, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_23);
-                                        __Pyx_DECREF(__pyx_t_21); __pyx_t_21 = 0;
-                                        __pyx_t_24 = 1;
-                                        #if CYTHON_UNPACK_METHODS
-                                        if (unlikely(PyMethod_Check(__pyx_t_23))) {
-                                          __pyx_t_22 = PyMethod_GET_SELF(__pyx_t_23);
-                                          assert(__pyx_t_22);
-                                          PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_23);
-                                          __Pyx_INCREF(__pyx_t_22);
-                                          __Pyx_INCREF(__pyx__function);
-                                          __Pyx_DECREF_SET(__pyx_t_23, __pyx__function);
-                                          __pyx_t_24 = 0;
-                                        }
-                                        #endif
-                                        {
-                                          PyObject *__pyx_callargs[2] = {__pyx_t_22, __pyx_v_forward_max_result};
-                                          __pyx_t_20 = __Pyx_PyObject_FastCall(__pyx_t_23, __pyx_callargs+__pyx_t_24, (2-__pyx_t_24) | (__pyx_t_24*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-                                          __Pyx_XDECREF(__pyx_t_22); __pyx_t_22 = 0;
-                                          __Pyx_DECREF(__pyx_t_23); __pyx_t_23 = 0;
-                                          if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 247, __pyx_L41_error)
-                                          __Pyx_GOTREF(__pyx_t_20);
-                                        }
-                                        __Pyx_XDECREF_SET(__pyx_v_abs_arr, __pyx_t_20);
-                                        __pyx_t_20 = 0;
-
-                                        /* "worker_threads_cy.pyx":248
- *                     if forward_max_valid_sum_len > 0:
- *                         abs_arr = np.abs(forward_max_result)
- *                         half = int(round(forward_max_valid_sum_len / 2.0))             # <<<<<<<<<<<<<<
- *                         forward_max_valid_abs_sum_first_half = round_to_2(np.sum(abs_arr[:half]))
- *                         forward_max_valid_abs_sum_second_half = round_to_2(np.sum(abs_arr[half:]))
-*/
-                                        __pyx_v_half = ((int)round((((double)__pyx_v_forward_max_valid_sum_len) / 2.0)));
-
-                                        /* "worker_threads_cy.pyx":249
- *                         abs_arr = np.abs(forward_max_result)
- *                         half = int(round(forward_max_valid_sum_len / 2.0))
- *                         forward_max_valid_abs_sum_first_half = round_to_2(np.sum(abs_arr[:half]))             # <<<<<<<<<<<<<<
- *                         forward_max_valid_abs_sum_second_half = round_to_2(np.sum(abs_arr[half:]))
- * 
-*/
-                                        __pyx_t_23 = NULL;
-                                        __Pyx_GetModuleGlobalName(__pyx_t_22, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 249, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_22);
-                                        __pyx_t_21 = __Pyx_PyObject_GetAttrStr(__pyx_t_22, __pyx_mstate_global->__pyx_n_u_sum); if (unlikely(!__pyx_t_21)) __PYX_ERR(0, 249, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_21);
-                                        __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
-                                        __pyx_t_22 = __Pyx_PyObject_GetSlice(__pyx_v_abs_arr, 0, __pyx_v_half, NULL, NULL, NULL, 0, 1, 0); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 249, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_22);
-                                        __pyx_t_24 = 1;
-                                        #if CYTHON_UNPACK_METHODS
-                                        if (unlikely(PyMethod_Check(__pyx_t_21))) {
-                                          __pyx_t_23 = PyMethod_GET_SELF(__pyx_t_21);
-                                          assert(__pyx_t_23);
-                                          PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_21);
-                                          __Pyx_INCREF(__pyx_t_23);
-                                          __Pyx_INCREF(__pyx__function);
-                                          __Pyx_DECREF_SET(__pyx_t_21, __pyx__function);
-                                          __pyx_t_24 = 0;
-                                        }
-                                        #endif
-                                        {
-                                          PyObject *__pyx_callargs[2] = {__pyx_t_23, __pyx_t_22};
-                                          __pyx_t_20 = __Pyx_PyObject_FastCall(__pyx_t_21, __pyx_callargs+__pyx_t_24, (2-__pyx_t_24) | (__pyx_t_24*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-                                          __Pyx_XDECREF(__pyx_t_23); __pyx_t_23 = 0;
-                                          __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
-                                          __Pyx_DECREF(__pyx_t_21); __pyx_t_21 = 0;
-                                          if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 249, __pyx_L41_error)
-                                          __Pyx_GOTREF(__pyx_t_20);
-                                        }
-                                        __pyx_t_16 = __Pyx_PyFloat_AsDouble(__pyx_t_20); if (unlikely((__pyx_t_16 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 249, __pyx_L41_error)
-                                        __Pyx_DECREF(__pyx_t_20); __pyx_t_20 = 0;
-                                        __pyx_t_30 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_t_16); if (unlikely(__pyx_t_30 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 249, __pyx_L41_error)
-                                        __pyx_t_20 = PyFloat_FromDouble(__pyx_t_30); if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 249, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_20);
-                                        __Pyx_XDECREF_SET(__pyx_v_forward_max_valid_abs_sum_first_half, __pyx_t_20);
-                                        __pyx_t_20 = 0;
-
-                                        /* "worker_threads_cy.pyx":250
- *                         half = int(round(forward_max_valid_sum_len / 2.0))
- *                         forward_max_valid_abs_sum_first_half = round_to_2(np.sum(abs_arr[:half]))
- *                         forward_max_valid_abs_sum_second_half = round_to_2(np.sum(abs_arr[half:]))             # <<<<<<<<<<<<<<
- * 
- *                         #
-*/
-                                        __pyx_t_21 = NULL;
-                                        __Pyx_GetModuleGlobalName(__pyx_t_22, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 250, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_22);
-                                        __pyx_t_23 = __Pyx_PyObject_GetAttrStr(__pyx_t_22, __pyx_mstate_global->__pyx_n_u_sum); if (unlikely(!__pyx_t_23)) __PYX_ERR(0, 250, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_23);
-                                        __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
-                                        __pyx_t_22 = __Pyx_PyObject_GetSlice(__pyx_v_abs_arr, __pyx_v_half, 0, NULL, NULL, NULL, 1, 0, 0); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 250, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_22);
-                                        __pyx_t_24 = 1;
-                                        #if CYTHON_UNPACK_METHODS
-                                        if (unlikely(PyMethod_Check(__pyx_t_23))) {
-                                          __pyx_t_21 = PyMethod_GET_SELF(__pyx_t_23);
-                                          assert(__pyx_t_21);
-                                          PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_23);
-                                          __Pyx_INCREF(__pyx_t_21);
-                                          __Pyx_INCREF(__pyx__function);
-                                          __Pyx_DECREF_SET(__pyx_t_23, __pyx__function);
-                                          __pyx_t_24 = 0;
-                                        }
-                                        #endif
-                                        {
-                                          PyObject *__pyx_callargs[2] = {__pyx_t_21, __pyx_t_22};
-                                          __pyx_t_20 = __Pyx_PyObject_FastCall(__pyx_t_23, __pyx_callargs+__pyx_t_24, (2-__pyx_t_24) | (__pyx_t_24*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-                                          __Pyx_XDECREF(__pyx_t_21); __pyx_t_21 = 0;
-                                          __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
-                                          __Pyx_DECREF(__pyx_t_23); __pyx_t_23 = 0;
-                                          if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 250, __pyx_L41_error)
-                                          __Pyx_GOTREF(__pyx_t_20);
-                                        }
-                                        __pyx_t_30 = __Pyx_PyFloat_AsDouble(__pyx_t_20); if (unlikely((__pyx_t_30 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 250, __pyx_L41_error)
-                                        __Pyx_DECREF(__pyx_t_20); __pyx_t_20 = 0;
-                                        __pyx_t_16 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_t_30); if (unlikely(__pyx_t_16 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 250, __pyx_L41_error)
-                                        __pyx_t_20 = PyFloat_FromDouble(__pyx_t_16); if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 250, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_20);
-                                        __Pyx_XDECREF_SET(__pyx_v_forward_max_valid_abs_sum_second_half, __pyx_t_20);
-                                        __pyx_t_20 = 0;
-
-                                        /* "worker_threads_cy.pyx":253
- * 
- *                         #
- *                         n = len(abs_arr)             # <<<<<<<<<<<<<<
- *                         q1 = int(round(n / 4.0))
- *                         q2 = int(round(n / 2.0))
-*/
-                                        __pyx_t_28 = PyObject_Length(__pyx_v_abs_arr); if (unlikely(__pyx_t_28 == ((Py_ssize_t)-1))) __PYX_ERR(0, 253, __pyx_L41_error)
-                                        __pyx_v_n = __pyx_t_28;
-
-                                        /* "worker_threads_cy.pyx":254
- *                         #
- *                         n = len(abs_arr)
- *                         q1 = int(round(n / 4.0))             # <<<<<<<<<<<<<<
- *                         q2 = int(round(n / 2.0))
- *                         q3 = int(round(3 * n / 4.0))
-*/
-                                        __pyx_v_q1 = ((int)round((((double)__pyx_v_n) / 4.0)));
-
-                                        /* "worker_threads_cy.pyx":255
- *                         n = len(abs_arr)
- *                         q1 = int(round(n / 4.0))
- *                         q2 = int(round(n / 2.0))             # <<<<<<<<<<<<<<
- *                         q3 = int(round(3 * n / 4.0))
- *                         forward_max_valid_abs_sum_block1 = round_to_2(np.sum(abs_arr[:q1]))
-*/
-                                        __pyx_v_q2 = ((int)round((((double)__pyx_v_n) / 2.0)));
-
-                                        /* "worker_threads_cy.pyx":256
- *                         q1 = int(round(n / 4.0))
- *                         q2 = int(round(n / 2.0))
- *                         q3 = int(round(3 * n / 4.0))             # <<<<<<<<<<<<<<
- *                         forward_max_valid_abs_sum_block1 = round_to_2(np.sum(abs_arr[:q1]))
- *                         forward_max_valid_abs_sum_block2 = round_to_2(np.sum(abs_arr[q1:q2]))
-*/
-                                        __pyx_v_q3 = ((int)round((((double)(3 * __pyx_v_n)) / 4.0)));
-
-                                        /* "worker_threads_cy.pyx":257
- *                         q2 = int(round(n / 2.0))
- *                         q3 = int(round(3 * n / 4.0))
- *                         forward_max_valid_abs_sum_block1 = round_to_2(np.sum(abs_arr[:q1]))             # <<<<<<<<<<<<<<
- *                         forward_max_valid_abs_sum_block2 = round_to_2(np.sum(abs_arr[q1:q2]))
- *                         forward_max_valid_abs_sum_block3 = round_to_2(np.sum(abs_arr[q2:q3]))
-*/
-                                        __pyx_t_23 = NULL;
-                                        __Pyx_GetModuleGlobalName(__pyx_t_22, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 257, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_22);
-                                        __pyx_t_21 = __Pyx_PyObject_GetAttrStr(__pyx_t_22, __pyx_mstate_global->__pyx_n_u_sum); if (unlikely(!__pyx_t_21)) __PYX_ERR(0, 257, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_21);
-                                        __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
-                                        __pyx_t_22 = __Pyx_PyObject_GetSlice(__pyx_v_abs_arr, 0, __pyx_v_q1, NULL, NULL, NULL, 0, 1, 0); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 257, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_22);
-                                        __pyx_t_24 = 1;
-                                        #if CYTHON_UNPACK_METHODS
-                                        if (unlikely(PyMethod_Check(__pyx_t_21))) {
-                                          __pyx_t_23 = PyMethod_GET_SELF(__pyx_t_21);
-                                          assert(__pyx_t_23);
-                                          PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_21);
-                                          __Pyx_INCREF(__pyx_t_23);
-                                          __Pyx_INCREF(__pyx__function);
-                                          __Pyx_DECREF_SET(__pyx_t_21, __pyx__function);
-                                          __pyx_t_24 = 0;
-                                        }
-                                        #endif
-                                        {
-                                          PyObject *__pyx_callargs[2] = {__pyx_t_23, __pyx_t_22};
-                                          __pyx_t_20 = __Pyx_PyObject_FastCall(__pyx_t_21, __pyx_callargs+__pyx_t_24, (2-__pyx_t_24) | (__pyx_t_24*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-                                          __Pyx_XDECREF(__pyx_t_23); __pyx_t_23 = 0;
-                                          __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
-                                          __Pyx_DECREF(__pyx_t_21); __pyx_t_21 = 0;
-                                          if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 257, __pyx_L41_error)
-                                          __Pyx_GOTREF(__pyx_t_20);
-                                        }
-                                        __pyx_t_16 = __Pyx_PyFloat_AsDouble(__pyx_t_20); if (unlikely((__pyx_t_16 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 257, __pyx_L41_error)
-                                        __Pyx_DECREF(__pyx_t_20); __pyx_t_20 = 0;
-                                        __pyx_t_30 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_t_16); if (unlikely(__pyx_t_30 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 257, __pyx_L41_error)
-                                        __pyx_t_20 = PyFloat_FromDouble(__pyx_t_30); if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 257, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_20);
-                                        __Pyx_XDECREF_SET(__pyx_v_forward_max_valid_abs_sum_block1, __pyx_t_20);
-                                        __pyx_t_20 = 0;
-
-                                        /* "worker_threads_cy.pyx":258
- *                         q3 = int(round(3 * n / 4.0))
- *                         forward_max_valid_abs_sum_block1 = round_to_2(np.sum(abs_arr[:q1]))
- *                         forward_max_valid_abs_sum_block2 = round_to_2(np.sum(abs_arr[q1:q2]))             # <<<<<<<<<<<<<<
- *                         forward_max_valid_abs_sum_block3 = round_to_2(np.sum(abs_arr[q2:q3]))
- *                         forward_max_valid_abs_sum_block4 = round_to_2(np.sum(abs_arr[q3:]))
-*/
-                                        __pyx_t_21 = NULL;
-                                        __Pyx_GetModuleGlobalName(__pyx_t_22, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 258, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_22);
-                                        __pyx_t_23 = __Pyx_PyObject_GetAttrStr(__pyx_t_22, __pyx_mstate_global->__pyx_n_u_sum); if (unlikely(!__pyx_t_23)) __PYX_ERR(0, 258, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_23);
-                                        __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
-                                        __pyx_t_22 = __Pyx_PyObject_GetSlice(__pyx_v_abs_arr, __pyx_v_q1, __pyx_v_q2, NULL, NULL, NULL, 1, 1, 0); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 258, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_22);
-                                        __pyx_t_24 = 1;
-                                        #if CYTHON_UNPACK_METHODS
-                                        if (unlikely(PyMethod_Check(__pyx_t_23))) {
-                                          __pyx_t_21 = PyMethod_GET_SELF(__pyx_t_23);
-                                          assert(__pyx_t_21);
-                                          PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_23);
-                                          __Pyx_INCREF(__pyx_t_21);
-                                          __Pyx_INCREF(__pyx__function);
-                                          __Pyx_DECREF_SET(__pyx_t_23, __pyx__function);
-                                          __pyx_t_24 = 0;
-                                        }
-                                        #endif
-                                        {
-                                          PyObject *__pyx_callargs[2] = {__pyx_t_21, __pyx_t_22};
-                                          __pyx_t_20 = __Pyx_PyObject_FastCall(__pyx_t_23, __pyx_callargs+__pyx_t_24, (2-__pyx_t_24) | (__pyx_t_24*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-                                          __Pyx_XDECREF(__pyx_t_21); __pyx_t_21 = 0;
-                                          __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
-                                          __Pyx_DECREF(__pyx_t_23); __pyx_t_23 = 0;
-                                          if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 258, __pyx_L41_error)
-                                          __Pyx_GOTREF(__pyx_t_20);
-                                        }
-                                        __pyx_t_30 = __Pyx_PyFloat_AsDouble(__pyx_t_20); if (unlikely((__pyx_t_30 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 258, __pyx_L41_error)
-                                        __Pyx_DECREF(__pyx_t_20); __pyx_t_20 = 0;
-                                        __pyx_t_16 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_t_30); if (unlikely(__pyx_t_16 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 258, __pyx_L41_error)
-                                        __pyx_t_20 = PyFloat_FromDouble(__pyx_t_16); if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 258, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_20);
-                                        __Pyx_XDECREF_SET(__pyx_v_forward_max_valid_abs_sum_block2, __pyx_t_20);
-                                        __pyx_t_20 = 0;
-
-                                        /* "worker_threads_cy.pyx":259
- *                         forward_max_valid_abs_sum_block1 = round_to_2(np.sum(abs_arr[:q1]))
- *                         forward_max_valid_abs_sum_block2 = round_to_2(np.sum(abs_arr[q1:q2]))
- *                         forward_max_valid_abs_sum_block3 = round_to_2(np.sum(abs_arr[q2:q3]))             # <<<<<<<<<<<<<<
- *                         forward_max_valid_abs_sum_block4 = round_to_2(np.sum(abs_arr[q3:]))
+          /* "worker_threads_cy.pyx":511
+ *                 for j in range(n):
+ *                     v = fabs(forward_max_result_c[j])
+ *                     if j < half:             # <<<<<<<<<<<<<<
+ *                         forward_max_valid_abs_sum_first_half += v
  *                     else:
 */
-                                        __pyx_t_23 = NULL;
-                                        __Pyx_GetModuleGlobalName(__pyx_t_22, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 259, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_22);
-                                        __pyx_t_21 = __Pyx_PyObject_GetAttrStr(__pyx_t_22, __pyx_mstate_global->__pyx_n_u_sum); if (unlikely(!__pyx_t_21)) __PYX_ERR(0, 259, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_21);
-                                        __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
-                                        __pyx_t_22 = __Pyx_PyObject_GetSlice(__pyx_v_abs_arr, __pyx_v_q2, __pyx_v_q3, NULL, NULL, NULL, 1, 1, 0); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 259, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_22);
-                                        __pyx_t_24 = 1;
-                                        #if CYTHON_UNPACK_METHODS
-                                        if (unlikely(PyMethod_Check(__pyx_t_21))) {
-                                          __pyx_t_23 = PyMethod_GET_SELF(__pyx_t_21);
-                                          assert(__pyx_t_23);
-                                          PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_21);
-                                          __Pyx_INCREF(__pyx_t_23);
-                                          __Pyx_INCREF(__pyx__function);
-                                          __Pyx_DECREF_SET(__pyx_t_21, __pyx__function);
-                                          __pyx_t_24 = 0;
-                                        }
-                                        #endif
-                                        {
-                                          PyObject *__pyx_callargs[2] = {__pyx_t_23, __pyx_t_22};
-                                          __pyx_t_20 = __Pyx_PyObject_FastCall(__pyx_t_21, __pyx_callargs+__pyx_t_24, (2-__pyx_t_24) | (__pyx_t_24*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-                                          __Pyx_XDECREF(__pyx_t_23); __pyx_t_23 = 0;
-                                          __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
-                                          __Pyx_DECREF(__pyx_t_21); __pyx_t_21 = 0;
-                                          if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 259, __pyx_L41_error)
-                                          __Pyx_GOTREF(__pyx_t_20);
-                                        }
-                                        __pyx_t_16 = __Pyx_PyFloat_AsDouble(__pyx_t_20); if (unlikely((__pyx_t_16 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 259, __pyx_L41_error)
-                                        __Pyx_DECREF(__pyx_t_20); __pyx_t_20 = 0;
-                                        __pyx_t_30 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_t_16); if (unlikely(__pyx_t_30 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 259, __pyx_L41_error)
-                                        __pyx_t_20 = PyFloat_FromDouble(__pyx_t_30); if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 259, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_20);
-                                        __Pyx_XDECREF_SET(__pyx_v_forward_max_valid_abs_sum_block3, __pyx_t_20);
-                                        __pyx_t_20 = 0;
+          __pyx_t_7 = (__pyx_v_j < __pyx_v_half);
+          if (__pyx_t_7) {
 
-                                        /* "worker_threads_cy.pyx":260
- *                         forward_max_valid_abs_sum_block2 = round_to_2(np.sum(abs_arr[q1:q2]))
- *                         forward_max_valid_abs_sum_block3 = round_to_2(np.sum(abs_arr[q2:q3]))
- *                         forward_max_valid_abs_sum_block4 = round_to_2(np.sum(abs_arr[q3:]))             # <<<<<<<<<<<<<<
+            /* "worker_threads_cy.pyx":512
+ *                     v = fabs(forward_max_result_c[j])
+ *                     if j < half:
+ *                         forward_max_valid_abs_sum_first_half += v             # <<<<<<<<<<<<<<
  *                     else:
- *                         forward_max_valid_abs_sum_first_half = 0
+ *                         forward_max_valid_abs_sum_second_half += v
 */
-                                        __pyx_t_21 = NULL;
-                                        __Pyx_GetModuleGlobalName(__pyx_t_22, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 260, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_22);
-                                        __pyx_t_23 = __Pyx_PyObject_GetAttrStr(__pyx_t_22, __pyx_mstate_global->__pyx_n_u_sum); if (unlikely(!__pyx_t_23)) __PYX_ERR(0, 260, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_23);
-                                        __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
-                                        __pyx_t_22 = __Pyx_PyObject_GetSlice(__pyx_v_abs_arr, __pyx_v_q3, 0, NULL, NULL, NULL, 1, 0, 0); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 260, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_22);
-                                        __pyx_t_24 = 1;
-                                        #if CYTHON_UNPACK_METHODS
-                                        if (unlikely(PyMethod_Check(__pyx_t_23))) {
-                                          __pyx_t_21 = PyMethod_GET_SELF(__pyx_t_23);
-                                          assert(__pyx_t_21);
-                                          PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_23);
-                                          __Pyx_INCREF(__pyx_t_21);
-                                          __Pyx_INCREF(__pyx__function);
-                                          __Pyx_DECREF_SET(__pyx_t_23, __pyx__function);
-                                          __pyx_t_24 = 0;
-                                        }
-                                        #endif
-                                        {
-                                          PyObject *__pyx_callargs[2] = {__pyx_t_21, __pyx_t_22};
-                                          __pyx_t_20 = __Pyx_PyObject_FastCall(__pyx_t_23, __pyx_callargs+__pyx_t_24, (2-__pyx_t_24) | (__pyx_t_24*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-                                          __Pyx_XDECREF(__pyx_t_21); __pyx_t_21 = 0;
-                                          __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
-                                          __Pyx_DECREF(__pyx_t_23); __pyx_t_23 = 0;
-                                          if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 260, __pyx_L41_error)
-                                          __Pyx_GOTREF(__pyx_t_20);
-                                        }
-                                        __pyx_t_30 = __Pyx_PyFloat_AsDouble(__pyx_t_20); if (unlikely((__pyx_t_30 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 260, __pyx_L41_error)
-                                        __Pyx_DECREF(__pyx_t_20); __pyx_t_20 = 0;
-                                        __pyx_t_16 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_t_30); if (unlikely(__pyx_t_16 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 260, __pyx_L41_error)
-                                        __pyx_t_20 = PyFloat_FromDouble(__pyx_t_16); if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 260, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_20);
-                                        __Pyx_XDECREF_SET(__pyx_v_forward_max_valid_abs_sum_block4, __pyx_t_20);
-                                        __pyx_t_20 = 0;
+            __pyx_t_27 = PyFloat_FromDouble(__pyx_v_v); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 512, __pyx_L1_error)
+            __Pyx_GOTREF(__pyx_t_27);
+            __pyx_t_5 = PyNumber_InPlaceAdd(__pyx_v_forward_max_valid_abs_sum_first_half, __pyx_t_27); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 512, __pyx_L1_error)
+            __Pyx_GOTREF(__pyx_t_5);
+            __Pyx_DECREF(__pyx_t_27); __pyx_t_27 = 0;
+            __Pyx_DECREF_SET(__pyx_v_forward_max_valid_abs_sum_first_half, __pyx_t_5);
+            __pyx_t_5 = 0;
 
-                                        /* "worker_threads_cy.pyx":246
- *                     #
- *                     forward_max_valid_sum_len = len(forward_max_result) if forward_max_result else 0
- *                     if forward_max_valid_sum_len > 0:             # <<<<<<<<<<<<<<
- *                         abs_arr = np.abs(forward_max_result)
- *                         half = int(round(forward_max_valid_sum_len / 2.0))
-*/
-                                        goto __pyx_L56;
-                                      }
-
-                                      /* "worker_threads_cy.pyx":262
- *                         forward_max_valid_abs_sum_block4 = round_to_2(np.sum(abs_arr[q3:]))
- *                     else:
- *                         forward_max_valid_abs_sum_first_half = 0             # <<<<<<<<<<<<<<
- *                         forward_max_valid_abs_sum_second_half = 0
- *                         forward_max_valid_abs_sum_block1 = 0
-*/
-                                      /*else*/ {
-                                        __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
-                                        __Pyx_XDECREF_SET(__pyx_v_forward_max_valid_abs_sum_first_half, __pyx_mstate_global->__pyx_int_0);
-
-                                        /* "worker_threads_cy.pyx":263
- *                     else:
- *                         forward_max_valid_abs_sum_first_half = 0
- *                         forward_max_valid_abs_sum_second_half = 0             # <<<<<<<<<<<<<<
- *                         forward_max_valid_abs_sum_block1 = 0
- *                         forward_max_valid_abs_sum_block2 = 0
-*/
-                                        __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
-                                        __Pyx_XDECREF_SET(__pyx_v_forward_max_valid_abs_sum_second_half, __pyx_mstate_global->__pyx_int_0);
-
-                                        /* "worker_threads_cy.pyx":264
- *                         forward_max_valid_abs_sum_first_half = 0
- *                         forward_max_valid_abs_sum_second_half = 0
- *                         forward_max_valid_abs_sum_block1 = 0             # <<<<<<<<<<<<<<
- *                         forward_max_valid_abs_sum_block2 = 0
- *                         forward_max_valid_abs_sum_block3 = 0
-*/
-                                        __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
-                                        __Pyx_XDECREF_SET(__pyx_v_forward_max_valid_abs_sum_block1, __pyx_mstate_global->__pyx_int_0);
-
-                                        /* "worker_threads_cy.pyx":265
- *                         forward_max_valid_abs_sum_second_half = 0
- *                         forward_max_valid_abs_sum_block1 = 0
- *                         forward_max_valid_abs_sum_block2 = 0             # <<<<<<<<<<<<<<
- *                         forward_max_valid_abs_sum_block3 = 0
- *                         forward_max_valid_abs_sum_block4 = 0
-*/
-                                        __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
-                                        __Pyx_XDECREF_SET(__pyx_v_forward_max_valid_abs_sum_block2, __pyx_mstate_global->__pyx_int_0);
-
-                                        /* "worker_threads_cy.pyx":266
- *                         forward_max_valid_abs_sum_block1 = 0
- *                         forward_max_valid_abs_sum_block2 = 0
- *                         forward_max_valid_abs_sum_block3 = 0             # <<<<<<<<<<<<<<
- *                         forward_max_valid_abs_sum_block4 = 0
- * 
-*/
-                                        __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
-                                        __Pyx_XDECREF_SET(__pyx_v_forward_max_valid_abs_sum_block3, __pyx_mstate_global->__pyx_int_0);
-
-                                        /* "worker_threads_cy.pyx":267
- *                         forward_max_valid_abs_sum_block2 = 0
- *                         forward_max_valid_abs_sum_block3 = 0
- *                         forward_max_valid_abs_sum_block4 = 0             # <<<<<<<<<<<<<<
- * 
- *                     #
-*/
-                                        __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
-                                        __Pyx_XDECREF_SET(__pyx_v_forward_max_valid_abs_sum_block4, __pyx_mstate_global->__pyx_int_0);
-                                      }
-                                      __pyx_L56:;
-
-                                      /* "worker_threads_cy.pyx":270
- * 
- *                     #
- *                     forward_min_valid_sum_len = len(forward_min_result) if forward_min_result else 0             # <<<<<<<<<<<<<<
- *                     if forward_min_valid_sum_len > 0:
- *                         abs_arr = np.abs(forward_min_result)
-*/
-                                      __pyx_t_15 = (__Pyx_PyList_GET_SIZE(__pyx_v_forward_min_result) != 0);
-                                      if (unlikely(((!CYTHON_ASSUME_SAFE_MACROS) && __pyx_t_15 < 0))) __PYX_ERR(0, 270, __pyx_L41_error)
-                                      if (__pyx_t_15) {
-                                        __pyx_t_29 = __Pyx_PyList_GET_SIZE(__pyx_v_forward_min_result); if (unlikely(__pyx_t_29 == ((Py_ssize_t)-1))) __PYX_ERR(0, 270, __pyx_L41_error)
-                                        __pyx_t_28 = __pyx_t_29;
-                                      } else {
-                                        __pyx_t_28 = 0;
-                                      }
-                                      __pyx_v_forward_min_valid_sum_len = __pyx_t_28;
-
-                                      /* "worker_threads_cy.pyx":271
- *                     #
- *                     forward_min_valid_sum_len = len(forward_min_result) if forward_min_result else 0
- *                     if forward_min_valid_sum_len > 0:             # <<<<<<<<<<<<<<
- *                         abs_arr = np.abs(forward_min_result)
- *                         half = int(round(forward_min_valid_sum_len / 2.0))
-*/
-                                      __pyx_t_15 = (__pyx_v_forward_min_valid_sum_len > 0);
-                                      if (__pyx_t_15) {
-
-                                        /* "worker_threads_cy.pyx":272
- *                     forward_min_valid_sum_len = len(forward_min_result) if forward_min_result else 0
- *                     if forward_min_valid_sum_len > 0:
- *                         abs_arr = np.abs(forward_min_result)             # <<<<<<<<<<<<<<
- *                         half = int(round(forward_min_valid_sum_len / 2.0))
- *                         forward_min_valid_abs_sum_first_half = round_to_2(np.sum(abs_arr[:half]))
-*/
-                                        __pyx_t_23 = NULL;
-                                        __Pyx_GetModuleGlobalName(__pyx_t_22, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 272, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_22);
-                                        __pyx_t_21 = __Pyx_PyObject_GetAttrStr(__pyx_t_22, __pyx_mstate_global->__pyx_n_u_abs); if (unlikely(!__pyx_t_21)) __PYX_ERR(0, 272, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_21);
-                                        __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
-                                        __pyx_t_24 = 1;
-                                        #if CYTHON_UNPACK_METHODS
-                                        if (unlikely(PyMethod_Check(__pyx_t_21))) {
-                                          __pyx_t_23 = PyMethod_GET_SELF(__pyx_t_21);
-                                          assert(__pyx_t_23);
-                                          PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_21);
-                                          __Pyx_INCREF(__pyx_t_23);
-                                          __Pyx_INCREF(__pyx__function);
-                                          __Pyx_DECREF_SET(__pyx_t_21, __pyx__function);
-                                          __pyx_t_24 = 0;
-                                        }
-                                        #endif
-                                        {
-                                          PyObject *__pyx_callargs[2] = {__pyx_t_23, __pyx_v_forward_min_result};
-                                          __pyx_t_20 = __Pyx_PyObject_FastCall(__pyx_t_21, __pyx_callargs+__pyx_t_24, (2-__pyx_t_24) | (__pyx_t_24*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-                                          __Pyx_XDECREF(__pyx_t_23); __pyx_t_23 = 0;
-                                          __Pyx_DECREF(__pyx_t_21); __pyx_t_21 = 0;
-                                          if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 272, __pyx_L41_error)
-                                          __Pyx_GOTREF(__pyx_t_20);
-                                        }
-                                        __Pyx_XDECREF_SET(__pyx_v_abs_arr, __pyx_t_20);
-                                        __pyx_t_20 = 0;
-
-                                        /* "worker_threads_cy.pyx":273
- *                     if forward_min_valid_sum_len > 0:
- *                         abs_arr = np.abs(forward_min_result)
- *                         half = int(round(forward_min_valid_sum_len / 2.0))             # <<<<<<<<<<<<<<
- *                         forward_min_valid_abs_sum_first_half = round_to_2(np.sum(abs_arr[:half]))
- *                         forward_min_valid_abs_sum_second_half = round_to_2(np.sum(abs_arr[half:]))
-*/
-                                        __pyx_v_half = ((int)round((((double)__pyx_v_forward_min_valid_sum_len) / 2.0)));
-
-                                        /* "worker_threads_cy.pyx":274
- *                         abs_arr = np.abs(forward_min_result)
- *                         half = int(round(forward_min_valid_sum_len / 2.0))
- *                         forward_min_valid_abs_sum_first_half = round_to_2(np.sum(abs_arr[:half]))             # <<<<<<<<<<<<<<
- *                         forward_min_valid_abs_sum_second_half = round_to_2(np.sum(abs_arr[half:]))
- * 
-*/
-                                        __pyx_t_21 = NULL;
-                                        __Pyx_GetModuleGlobalName(__pyx_t_23, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_23)) __PYX_ERR(0, 274, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_23);
-                                        __pyx_t_22 = __Pyx_PyObject_GetAttrStr(__pyx_t_23, __pyx_mstate_global->__pyx_n_u_sum); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 274, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_22);
-                                        __Pyx_DECREF(__pyx_t_23); __pyx_t_23 = 0;
-                                        __pyx_t_23 = __Pyx_PyObject_GetSlice(__pyx_v_abs_arr, 0, __pyx_v_half, NULL, NULL, NULL, 0, 1, 0); if (unlikely(!__pyx_t_23)) __PYX_ERR(0, 274, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_23);
-                                        __pyx_t_24 = 1;
-                                        #if CYTHON_UNPACK_METHODS
-                                        if (unlikely(PyMethod_Check(__pyx_t_22))) {
-                                          __pyx_t_21 = PyMethod_GET_SELF(__pyx_t_22);
-                                          assert(__pyx_t_21);
-                                          PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_22);
-                                          __Pyx_INCREF(__pyx_t_21);
-                                          __Pyx_INCREF(__pyx__function);
-                                          __Pyx_DECREF_SET(__pyx_t_22, __pyx__function);
-                                          __pyx_t_24 = 0;
-                                        }
-                                        #endif
-                                        {
-                                          PyObject *__pyx_callargs[2] = {__pyx_t_21, __pyx_t_23};
-                                          __pyx_t_20 = __Pyx_PyObject_FastCall(__pyx_t_22, __pyx_callargs+__pyx_t_24, (2-__pyx_t_24) | (__pyx_t_24*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-                                          __Pyx_XDECREF(__pyx_t_21); __pyx_t_21 = 0;
-                                          __Pyx_DECREF(__pyx_t_23); __pyx_t_23 = 0;
-                                          __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
-                                          if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 274, __pyx_L41_error)
-                                          __Pyx_GOTREF(__pyx_t_20);
-                                        }
-                                        __pyx_t_16 = __Pyx_PyFloat_AsDouble(__pyx_t_20); if (unlikely((__pyx_t_16 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 274, __pyx_L41_error)
-                                        __Pyx_DECREF(__pyx_t_20); __pyx_t_20 = 0;
-                                        __pyx_t_30 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_t_16); if (unlikely(__pyx_t_30 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 274, __pyx_L41_error)
-                                        __pyx_t_20 = PyFloat_FromDouble(__pyx_t_30); if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 274, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_20);
-                                        __Pyx_XDECREF_SET(__pyx_v_forward_min_valid_abs_sum_first_half, __pyx_t_20);
-                                        __pyx_t_20 = 0;
-
-                                        /* "worker_threads_cy.pyx":275
- *                         half = int(round(forward_min_valid_sum_len / 2.0))
- *                         forward_min_valid_abs_sum_first_half = round_to_2(np.sum(abs_arr[:half]))
- *                         forward_min_valid_abs_sum_second_half = round_to_2(np.sum(abs_arr[half:]))             # <<<<<<<<<<<<<<
- * 
- *                         #
-*/
-                                        __pyx_t_22 = NULL;
-                                        __Pyx_GetModuleGlobalName(__pyx_t_23, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_23)) __PYX_ERR(0, 275, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_23);
-                                        __pyx_t_21 = __Pyx_PyObject_GetAttrStr(__pyx_t_23, __pyx_mstate_global->__pyx_n_u_sum); if (unlikely(!__pyx_t_21)) __PYX_ERR(0, 275, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_21);
-                                        __Pyx_DECREF(__pyx_t_23); __pyx_t_23 = 0;
-                                        __pyx_t_23 = __Pyx_PyObject_GetSlice(__pyx_v_abs_arr, __pyx_v_half, 0, NULL, NULL, NULL, 1, 0, 0); if (unlikely(!__pyx_t_23)) __PYX_ERR(0, 275, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_23);
-                                        __pyx_t_24 = 1;
-                                        #if CYTHON_UNPACK_METHODS
-                                        if (unlikely(PyMethod_Check(__pyx_t_21))) {
-                                          __pyx_t_22 = PyMethod_GET_SELF(__pyx_t_21);
-                                          assert(__pyx_t_22);
-                                          PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_21);
-                                          __Pyx_INCREF(__pyx_t_22);
-                                          __Pyx_INCREF(__pyx__function);
-                                          __Pyx_DECREF_SET(__pyx_t_21, __pyx__function);
-                                          __pyx_t_24 = 0;
-                                        }
-                                        #endif
-                                        {
-                                          PyObject *__pyx_callargs[2] = {__pyx_t_22, __pyx_t_23};
-                                          __pyx_t_20 = __Pyx_PyObject_FastCall(__pyx_t_21, __pyx_callargs+__pyx_t_24, (2-__pyx_t_24) | (__pyx_t_24*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-                                          __Pyx_XDECREF(__pyx_t_22); __pyx_t_22 = 0;
-                                          __Pyx_DECREF(__pyx_t_23); __pyx_t_23 = 0;
-                                          __Pyx_DECREF(__pyx_t_21); __pyx_t_21 = 0;
-                                          if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 275, __pyx_L41_error)
-                                          __Pyx_GOTREF(__pyx_t_20);
-                                        }
-                                        __pyx_t_30 = __Pyx_PyFloat_AsDouble(__pyx_t_20); if (unlikely((__pyx_t_30 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 275, __pyx_L41_error)
-                                        __Pyx_DECREF(__pyx_t_20); __pyx_t_20 = 0;
-                                        __pyx_t_16 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_t_30); if (unlikely(__pyx_t_16 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 275, __pyx_L41_error)
-                                        __pyx_t_20 = PyFloat_FromDouble(__pyx_t_16); if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 275, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_20);
-                                        __Pyx_XDECREF_SET(__pyx_v_forward_min_valid_abs_sum_second_half, __pyx_t_20);
-                                        __pyx_t_20 = 0;
-
-                                        /* "worker_threads_cy.pyx":278
- * 
- *                         #
- *                         n = len(abs_arr)             # <<<<<<<<<<<<<<
- *                         q1 = int(round(n / 4.0))
- *                         q2 = int(round(n / 2.0))
-*/
-                                        __pyx_t_28 = PyObject_Length(__pyx_v_abs_arr); if (unlikely(__pyx_t_28 == ((Py_ssize_t)-1))) __PYX_ERR(0, 278, __pyx_L41_error)
-                                        __pyx_v_n = __pyx_t_28;
-
-                                        /* "worker_threads_cy.pyx":279
- *                         #
- *                         n = len(abs_arr)
- *                         q1 = int(round(n / 4.0))             # <<<<<<<<<<<<<<
- *                         q2 = int(round(n / 2.0))
- *                         q3 = int(round(3 * n / 4.0))
-*/
-                                        __pyx_v_q1 = ((int)round((((double)__pyx_v_n) / 4.0)));
-
-                                        /* "worker_threads_cy.pyx":280
- *                         n = len(abs_arr)
- *                         q1 = int(round(n / 4.0))
- *                         q2 = int(round(n / 2.0))             # <<<<<<<<<<<<<<
- *                         q3 = int(round(3 * n / 4.0))
- *                         forward_min_valid_abs_sum_block1 = round_to_2(np.sum(abs_arr[:q1]))
-*/
-                                        __pyx_v_q2 = ((int)round((((double)__pyx_v_n) / 2.0)));
-
-                                        /* "worker_threads_cy.pyx":281
- *                         q1 = int(round(n / 4.0))
- *                         q2 = int(round(n / 2.0))
- *                         q3 = int(round(3 * n / 4.0))             # <<<<<<<<<<<<<<
- *                         forward_min_valid_abs_sum_block1 = round_to_2(np.sum(abs_arr[:q1]))
- *                         forward_min_valid_abs_sum_block2 = round_to_2(np.sum(abs_arr[q1:q2]))
-*/
-                                        __pyx_v_q3 = ((int)round((((double)(3 * __pyx_v_n)) / 4.0)));
-
-                                        /* "worker_threads_cy.pyx":282
- *                         q2 = int(round(n / 2.0))
- *                         q3 = int(round(3 * n / 4.0))
- *                         forward_min_valid_abs_sum_block1 = round_to_2(np.sum(abs_arr[:q1]))             # <<<<<<<<<<<<<<
- *                         forward_min_valid_abs_sum_block2 = round_to_2(np.sum(abs_arr[q1:q2]))
- *                         forward_min_valid_abs_sum_block3 = round_to_2(np.sum(abs_arr[q2:q3]))
-*/
-                                        __pyx_t_21 = NULL;
-                                        __Pyx_GetModuleGlobalName(__pyx_t_23, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_23)) __PYX_ERR(0, 282, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_23);
-                                        __pyx_t_22 = __Pyx_PyObject_GetAttrStr(__pyx_t_23, __pyx_mstate_global->__pyx_n_u_sum); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 282, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_22);
-                                        __Pyx_DECREF(__pyx_t_23); __pyx_t_23 = 0;
-                                        __pyx_t_23 = __Pyx_PyObject_GetSlice(__pyx_v_abs_arr, 0, __pyx_v_q1, NULL, NULL, NULL, 0, 1, 0); if (unlikely(!__pyx_t_23)) __PYX_ERR(0, 282, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_23);
-                                        __pyx_t_24 = 1;
-                                        #if CYTHON_UNPACK_METHODS
-                                        if (unlikely(PyMethod_Check(__pyx_t_22))) {
-                                          __pyx_t_21 = PyMethod_GET_SELF(__pyx_t_22);
-                                          assert(__pyx_t_21);
-                                          PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_22);
-                                          __Pyx_INCREF(__pyx_t_21);
-                                          __Pyx_INCREF(__pyx__function);
-                                          __Pyx_DECREF_SET(__pyx_t_22, __pyx__function);
-                                          __pyx_t_24 = 0;
-                                        }
-                                        #endif
-                                        {
-                                          PyObject *__pyx_callargs[2] = {__pyx_t_21, __pyx_t_23};
-                                          __pyx_t_20 = __Pyx_PyObject_FastCall(__pyx_t_22, __pyx_callargs+__pyx_t_24, (2-__pyx_t_24) | (__pyx_t_24*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-                                          __Pyx_XDECREF(__pyx_t_21); __pyx_t_21 = 0;
-                                          __Pyx_DECREF(__pyx_t_23); __pyx_t_23 = 0;
-                                          __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
-                                          if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 282, __pyx_L41_error)
-                                          __Pyx_GOTREF(__pyx_t_20);
-                                        }
-                                        __pyx_t_16 = __Pyx_PyFloat_AsDouble(__pyx_t_20); if (unlikely((__pyx_t_16 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 282, __pyx_L41_error)
-                                        __Pyx_DECREF(__pyx_t_20); __pyx_t_20 = 0;
-                                        __pyx_t_30 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_t_16); if (unlikely(__pyx_t_30 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 282, __pyx_L41_error)
-                                        __pyx_t_20 = PyFloat_FromDouble(__pyx_t_30); if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 282, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_20);
-                                        __Pyx_XDECREF_SET(__pyx_v_forward_min_valid_abs_sum_block1, __pyx_t_20);
-                                        __pyx_t_20 = 0;
-
-                                        /* "worker_threads_cy.pyx":283
- *                         q3 = int(round(3 * n / 4.0))
- *                         forward_min_valid_abs_sum_block1 = round_to_2(np.sum(abs_arr[:q1]))
- *                         forward_min_valid_abs_sum_block2 = round_to_2(np.sum(abs_arr[q1:q2]))             # <<<<<<<<<<<<<<
- *                         forward_min_valid_abs_sum_block3 = round_to_2(np.sum(abs_arr[q2:q3]))
- *                         forward_min_valid_abs_sum_block4 = round_to_2(np.sum(abs_arr[q3:]))
-*/
-                                        __pyx_t_22 = NULL;
-                                        __Pyx_GetModuleGlobalName(__pyx_t_23, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_23)) __PYX_ERR(0, 283, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_23);
-                                        __pyx_t_21 = __Pyx_PyObject_GetAttrStr(__pyx_t_23, __pyx_mstate_global->__pyx_n_u_sum); if (unlikely(!__pyx_t_21)) __PYX_ERR(0, 283, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_21);
-                                        __Pyx_DECREF(__pyx_t_23); __pyx_t_23 = 0;
-                                        __pyx_t_23 = __Pyx_PyObject_GetSlice(__pyx_v_abs_arr, __pyx_v_q1, __pyx_v_q2, NULL, NULL, NULL, 1, 1, 0); if (unlikely(!__pyx_t_23)) __PYX_ERR(0, 283, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_23);
-                                        __pyx_t_24 = 1;
-                                        #if CYTHON_UNPACK_METHODS
-                                        if (unlikely(PyMethod_Check(__pyx_t_21))) {
-                                          __pyx_t_22 = PyMethod_GET_SELF(__pyx_t_21);
-                                          assert(__pyx_t_22);
-                                          PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_21);
-                                          __Pyx_INCREF(__pyx_t_22);
-                                          __Pyx_INCREF(__pyx__function);
-                                          __Pyx_DECREF_SET(__pyx_t_21, __pyx__function);
-                                          __pyx_t_24 = 0;
-                                        }
-                                        #endif
-                                        {
-                                          PyObject *__pyx_callargs[2] = {__pyx_t_22, __pyx_t_23};
-                                          __pyx_t_20 = __Pyx_PyObject_FastCall(__pyx_t_21, __pyx_callargs+__pyx_t_24, (2-__pyx_t_24) | (__pyx_t_24*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-                                          __Pyx_XDECREF(__pyx_t_22); __pyx_t_22 = 0;
-                                          __Pyx_DECREF(__pyx_t_23); __pyx_t_23 = 0;
-                                          __Pyx_DECREF(__pyx_t_21); __pyx_t_21 = 0;
-                                          if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 283, __pyx_L41_error)
-                                          __Pyx_GOTREF(__pyx_t_20);
-                                        }
-                                        __pyx_t_30 = __Pyx_PyFloat_AsDouble(__pyx_t_20); if (unlikely((__pyx_t_30 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 283, __pyx_L41_error)
-                                        __Pyx_DECREF(__pyx_t_20); __pyx_t_20 = 0;
-                                        __pyx_t_16 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_t_30); if (unlikely(__pyx_t_16 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 283, __pyx_L41_error)
-                                        __pyx_t_20 = PyFloat_FromDouble(__pyx_t_16); if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 283, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_20);
-                                        __Pyx_XDECREF_SET(__pyx_v_forward_min_valid_abs_sum_block2, __pyx_t_20);
-                                        __pyx_t_20 = 0;
-
-                                        /* "worker_threads_cy.pyx":284
- *                         forward_min_valid_abs_sum_block1 = round_to_2(np.sum(abs_arr[:q1]))
- *                         forward_min_valid_abs_sum_block2 = round_to_2(np.sum(abs_arr[q1:q2]))
- *                         forward_min_valid_abs_sum_block3 = round_to_2(np.sum(abs_arr[q2:q3]))             # <<<<<<<<<<<<<<
- *                         forward_min_valid_abs_sum_block4 = round_to_2(np.sum(abs_arr[q3:]))
+            /* "worker_threads_cy.pyx":511
+ *                 for j in range(n):
+ *                     v = fabs(forward_max_result_c[j])
+ *                     if j < half:             # <<<<<<<<<<<<<<
+ *                         forward_max_valid_abs_sum_first_half += v
  *                     else:
 */
-                                        __pyx_t_21 = NULL;
-                                        __Pyx_GetModuleGlobalName(__pyx_t_23, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_23)) __PYX_ERR(0, 284, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_23);
-                                        __pyx_t_22 = __Pyx_PyObject_GetAttrStr(__pyx_t_23, __pyx_mstate_global->__pyx_n_u_sum); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 284, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_22);
-                                        __Pyx_DECREF(__pyx_t_23); __pyx_t_23 = 0;
-                                        __pyx_t_23 = __Pyx_PyObject_GetSlice(__pyx_v_abs_arr, __pyx_v_q2, __pyx_v_q3, NULL, NULL, NULL, 1, 1, 0); if (unlikely(!__pyx_t_23)) __PYX_ERR(0, 284, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_23);
-                                        __pyx_t_24 = 1;
-                                        #if CYTHON_UNPACK_METHODS
-                                        if (unlikely(PyMethod_Check(__pyx_t_22))) {
-                                          __pyx_t_21 = PyMethod_GET_SELF(__pyx_t_22);
-                                          assert(__pyx_t_21);
-                                          PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_22);
-                                          __Pyx_INCREF(__pyx_t_21);
-                                          __Pyx_INCREF(__pyx__function);
-                                          __Pyx_DECREF_SET(__pyx_t_22, __pyx__function);
-                                          __pyx_t_24 = 0;
-                                        }
-                                        #endif
-                                        {
-                                          PyObject *__pyx_callargs[2] = {__pyx_t_21, __pyx_t_23};
-                                          __pyx_t_20 = __Pyx_PyObject_FastCall(__pyx_t_22, __pyx_callargs+__pyx_t_24, (2-__pyx_t_24) | (__pyx_t_24*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-                                          __Pyx_XDECREF(__pyx_t_21); __pyx_t_21 = 0;
-                                          __Pyx_DECREF(__pyx_t_23); __pyx_t_23 = 0;
-                                          __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
-                                          if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 284, __pyx_L41_error)
-                                          __Pyx_GOTREF(__pyx_t_20);
-                                        }
-                                        __pyx_t_16 = __Pyx_PyFloat_AsDouble(__pyx_t_20); if (unlikely((__pyx_t_16 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 284, __pyx_L41_error)
-                                        __Pyx_DECREF(__pyx_t_20); __pyx_t_20 = 0;
-                                        __pyx_t_30 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_t_16); if (unlikely(__pyx_t_30 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 284, __pyx_L41_error)
-                                        __pyx_t_20 = PyFloat_FromDouble(__pyx_t_30); if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 284, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_20);
-                                        __Pyx_XDECREF_SET(__pyx_v_forward_min_valid_abs_sum_block3, __pyx_t_20);
-                                        __pyx_t_20 = 0;
+            goto __pyx_L127;
+          }
 
-                                        /* "worker_threads_cy.pyx":285
- *                         forward_min_valid_abs_sum_block2 = round_to_2(np.sum(abs_arr[q1:q2]))
- *                         forward_min_valid_abs_sum_block3 = round_to_2(np.sum(abs_arr[q2:q3]))
- *                         forward_min_valid_abs_sum_block4 = round_to_2(np.sum(abs_arr[q3:]))             # <<<<<<<<<<<<<<
+          /* "worker_threads_cy.pyx":514
+ *                         forward_max_valid_abs_sum_first_half += v
  *                     else:
- *                         forward_min_valid_abs_sum_first_half = 0
+ *                         forward_max_valid_abs_sum_second_half += v             # <<<<<<<<<<<<<<
+ *                     if j < q1:
+ *                         forward_max_valid_abs_sum_block1 += v
 */
-                                        __pyx_t_22 = NULL;
-                                        __Pyx_GetModuleGlobalName(__pyx_t_23, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_23)) __PYX_ERR(0, 285, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_23);
-                                        __pyx_t_21 = __Pyx_PyObject_GetAttrStr(__pyx_t_23, __pyx_mstate_global->__pyx_n_u_sum); if (unlikely(!__pyx_t_21)) __PYX_ERR(0, 285, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_21);
-                                        __Pyx_DECREF(__pyx_t_23); __pyx_t_23 = 0;
-                                        __pyx_t_23 = __Pyx_PyObject_GetSlice(__pyx_v_abs_arr, __pyx_v_q3, 0, NULL, NULL, NULL, 1, 0, 0); if (unlikely(!__pyx_t_23)) __PYX_ERR(0, 285, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_23);
-                                        __pyx_t_24 = 1;
-                                        #if CYTHON_UNPACK_METHODS
-                                        if (unlikely(PyMethod_Check(__pyx_t_21))) {
-                                          __pyx_t_22 = PyMethod_GET_SELF(__pyx_t_21);
-                                          assert(__pyx_t_22);
-                                          PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_21);
-                                          __Pyx_INCREF(__pyx_t_22);
-                                          __Pyx_INCREF(__pyx__function);
-                                          __Pyx_DECREF_SET(__pyx_t_21, __pyx__function);
-                                          __pyx_t_24 = 0;
-                                        }
-                                        #endif
-                                        {
-                                          PyObject *__pyx_callargs[2] = {__pyx_t_22, __pyx_t_23};
-                                          __pyx_t_20 = __Pyx_PyObject_FastCall(__pyx_t_21, __pyx_callargs+__pyx_t_24, (2-__pyx_t_24) | (__pyx_t_24*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-                                          __Pyx_XDECREF(__pyx_t_22); __pyx_t_22 = 0;
-                                          __Pyx_DECREF(__pyx_t_23); __pyx_t_23 = 0;
-                                          __Pyx_DECREF(__pyx_t_21); __pyx_t_21 = 0;
-                                          if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 285, __pyx_L41_error)
-                                          __Pyx_GOTREF(__pyx_t_20);
-                                        }
-                                        __pyx_t_30 = __Pyx_PyFloat_AsDouble(__pyx_t_20); if (unlikely((__pyx_t_30 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 285, __pyx_L41_error)
-                                        __Pyx_DECREF(__pyx_t_20); __pyx_t_20 = 0;
-                                        __pyx_t_16 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_t_30); if (unlikely(__pyx_t_16 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 285, __pyx_L41_error)
-                                        __pyx_t_20 = PyFloat_FromDouble(__pyx_t_16); if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 285, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_20);
-                                        __Pyx_XDECREF_SET(__pyx_v_forward_min_valid_abs_sum_block4, __pyx_t_20);
-                                        __pyx_t_20 = 0;
+          /*else*/ {
+            __pyx_t_5 = PyFloat_FromDouble(__pyx_v_v); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 514, __pyx_L1_error)
+            __Pyx_GOTREF(__pyx_t_5);
+            __pyx_t_27 = PyNumber_InPlaceAdd(__pyx_v_forward_max_valid_abs_sum_second_half, __pyx_t_5); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 514, __pyx_L1_error)
+            __Pyx_GOTREF(__pyx_t_27);
+            __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+            __Pyx_DECREF_SET(__pyx_v_forward_max_valid_abs_sum_second_half, __pyx_t_27);
+            __pyx_t_27 = 0;
+          }
+          __pyx_L127:;
 
-                                        /* "worker_threads_cy.pyx":271
- *                     #
- *                     forward_min_valid_sum_len = len(forward_min_result) if forward_min_result else 0
- *                     if forward_min_valid_sum_len > 0:             # <<<<<<<<<<<<<<
- *                         abs_arr = np.abs(forward_min_result)
- *                         half = int(round(forward_min_valid_sum_len / 2.0))
-*/
-                                        goto __pyx_L57;
-                                      }
-
-                                      /* "worker_threads_cy.pyx":287
- *                         forward_min_valid_abs_sum_block4 = round_to_2(np.sum(abs_arr[q3:]))
+          /* "worker_threads_cy.pyx":515
  *                     else:
- *                         forward_min_valid_abs_sum_first_half = 0             # <<<<<<<<<<<<<<
- *                         forward_min_valid_abs_sum_second_half = 0
- *                         forward_min_valid_abs_sum_block1 = 0
+ *                         forward_max_valid_abs_sum_second_half += v
+ *                     if j < q1:             # <<<<<<<<<<<<<<
+ *                         forward_max_valid_abs_sum_block1 += v
+ *                     elif j < q2:
 */
-                                      /*else*/ {
-                                        __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
-                                        __Pyx_XDECREF_SET(__pyx_v_forward_min_valid_abs_sum_first_half, __pyx_mstate_global->__pyx_int_0);
+          __pyx_t_7 = (__pyx_v_j < __pyx_v_q1);
+          if (__pyx_t_7) {
 
-                                        /* "worker_threads_cy.pyx":288
+            /* "worker_threads_cy.pyx":516
+ *                         forward_max_valid_abs_sum_second_half += v
+ *                     if j < q1:
+ *                         forward_max_valid_abs_sum_block1 += v             # <<<<<<<<<<<<<<
+ *                     elif j < q2:
+ *                         forward_max_valid_abs_sum_block2 += v
+*/
+            __pyx_t_27 = PyFloat_FromDouble(__pyx_v_v); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 516, __pyx_L1_error)
+            __Pyx_GOTREF(__pyx_t_27);
+            __pyx_t_5 = PyNumber_InPlaceAdd(__pyx_v_forward_max_valid_abs_sum_block1, __pyx_t_27); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 516, __pyx_L1_error)
+            __Pyx_GOTREF(__pyx_t_5);
+            __Pyx_DECREF(__pyx_t_27); __pyx_t_27 = 0;
+            __Pyx_DECREF_SET(__pyx_v_forward_max_valid_abs_sum_block1, __pyx_t_5);
+            __pyx_t_5 = 0;
+
+            /* "worker_threads_cy.pyx":515
  *                     else:
- *                         forward_min_valid_abs_sum_first_half = 0
- *                         forward_min_valid_abs_sum_second_half = 0             # <<<<<<<<<<<<<<
- *                         forward_min_valid_abs_sum_block1 = 0
- *                         forward_min_valid_abs_sum_block2 = 0
-*/
-                                        __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
-                                        __Pyx_XDECREF_SET(__pyx_v_forward_min_valid_abs_sum_second_half, __pyx_mstate_global->__pyx_int_0);
-
-                                        /* "worker_threads_cy.pyx":289
- *                         forward_min_valid_abs_sum_first_half = 0
- *                         forward_min_valid_abs_sum_second_half = 0
- *                         forward_min_valid_abs_sum_block1 = 0             # <<<<<<<<<<<<<<
- *                         forward_min_valid_abs_sum_block2 = 0
- *                         forward_min_valid_abs_sum_block3 = 0
-*/
-                                        __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
-                                        __Pyx_XDECREF_SET(__pyx_v_forward_min_valid_abs_sum_block1, __pyx_mstate_global->__pyx_int_0);
-
-                                        /* "worker_threads_cy.pyx":290
- *                         forward_min_valid_abs_sum_second_half = 0
- *                         forward_min_valid_abs_sum_block1 = 0
- *                         forward_min_valid_abs_sum_block2 = 0             # <<<<<<<<<<<<<<
- *                         forward_min_valid_abs_sum_block3 = 0
- *                         forward_min_valid_abs_sum_block4 = 0
-*/
-                                        __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
-                                        __Pyx_XDECREF_SET(__pyx_v_forward_min_valid_abs_sum_block2, __pyx_mstate_global->__pyx_int_0);
-
-                                        /* "worker_threads_cy.pyx":291
- *                         forward_min_valid_abs_sum_block1 = 0
- *                         forward_min_valid_abs_sum_block2 = 0
- *                         forward_min_valid_abs_sum_block3 = 0             # <<<<<<<<<<<<<<
- *                         forward_min_valid_abs_sum_block4 = 0
- * 
-*/
-                                        __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
-                                        __Pyx_XDECREF_SET(__pyx_v_forward_min_valid_abs_sum_block3, __pyx_mstate_global->__pyx_int_0);
-
-                                        /* "worker_threads_cy.pyx":292
- *                         forward_min_valid_abs_sum_block2 = 0
- *                         forward_min_valid_abs_sum_block3 = 0
- *                         forward_min_valid_abs_sum_block4 = 0             # <<<<<<<<<<<<<<
- * 
- *                 else:
-*/
-                                        __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
-                                        __Pyx_XDECREF_SET(__pyx_v_forward_min_valid_abs_sum_block4, __pyx_mstate_global->__pyx_int_0);
-                                      }
-                                      __pyx_L57:;
-
-                                      /* "worker_threads_cy.pyx":243
- * 
- *                 #
- *                 if is_forward:             # <<<<<<<<<<<<<<
- *                     #
- *                     forward_max_valid_sum_len = len(forward_max_result) if forward_max_result else 0
-*/
-                                      goto __pyx_L55;
-                                    }
-
-                                    /* "worker_threads_cy.pyx":295
- * 
- *                 else:
- *                     forward_max_valid_sum_len = 0             # <<<<<<<<<<<<<<
- *                     forward_max_valid_abs_sum_first_half = None
- *                     forward_max_valid_abs_sum_second_half = None
-*/
-                                    /*else*/ {
-                                      __pyx_v_forward_max_valid_sum_len = 0;
-
-                                      /* "worker_threads_cy.pyx":296
- *                 else:
- *                     forward_max_valid_sum_len = 0
- *                     forward_max_valid_abs_sum_first_half = None             # <<<<<<<<<<<<<<
- *                     forward_max_valid_abs_sum_second_half = None
- *                     forward_max_valid_abs_sum_block1 = None
-*/
-                                      __Pyx_INCREF(Py_None);
-                                      __Pyx_XDECREF_SET(__pyx_v_forward_max_valid_abs_sum_first_half, Py_None);
-
-                                      /* "worker_threads_cy.pyx":297
- *                     forward_max_valid_sum_len = 0
- *                     forward_max_valid_abs_sum_first_half = None
- *                     forward_max_valid_abs_sum_second_half = None             # <<<<<<<<<<<<<<
- *                     forward_max_valid_abs_sum_block1 = None
- *                     forward_max_valid_abs_sum_block2 = None
-*/
-                                      __Pyx_INCREF(Py_None);
-                                      __Pyx_XDECREF_SET(__pyx_v_forward_max_valid_abs_sum_second_half, Py_None);
-
-                                      /* "worker_threads_cy.pyx":298
- *                     forward_max_valid_abs_sum_first_half = None
- *                     forward_max_valid_abs_sum_second_half = None
- *                     forward_max_valid_abs_sum_block1 = None             # <<<<<<<<<<<<<<
- *                     forward_max_valid_abs_sum_block2 = None
- *                     forward_max_valid_abs_sum_block3 = None
-*/
-                                      __Pyx_INCREF(Py_None);
-                                      __Pyx_XDECREF_SET(__pyx_v_forward_max_valid_abs_sum_block1, Py_None);
-
-                                      /* "worker_threads_cy.pyx":299
- *                     forward_max_valid_abs_sum_second_half = None
- *                     forward_max_valid_abs_sum_block1 = None
- *                     forward_max_valid_abs_sum_block2 = None             # <<<<<<<<<<<<<<
- *                     forward_max_valid_abs_sum_block3 = None
- *                     forward_max_valid_abs_sum_block4 = None
-*/
-                                      __Pyx_INCREF(Py_None);
-                                      __Pyx_XDECREF_SET(__pyx_v_forward_max_valid_abs_sum_block2, Py_None);
-
-                                      /* "worker_threads_cy.pyx":300
- *                     forward_max_valid_abs_sum_block1 = None
- *                     forward_max_valid_abs_sum_block2 = None
- *                     forward_max_valid_abs_sum_block3 = None             # <<<<<<<<<<<<<<
- *                     forward_max_valid_abs_sum_block4 = None
- *                     forward_min_valid_sum_len = 0
-*/
-                                      __Pyx_INCREF(Py_None);
-                                      __Pyx_XDECREF_SET(__pyx_v_forward_max_valid_abs_sum_block3, Py_None);
-
-                                      /* "worker_threads_cy.pyx":301
- *                     forward_max_valid_abs_sum_block2 = None
- *                     forward_max_valid_abs_sum_block3 = None
- *                     forward_max_valid_abs_sum_block4 = None             # <<<<<<<<<<<<<<
- *                     forward_min_valid_sum_len = 0
- *                     forward_min_valid_abs_sum_first_half = None
-*/
-                                      __Pyx_INCREF(Py_None);
-                                      __Pyx_XDECREF_SET(__pyx_v_forward_max_valid_abs_sum_block4, Py_None);
-
-                                      /* "worker_threads_cy.pyx":302
- *                     forward_max_valid_abs_sum_block3 = None
- *                     forward_max_valid_abs_sum_block4 = None
- *                     forward_min_valid_sum_len = 0             # <<<<<<<<<<<<<<
- *                     forward_min_valid_abs_sum_first_half = None
- *                     forward_min_valid_abs_sum_second_half = None
-*/
-                                      __pyx_v_forward_min_valid_sum_len = 0;
-
-                                      /* "worker_threads_cy.pyx":303
- *                     forward_max_valid_abs_sum_block4 = None
- *                     forward_min_valid_sum_len = 0
- *                     forward_min_valid_abs_sum_first_half = None             # <<<<<<<<<<<<<<
- *                     forward_min_valid_abs_sum_second_half = None
- *                     forward_min_valid_abs_sum_block1 = None
-*/
-                                      __Pyx_INCREF(Py_None);
-                                      __Pyx_XDECREF_SET(__pyx_v_forward_min_valid_abs_sum_first_half, Py_None);
-
-                                      /* "worker_threads_cy.pyx":304
- *                     forward_min_valid_sum_len = 0
- *                     forward_min_valid_abs_sum_first_half = None
- *                     forward_min_valid_abs_sum_second_half = None             # <<<<<<<<<<<<<<
- *                     forward_min_valid_abs_sum_block1 = None
- *                     forward_min_valid_abs_sum_block2 = None
-*/
-                                      __Pyx_INCREF(Py_None);
-                                      __Pyx_XDECREF_SET(__pyx_v_forward_min_valid_abs_sum_second_half, Py_None);
-
-                                      /* "worker_threads_cy.pyx":305
- *                     forward_min_valid_abs_sum_first_half = None
- *                     forward_min_valid_abs_sum_second_half = None
- *                     forward_min_valid_abs_sum_block1 = None             # <<<<<<<<<<<<<<
- *                     forward_min_valid_abs_sum_block2 = None
- *                     forward_min_valid_abs_sum_block3 = None
-*/
-                                      __Pyx_INCREF(Py_None);
-                                      __Pyx_XDECREF_SET(__pyx_v_forward_min_valid_abs_sum_block1, Py_None);
-
-                                      /* "worker_threads_cy.pyx":306
- *                     forward_min_valid_abs_sum_second_half = None
- *                     forward_min_valid_abs_sum_block1 = None
- *                     forward_min_valid_abs_sum_block2 = None             # <<<<<<<<<<<<<<
- *                     forward_min_valid_abs_sum_block3 = None
- *                     forward_min_valid_abs_sum_block4 = None
-*/
-                                      __Pyx_INCREF(Py_None);
-                                      __Pyx_XDECREF_SET(__pyx_v_forward_min_valid_abs_sum_block2, Py_None);
-
-                                      /* "worker_threads_cy.pyx":307
- *                     forward_min_valid_abs_sum_block1 = None
- *                     forward_min_valid_abs_sum_block2 = None
- *                     forward_min_valid_abs_sum_block3 = None             # <<<<<<<<<<<<<<
- *                     forward_min_valid_abs_sum_block4 = None
- * 
-*/
-                                      __Pyx_INCREF(Py_None);
-                                      __Pyx_XDECREF_SET(__pyx_v_forward_min_valid_abs_sum_block3, Py_None);
-
-                                      /* "worker_threads_cy.pyx":308
- *                     forward_min_valid_abs_sum_block2 = None
- *                     forward_min_valid_abs_sum_block3 = None
- *                     forward_min_valid_abs_sum_block4 = None             # <<<<<<<<<<<<<<
- * 
- *                 #
-*/
-                                      __Pyx_INCREF(Py_None);
-                                      __Pyx_XDECREF_SET(__pyx_v_forward_min_valid_abs_sum_block4, Py_None);
-                                    }
-                                    __pyx_L55:;
-
-                                    /* "worker_threads_cy.pyx":311
- * 
- *                 #
- *                 valid_pos_sum, valid_neg_sum = valid_pos_sum, valid_neg_sum             # <<<<<<<<<<<<<<
- *                 forward_max_valid_pos_sum, forward_max_valid_neg_sum = valid_pos_sum, valid_neg_sum
- *                 forward_min_valid_pos_sum, forward_min_valid_neg_sum = valid_pos_sum, valid_neg_sum
-*/
-                                    __pyx_t_16 = __pyx_v_valid_pos_sum;
-                                    __pyx_t_30 = __pyx_v_valid_neg_sum;
-                                    __pyx_v_valid_pos_sum = __pyx_t_16;
-                                    __pyx_v_valid_neg_sum = __pyx_t_30;
-
-                                    /* "worker_threads_cy.pyx":312
- *                 #
- *                 valid_pos_sum, valid_neg_sum = valid_pos_sum, valid_neg_sum
- *                 forward_max_valid_pos_sum, forward_max_valid_neg_sum = valid_pos_sum, valid_neg_sum             # <<<<<<<<<<<<<<
- *                 forward_min_valid_pos_sum, forward_min_valid_neg_sum = valid_pos_sum, valid_neg_sum
- * 
-*/
-                                    __pyx_t_30 = __pyx_v_valid_pos_sum;
-                                    __pyx_t_16 = __pyx_v_valid_neg_sum;
-                                    __pyx_v_forward_max_valid_pos_sum = __pyx_t_30;
-                                    __pyx_v_forward_max_valid_neg_sum = __pyx_t_16;
-
-                                    /* "worker_threads_cy.pyx":313
- *                 valid_pos_sum, valid_neg_sum = valid_pos_sum, valid_neg_sum
- *                 forward_max_valid_pos_sum, forward_max_valid_neg_sum = valid_pos_sum, valid_neg_sum
- *                 forward_min_valid_pos_sum, forward_min_valid_neg_sum = valid_pos_sum, valid_neg_sum             # <<<<<<<<<<<<<<
- * 
- *                 #
-*/
-                                    __pyx_t_16 = __pyx_v_valid_pos_sum;
-                                    __pyx_t_30 = __pyx_v_valid_neg_sum;
-                                    __pyx_v_forward_min_valid_pos_sum = __pyx_t_16;
-                                    __pyx_v_forward_min_valid_neg_sum = __pyx_t_30;
-
-                                    /* "worker_threads_cy.pyx":316
- * 
- *                 #
- *                 if continuous_abs_threshold == continuous_abs_threshold and len(py_cont_sum) > 0:             # <<<<<<<<<<<<<<
- *                     max_abs_val = max([abs(v) for v in py_cont_sum])
- *                     continuous_abs_is_less = max_abs_val < continuous_abs_threshold
-*/
-                                    __pyx_t_17 = (__pyx_v_continuous_abs_threshold == __pyx_v_continuous_abs_threshold);
-                                    if (__pyx_t_17) {
-                                    } else {
-                                      __pyx_t_15 = __pyx_t_17;
-                                      goto __pyx_L59_bool_binop_done;
-                                    }
-                                    __pyx_t_28 = __Pyx_PyList_GET_SIZE(__pyx_v_py_cont_sum); if (unlikely(__pyx_t_28 == ((Py_ssize_t)-1))) __PYX_ERR(0, 316, __pyx_L41_error)
-                                    __pyx_t_17 = (__pyx_t_28 > 0);
-                                    __pyx_t_15 = __pyx_t_17;
-                                    __pyx_L59_bool_binop_done:;
-                                    if (__pyx_t_15) {
-
-                                      /* "worker_threads_cy.pyx":317
- *                 #
- *                 if continuous_abs_threshold == continuous_abs_threshold and len(py_cont_sum) > 0:
- *                     max_abs_val = max([abs(v) for v in py_cont_sum])             # <<<<<<<<<<<<<<
- *                     continuous_abs_is_less = max_abs_val < continuous_abs_threshold
- *                 else:
-*/
-                                      __pyx_t_21 = NULL;
-                                      __Pyx_INCREF(__pyx_builtin_max);
-                                      __pyx_t_23 = __pyx_builtin_max; 
-                                      { /* enter inner scope */
-                                        __pyx_t_22 = PyList_New(0); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 317, __pyx_L63_error)
-                                        __Pyx_GOTREF(__pyx_t_22);
-                                        __pyx_t_1 = __pyx_v_py_cont_sum; __Pyx_INCREF(__pyx_t_1);
-                                        __pyx_t_28 = 0;
-                                        for (;;) {
-                                          {
-                                            Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_1);
-                                            #if !CYTHON_ASSUME_SAFE_SIZE
-                                            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 317, __pyx_L63_error)
-                                            #endif
-                                            if (__pyx_t_28 >= __pyx_temp) break;
-                                          }
-                                          __pyx_t_31 = __Pyx_PyList_GetItemRef(__pyx_t_1, __pyx_t_28);
-                                          ++__pyx_t_28;
-                                          if (unlikely(!__pyx_t_31)) __PYX_ERR(0, 317, __pyx_L63_error)
-                                          __Pyx_GOTREF(__pyx_t_31);
-                                          __Pyx_XDECREF_SET(__pyx_7genexpr__pyx_v_v, __pyx_t_31);
-                                          __pyx_t_31 = 0;
-                                          __pyx_t_31 = __Pyx_PyNumber_Absolute(__pyx_7genexpr__pyx_v_v); if (unlikely(!__pyx_t_31)) __PYX_ERR(0, 317, __pyx_L63_error)
-                                          __Pyx_GOTREF(__pyx_t_31);
-                                          if (unlikely(__Pyx_ListComp_Append(__pyx_t_22, (PyObject*)__pyx_t_31))) __PYX_ERR(0, 317, __pyx_L63_error)
-                                          __Pyx_DECREF(__pyx_t_31); __pyx_t_31 = 0;
-                                        }
-                                        __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-                                        __Pyx_XDECREF(__pyx_7genexpr__pyx_v_v); __pyx_7genexpr__pyx_v_v = 0;
-                                        goto __pyx_L67_exit_scope;
-                                        __pyx_L63_error:;
-                                        __Pyx_XDECREF(__pyx_7genexpr__pyx_v_v); __pyx_7genexpr__pyx_v_v = 0;
-                                        goto __pyx_L41_error;
-                                        __pyx_L67_exit_scope:;
-                                      } /* exit inner scope */
-                                      __pyx_t_24 = 1;
-                                      {
-                                        PyObject *__pyx_callargs[2] = {__pyx_t_21, __pyx_t_22};
-                                        __pyx_t_20 = __Pyx_PyObject_FastCall(__pyx_t_23, __pyx_callargs+__pyx_t_24, (2-__pyx_t_24) | (__pyx_t_24*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-                                        __Pyx_XDECREF(__pyx_t_21); __pyx_t_21 = 0;
-                                        __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
-                                        __Pyx_DECREF(__pyx_t_23); __pyx_t_23 = 0;
-                                        if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 317, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_20);
-                                      }
-                                      __Pyx_XDECREF_SET(__pyx_v_max_abs_val, __pyx_t_20);
-                                      __pyx_t_20 = 0;
-
-                                      /* "worker_threads_cy.pyx":318
- *                 if continuous_abs_threshold == continuous_abs_threshold and len(py_cont_sum) > 0:
- *                     max_abs_val = max([abs(v) for v in py_cont_sum])
- *                     continuous_abs_is_less = max_abs_val < continuous_abs_threshold             # <<<<<<<<<<<<<<
- *                 else:
- *                     continuous_abs_is_less = False
-*/
-                                      __pyx_t_20 = PyFloat_FromDouble(__pyx_v_continuous_abs_threshold); if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 318, __pyx_L41_error)
-                                      __Pyx_GOTREF(__pyx_t_20);
-                                      __pyx_t_23 = PyObject_RichCompare(__pyx_v_max_abs_val, __pyx_t_20, Py_LT); __Pyx_XGOTREF(__pyx_t_23); if (unlikely(!__pyx_t_23)) __PYX_ERR(0, 318, __pyx_L41_error)
-                                      __Pyx_DECREF(__pyx_t_20); __pyx_t_20 = 0;
-                                      __Pyx_XDECREF_SET(__pyx_v_continuous_abs_is_less, __pyx_t_23);
-                                      __pyx_t_23 = 0;
-
-                                      /* "worker_threads_cy.pyx":316
- * 
- *                 #
- *                 if continuous_abs_threshold == continuous_abs_threshold and len(py_cont_sum) > 0:             # <<<<<<<<<<<<<<
- *                     max_abs_val = max([abs(v) for v in py_cont_sum])
- *                     continuous_abs_is_less = max_abs_val < continuous_abs_threshold
-*/
-                                      goto __pyx_L58;
-                                    }
-
-                                    /* "worker_threads_cy.pyx":320
- *                     continuous_abs_is_less = max_abs_val < continuous_abs_threshold
- *                 else:
- *                     continuous_abs_is_less = False             # <<<<<<<<<<<<<<
- * 
- *                 # n_days_max
-*/
-                                    /*else*/ {
-                                      __Pyx_INCREF(Py_False);
-                                      __Pyx_XDECREF_SET(__pyx_v_continuous_abs_is_less, Py_False);
-                                    }
-                                    __pyx_L58:;
-
-                                    /* "worker_threads_cy.pyx":323
- * 
- *                 # n_days_max
- *                 n_days_max_value = NAN             # <<<<<<<<<<<<<<
- *                 if n_days_max > 0 and end_date_idx + n_days_max <= num_dates:
- *                     maxv = -1e308
-*/
-                                    __pyx_v_n_days_max_value = __pyx_v_17worker_threads_cy_NAN;
-
-                                    /* "worker_threads_cy.pyx":324
- *                 # n_days_max
- *                 n_days_max_value = NAN
- *                 if n_days_max > 0 and end_date_idx + n_days_max <= num_dates:             # <<<<<<<<<<<<<<
- *                     maxv = -1e308
- *                     for j in range(n_days_max):
-*/
-                                    __pyx_t_17 = (__pyx_v_n_days_max > 0);
-                                    if (__pyx_t_17) {
-                                    } else {
-                                      __pyx_t_15 = __pyx_t_17;
-                                      goto __pyx_L69_bool_binop_done;
-                                    }
-                                    __pyx_t_17 = ((__pyx_v_end_date_idx + __pyx_v_n_days_max) <= __pyx_v_num_dates);
-                                    __pyx_t_15 = __pyx_t_17;
-                                    __pyx_L69_bool_binop_done:;
-                                    if (__pyx_t_15) {
-
-                                      /* "worker_threads_cy.pyx":325
- *                 n_days_max_value = NAN
- *                 if n_days_max > 0 and end_date_idx + n_days_max <= num_dates:
- *                     maxv = -1e308             # <<<<<<<<<<<<<<
- *                     for j in range(n_days_max):
- *                         v = price_data_view[stock_idx, end_date_idx + j]
-*/
-                                      __Pyx_INCREF(__pyx_mstate_global->__pyx_float_neg_1e308);
-                                      __Pyx_XDECREF_SET(__pyx_v_maxv, __pyx_mstate_global->__pyx_float_neg_1e308);
-
-                                      /* "worker_threads_cy.pyx":326
- *                 if n_days_max > 0 and end_date_idx + n_days_max <= num_dates:
- *                     maxv = -1e308
- *                     for j in range(n_days_max):             # <<<<<<<<<<<<<<
- *                         v = price_data_view[stock_idx, end_date_idx + j]
- *                         if not isnan(v) and v > maxv:
-*/
-                                      __pyx_t_11 = __pyx_v_n_days_max;
-                                      __pyx_t_12 = __pyx_t_11;
-                                      for (__pyx_t_13 = 0; __pyx_t_13 < __pyx_t_12; __pyx_t_13+=1) {
-                                        __pyx_v_j = __pyx_t_13;
-
-                                        /* "worker_threads_cy.pyx":327
- *                     maxv = -1e308
- *                     for j in range(n_days_max):
- *                         v = price_data_view[stock_idx, end_date_idx + j]             # <<<<<<<<<<<<<<
- *                         if not isnan(v) and v > maxv:
- *                             maxv = v
-*/
-                                        __pyx_t_14 = __pyx_v_stock_idx;
-                                        __pyx_t_10 = (__pyx_v_end_date_idx + __pyx_v_j);
-                                        __pyx_t_23 = PyFloat_FromDouble((*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_price_data_view.data + __pyx_t_14 * __pyx_v_price_data_view.strides[0]) ) + __pyx_t_10 * __pyx_v_price_data_view.strides[1]) )))); if (unlikely(!__pyx_t_23)) __PYX_ERR(0, 327, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_23);
-                                        __Pyx_XDECREF_SET(__pyx_v_v, __pyx_t_23);
-                                        __pyx_t_23 = 0;
-
-                                        /* "worker_threads_cy.pyx":328
- *                     for j in range(n_days_max):
- *                         v = price_data_view[stock_idx, end_date_idx + j]
- *                         if not isnan(v) and v > maxv:             # <<<<<<<<<<<<<<
- *                             maxv = v
- *                     n_days_max_value = maxv if maxv > -1e308 else NAN
-*/
-                                        __pyx_t_32 = __Pyx_PyFloat_AsDouble(__pyx_v_v); if (unlikely((__pyx_t_32 == (long double)-1) && PyErr_Occurred())) __PYX_ERR(0, 328, __pyx_L41_error)
-                                        __pyx_t_17 = (!isnan(__pyx_t_32));
-                                        if (__pyx_t_17) {
-                                        } else {
-                                          __pyx_t_15 = __pyx_t_17;
-                                          goto __pyx_L74_bool_binop_done;
-                                        }
-                                        __pyx_t_23 = PyObject_RichCompare(__pyx_v_v, __pyx_v_maxv, Py_GT); __Pyx_XGOTREF(__pyx_t_23); if (unlikely(!__pyx_t_23)) __PYX_ERR(0, 328, __pyx_L41_error)
-                                        __pyx_t_17 = __Pyx_PyObject_IsTrue(__pyx_t_23); if (unlikely((__pyx_t_17 < 0))) __PYX_ERR(0, 328, __pyx_L41_error)
-                                        __Pyx_DECREF(__pyx_t_23); __pyx_t_23 = 0;
-                                        __pyx_t_15 = __pyx_t_17;
-                                        __pyx_L74_bool_binop_done:;
-                                        if (__pyx_t_15) {
-
-                                          /* "worker_threads_cy.pyx":329
- *                         v = price_data_view[stock_idx, end_date_idx + j]
- *                         if not isnan(v) and v > maxv:
- *                             maxv = v             # <<<<<<<<<<<<<<
- *                     n_days_max_value = maxv if maxv > -1e308 else NAN
- * 
-*/
-                                          __Pyx_INCREF(__pyx_v_v);
-                                          __Pyx_XDECREF_SET(__pyx_v_maxv, __pyx_v_v);
-
-                                          /* "worker_threads_cy.pyx":328
- *                     for j in range(n_days_max):
- *                         v = price_data_view[stock_idx, end_date_idx + j]
- *                         if not isnan(v) and v > maxv:             # <<<<<<<<<<<<<<
- *                             maxv = v
- *                     n_days_max_value = maxv if maxv > -1e308 else NAN
-*/
-                                        }
-                                      }
-
-                                      /* "worker_threads_cy.pyx":330
- *                         if not isnan(v) and v > maxv:
- *                             maxv = v
- *                     n_days_max_value = maxv if maxv > -1e308 else NAN             # <<<<<<<<<<<<<<
- * 
- *                 # 1
-*/
-                                      __pyx_t_23 = PyObject_RichCompare(__pyx_v_maxv, __pyx_mstate_global->__pyx_float_neg_1e308, Py_GT); __Pyx_XGOTREF(__pyx_t_23); if (unlikely(!__pyx_t_23)) __PYX_ERR(0, 330, __pyx_L41_error)
-                                      __pyx_t_15 = __Pyx_PyObject_IsTrue(__pyx_t_23); if (unlikely((__pyx_t_15 < 0))) __PYX_ERR(0, 330, __pyx_L41_error)
-                                      __Pyx_DECREF(__pyx_t_23); __pyx_t_23 = 0;
-                                      if (__pyx_t_15) {
-                                        __pyx_t_16 = __Pyx_PyFloat_AsDouble(__pyx_v_maxv); if (unlikely((__pyx_t_16 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 330, __pyx_L41_error)
-                                        __pyx_t_30 = __pyx_t_16;
-                                      } else {
-                                        __pyx_t_30 = __pyx_v_17worker_threads_cy_NAN;
-                                      }
-                                      __pyx_v_n_days_max_value = __pyx_t_30;
-
-                                      /* "worker_threads_cy.pyx":324
- *                 # n_days_max
- *                 n_days_max_value = NAN
- *                 if n_days_max > 0 and end_date_idx + n_days_max <= num_dates:             # <<<<<<<<<<<<<<
- *                     maxv = -1e308
- *                     for j in range(n_days_max):
-*/
-                                    }
-
-                                    /* "worker_threads_cy.pyx":333
- * 
- *                 # 1
- *                 prev_day_change = NAN             # <<<<<<<<<<<<<<
- *                 end_day_change = NAN
- *                 price_arr = []
-*/
-                                    __pyx_v_prev_day_change = __pyx_v_17worker_threads_cy_NAN;
-
-                                    /* "worker_threads_cy.pyx":334
- *                 # 1
- *                 prev_day_change = NAN
- *                 end_day_change = NAN             # <<<<<<<<<<<<<<
- *                 price_arr = []
- *                 for j in range(window_len):
-*/
-                                    __pyx_v_end_day_change = __pyx_v_17worker_threads_cy_NAN;
-
-                                    /* "worker_threads_cy.pyx":335
- *                 prev_day_change = NAN
- *                 end_day_change = NAN
- *                 price_arr = []             # <<<<<<<<<<<<<<
- *                 for j in range(window_len):
- *                     price_arr.append(price_data_view[stock_idx, end_date_idx + j])
-*/
-                                    if (unlikely((0x64) != (0))) {
-                                      PyErr_Format(PyExc_ValueError, "Assignment to slice of wrong length, expected %" CYTHON_FORMAT_SSIZE_T "d, got %" CYTHON_FORMAT_SSIZE_T "d", (Py_ssize_t)(0), (Py_ssize_t)(0x64));
-                                      __PYX_ERR(0, 335, __pyx_L41_error)
-                                    }
-                                    memcpy(&(__pyx_v_price_arr[0]), __pyx_t_33, sizeof(__pyx_v_price_arr[0]) * (0));
-
-                                    /* "worker_threads_cy.pyx":336
- *                 end_day_change = NAN
- *                 price_arr = []
- *                 for j in range(window_len):             # <<<<<<<<<<<<<<
- *                     price_arr.append(price_data_view[stock_idx, end_date_idx + j])
- *                 if len(price_arr) >= 3:
-*/
-                                    __pyx_t_11 = __pyx_v_window_len;
-                                    __pyx_t_12 = __pyx_t_11;
-                                    for (__pyx_t_13 = 0; __pyx_t_13 < __pyx_t_12; __pyx_t_13+=1) {
-                                      __pyx_v_j = __pyx_t_13;
-
-                                      /* "worker_threads_cy.pyx":337
- *                 price_arr = []
- *                 for j in range(window_len):
- *                     price_arr.append(price_data_view[stock_idx, end_date_idx + j])             # <<<<<<<<<<<<<<
- *                 if len(price_arr) >= 3:
- *                     if price_arr[2] != 0 and not isnan(price_arr[2]):
-*/
-                                      __pyx_t_23 = __Pyx_carray_to_py_double(__pyx_v_price_arr, 0x64); if (unlikely(!__pyx_t_23)) __PYX_ERR(0, 337, __pyx_L41_error)
-                                      __Pyx_GOTREF(__pyx_t_23);
-                                      __pyx_t_10 = __pyx_v_stock_idx;
-                                      __pyx_t_14 = (__pyx_v_end_date_idx + __pyx_v_j);
-                                      __pyx_t_20 = PyFloat_FromDouble((*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_price_data_view.data + __pyx_t_10 * __pyx_v_price_data_view.strides[0]) ) + __pyx_t_14 * __pyx_v_price_data_view.strides[1]) )))); if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 337, __pyx_L41_error)
-                                      __Pyx_GOTREF(__pyx_t_20);
-                                      __pyx_t_34 = __Pyx_PyObject_Append(__pyx_t_23, __pyx_t_20); if (unlikely(__pyx_t_34 == ((int)-1))) __PYX_ERR(0, 337, __pyx_L41_error)
-                                      __Pyx_DECREF(__pyx_t_23); __pyx_t_23 = 0;
-                                      __Pyx_DECREF(__pyx_t_20); __pyx_t_20 = 0;
-                                    }
-
-                                    /* "worker_threads_cy.pyx":338
- *                 for j in range(window_len):
- *                     price_arr.append(price_data_view[stock_idx, end_date_idx + j])
- *                 if len(price_arr) >= 3:             # <<<<<<<<<<<<<<
- *                     if price_arr[2] != 0 and not isnan(price_arr[2]):
- *                         prev_day_change = round_to_2(((price_arr[1] - price_arr[2]) / price_arr[2]) * 100)
-*/
-                                    __pyx_t_20 = __Pyx_carray_to_py_double(__pyx_v_price_arr, 0x64); if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 338, __pyx_L41_error)
-                                    __Pyx_GOTREF(__pyx_t_20);
-                                    __pyx_t_28 = PyObject_Length(__pyx_t_20); if (unlikely(__pyx_t_28 == ((Py_ssize_t)-1))) __PYX_ERR(0, 338, __pyx_L41_error)
-                                    __Pyx_DECREF(__pyx_t_20); __pyx_t_20 = 0;
-                                    __pyx_t_15 = (__pyx_t_28 >= 3);
-                                    if (__pyx_t_15) {
-
-                                      /* "worker_threads_cy.pyx":339
- *                     price_arr.append(price_data_view[stock_idx, end_date_idx + j])
- *                 if len(price_arr) >= 3:
- *                     if price_arr[2] != 0 and not isnan(price_arr[2]):             # <<<<<<<<<<<<<<
- *                         prev_day_change = round_to_2(((price_arr[1] - price_arr[2]) / price_arr[2]) * 100)
- *                     if price_arr[1] != 0 and not isnan(price_arr[1]):
-*/
-                                      __pyx_t_17 = ((__pyx_v_price_arr[2]) != 0.0);
-                                      if (__pyx_t_17) {
-                                      } else {
-                                        __pyx_t_15 = __pyx_t_17;
-                                        goto __pyx_L80_bool_binop_done;
-                                      }
-                                      __pyx_t_17 = (!isnan((__pyx_v_price_arr[2])));
-                                      __pyx_t_15 = __pyx_t_17;
-                                      __pyx_L80_bool_binop_done:;
-                                      if (__pyx_t_15) {
-
-                                        /* "worker_threads_cy.pyx":340
- *                 if len(price_arr) >= 3:
- *                     if price_arr[2] != 0 and not isnan(price_arr[2]):
- *                         prev_day_change = round_to_2(((price_arr[1] - price_arr[2]) / price_arr[2]) * 100)             # <<<<<<<<<<<<<<
- *                     if price_arr[1] != 0 and not isnan(price_arr[1]):
- *                         end_day_change = round_to_2(((price_arr[0] - price_arr[1]) / price_arr[1]) * 100)
-*/
-                                        __pyx_t_30 = __pyx_f_17worker_threads_cy_round_to_2(((((__pyx_v_price_arr[1]) - (__pyx_v_price_arr[2])) / (__pyx_v_price_arr[2])) * 100.0)); if (unlikely(__pyx_t_30 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 340, __pyx_L41_error)
-                                        __pyx_v_prev_day_change = __pyx_t_30;
-
-                                        /* "worker_threads_cy.pyx":339
- *                     price_arr.append(price_data_view[stock_idx, end_date_idx + j])
- *                 if len(price_arr) >= 3:
- *                     if price_arr[2] != 0 and not isnan(price_arr[2]):             # <<<<<<<<<<<<<<
- *                         prev_day_change = round_to_2(((price_arr[1] - price_arr[2]) / price_arr[2]) * 100)
- *                     if price_arr[1] != 0 and not isnan(price_arr[1]):
-*/
-                                      }
-
-                                      /* "worker_threads_cy.pyx":341
- *                     if price_arr[2] != 0 and not isnan(price_arr[2]):
- *                         prev_day_change = round_to_2(((price_arr[1] - price_arr[2]) / price_arr[2]) * 100)
- *                     if price_arr[1] != 0 and not isnan(price_arr[1]):             # <<<<<<<<<<<<<<
- *                         end_day_change = round_to_2(((price_arr[0] - price_arr[1]) / price_arr[1]) * 100)
- *                 elif len(price_arr) == 2:
-*/
-                                      __pyx_t_17 = ((__pyx_v_price_arr[1]) != 0.0);
-                                      if (__pyx_t_17) {
-                                      } else {
-                                        __pyx_t_15 = __pyx_t_17;
-                                        goto __pyx_L83_bool_binop_done;
-                                      }
-                                      __pyx_t_17 = (!isnan((__pyx_v_price_arr[1])));
-                                      __pyx_t_15 = __pyx_t_17;
-                                      __pyx_L83_bool_binop_done:;
-                                      if (__pyx_t_15) {
-
-                                        /* "worker_threads_cy.pyx":342
- *                         prev_day_change = round_to_2(((price_arr[1] - price_arr[2]) / price_arr[2]) * 100)
- *                     if price_arr[1] != 0 and not isnan(price_arr[1]):
- *                         end_day_change = round_to_2(((price_arr[0] - price_arr[1]) / price_arr[1]) * 100)             # <<<<<<<<<<<<<<
- *                 elif len(price_arr) == 2:
- *                     if price_arr[1] != 0 and not isnan(price_arr[1]):
-*/
-                                        __pyx_t_30 = __pyx_f_17worker_threads_cy_round_to_2(((((__pyx_v_price_arr[0]) - (__pyx_v_price_arr[1])) / (__pyx_v_price_arr[1])) * 100.0)); if (unlikely(__pyx_t_30 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 342, __pyx_L41_error)
-                                        __pyx_v_end_day_change = __pyx_t_30;
-
-                                        /* "worker_threads_cy.pyx":341
- *                     if price_arr[2] != 0 and not isnan(price_arr[2]):
- *                         prev_day_change = round_to_2(((price_arr[1] - price_arr[2]) / price_arr[2]) * 100)
- *                     if price_arr[1] != 0 and not isnan(price_arr[1]):             # <<<<<<<<<<<<<<
- *                         end_day_change = round_to_2(((price_arr[0] - price_arr[1]) / price_arr[1]) * 100)
- *                 elif len(price_arr) == 2:
-*/
-                                      }
-
-                                      /* "worker_threads_cy.pyx":338
- *                 for j in range(window_len):
- *                     price_arr.append(price_data_view[stock_idx, end_date_idx + j])
- *                 if len(price_arr) >= 3:             # <<<<<<<<<<<<<<
- *                     if price_arr[2] != 0 and not isnan(price_arr[2]):
- *                         prev_day_change = round_to_2(((price_arr[1] - price_arr[2]) / price_arr[2]) * 100)
-*/
-                                      goto __pyx_L78;
-                                    }
-
-                                    /* "worker_threads_cy.pyx":343
- *                     if price_arr[1] != 0 and not isnan(price_arr[1]):
- *                         end_day_change = round_to_2(((price_arr[0] - price_arr[1]) / price_arr[1]) * 100)
- *                 elif len(price_arr) == 2:             # <<<<<<<<<<<<<<
- *                     if price_arr[1] != 0 and not isnan(price_arr[1]):
- *                         end_day_change = round_to_2(((price_arr[0] - price_arr[1]) / price_arr[1]) * 100)
-*/
-                                    __pyx_t_20 = __Pyx_carray_to_py_double(__pyx_v_price_arr, 0x64); if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 343, __pyx_L41_error)
-                                    __Pyx_GOTREF(__pyx_t_20);
-                                    __pyx_t_28 = PyObject_Length(__pyx_t_20); if (unlikely(__pyx_t_28 == ((Py_ssize_t)-1))) __PYX_ERR(0, 343, __pyx_L41_error)
-                                    __Pyx_DECREF(__pyx_t_20); __pyx_t_20 = 0;
-                                    __pyx_t_15 = (__pyx_t_28 == 2);
-                                    if (__pyx_t_15) {
-
-                                      /* "worker_threads_cy.pyx":344
- *                         end_day_change = round_to_2(((price_arr[0] - price_arr[1]) / price_arr[1]) * 100)
- *                 elif len(price_arr) == 2:
- *                     if price_arr[1] != 0 and not isnan(price_arr[1]):             # <<<<<<<<<<<<<<
- *                         end_day_change = round_to_2(((price_arr[0] - price_arr[1]) / price_arr[1]) * 100)
- * 
-*/
-                                      __pyx_t_17 = ((__pyx_v_price_arr[1]) != 0.0);
-                                      if (__pyx_t_17) {
-                                      } else {
-                                        __pyx_t_15 = __pyx_t_17;
-                                        goto __pyx_L86_bool_binop_done;
-                                      }
-                                      __pyx_t_17 = (!isnan((__pyx_v_price_arr[1])));
-                                      __pyx_t_15 = __pyx_t_17;
-                                      __pyx_L86_bool_binop_done:;
-                                      if (__pyx_t_15) {
-
-                                        /* "worker_threads_cy.pyx":345
- *                 elif len(price_arr) == 2:
- *                     if price_arr[1] != 0 and not isnan(price_arr[1]):
- *                         end_day_change = round_to_2(((price_arr[0] - price_arr[1]) / price_arr[1]) * 100)             # <<<<<<<<<<<<<<
- * 
- *                 #
-*/
-                                        __pyx_t_30 = __pyx_f_17worker_threads_cy_round_to_2(((((__pyx_v_price_arr[0]) - (__pyx_v_price_arr[1])) / (__pyx_v_price_arr[1])) * 100.0)); if (unlikely(__pyx_t_30 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 345, __pyx_L41_error)
-                                        __pyx_v_end_day_change = __pyx_t_30;
-
-                                        /* "worker_threads_cy.pyx":344
- *                         end_day_change = round_to_2(((price_arr[0] - price_arr[1]) / price_arr[1]) * 100)
- *                 elif len(price_arr) == 2:
- *                     if price_arr[1] != 0 and not isnan(price_arr[1]):             # <<<<<<<<<<<<<<
- *                         end_day_change = round_to_2(((price_arr[0] - price_arr[1]) / price_arr[1]) * 100)
- * 
-*/
-                                      }
-
-                                      /* "worker_threads_cy.pyx":343
- *                     if price_arr[1] != 0 and not isnan(price_arr[1]):
- *                         end_day_change = round_to_2(((price_arr[0] - price_arr[1]) / price_arr[1]) * 100)
- *                 elif len(price_arr) == 2:             # <<<<<<<<<<<<<<
- *                     if price_arr[1] != 0 and not isnan(price_arr[1]):
- *                         end_day_change = round_to_2(((price_arr[0] - price_arr[1]) / price_arr[1]) * 100)
-*/
-                                    }
-                                    __pyx_L78:;
-
-                                    /* "worker_threads_cy.pyx":348
- * 
- *                 #
- *                 valid_abs_sum_first_half = 0             # <<<<<<<<<<<<<<
- *                 valid_abs_sum_second_half = 0
- *                 valid_abs_sum_block1 = 0
-*/
-                                    __pyx_v_valid_abs_sum_first_half = 0.0;
-
-                                    /* "worker_threads_cy.pyx":349
- *                 #
- *                 valid_abs_sum_first_half = 0
- *                 valid_abs_sum_second_half = 0             # <<<<<<<<<<<<<<
- *                 valid_abs_sum_block1 = 0
- *                 valid_abs_sum_block2 = 0
-*/
-                                    __pyx_v_valid_abs_sum_second_half = 0.0;
-
-                                    /* "worker_threads_cy.pyx":350
- *                 valid_abs_sum_first_half = 0
- *                 valid_abs_sum_second_half = 0
- *                 valid_abs_sum_block1 = 0             # <<<<<<<<<<<<<<
- *                 valid_abs_sum_block2 = 0
- *                 valid_abs_sum_block3 = 0
-*/
-                                    __pyx_v_valid_abs_sum_block1 = 0.0;
-
-                                    /* "worker_threads_cy.pyx":351
- *                 valid_abs_sum_second_half = 0
- *                 valid_abs_sum_block1 = 0
- *                 valid_abs_sum_block2 = 0             # <<<<<<<<<<<<<<
- *                 valid_abs_sum_block3 = 0
- *                 valid_abs_sum_block4 = 0
-*/
-                                    __pyx_v_valid_abs_sum_block2 = 0.0;
-
-                                    /* "worker_threads_cy.pyx":352
- *                 valid_abs_sum_block1 = 0
- *                 valid_abs_sum_block2 = 0
- *                 valid_abs_sum_block3 = 0             # <<<<<<<<<<<<<<
- *                 valid_abs_sum_block4 = 0
- *                 n_valid = valid_sum_len
-*/
-                                    __pyx_v_valid_abs_sum_block3 = 0.0;
-
-                                    /* "worker_threads_cy.pyx":353
- *                 valid_abs_sum_block2 = 0
- *                 valid_abs_sum_block3 = 0
- *                 valid_abs_sum_block4 = 0             # <<<<<<<<<<<<<<
- *                 n_valid = valid_sum_len
- *                 half_valid = int(round(n_valid / 2.0))
-*/
-                                    __pyx_v_valid_abs_sum_block4 = 0.0;
-
-                                    /* "worker_threads_cy.pyx":354
- *                 valid_abs_sum_block3 = 0
- *                 valid_abs_sum_block4 = 0
- *                 n_valid = valid_sum_len             # <<<<<<<<<<<<<<
- *                 half_valid = int(round(n_valid / 2.0))
- *                 q1_valid = int(round(n_valid / 4.0))
-*/
-                                    __pyx_v_n_valid = __pyx_v_valid_sum_len;
-
-                                    /* "worker_threads_cy.pyx":355
- *                 valid_abs_sum_block4 = 0
- *                 n_valid = valid_sum_len
- *                 half_valid = int(round(n_valid / 2.0))             # <<<<<<<<<<<<<<
- *                 q1_valid = int(round(n_valid / 4.0))
- *                 q2_valid = int(round(n_valid / 2.0))
-*/
-                                    __pyx_v_half_valid = ((int)round((((double)__pyx_v_n_valid) / 2.0)));
-
-                                    /* "worker_threads_cy.pyx":356
- *                 n_valid = valid_sum_len
- *                 half_valid = int(round(n_valid / 2.0))
- *                 q1_valid = int(round(n_valid / 4.0))             # <<<<<<<<<<<<<<
- *                 q2_valid = int(round(n_valid / 2.0))
- *                 q3_valid = int(round(3 * n_valid / 4.0))
-*/
-                                    __pyx_v_q1_valid = ((int)round((((double)__pyx_v_n_valid) / 4.0)));
-
-                                    /* "worker_threads_cy.pyx":357
- *                 half_valid = int(round(n_valid / 2.0))
- *                 q1_valid = int(round(n_valid / 4.0))
- *                 q2_valid = int(round(n_valid / 2.0))             # <<<<<<<<<<<<<<
- *                 q3_valid = int(round(3 * n_valid / 4.0))
- *                 for i in range(half_valid):
-*/
-                                    __pyx_v_q2_valid = ((int)round((((double)__pyx_v_n_valid) / 2.0)));
-
-                                    /* "worker_threads_cy.pyx":358
- *                 q1_valid = int(round(n_valid / 4.0))
- *                 q2_valid = int(round(n_valid / 2.0))
- *                 q3_valid = int(round(3 * n_valid / 4.0))             # <<<<<<<<<<<<<<
- *                 for i in range(half_valid):
- *                     valid_abs_sum_first_half += abs(valid_sum_arr[i])
-*/
-                                    __pyx_v_q3_valid = ((int)round((((double)(3 * __pyx_v_n_valid)) / 4.0)));
-
-                                    /* "worker_threads_cy.pyx":359
- *                 q2_valid = int(round(n_valid / 2.0))
- *                 q3_valid = int(round(3 * n_valid / 4.0))
- *                 for i in range(half_valid):             # <<<<<<<<<<<<<<
- *                     valid_abs_sum_first_half += abs(valid_sum_arr[i])
- *                 for i in range(half_valid, n_valid):
-*/
-                                    __pyx_t_11 = __pyx_v_half_valid;
-                                    __pyx_t_12 = __pyx_t_11;
-                                    for (__pyx_t_13 = 0; __pyx_t_13 < __pyx_t_12; __pyx_t_13+=1) {
-                                      __pyx_v_i = __pyx_t_13;
-
-                                      /* "worker_threads_cy.pyx":360
- *                 q3_valid = int(round(3 * n_valid / 4.0))
- *                 for i in range(half_valid):
- *                     valid_abs_sum_first_half += abs(valid_sum_arr[i])             # <<<<<<<<<<<<<<
- *                 for i in range(half_valid, n_valid):
- *                     valid_abs_sum_second_half += abs(valid_sum_arr[i])
-*/
-                                      __pyx_t_30 = fabs((__pyx_v_valid_sum_arr[__pyx_v_i])); 
-                                      __pyx_v_valid_abs_sum_first_half = (__pyx_v_valid_abs_sum_first_half + __pyx_t_30);
-                                    }
-
-                                    /* "worker_threads_cy.pyx":361
- *                 for i in range(half_valid):
- *                     valid_abs_sum_first_half += abs(valid_sum_arr[i])
- *                 for i in range(half_valid, n_valid):             # <<<<<<<<<<<<<<
- *                     valid_abs_sum_second_half += abs(valid_sum_arr[i])
- *                 for i in range(q1_valid):
-*/
-                                    __pyx_t_11 = __pyx_v_n_valid;
-                                    __pyx_t_12 = __pyx_t_11;
-                                    for (__pyx_t_13 = __pyx_v_half_valid; __pyx_t_13 < __pyx_t_12; __pyx_t_13+=1) {
-                                      __pyx_v_i = __pyx_t_13;
-
-                                      /* "worker_threads_cy.pyx":362
- *                     valid_abs_sum_first_half += abs(valid_sum_arr[i])
- *                 for i in range(half_valid, n_valid):
- *                     valid_abs_sum_second_half += abs(valid_sum_arr[i])             # <<<<<<<<<<<<<<
- *                 for i in range(q1_valid):
- *                     valid_abs_sum_block1 += abs(valid_sum_arr[i])
-*/
-                                      __pyx_t_30 = fabs((__pyx_v_valid_sum_arr[__pyx_v_i])); 
-                                      __pyx_v_valid_abs_sum_second_half = (__pyx_v_valid_abs_sum_second_half + __pyx_t_30);
-                                    }
-
-                                    /* "worker_threads_cy.pyx":363
- *                 for i in range(half_valid, n_valid):
- *                     valid_abs_sum_second_half += abs(valid_sum_arr[i])
- *                 for i in range(q1_valid):             # <<<<<<<<<<<<<<
- *                     valid_abs_sum_block1 += abs(valid_sum_arr[i])
- *                 for i in range(q1_valid, q2_valid):
-*/
-                                    __pyx_t_11 = __pyx_v_q1_valid;
-                                    __pyx_t_12 = __pyx_t_11;
-                                    for (__pyx_t_13 = 0; __pyx_t_13 < __pyx_t_12; __pyx_t_13+=1) {
-                                      __pyx_v_i = __pyx_t_13;
-
-                                      /* "worker_threads_cy.pyx":364
- *                     valid_abs_sum_second_half += abs(valid_sum_arr[i])
- *                 for i in range(q1_valid):
- *                     valid_abs_sum_block1 += abs(valid_sum_arr[i])             # <<<<<<<<<<<<<<
- *                 for i in range(q1_valid, q2_valid):
- *                     valid_abs_sum_block2 += abs(valid_sum_arr[i])
-*/
-                                      __pyx_t_30 = fabs((__pyx_v_valid_sum_arr[__pyx_v_i])); 
-                                      __pyx_v_valid_abs_sum_block1 = (__pyx_v_valid_abs_sum_block1 + __pyx_t_30);
-                                    }
-
-                                    /* "worker_threads_cy.pyx":365
- *                 for i in range(q1_valid):
- *                     valid_abs_sum_block1 += abs(valid_sum_arr[i])
- *                 for i in range(q1_valid, q2_valid):             # <<<<<<<<<<<<<<
- *                     valid_abs_sum_block2 += abs(valid_sum_arr[i])
- *                 for i in range(q2_valid, q3_valid):
-*/
-                                    __pyx_t_11 = __pyx_v_q2_valid;
-                                    __pyx_t_12 = __pyx_t_11;
-                                    for (__pyx_t_13 = __pyx_v_q1_valid; __pyx_t_13 < __pyx_t_12; __pyx_t_13+=1) {
-                                      __pyx_v_i = __pyx_t_13;
-
-                                      /* "worker_threads_cy.pyx":366
- *                     valid_abs_sum_block1 += abs(valid_sum_arr[i])
- *                 for i in range(q1_valid, q2_valid):
- *                     valid_abs_sum_block2 += abs(valid_sum_arr[i])             # <<<<<<<<<<<<<<
- *                 for i in range(q2_valid, q3_valid):
- *                     valid_abs_sum_block3 += abs(valid_sum_arr[i])
-*/
-                                      __pyx_t_30 = fabs((__pyx_v_valid_sum_arr[__pyx_v_i])); 
-                                      __pyx_v_valid_abs_sum_block2 = (__pyx_v_valid_abs_sum_block2 + __pyx_t_30);
-                                    }
-
-                                    /* "worker_threads_cy.pyx":367
- *                 for i in range(q1_valid, q2_valid):
- *                     valid_abs_sum_block2 += abs(valid_sum_arr[i])
- *                 for i in range(q2_valid, q3_valid):             # <<<<<<<<<<<<<<
- *                     valid_abs_sum_block3 += abs(valid_sum_arr[i])
- *                 for i in range(q3_valid, n_valid):
-*/
-                                    __pyx_t_11 = __pyx_v_q3_valid;
-                                    __pyx_t_12 = __pyx_t_11;
-                                    for (__pyx_t_13 = __pyx_v_q2_valid; __pyx_t_13 < __pyx_t_12; __pyx_t_13+=1) {
-                                      __pyx_v_i = __pyx_t_13;
-
-                                      /* "worker_threads_cy.pyx":368
- *                     valid_abs_sum_block2 += abs(valid_sum_arr[i])
- *                 for i in range(q2_valid, q3_valid):
- *                     valid_abs_sum_block3 += abs(valid_sum_arr[i])             # <<<<<<<<<<<<<<
- *                 for i in range(q3_valid, n_valid):
- *                     valid_abs_sum_block4 += abs(valid_sum_arr[i])
-*/
-                                      __pyx_t_30 = fabs((__pyx_v_valid_sum_arr[__pyx_v_i])); 
-                                      __pyx_v_valid_abs_sum_block3 = (__pyx_v_valid_abs_sum_block3 + __pyx_t_30);
-                                    }
-
-                                    /* "worker_threads_cy.pyx":369
- *                 for i in range(q2_valid, q3_valid):
- *                     valid_abs_sum_block3 += abs(valid_sum_arr[i])
- *                 for i in range(q3_valid, n_valid):             # <<<<<<<<<<<<<<
- *                     valid_abs_sum_block4 += abs(valid_sum_arr[i])
- *                 valid_abs_sum_first_half = round_to_2(valid_abs_sum_first_half)
-*/
-                                    __pyx_t_11 = __pyx_v_n_valid;
-                                    __pyx_t_12 = __pyx_t_11;
-                                    for (__pyx_t_13 = __pyx_v_q3_valid; __pyx_t_13 < __pyx_t_12; __pyx_t_13+=1) {
-                                      __pyx_v_i = __pyx_t_13;
-
-                                      /* "worker_threads_cy.pyx":370
- *                     valid_abs_sum_block3 += abs(valid_sum_arr[i])
- *                 for i in range(q3_valid, n_valid):
- *                     valid_abs_sum_block4 += abs(valid_sum_arr[i])             # <<<<<<<<<<<<<<
- *                 valid_abs_sum_first_half = round_to_2(valid_abs_sum_first_half)
- *                 valid_abs_sum_second_half = round_to_2(valid_abs_sum_second_half)
-*/
-                                      __pyx_t_30 = fabs((__pyx_v_valid_sum_arr[__pyx_v_i])); 
-                                      __pyx_v_valid_abs_sum_block4 = (__pyx_v_valid_abs_sum_block4 + __pyx_t_30);
-                                    }
-
-                                    /* "worker_threads_cy.pyx":371
- *                 for i in range(q3_valid, n_valid):
- *                     valid_abs_sum_block4 += abs(valid_sum_arr[i])
- *                 valid_abs_sum_first_half = round_to_2(valid_abs_sum_first_half)             # <<<<<<<<<<<<<<
- *                 valid_abs_sum_second_half = round_to_2(valid_abs_sum_second_half)
- *                 valid_abs_sum_block1 = round_to_2(valid_abs_sum_block1)
-*/
-                                    __pyx_t_30 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_v_valid_abs_sum_first_half); if (unlikely(__pyx_t_30 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 371, __pyx_L41_error)
-                                    __pyx_v_valid_abs_sum_first_half = __pyx_t_30;
-
-                                    /* "worker_threads_cy.pyx":372
- *                     valid_abs_sum_block4 += abs(valid_sum_arr[i])
- *                 valid_abs_sum_first_half = round_to_2(valid_abs_sum_first_half)
- *                 valid_abs_sum_second_half = round_to_2(valid_abs_sum_second_half)             # <<<<<<<<<<<<<<
- *                 valid_abs_sum_block1 = round_to_2(valid_abs_sum_block1)
- *                 valid_abs_sum_block2 = round_to_2(valid_abs_sum_block2)
-*/
-                                    __pyx_t_30 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_v_valid_abs_sum_second_half); if (unlikely(__pyx_t_30 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 372, __pyx_L41_error)
-                                    __pyx_v_valid_abs_sum_second_half = __pyx_t_30;
-
-                                    /* "worker_threads_cy.pyx":373
- *                 valid_abs_sum_first_half = round_to_2(valid_abs_sum_first_half)
- *                 valid_abs_sum_second_half = round_to_2(valid_abs_sum_second_half)
- *                 valid_abs_sum_block1 = round_to_2(valid_abs_sum_block1)             # <<<<<<<<<<<<<<
- *                 valid_abs_sum_block2 = round_to_2(valid_abs_sum_block2)
- *                 valid_abs_sum_block3 = round_to_2(valid_abs_sum_block3)
-*/
-                                    __pyx_t_30 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_v_valid_abs_sum_block1); if (unlikely(__pyx_t_30 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 373, __pyx_L41_error)
-                                    __pyx_v_valid_abs_sum_block1 = __pyx_t_30;
-
-                                    /* "worker_threads_cy.pyx":374
- *                 valid_abs_sum_second_half = round_to_2(valid_abs_sum_second_half)
- *                 valid_abs_sum_block1 = round_to_2(valid_abs_sum_block1)
- *                 valid_abs_sum_block2 = round_to_2(valid_abs_sum_block2)             # <<<<<<<<<<<<<<
- *                 valid_abs_sum_block3 = round_to_2(valid_abs_sum_block3)
- *                 valid_abs_sum_block4 = round_to_2(valid_abs_sum_block4)
-*/
-                                    __pyx_t_30 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_v_valid_abs_sum_block2); if (unlikely(__pyx_t_30 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 374, __pyx_L41_error)
-                                    __pyx_v_valid_abs_sum_block2 = __pyx_t_30;
-
-                                    /* "worker_threads_cy.pyx":375
- *                 valid_abs_sum_block1 = round_to_2(valid_abs_sum_block1)
- *                 valid_abs_sum_block2 = round_to_2(valid_abs_sum_block2)
- *                 valid_abs_sum_block3 = round_to_2(valid_abs_sum_block3)             # <<<<<<<<<<<<<<
- *                 valid_abs_sum_block4 = round_to_2(valid_abs_sum_block4)
- * 
-*/
-                                    __pyx_t_30 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_v_valid_abs_sum_block3); if (unlikely(__pyx_t_30 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 375, __pyx_L41_error)
-                                    __pyx_v_valid_abs_sum_block3 = __pyx_t_30;
-
-                                    /* "worker_threads_cy.pyx":376
- *                 valid_abs_sum_block2 = round_to_2(valid_abs_sum_block2)
- *                 valid_abs_sum_block3 = round_to_2(valid_abs_sum_block3)
- *                 valid_abs_sum_block4 = round_to_2(valid_abs_sum_block4)             # <<<<<<<<<<<<<<
- * 
- *                 #
-*/
-                                    __pyx_t_30 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_v_valid_abs_sum_block4); if (unlikely(__pyx_t_30 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 376, __pyx_L41_error)
-                                    __pyx_v_valid_abs_sum_block4 = __pyx_t_30;
-
-                                    /* "worker_threads_cy.pyx":380
- *                 #
- *                 calc_valid_sum_and_pos_neg(
- *                     cont_sum_np, valid_sum_arr, &valid_sum_len, &valid_pos_sum, &valid_neg_sum)             # <<<<<<<<<<<<<<
- * 
- *                 # forward_max_result
-*/
-                                    __pyx_t_19 = __Pyx_PyObject_to_MemoryviewSlice_ds_double(((PyObject *)__pyx_v_cont_sum_np), PyBUF_WRITABLE); if (unlikely(!__pyx_t_19.memview)) __PYX_ERR(0, 380, __pyx_L41_error)
-
-                                    /* "worker_threads_cy.pyx":379
- * 
- *                 #
- *                 calc_valid_sum_and_pos_neg(             # <<<<<<<<<<<<<<
- *                     cont_sum_np, valid_sum_arr, &valid_sum_len, &valid_pos_sum, &valid_neg_sum)
- * 
-*/
-                                    __pyx_f_17worker_threads_cy_calc_valid_sum_and_pos_neg(__pyx_t_19, __pyx_v_valid_sum_arr, (&__pyx_v_valid_sum_len), (&__pyx_v_valid_pos_sum), (&__pyx_v_valid_neg_sum)); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 379, __pyx_L41_error)
-                                    __PYX_XCLEAR_MEMVIEW(&__pyx_t_19, 1);
-                                    __pyx_t_19.memview = NULL; __pyx_t_19.data = NULL;
-
-                                    /* "worker_threads_cy.pyx":383
- * 
- *                 # forward_max_result
- *                 if len(forward_max_result) > 0:             # <<<<<<<<<<<<<<
- *                     calc_valid_sum_and_pos_neg(
- *                         np.array(forward_max_result, dtype=np.float64),
-*/
-                                    __pyx_t_28 = __Pyx_PyList_GET_SIZE(__pyx_v_forward_max_result); if (unlikely(__pyx_t_28 == ((Py_ssize_t)-1))) __PYX_ERR(0, 383, __pyx_L41_error)
-                                    __pyx_t_15 = (__pyx_t_28 > 0);
-                                    if (__pyx_t_15) {
-
-                                      /* "worker_threads_cy.pyx":385
- *                 if len(forward_max_result) > 0:
- *                     calc_valid_sum_and_pos_neg(
- *                         np.array(forward_max_result, dtype=np.float64),             # <<<<<<<<<<<<<<
- *                         forward_max_valid_sum_arr, &forward_max_valid_sum_len,
- *                         &forward_max_valid_pos_sum, &forward_max_valid_neg_sum)
-*/
-                                      __pyx_t_23 = NULL;
-                                      __Pyx_GetModuleGlobalName(__pyx_t_22, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 385, __pyx_L41_error)
-                                      __Pyx_GOTREF(__pyx_t_22);
-                                      __pyx_t_21 = __Pyx_PyObject_GetAttrStr(__pyx_t_22, __pyx_mstate_global->__pyx_n_u_array); if (unlikely(!__pyx_t_21)) __PYX_ERR(0, 385, __pyx_L41_error)
-                                      __Pyx_GOTREF(__pyx_t_21);
-                                      __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
-                                      __Pyx_GetModuleGlobalName(__pyx_t_22, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 385, __pyx_L41_error)
-                                      __Pyx_GOTREF(__pyx_t_22);
-                                      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_22, __pyx_mstate_global->__pyx_n_u_float64); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 385, __pyx_L41_error)
-                                      __Pyx_GOTREF(__pyx_t_1);
-                                      __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
-                                      __pyx_t_24 = 1;
-                                      #if CYTHON_UNPACK_METHODS
-                                      if (unlikely(PyMethod_Check(__pyx_t_21))) {
-                                        __pyx_t_23 = PyMethod_GET_SELF(__pyx_t_21);
-                                        assert(__pyx_t_23);
-                                        PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_21);
-                                        __Pyx_INCREF(__pyx_t_23);
-                                        __Pyx_INCREF(__pyx__function);
-                                        __Pyx_DECREF_SET(__pyx_t_21, __pyx__function);
-                                        __pyx_t_24 = 0;
-                                      }
-                                      #endif
-                                      {
-                                        PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_23, __pyx_v_forward_max_result};
-                                        __pyx_t_22 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 385, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_22);
-                                        if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_dtype, __pyx_t_1, __pyx_t_22, __pyx_callargs+2, 0) < 0) __PYX_ERR(0, 385, __pyx_L41_error)
-                                        __pyx_t_20 = __Pyx_Object_Vectorcall_CallFromBuilder(__pyx_t_21, __pyx_callargs+__pyx_t_24, (2-__pyx_t_24) | (__pyx_t_24*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_22);
-                                        __Pyx_XDECREF(__pyx_t_23); __pyx_t_23 = 0;
-                                        __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-                                        __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
-                                        __Pyx_DECREF(__pyx_t_21); __pyx_t_21 = 0;
-                                        if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 385, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_20);
-                                      }
-                                      __pyx_t_19 = __Pyx_PyObject_to_MemoryviewSlice_ds_double(__pyx_t_20, PyBUF_WRITABLE); if (unlikely(!__pyx_t_19.memview)) __PYX_ERR(0, 385, __pyx_L41_error)
-                                      __Pyx_DECREF(__pyx_t_20); __pyx_t_20 = 0;
-
-                                      /* "worker_threads_cy.pyx":384
- *                 # forward_max_result
- *                 if len(forward_max_result) > 0:
- *                     calc_valid_sum_and_pos_neg(             # <<<<<<<<<<<<<<
- *                         np.array(forward_max_result, dtype=np.float64),
- *                         forward_max_valid_sum_arr, &forward_max_valid_sum_len,
-*/
-                                      __pyx_f_17worker_threads_cy_calc_valid_sum_and_pos_neg(__pyx_t_19, __pyx_v_forward_max_valid_sum_arr, (&__pyx_v_forward_max_valid_sum_len), (&__pyx_v_forward_max_valid_pos_sum), (&__pyx_v_forward_max_valid_neg_sum)); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 384, __pyx_L41_error)
-                                      __PYX_XCLEAR_MEMVIEW(&__pyx_t_19, 1);
-                                      __pyx_t_19.memview = NULL; __pyx_t_19.data = NULL;
-
-                                      /* "worker_threads_cy.pyx":383
- * 
- *                 # forward_max_result
- *                 if len(forward_max_result) > 0:             # <<<<<<<<<<<<<<
- *                     calc_valid_sum_and_pos_neg(
- *                         np.array(forward_max_result, dtype=np.float64),
-*/
-                                      goto __pyx_L100;
-                                    }
-
-                                    /* "worker_threads_cy.pyx":389
- *                         &forward_max_valid_pos_sum, &forward_max_valid_neg_sum)
- *                 else:
- *                     forward_max_valid_sum_len = 0             # <<<<<<<<<<<<<<
- *                     forward_max_valid_pos_sum = 0
- *                     forward_max_valid_neg_sum = 0
-*/
-                                    /*else*/ {
-                                      __pyx_v_forward_max_valid_sum_len = 0;
-
-                                      /* "worker_threads_cy.pyx":390
- *                 else:
- *                     forward_max_valid_sum_len = 0
- *                     forward_max_valid_pos_sum = 0             # <<<<<<<<<<<<<<
- *                     forward_max_valid_neg_sum = 0
- * 
-*/
-                                      __pyx_v_forward_max_valid_pos_sum = 0.0;
-
-                                      /* "worker_threads_cy.pyx":391
- *                     forward_max_valid_sum_len = 0
- *                     forward_max_valid_pos_sum = 0
- *                     forward_max_valid_neg_sum = 0             # <<<<<<<<<<<<<<
- * 
- *                 # forward_min_result
-*/
-                                      __pyx_v_forward_max_valid_neg_sum = 0.0;
-                                    }
-                                    __pyx_L100:;
-
-                                    /* "worker_threads_cy.pyx":394
- * 
- *                 # forward_min_result
- *                 if len(forward_min_result) > 0:             # <<<<<<<<<<<<<<
- *                     calc_valid_sum_and_pos_neg(
- *                         np.array(forward_min_result, dtype=np.float64),
-*/
-                                    __pyx_t_28 = __Pyx_PyList_GET_SIZE(__pyx_v_forward_min_result); if (unlikely(__pyx_t_28 == ((Py_ssize_t)-1))) __PYX_ERR(0, 394, __pyx_L41_error)
-                                    __pyx_t_15 = (__pyx_t_28 > 0);
-                                    if (__pyx_t_15) {
-
-                                      /* "worker_threads_cy.pyx":396
- *                 if len(forward_min_result) > 0:
- *                     calc_valid_sum_and_pos_neg(
- *                         np.array(forward_min_result, dtype=np.float64),             # <<<<<<<<<<<<<<
- *                         forward_min_valid_sum_arr, &forward_min_valid_sum_len,
- *                         &forward_min_valid_pos_sum, &forward_min_valid_neg_sum)
-*/
-                                      __pyx_t_21 = NULL;
-                                      __Pyx_GetModuleGlobalName(__pyx_t_22, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 396, __pyx_L41_error)
-                                      __Pyx_GOTREF(__pyx_t_22);
-                                      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_22, __pyx_mstate_global->__pyx_n_u_array); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 396, __pyx_L41_error)
-                                      __Pyx_GOTREF(__pyx_t_1);
-                                      __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
-                                      __Pyx_GetModuleGlobalName(__pyx_t_22, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 396, __pyx_L41_error)
-                                      __Pyx_GOTREF(__pyx_t_22);
-                                      __pyx_t_23 = __Pyx_PyObject_GetAttrStr(__pyx_t_22, __pyx_mstate_global->__pyx_n_u_float64); if (unlikely(!__pyx_t_23)) __PYX_ERR(0, 396, __pyx_L41_error)
-                                      __Pyx_GOTREF(__pyx_t_23);
-                                      __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
-                                      __pyx_t_24 = 1;
-                                      #if CYTHON_UNPACK_METHODS
-                                      if (unlikely(PyMethod_Check(__pyx_t_1))) {
-                                        __pyx_t_21 = PyMethod_GET_SELF(__pyx_t_1);
-                                        assert(__pyx_t_21);
-                                        PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_1);
-                                        __Pyx_INCREF(__pyx_t_21);
-                                        __Pyx_INCREF(__pyx__function);
-                                        __Pyx_DECREF_SET(__pyx_t_1, __pyx__function);
-                                        __pyx_t_24 = 0;
-                                      }
-                                      #endif
-                                      {
-                                        PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_21, __pyx_v_forward_min_result};
-                                        __pyx_t_22 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 396, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_22);
-                                        if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_dtype, __pyx_t_23, __pyx_t_22, __pyx_callargs+2, 0) < 0) __PYX_ERR(0, 396, __pyx_L41_error)
-                                        __pyx_t_20 = __Pyx_Object_Vectorcall_CallFromBuilder(__pyx_t_1, __pyx_callargs+__pyx_t_24, (2-__pyx_t_24) | (__pyx_t_24*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_22);
-                                        __Pyx_XDECREF(__pyx_t_21); __pyx_t_21 = 0;
-                                        __Pyx_DECREF(__pyx_t_23); __pyx_t_23 = 0;
-                                        __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
-                                        __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-                                        if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 396, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_20);
-                                      }
-                                      __pyx_t_19 = __Pyx_PyObject_to_MemoryviewSlice_ds_double(__pyx_t_20, PyBUF_WRITABLE); if (unlikely(!__pyx_t_19.memview)) __PYX_ERR(0, 396, __pyx_L41_error)
-                                      __Pyx_DECREF(__pyx_t_20); __pyx_t_20 = 0;
-
-                                      /* "worker_threads_cy.pyx":395
- *                 # forward_min_result
- *                 if len(forward_min_result) > 0:
- *                     calc_valid_sum_and_pos_neg(             # <<<<<<<<<<<<<<
- *                         np.array(forward_min_result, dtype=np.float64),
- *                         forward_min_valid_sum_arr, &forward_min_valid_sum_len,
-*/
-                                      __pyx_f_17worker_threads_cy_calc_valid_sum_and_pos_neg(__pyx_t_19, __pyx_v_forward_min_valid_sum_arr, (&__pyx_v_forward_min_valid_sum_len), (&__pyx_v_forward_min_valid_pos_sum), (&__pyx_v_forward_min_valid_neg_sum)); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 395, __pyx_L41_error)
-                                      __PYX_XCLEAR_MEMVIEW(&__pyx_t_19, 1);
-                                      __pyx_t_19.memview = NULL; __pyx_t_19.data = NULL;
-
-                                      /* "worker_threads_cy.pyx":394
- * 
- *                 # forward_min_result
- *                 if len(forward_min_result) > 0:             # <<<<<<<<<<<<<<
- *                     calc_valid_sum_and_pos_neg(
- *                         np.array(forward_min_result, dtype=np.float64),
-*/
-                                      goto __pyx_L101;
-                                    }
-
-                                    /* "worker_threads_cy.pyx":400
- *                         &forward_min_valid_pos_sum, &forward_min_valid_neg_sum)
- *                 else:
- *                     forward_min_valid_sum_len = 0             # <<<<<<<<<<<<<<
- *                     forward_min_valid_pos_sum = 0
- *                     forward_min_valid_neg_sum = 0
-*/
-                                    /*else*/ {
-                                      __pyx_v_forward_min_valid_sum_len = 0;
-
-                                      /* "worker_threads_cy.pyx":401
- *                 else:
- *                     forward_min_valid_sum_len = 0
- *                     forward_min_valid_pos_sum = 0             # <<<<<<<<<<<<<<
- *                     forward_min_valid_neg_sum = 0
- * 
-*/
-                                      __pyx_v_forward_min_valid_pos_sum = 0.0;
-
-                                      /* "worker_threads_cy.pyx":402
- *                     forward_min_valid_sum_len = 0
- *                     forward_min_valid_pos_sum = 0
- *                     forward_min_valid_neg_sum = 0             # <<<<<<<<<<<<<<
- * 
- *                 row_result = {
-*/
-                                      __pyx_v_forward_min_valid_neg_sum = 0.0;
-                                    }
-                                    __pyx_L101:;
-
-                                    /* "worker_threads_cy.pyx":405
- * 
- *                 row_result = {
- *                     'stock_idx': stock_idx,             # <<<<<<<<<<<<<<
- *                     'max_value': [date_columns[end_date_idx + max_idx_in_window] if max_idx_in_window >= 0 else None, max_price],
- *                     'min_value': [date_columns[end_date_idx + min_idx_in_window] if min_idx_in_window >= 0 else None, min_price],
-*/
-                                    __pyx_t_20 = __Pyx_PyDict_NewPresized(62); if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 405, __pyx_L41_error)
-                                    __Pyx_GOTREF(__pyx_t_20);
-                                    __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_stock_idx); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 405, __pyx_L41_error)
-                                    __Pyx_GOTREF(__pyx_t_1);
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_stock_idx, __pyx_t_1) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-                                    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-                                    /* "worker_threads_cy.pyx":406
- *                 row_result = {
- *                     'stock_idx': stock_idx,
- *                     'max_value': [date_columns[end_date_idx + max_idx_in_window] if max_idx_in_window >= 0 else None, max_price],             # <<<<<<<<<<<<<<
- *                     'min_value': [date_columns[end_date_idx + min_idx_in_window] if min_idx_in_window >= 0 else None, min_price],
- *                     'end_value': [date_columns[end_date_idx], end_value],
-*/
-                                    __pyx_t_15 = (__pyx_v_max_idx_in_window >= 0);
-                                    if (__pyx_t_15) {
-                                      if (unlikely(__pyx_v_date_columns == Py_None)) {
-                                        PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-                                        __PYX_ERR(0, 406, __pyx_L41_error)
-                                      }
-                                      __pyx_t_11 = (__pyx_v_end_date_idx + __pyx_v_max_idx_in_window);
-                                      __Pyx_INCREF(__Pyx_PyList_GET_ITEM(__pyx_v_date_columns, __pyx_t_11));
-                                      __pyx_t_1 = __Pyx_PyList_GET_ITEM(__pyx_v_date_columns, __pyx_t_11);
-                                    } else {
-                                      __Pyx_INCREF(Py_None);
-                                      __pyx_t_1 = Py_None;
-                                    }
-                                    __pyx_t_22 = PyFloat_FromDouble(__pyx_v_max_price); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 406, __pyx_L41_error)
-                                    __Pyx_GOTREF(__pyx_t_22);
-                                    __pyx_t_23 = PyList_New(2); if (unlikely(!__pyx_t_23)) __PYX_ERR(0, 406, __pyx_L41_error)
-                                    __Pyx_GOTREF(__pyx_t_23);
-                                    __Pyx_GIVEREF(__pyx_t_1);
-                                    if (__Pyx_PyList_SET_ITEM(__pyx_t_23, 0, __pyx_t_1) != (0)) __PYX_ERR(0, 406, __pyx_L41_error);
-                                    __Pyx_GIVEREF(__pyx_t_22);
-                                    if (__Pyx_PyList_SET_ITEM(__pyx_t_23, 1, __pyx_t_22) != (0)) __PYX_ERR(0, 406, __pyx_L41_error);
-                                    __pyx_t_1 = 0;
-                                    __pyx_t_22 = 0;
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_max_value, __pyx_t_23) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-                                    __Pyx_DECREF(__pyx_t_23); __pyx_t_23 = 0;
-
-                                    /* "worker_threads_cy.pyx":407
- *                     'stock_idx': stock_idx,
- *                     'max_value': [date_columns[end_date_idx + max_idx_in_window] if max_idx_in_window >= 0 else None, max_price],
- *                     'min_value': [date_columns[end_date_idx + min_idx_in_window] if min_idx_in_window >= 0 else None, min_price],             # <<<<<<<<<<<<<<
- *                     'end_value': [date_columns[end_date_idx], end_value],
- *                     'start_value': [date_columns[start_date_idx], start_value],
-*/
-                                    __pyx_t_15 = (__pyx_v_min_idx_in_window >= 0);
-                                    if (__pyx_t_15) {
-                                      if (unlikely(__pyx_v_date_columns == Py_None)) {
-                                        PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-                                        __PYX_ERR(0, 407, __pyx_L41_error)
-                                      }
-                                      __pyx_t_11 = (__pyx_v_end_date_idx + __pyx_v_min_idx_in_window);
-                                      __Pyx_INCREF(__Pyx_PyList_GET_ITEM(__pyx_v_date_columns, __pyx_t_11));
-                                      __pyx_t_23 = __Pyx_PyList_GET_ITEM(__pyx_v_date_columns, __pyx_t_11);
-                                    } else {
-                                      __Pyx_INCREF(Py_None);
-                                      __pyx_t_23 = Py_None;
-                                    }
-                                    __pyx_t_22 = PyFloat_FromDouble(__pyx_v_min_price); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 407, __pyx_L41_error)
-                                    __Pyx_GOTREF(__pyx_t_22);
-                                    __pyx_t_1 = PyList_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 407, __pyx_L41_error)
-                                    __Pyx_GOTREF(__pyx_t_1);
-                                    __Pyx_GIVEREF(__pyx_t_23);
-                                    if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 0, __pyx_t_23) != (0)) __PYX_ERR(0, 407, __pyx_L41_error);
-                                    __Pyx_GIVEREF(__pyx_t_22);
-                                    if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 1, __pyx_t_22) != (0)) __PYX_ERR(0, 407, __pyx_L41_error);
-                                    __pyx_t_23 = 0;
-                                    __pyx_t_22 = 0;
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_min_value, __pyx_t_1) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-                                    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-                                    /* "worker_threads_cy.pyx":408
- *                     'max_value': [date_columns[end_date_idx + max_idx_in_window] if max_idx_in_window >= 0 else None, max_price],
- *                     'min_value': [date_columns[end_date_idx + min_idx_in_window] if min_idx_in_window >= 0 else None, min_price],
- *                     'end_value': [date_columns[end_date_idx], end_value],             # <<<<<<<<<<<<<<
- *                     'start_value': [date_columns[start_date_idx], start_value],
- *                     'actual_value': [date_columns[actual_idx] if actual_idx >= 0 and actual_idx < num_dates else None, actual_value],
-*/
-                                    if (unlikely(__pyx_v_date_columns == Py_None)) {
-                                      PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-                                      __PYX_ERR(0, 408, __pyx_L41_error)
-                                    }
-                                    __pyx_t_1 = PyFloat_FromDouble(__pyx_v_end_value); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 408, __pyx_L41_error)
-                                    __Pyx_GOTREF(__pyx_t_1);
-                                    __pyx_t_22 = PyList_New(2); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 408, __pyx_L41_error)
-                                    __Pyx_GOTREF(__pyx_t_22);
-                                    __Pyx_INCREF(__Pyx_PyList_GET_ITEM(__pyx_v_date_columns, __pyx_v_end_date_idx));
-                                    __Pyx_GIVEREF(__Pyx_PyList_GET_ITEM(__pyx_v_date_columns, __pyx_v_end_date_idx));
-                                    if (__Pyx_PyList_SET_ITEM(__pyx_t_22, 0, __Pyx_PyList_GET_ITEM(__pyx_v_date_columns, __pyx_v_end_date_idx)) != (0)) __PYX_ERR(0, 408, __pyx_L41_error);
-                                    __Pyx_GIVEREF(__pyx_t_1);
-                                    if (__Pyx_PyList_SET_ITEM(__pyx_t_22, 1, __pyx_t_1) != (0)) __PYX_ERR(0, 408, __pyx_L41_error);
-                                    __pyx_t_1 = 0;
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_end_value, __pyx_t_22) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-                                    __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
-
-                                    /* "worker_threads_cy.pyx":409
- *                     'min_value': [date_columns[end_date_idx + min_idx_in_window] if min_idx_in_window >= 0 else None, min_price],
- *                     'end_value': [date_columns[end_date_idx], end_value],
- *                     'start_value': [date_columns[start_date_idx], start_value],             # <<<<<<<<<<<<<<
- *                     'actual_value': [date_columns[actual_idx] if actual_idx >= 0 and actual_idx < num_dates else None, actual_value],
- *                     'closest_value': [date_columns[end_date_idx + closest_idx_in_window] if closest_idx_in_window >= 0 else None, closest_value],
-*/
-                                    if (unlikely(__pyx_v_date_columns == Py_None)) {
-                                      PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-                                      __PYX_ERR(0, 409, __pyx_L41_error)
-                                    }
-                                    __pyx_t_22 = PyFloat_FromDouble(__pyx_v_start_value); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 409, __pyx_L41_error)
-                                    __Pyx_GOTREF(__pyx_t_22);
-                                    __pyx_t_1 = PyList_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 409, __pyx_L41_error)
-                                    __Pyx_GOTREF(__pyx_t_1);
-                                    __Pyx_INCREF(__Pyx_PyList_GET_ITEM(__pyx_v_date_columns, __pyx_v_start_date_idx));
-                                    __Pyx_GIVEREF(__Pyx_PyList_GET_ITEM(__pyx_v_date_columns, __pyx_v_start_date_idx));
-                                    if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 0, __Pyx_PyList_GET_ITEM(__pyx_v_date_columns, __pyx_v_start_date_idx)) != (0)) __PYX_ERR(0, 409, __pyx_L41_error);
-                                    __Pyx_GIVEREF(__pyx_t_22);
-                                    if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 1, __pyx_t_22) != (0)) __PYX_ERR(0, 409, __pyx_L41_error);
-                                    __pyx_t_22 = 0;
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_start_value, __pyx_t_1) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-                                    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-                                    /* "worker_threads_cy.pyx":410
- *                     'end_value': [date_columns[end_date_idx], end_value],
- *                     'start_value': [date_columns[start_date_idx], start_value],
- *                     'actual_value': [date_columns[actual_idx] if actual_idx >= 0 and actual_idx < num_dates else None, actual_value],             # <<<<<<<<<<<<<<
- *                     'closest_value': [date_columns[end_date_idx + closest_idx_in_window] if closest_idx_in_window >= 0 else None, closest_value],
- *                     'continuous_results': py_cont_sum,
-*/
-                                    __pyx_t_17 = (__pyx_v_actual_idx >= 0);
-                                    if (__pyx_t_17) {
-                                    } else {
-                                      __pyx_t_15 = __pyx_t_17;
-                                      goto __pyx_L102_bool_binop_done;
-                                    }
-                                    __pyx_t_17 = (__pyx_v_actual_idx < __pyx_v_num_dates);
-                                    __pyx_t_15 = __pyx_t_17;
-                                    __pyx_L102_bool_binop_done:;
-                                    if (__pyx_t_15) {
-                                      if (unlikely(__pyx_v_date_columns == Py_None)) {
-                                        PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-                                        __PYX_ERR(0, 410, __pyx_L41_error)
-                                      }
-                                      __Pyx_INCREF(__Pyx_PyList_GET_ITEM(__pyx_v_date_columns, __pyx_v_actual_idx));
-                                      __pyx_t_1 = __Pyx_PyList_GET_ITEM(__pyx_v_date_columns, __pyx_v_actual_idx);
-                                    } else {
-                                      __Pyx_INCREF(Py_None);
-                                      __pyx_t_1 = Py_None;
-                                    }
-                                    __pyx_t_22 = PyFloat_FromDouble(__pyx_v_actual_value); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 410, __pyx_L41_error)
-                                    __Pyx_GOTREF(__pyx_t_22);
-                                    __pyx_t_23 = PyList_New(2); if (unlikely(!__pyx_t_23)) __PYX_ERR(0, 410, __pyx_L41_error)
-                                    __Pyx_GOTREF(__pyx_t_23);
-                                    __Pyx_GIVEREF(__pyx_t_1);
-                                    if (__Pyx_PyList_SET_ITEM(__pyx_t_23, 0, __pyx_t_1) != (0)) __PYX_ERR(0, 410, __pyx_L41_error);
-                                    __Pyx_GIVEREF(__pyx_t_22);
-                                    if (__Pyx_PyList_SET_ITEM(__pyx_t_23, 1, __pyx_t_22) != (0)) __PYX_ERR(0, 410, __pyx_L41_error);
-                                    __pyx_t_1 = 0;
-                                    __pyx_t_22 = 0;
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_actual_value, __pyx_t_23) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-                                    __Pyx_DECREF(__pyx_t_23); __pyx_t_23 = 0;
-
-                                    /* "worker_threads_cy.pyx":411
- *                     'start_value': [date_columns[start_date_idx], start_value],
- *                     'actual_value': [date_columns[actual_idx] if actual_idx >= 0 and actual_idx < num_dates else None, actual_value],
- *                     'closest_value': [date_columns[end_date_idx + closest_idx_in_window] if closest_idx_in_window >= 0 else None, closest_value],             # <<<<<<<<<<<<<<
- *                     'continuous_results': py_cont_sum,
- *                     'continuous_len': len(py_cont_sum),
-*/
-                                    __pyx_t_15 = (__pyx_v_closest_idx_in_window >= 0);
-                                    if (__pyx_t_15) {
-                                      if (unlikely(__pyx_v_date_columns == Py_None)) {
-                                        PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-                                        __PYX_ERR(0, 411, __pyx_L41_error)
-                                      }
-                                      __pyx_t_11 = (__pyx_v_end_date_idx + __pyx_v_closest_idx_in_window);
-                                      __Pyx_INCREF(__Pyx_PyList_GET_ITEM(__pyx_v_date_columns, __pyx_t_11));
-                                      __pyx_t_23 = __Pyx_PyList_GET_ITEM(__pyx_v_date_columns, __pyx_t_11);
-                                    } else {
-                                      __Pyx_INCREF(Py_None);
-                                      __pyx_t_23 = Py_None;
-                                    }
-                                    __pyx_t_22 = PyFloat_FromDouble(__pyx_v_closest_value); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 411, __pyx_L41_error)
-                                    __Pyx_GOTREF(__pyx_t_22);
-                                    __pyx_t_1 = PyList_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 411, __pyx_L41_error)
-                                    __Pyx_GOTREF(__pyx_t_1);
-                                    __Pyx_GIVEREF(__pyx_t_23);
-                                    if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 0, __pyx_t_23) != (0)) __PYX_ERR(0, 411, __pyx_L41_error);
-                                    __Pyx_GIVEREF(__pyx_t_22);
-                                    if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 1, __pyx_t_22) != (0)) __PYX_ERR(0, 411, __pyx_L41_error);
-                                    __pyx_t_23 = 0;
-                                    __pyx_t_22 = 0;
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_closest_value, __pyx_t_1) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-                                    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-                                    /* "worker_threads_cy.pyx":412
- *                     'actual_value': [date_columns[actual_idx] if actual_idx >= 0 and actual_idx < num_dates else None, actual_value],
- *                     'closest_value': [date_columns[end_date_idx + closest_idx_in_window] if closest_idx_in_window >= 0 else None, closest_value],
- *                     'continuous_results': py_cont_sum,             # <<<<<<<<<<<<<<
- *                     'continuous_len': len(py_cont_sum),
- *                     'continuous_start_value': cont_sum[0] if cont_sum.size() > 0 else None,
-*/
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_continuous_results, __pyx_v_py_cont_sum) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-
-                                    /* "worker_threads_cy.pyx":413
- *                     'closest_value': [date_columns[end_date_idx + closest_idx_in_window] if closest_idx_in_window >= 0 else None, closest_value],
- *                     'continuous_results': py_cont_sum,
- *                     'continuous_len': len(py_cont_sum),             # <<<<<<<<<<<<<<
- *                     'continuous_start_value': cont_sum[0] if cont_sum.size() > 0 else None,
- *                     'continuous_start_next_value': cont_sum[1] if cont_sum.size() > 1 else None,
-*/
-                                    __pyx_t_28 = __Pyx_PyList_GET_SIZE(__pyx_v_py_cont_sum); if (unlikely(__pyx_t_28 == ((Py_ssize_t)-1))) __PYX_ERR(0, 413, __pyx_L41_error)
-                                    __pyx_t_1 = PyLong_FromSsize_t(__pyx_t_28); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 413, __pyx_L41_error)
-                                    __Pyx_GOTREF(__pyx_t_1);
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_continuous_len, __pyx_t_1) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-                                    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-                                    /* "worker_threads_cy.pyx":414
- *                     'continuous_results': py_cont_sum,
- *                     'continuous_len': len(py_cont_sum),
- *                     'continuous_start_value': cont_sum[0] if cont_sum.size() > 0 else None,             # <<<<<<<<<<<<<<
- *                     'continuous_start_next_value': cont_sum[1] if cont_sum.size() > 1 else None,
- *                     'continuous_start_next_next_value': cont_sum[2] if cont_sum.size() > 2 else None,
-*/
-                                    __pyx_t_15 = (__pyx_v_cont_sum.size() > 0);
-                                    if (__pyx_t_15) {
-                                      __pyx_t_22 = PyFloat_FromDouble((__pyx_v_cont_sum[0])); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 414, __pyx_L41_error)
-                                      __Pyx_GOTREF(__pyx_t_22);
-                                      __pyx_t_1 = __pyx_t_22;
-                                      __pyx_t_22 = 0;
-                                    } else {
-                                      __Pyx_INCREF(Py_None);
-                                      __pyx_t_1 = Py_None;
-                                    }
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_continuous_start_value, __pyx_t_1) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-                                    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-                                    /* "worker_threads_cy.pyx":415
- *                     'continuous_len': len(py_cont_sum),
- *                     'continuous_start_value': cont_sum[0] if cont_sum.size() > 0 else None,
- *                     'continuous_start_next_value': cont_sum[1] if cont_sum.size() > 1 else None,             # <<<<<<<<<<<<<<
- *                     'continuous_start_next_next_value': cont_sum[2] if cont_sum.size() > 2 else None,
- *                     'continuous_end_value': cont_sum[cont_sum.size()-1] if cont_sum.size() > 0 else None,
-*/
-                                    __pyx_t_15 = (__pyx_v_cont_sum.size() > 1);
-                                    if (__pyx_t_15) {
-                                      __pyx_t_22 = PyFloat_FromDouble((__pyx_v_cont_sum[1])); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 415, __pyx_L41_error)
-                                      __Pyx_GOTREF(__pyx_t_22);
-                                      __pyx_t_1 = __pyx_t_22;
-                                      __pyx_t_22 = 0;
-                                    } else {
-                                      __Pyx_INCREF(Py_None);
-                                      __pyx_t_1 = Py_None;
-                                    }
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_continuous_start_next_value, __pyx_t_1) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-                                    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-                                    /* "worker_threads_cy.pyx":416
- *                     'continuous_start_value': cont_sum[0] if cont_sum.size() > 0 else None,
- *                     'continuous_start_next_value': cont_sum[1] if cont_sum.size() > 1 else None,
- *                     'continuous_start_next_next_value': cont_sum[2] if cont_sum.size() > 2 else None,             # <<<<<<<<<<<<<<
- *                     'continuous_end_value': cont_sum[cont_sum.size()-1] if cont_sum.size() > 0 else None,
- *                     'continuous_end_prev_value': cont_sum[cont_sum.size()-2] if cont_sum.size() > 1 else None,
-*/
-                                    __pyx_t_15 = (__pyx_v_cont_sum.size() > 2);
-                                    if (__pyx_t_15) {
-                                      __pyx_t_22 = PyFloat_FromDouble((__pyx_v_cont_sum[2])); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 416, __pyx_L41_error)
-                                      __Pyx_GOTREF(__pyx_t_22);
-                                      __pyx_t_1 = __pyx_t_22;
-                                      __pyx_t_22 = 0;
-                                    } else {
-                                      __Pyx_INCREF(Py_None);
-                                      __pyx_t_1 = Py_None;
-                                    }
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_continuous_start_next_next_value, __pyx_t_1) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-                                    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-                                    /* "worker_threads_cy.pyx":417
- *                     'continuous_start_next_value': cont_sum[1] if cont_sum.size() > 1 else None,
- *                     'continuous_start_next_next_value': cont_sum[2] if cont_sum.size() > 2 else None,
- *                     'continuous_end_value': cont_sum[cont_sum.size()-1] if cont_sum.size() > 0 else None,             # <<<<<<<<<<<<<<
- *                     'continuous_end_prev_value': cont_sum[cont_sum.size()-2] if cont_sum.size() > 1 else None,
- *                     'continuous_end_prev_prev_value': cont_sum[cont_sum.size()-3] if cont_sum.size() > 2 else None,
-*/
-                                    __pyx_t_15 = (__pyx_v_cont_sum.size() > 0);
-                                    if (__pyx_t_15) {
-                                      __pyx_t_22 = PyFloat_FromDouble((__pyx_v_cont_sum[(__pyx_v_cont_sum.size() - 1)])); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 417, __pyx_L41_error)
-                                      __Pyx_GOTREF(__pyx_t_22);
-                                      __pyx_t_1 = __pyx_t_22;
-                                      __pyx_t_22 = 0;
-                                    } else {
-                                      __Pyx_INCREF(Py_None);
-                                      __pyx_t_1 = Py_None;
-                                    }
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_continuous_end_value, __pyx_t_1) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-                                    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-                                    /* "worker_threads_cy.pyx":418
- *                     'continuous_start_next_next_value': cont_sum[2] if cont_sum.size() > 2 else None,
- *                     'continuous_end_value': cont_sum[cont_sum.size()-1] if cont_sum.size() > 0 else None,
- *                     'continuous_end_prev_value': cont_sum[cont_sum.size()-2] if cont_sum.size() > 1 else None,             # <<<<<<<<<<<<<<
- *                     'continuous_end_prev_prev_value': cont_sum[cont_sum.size()-3] if cont_sum.size() > 2 else None,
- *                     'continuous_abs_sum_first_half': continuous_abs_sum_first_half,
-*/
-                                    __pyx_t_15 = (__pyx_v_cont_sum.size() > 1);
-                                    if (__pyx_t_15) {
-                                      __pyx_t_22 = PyFloat_FromDouble((__pyx_v_cont_sum[(__pyx_v_cont_sum.size() - 2)])); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 418, __pyx_L41_error)
-                                      __Pyx_GOTREF(__pyx_t_22);
-                                      __pyx_t_1 = __pyx_t_22;
-                                      __pyx_t_22 = 0;
-                                    } else {
-                                      __Pyx_INCREF(Py_None);
-                                      __pyx_t_1 = Py_None;
-                                    }
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_continuous_end_prev_value, __pyx_t_1) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-                                    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-                                    /* "worker_threads_cy.pyx":419
- *                     'continuous_end_value': cont_sum[cont_sum.size()-1] if cont_sum.size() > 0 else None,
- *                     'continuous_end_prev_value': cont_sum[cont_sum.size()-2] if cont_sum.size() > 1 else None,
- *                     'continuous_end_prev_prev_value': cont_sum[cont_sum.size()-3] if cont_sum.size() > 2 else None,             # <<<<<<<<<<<<<<
- *                     'continuous_abs_sum_first_half': continuous_abs_sum_first_half,
- *                     'continuous_abs_sum_second_half': continuous_abs_sum_second_half,
-*/
-                                    __pyx_t_15 = (__pyx_v_cont_sum.size() > 2);
-                                    if (__pyx_t_15) {
-                                      __pyx_t_22 = PyFloat_FromDouble((__pyx_v_cont_sum[(__pyx_v_cont_sum.size() - 3)])); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 419, __pyx_L41_error)
-                                      __Pyx_GOTREF(__pyx_t_22);
-                                      __pyx_t_1 = __pyx_t_22;
-                                      __pyx_t_22 = 0;
-                                    } else {
-                                      __Pyx_INCREF(Py_None);
-                                      __pyx_t_1 = Py_None;
-                                    }
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_continuous_end_prev_prev_value, __pyx_t_1) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-                                    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-                                    /* "worker_threads_cy.pyx":420
- *                     'continuous_end_prev_value': cont_sum[cont_sum.size()-2] if cont_sum.size() > 1 else None,
- *                     'continuous_end_prev_prev_value': cont_sum[cont_sum.size()-3] if cont_sum.size() > 2 else None,
- *                     'continuous_abs_sum_first_half': continuous_abs_sum_first_half,             # <<<<<<<<<<<<<<
- *                     'continuous_abs_sum_second_half': continuous_abs_sum_second_half,
- *                     'continuous_abs_sum_block1': continuous_abs_sum_block1,
-*/
-                                    __pyx_t_1 = PyFloat_FromDouble(__pyx_v_continuous_abs_sum_first_half); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 420, __pyx_L41_error)
-                                    __Pyx_GOTREF(__pyx_t_1);
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_continuous_abs_sum_first_half, __pyx_t_1) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-                                    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-                                    /* "worker_threads_cy.pyx":421
- *                     'continuous_end_prev_prev_value': cont_sum[cont_sum.size()-3] if cont_sum.size() > 2 else None,
- *                     'continuous_abs_sum_first_half': continuous_abs_sum_first_half,
- *                     'continuous_abs_sum_second_half': continuous_abs_sum_second_half,             # <<<<<<<<<<<<<<
- *                     'continuous_abs_sum_block1': continuous_abs_sum_block1,
- *                     'continuous_abs_sum_block2': continuous_abs_sum_block2,
-*/
-                                    __pyx_t_1 = PyFloat_FromDouble(__pyx_v_continuous_abs_sum_second_half); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 421, __pyx_L41_error)
-                                    __Pyx_GOTREF(__pyx_t_1);
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_continuous_abs_sum_second_half, __pyx_t_1) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-                                    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-                                    /* "worker_threads_cy.pyx":422
- *                     'continuous_abs_sum_first_half': continuous_abs_sum_first_half,
- *                     'continuous_abs_sum_second_half': continuous_abs_sum_second_half,
- *                     'continuous_abs_sum_block1': continuous_abs_sum_block1,             # <<<<<<<<<<<<<<
- *                     'continuous_abs_sum_block2': continuous_abs_sum_block2,
- *                     'continuous_abs_sum_block3': continuous_abs_sum_block3,
-*/
-                                    __pyx_t_1 = PyFloat_FromDouble(__pyx_v_continuous_abs_sum_block1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 422, __pyx_L41_error)
-                                    __Pyx_GOTREF(__pyx_t_1);
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_continuous_abs_sum_block1, __pyx_t_1) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-                                    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-                                    /* "worker_threads_cy.pyx":423
- *                     'continuous_abs_sum_second_half': continuous_abs_sum_second_half,
- *                     'continuous_abs_sum_block1': continuous_abs_sum_block1,
- *                     'continuous_abs_sum_block2': continuous_abs_sum_block2,             # <<<<<<<<<<<<<<
- *                     'continuous_abs_sum_block3': continuous_abs_sum_block3,
- *                     'continuous_abs_sum_block4': continuous_abs_sum_block4,
-*/
-                                    __pyx_t_1 = PyFloat_FromDouble(__pyx_v_continuous_abs_sum_block2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 423, __pyx_L41_error)
-                                    __Pyx_GOTREF(__pyx_t_1);
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_continuous_abs_sum_block2, __pyx_t_1) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-                                    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-                                    /* "worker_threads_cy.pyx":424
- *                     'continuous_abs_sum_block1': continuous_abs_sum_block1,
- *                     'continuous_abs_sum_block2': continuous_abs_sum_block2,
- *                     'continuous_abs_sum_block3': continuous_abs_sum_block3,             # <<<<<<<<<<<<<<
- *                     'continuous_abs_sum_block4': continuous_abs_sum_block4,
- *                     'forward_max_result': forward_max_result,
-*/
-                                    __pyx_t_1 = PyFloat_FromDouble(__pyx_v_continuous_abs_sum_block3); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 424, __pyx_L41_error)
-                                    __Pyx_GOTREF(__pyx_t_1);
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_continuous_abs_sum_block3, __pyx_t_1) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-                                    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-                                    /* "worker_threads_cy.pyx":425
- *                     'continuous_abs_sum_block2': continuous_abs_sum_block2,
- *                     'continuous_abs_sum_block3': continuous_abs_sum_block3,
- *                     'continuous_abs_sum_block4': continuous_abs_sum_block4,             # <<<<<<<<<<<<<<
- *                     'forward_max_result': forward_max_result,
- *                     'forward_min_result': forward_min_result,
-*/
-                                    __pyx_t_1 = PyFloat_FromDouble(__pyx_v_continuous_abs_sum_block4); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 425, __pyx_L41_error)
-                                    __Pyx_GOTREF(__pyx_t_1);
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_continuous_abs_sum_block4, __pyx_t_1) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-                                    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-                                    /* "worker_threads_cy.pyx":426
- *                     'continuous_abs_sum_block3': continuous_abs_sum_block3,
- *                     'continuous_abs_sum_block4': continuous_abs_sum_block4,
- *                     'forward_max_result': forward_max_result,             # <<<<<<<<<<<<<<
- *                     'forward_min_result': forward_min_result,
- *                     'valid_sum_arr': [valid_sum_arr[i] for i in range(valid_sum_len)],
-*/
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_forward_max_result, __pyx_v_forward_max_result) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-
-                                    /* "worker_threads_cy.pyx":427
- *                     'continuous_abs_sum_block4': continuous_abs_sum_block4,
- *                     'forward_max_result': forward_max_result,
- *                     'forward_min_result': forward_min_result,             # <<<<<<<<<<<<<<
- *                     'valid_sum_arr': [valid_sum_arr[i] for i in range(valid_sum_len)],
- *                     'valid_sum_len': valid_sum_len,
-*/
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_forward_min_result, __pyx_v_forward_min_result) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-                                    { /* enter inner scope */
-
-                                      /* "worker_threads_cy.pyx":428
- *                     'forward_max_result': forward_max_result,
- *                     'forward_min_result': forward_min_result,
- *                     'valid_sum_arr': [valid_sum_arr[i] for i in range(valid_sum_len)],             # <<<<<<<<<<<<<<
- *                     'valid_sum_len': valid_sum_len,
- *                     'valid_pos_sum': valid_pos_sum,
-*/
-                                      __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 428, __pyx_L41_error)
-                                      __Pyx_GOTREF(__pyx_t_1);
-                                      __pyx_t_11 = __pyx_v_valid_sum_len;
-                                      __pyx_t_12 = __pyx_t_11;
-                                      for (__pyx_t_13 = 0; __pyx_t_13 < __pyx_t_12; __pyx_t_13+=1) {
-                                        __pyx_8genexpr1__pyx_v_i = __pyx_t_13;
-                                        __pyx_t_22 = PyFloat_FromDouble((__pyx_v_valid_sum_arr[__pyx_8genexpr1__pyx_v_i])); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 428, __pyx_L41_error)
-                                        __Pyx_GOTREF(__pyx_t_22);
-                                        if (unlikely(__Pyx_ListComp_Append(__pyx_t_1, (PyObject*)__pyx_t_22))) __PYX_ERR(0, 428, __pyx_L41_error)
-                                        __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
-                                      }
-                                    } /* exit inner scope */
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_valid_sum_arr, __pyx_t_1) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-                                    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-                                    /* "worker_threads_cy.pyx":429
- *                     'forward_min_result': forward_min_result,
- *                     'valid_sum_arr': [valid_sum_arr[i] for i in range(valid_sum_len)],
- *                     'valid_sum_len': valid_sum_len,             # <<<<<<<<<<<<<<
- *                     'valid_pos_sum': valid_pos_sum,
- *                     'valid_neg_sum': valid_neg_sum,
-*/
-                                    __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_valid_sum_len); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 429, __pyx_L41_error)
-                                    __Pyx_GOTREF(__pyx_t_1);
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_valid_sum_len, __pyx_t_1) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-                                    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-                                    /* "worker_threads_cy.pyx":430
- *                     'valid_sum_arr': [valid_sum_arr[i] for i in range(valid_sum_len)],
- *                     'valid_sum_len': valid_sum_len,
- *                     'valid_pos_sum': valid_pos_sum,             # <<<<<<<<<<<<<<
- *                     'valid_neg_sum': valid_neg_sum,
- *                     'forward_max_valid_sum_arr': forward_max_result,
-*/
-                                    __pyx_t_1 = PyFloat_FromDouble(__pyx_v_valid_pos_sum); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 430, __pyx_L41_error)
-                                    __Pyx_GOTREF(__pyx_t_1);
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_valid_pos_sum, __pyx_t_1) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-                                    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-                                    /* "worker_threads_cy.pyx":431
- *                     'valid_sum_len': valid_sum_len,
- *                     'valid_pos_sum': valid_pos_sum,
- *                     'valid_neg_sum': valid_neg_sum,             # <<<<<<<<<<<<<<
- *                     'forward_max_valid_sum_arr': forward_max_result,
- *                     'forward_max_valid_sum_len': forward_max_valid_sum_len,
-*/
-                                    __pyx_t_1 = PyFloat_FromDouble(__pyx_v_valid_neg_sum); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 431, __pyx_L41_error)
-                                    __Pyx_GOTREF(__pyx_t_1);
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_valid_neg_sum, __pyx_t_1) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-                                    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-                                    /* "worker_threads_cy.pyx":432
- *                     'valid_pos_sum': valid_pos_sum,
- *                     'valid_neg_sum': valid_neg_sum,
- *                     'forward_max_valid_sum_arr': forward_max_result,             # <<<<<<<<<<<<<<
- *                     'forward_max_valid_sum_len': forward_max_valid_sum_len,
- *                     'forward_max_valid_pos_sum': forward_max_valid_pos_sum,
-*/
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_forward_max_valid_sum_arr, __pyx_v_forward_max_result) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-
-                                    /* "worker_threads_cy.pyx":433
- *                     'valid_neg_sum': valid_neg_sum,
- *                     'forward_max_valid_sum_arr': forward_max_result,
- *                     'forward_max_valid_sum_len': forward_max_valid_sum_len,             # <<<<<<<<<<<<<<
- *                     'forward_max_valid_pos_sum': forward_max_valid_pos_sum,
- *                     'forward_max_valid_neg_sum': forward_max_valid_neg_sum,
-*/
-                                    __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_forward_max_valid_sum_len); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 433, __pyx_L41_error)
-                                    __Pyx_GOTREF(__pyx_t_1);
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_forward_max_valid_sum_len, __pyx_t_1) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-                                    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-                                    /* "worker_threads_cy.pyx":434
- *                     'forward_max_valid_sum_arr': forward_max_result,
- *                     'forward_max_valid_sum_len': forward_max_valid_sum_len,
- *                     'forward_max_valid_pos_sum': forward_max_valid_pos_sum,             # <<<<<<<<<<<<<<
- *                     'forward_max_valid_neg_sum': forward_max_valid_neg_sum,
- *                     'forward_min_valid_sum_arr': forward_min_result,
-*/
-                                    __pyx_t_1 = PyFloat_FromDouble(__pyx_v_forward_max_valid_pos_sum); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 434, __pyx_L41_error)
-                                    __Pyx_GOTREF(__pyx_t_1);
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_forward_max_valid_pos_sum, __pyx_t_1) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-                                    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-                                    /* "worker_threads_cy.pyx":435
- *                     'forward_max_valid_sum_len': forward_max_valid_sum_len,
- *                     'forward_max_valid_pos_sum': forward_max_valid_pos_sum,
- *                     'forward_max_valid_neg_sum': forward_max_valid_neg_sum,             # <<<<<<<<<<<<<<
- *                     'forward_min_valid_sum_arr': forward_min_result,
- *                     'forward_min_valid_sum_len': forward_min_valid_sum_len,
-*/
-                                    __pyx_t_1 = PyFloat_FromDouble(__pyx_v_forward_max_valid_neg_sum); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 435, __pyx_L41_error)
-                                    __Pyx_GOTREF(__pyx_t_1);
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_forward_max_valid_neg_sum, __pyx_t_1) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-                                    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-                                    /* "worker_threads_cy.pyx":436
- *                     'forward_max_valid_pos_sum': forward_max_valid_pos_sum,
- *                     'forward_max_valid_neg_sum': forward_max_valid_neg_sum,
- *                     'forward_min_valid_sum_arr': forward_min_result,             # <<<<<<<<<<<<<<
- *                     'forward_min_valid_sum_len': forward_min_valid_sum_len,
- *                     'forward_min_valid_pos_sum': forward_min_valid_pos_sum,
-*/
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_forward_min_valid_sum_arr, __pyx_v_forward_min_result) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-
-                                    /* "worker_threads_cy.pyx":437
- *                     'forward_max_valid_neg_sum': forward_max_valid_neg_sum,
- *                     'forward_min_valid_sum_arr': forward_min_result,
- *                     'forward_min_valid_sum_len': forward_min_valid_sum_len,             # <<<<<<<<<<<<<<
- *                     'forward_min_valid_pos_sum': forward_min_valid_pos_sum,
- *                     'forward_min_valid_neg_sum': forward_min_valid_neg_sum,
-*/
-                                    __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_forward_min_valid_sum_len); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 437, __pyx_L41_error)
-                                    __Pyx_GOTREF(__pyx_t_1);
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_forward_min_valid_sum_len, __pyx_t_1) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-                                    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-                                    /* "worker_threads_cy.pyx":438
- *                     'forward_min_valid_sum_arr': forward_min_result,
- *                     'forward_min_valid_sum_len': forward_min_valid_sum_len,
- *                     'forward_min_valid_pos_sum': forward_min_valid_pos_sum,             # <<<<<<<<<<<<<<
- *                     'forward_min_valid_neg_sum': forward_min_valid_neg_sum,
- *                     'valid_abs_sum_first_half': valid_abs_sum_first_half,
-*/
-                                    __pyx_t_1 = PyFloat_FromDouble(__pyx_v_forward_min_valid_pos_sum); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 438, __pyx_L41_error)
-                                    __Pyx_GOTREF(__pyx_t_1);
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_forward_min_valid_pos_sum, __pyx_t_1) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-                                    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-                                    /* "worker_threads_cy.pyx":439
- *                     'forward_min_valid_sum_len': forward_min_valid_sum_len,
- *                     'forward_min_valid_pos_sum': forward_min_valid_pos_sum,
- *                     'forward_min_valid_neg_sum': forward_min_valid_neg_sum,             # <<<<<<<<<<<<<<
- *                     'valid_abs_sum_first_half': valid_abs_sum_first_half,
- *                     'valid_abs_sum_second_half': valid_abs_sum_second_half,
-*/
-                                    __pyx_t_1 = PyFloat_FromDouble(__pyx_v_forward_min_valid_neg_sum); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 439, __pyx_L41_error)
-                                    __Pyx_GOTREF(__pyx_t_1);
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_forward_min_valid_neg_sum, __pyx_t_1) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-                                    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-                                    /* "worker_threads_cy.pyx":440
- *                     'forward_min_valid_pos_sum': forward_min_valid_pos_sum,
- *                     'forward_min_valid_neg_sum': forward_min_valid_neg_sum,
- *                     'valid_abs_sum_first_half': valid_abs_sum_first_half,             # <<<<<<<<<<<<<<
- *                     'valid_abs_sum_second_half': valid_abs_sum_second_half,
- *                     'valid_abs_sum_block1': valid_abs_sum_block1,
-*/
-                                    __pyx_t_1 = PyFloat_FromDouble(__pyx_v_valid_abs_sum_first_half); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 440, __pyx_L41_error)
-                                    __Pyx_GOTREF(__pyx_t_1);
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_valid_abs_sum_first_half, __pyx_t_1) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-                                    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-                                    /* "worker_threads_cy.pyx":441
- *                     'forward_min_valid_neg_sum': forward_min_valid_neg_sum,
- *                     'valid_abs_sum_first_half': valid_abs_sum_first_half,
- *                     'valid_abs_sum_second_half': valid_abs_sum_second_half,             # <<<<<<<<<<<<<<
- *                     'valid_abs_sum_block1': valid_abs_sum_block1,
- *                     'valid_abs_sum_block2': valid_abs_sum_block2,
-*/
-                                    __pyx_t_1 = PyFloat_FromDouble(__pyx_v_valid_abs_sum_second_half); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 441, __pyx_L41_error)
-                                    __Pyx_GOTREF(__pyx_t_1);
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_valid_abs_sum_second_half, __pyx_t_1) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-                                    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-                                    /* "worker_threads_cy.pyx":442
- *                     'valid_abs_sum_first_half': valid_abs_sum_first_half,
- *                     'valid_abs_sum_second_half': valid_abs_sum_second_half,
- *                     'valid_abs_sum_block1': valid_abs_sum_block1,             # <<<<<<<<<<<<<<
- *                     'valid_abs_sum_block2': valid_abs_sum_block2,
- *                     'valid_abs_sum_block3': valid_abs_sum_block3,
-*/
-                                    __pyx_t_1 = PyFloat_FromDouble(__pyx_v_valid_abs_sum_block1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 442, __pyx_L41_error)
-                                    __Pyx_GOTREF(__pyx_t_1);
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_valid_abs_sum_block1, __pyx_t_1) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-                                    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-                                    /* "worker_threads_cy.pyx":443
- *                     'valid_abs_sum_second_half': valid_abs_sum_second_half,
- *                     'valid_abs_sum_block1': valid_abs_sum_block1,
- *                     'valid_abs_sum_block2': valid_abs_sum_block2,             # <<<<<<<<<<<<<<
- *                     'valid_abs_sum_block3': valid_abs_sum_block3,
- *                     'valid_abs_sum_block4': valid_abs_sum_block4,
-*/
-                                    __pyx_t_1 = PyFloat_FromDouble(__pyx_v_valid_abs_sum_block2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 443, __pyx_L41_error)
-                                    __Pyx_GOTREF(__pyx_t_1);
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_valid_abs_sum_block2, __pyx_t_1) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-                                    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-                                    /* "worker_threads_cy.pyx":444
- *                     'valid_abs_sum_block1': valid_abs_sum_block1,
- *                     'valid_abs_sum_block2': valid_abs_sum_block2,
- *                     'valid_abs_sum_block3': valid_abs_sum_block3,             # <<<<<<<<<<<<<<
- *                     'valid_abs_sum_block4': valid_abs_sum_block4,
- *                     'forward_max_valid_abs_sum_first_half': forward_max_valid_abs_sum_first_half,
-*/
-                                    __pyx_t_1 = PyFloat_FromDouble(__pyx_v_valid_abs_sum_block3); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 444, __pyx_L41_error)
-                                    __Pyx_GOTREF(__pyx_t_1);
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_valid_abs_sum_block3, __pyx_t_1) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-                                    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-                                    /* "worker_threads_cy.pyx":445
- *                     'valid_abs_sum_block2': valid_abs_sum_block2,
- *                     'valid_abs_sum_block3': valid_abs_sum_block3,
- *                     'valid_abs_sum_block4': valid_abs_sum_block4,             # <<<<<<<<<<<<<<
- *                     'forward_max_valid_abs_sum_first_half': forward_max_valid_abs_sum_first_half,
- *                     'forward_max_valid_abs_sum_second_half': forward_max_valid_abs_sum_second_half,
-*/
-                                    __pyx_t_1 = PyFloat_FromDouble(__pyx_v_valid_abs_sum_block4); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 445, __pyx_L41_error)
-                                    __Pyx_GOTREF(__pyx_t_1);
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_valid_abs_sum_block4, __pyx_t_1) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-                                    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-                                    /* "worker_threads_cy.pyx":446
- *                     'valid_abs_sum_block3': valid_abs_sum_block3,
- *                     'valid_abs_sum_block4': valid_abs_sum_block4,
- *                     'forward_max_valid_abs_sum_first_half': forward_max_valid_abs_sum_first_half,             # <<<<<<<<<<<<<<
- *                     'forward_max_valid_abs_sum_second_half': forward_max_valid_abs_sum_second_half,
- *                     'forward_max_valid_abs_sum_block1': forward_max_valid_abs_sum_block1,
-*/
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_forward_max_valid_abs_sum_first, __pyx_v_forward_max_valid_abs_sum_first_half) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-
-                                    /* "worker_threads_cy.pyx":447
- *                     'valid_abs_sum_block4': valid_abs_sum_block4,
- *                     'forward_max_valid_abs_sum_first_half': forward_max_valid_abs_sum_first_half,
- *                     'forward_max_valid_abs_sum_second_half': forward_max_valid_abs_sum_second_half,             # <<<<<<<<<<<<<<
- *                     'forward_max_valid_abs_sum_block1': forward_max_valid_abs_sum_block1,
- *                     'forward_max_valid_abs_sum_block2': forward_max_valid_abs_sum_block2,
-*/
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_forward_max_valid_abs_sum_second, __pyx_v_forward_max_valid_abs_sum_second_half) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-
-                                    /* "worker_threads_cy.pyx":448
- *                     'forward_max_valid_abs_sum_first_half': forward_max_valid_abs_sum_first_half,
- *                     'forward_max_valid_abs_sum_second_half': forward_max_valid_abs_sum_second_half,
- *                     'forward_max_valid_abs_sum_block1': forward_max_valid_abs_sum_block1,             # <<<<<<<<<<<<<<
- *                     'forward_max_valid_abs_sum_block2': forward_max_valid_abs_sum_block2,
- *                     'forward_max_valid_abs_sum_block3': forward_max_valid_abs_sum_block3,
-*/
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_forward_max_valid_abs_sum_block1, __pyx_v_forward_max_valid_abs_sum_block1) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-
-                                    /* "worker_threads_cy.pyx":449
- *                     'forward_max_valid_abs_sum_second_half': forward_max_valid_abs_sum_second_half,
- *                     'forward_max_valid_abs_sum_block1': forward_max_valid_abs_sum_block1,
- *                     'forward_max_valid_abs_sum_block2': forward_max_valid_abs_sum_block2,             # <<<<<<<<<<<<<<
- *                     'forward_max_valid_abs_sum_block3': forward_max_valid_abs_sum_block3,
- *                     'forward_max_valid_abs_sum_block4': forward_max_valid_abs_sum_block4,
-*/
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_forward_max_valid_abs_sum_block2, __pyx_v_forward_max_valid_abs_sum_block2) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-
-                                    /* "worker_threads_cy.pyx":450
- *                     'forward_max_valid_abs_sum_block1': forward_max_valid_abs_sum_block1,
- *                     'forward_max_valid_abs_sum_block2': forward_max_valid_abs_sum_block2,
- *                     'forward_max_valid_abs_sum_block3': forward_max_valid_abs_sum_block3,             # <<<<<<<<<<<<<<
- *                     'forward_max_valid_abs_sum_block4': forward_max_valid_abs_sum_block4,
- *                     'forward_min_valid_abs_sum_first_half': forward_min_valid_abs_sum_first_half,
-*/
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_forward_max_valid_abs_sum_block3, __pyx_v_forward_max_valid_abs_sum_block3) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-
-                                    /* "worker_threads_cy.pyx":451
- *                     'forward_max_valid_abs_sum_block2': forward_max_valid_abs_sum_block2,
- *                     'forward_max_valid_abs_sum_block3': forward_max_valid_abs_sum_block3,
- *                     'forward_max_valid_abs_sum_block4': forward_max_valid_abs_sum_block4,             # <<<<<<<<<<<<<<
- *                     'forward_min_valid_abs_sum_first_half': forward_min_valid_abs_sum_first_half,
- *                     'forward_min_valid_abs_sum_second_half': forward_min_valid_abs_sum_second_half,
-*/
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_forward_max_valid_abs_sum_block4, __pyx_v_forward_max_valid_abs_sum_block4) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-
-                                    /* "worker_threads_cy.pyx":452
- *                     'forward_max_valid_abs_sum_block3': forward_max_valid_abs_sum_block3,
- *                     'forward_max_valid_abs_sum_block4': forward_max_valid_abs_sum_block4,
- *                     'forward_min_valid_abs_sum_first_half': forward_min_valid_abs_sum_first_half,             # <<<<<<<<<<<<<<
- *                     'forward_min_valid_abs_sum_second_half': forward_min_valid_abs_sum_second_half,
- *                     'forward_min_valid_abs_sum_block1': forward_min_valid_abs_sum_block1,
-*/
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_forward_min_valid_abs_sum_first, __pyx_v_forward_min_valid_abs_sum_first_half) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-
-                                    /* "worker_threads_cy.pyx":453
- *                     'forward_max_valid_abs_sum_block4': forward_max_valid_abs_sum_block4,
- *                     'forward_min_valid_abs_sum_first_half': forward_min_valid_abs_sum_first_half,
- *                     'forward_min_valid_abs_sum_second_half': forward_min_valid_abs_sum_second_half,             # <<<<<<<<<<<<<<
- *                     'forward_min_valid_abs_sum_block1': forward_min_valid_abs_sum_block1,
- *                     'forward_min_valid_abs_sum_block2': forward_min_valid_abs_sum_block2,
-*/
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_forward_min_valid_abs_sum_second, __pyx_v_forward_min_valid_abs_sum_second_half) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-
-                                    /* "worker_threads_cy.pyx":454
- *                     'forward_min_valid_abs_sum_first_half': forward_min_valid_abs_sum_first_half,
- *                     'forward_min_valid_abs_sum_second_half': forward_min_valid_abs_sum_second_half,
- *                     'forward_min_valid_abs_sum_block1': forward_min_valid_abs_sum_block1,             # <<<<<<<<<<<<<<
- *                     'forward_min_valid_abs_sum_block2': forward_min_valid_abs_sum_block2,
- *                     'forward_min_valid_abs_sum_block3': forward_min_valid_abs_sum_block3,
-*/
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_forward_min_valid_abs_sum_block1, __pyx_v_forward_min_valid_abs_sum_block1) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-
-                                    /* "worker_threads_cy.pyx":455
- *                     'forward_min_valid_abs_sum_second_half': forward_min_valid_abs_sum_second_half,
- *                     'forward_min_valid_abs_sum_block1': forward_min_valid_abs_sum_block1,
- *                     'forward_min_valid_abs_sum_block2': forward_min_valid_abs_sum_block2,             # <<<<<<<<<<<<<<
- *                     'forward_min_valid_abs_sum_block3': forward_min_valid_abs_sum_block3,
- *                     'forward_min_valid_abs_sum_block4': forward_min_valid_abs_sum_block4,
-*/
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_forward_min_valid_abs_sum_block2, __pyx_v_forward_min_valid_abs_sum_block2) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-
-                                    /* "worker_threads_cy.pyx":456
- *                     'forward_min_valid_abs_sum_block1': forward_min_valid_abs_sum_block1,
- *                     'forward_min_valid_abs_sum_block2': forward_min_valid_abs_sum_block2,
- *                     'forward_min_valid_abs_sum_block3': forward_min_valid_abs_sum_block3,             # <<<<<<<<<<<<<<
- *                     'forward_min_valid_abs_sum_block4': forward_min_valid_abs_sum_block4,
- *                     'forward_max_date': date_columns[end_date_idx + max_idx_in_window] if max_idx_in_window >= 0 else None,
-*/
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_forward_min_valid_abs_sum_block3, __pyx_v_forward_min_valid_abs_sum_block3) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-
-                                    /* "worker_threads_cy.pyx":457
- *                     'forward_min_valid_abs_sum_block2': forward_min_valid_abs_sum_block2,
- *                     'forward_min_valid_abs_sum_block3': forward_min_valid_abs_sum_block3,
- *                     'forward_min_valid_abs_sum_block4': forward_min_valid_abs_sum_block4,             # <<<<<<<<<<<<<<
- *                     'forward_max_date': date_columns[end_date_idx + max_idx_in_window] if max_idx_in_window >= 0 else None,
- *                     'forward_min_date': date_columns[end_date_idx + min_idx_in_window] if min_idx_in_window >= 0 else None,
-*/
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_forward_min_valid_abs_sum_block4, __pyx_v_forward_min_valid_abs_sum_block4) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-
-                                    /* "worker_threads_cy.pyx":458
- *                     'forward_min_valid_abs_sum_block3': forward_min_valid_abs_sum_block3,
- *                     'forward_min_valid_abs_sum_block4': forward_min_valid_abs_sum_block4,
- *                     'forward_max_date': date_columns[end_date_idx + max_idx_in_window] if max_idx_in_window >= 0 else None,             # <<<<<<<<<<<<<<
- *                     'forward_min_date': date_columns[end_date_idx + min_idx_in_window] if min_idx_in_window >= 0 else None,
- *                     'n_max_is_max': max_idx_in_window < n_days if n_days > 0 else False,
-*/
-                                    __pyx_t_15 = (__pyx_v_max_idx_in_window >= 0);
-                                    if (__pyx_t_15) {
-                                      if (unlikely(__pyx_v_date_columns == Py_None)) {
-                                        PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-                                        __PYX_ERR(0, 458, __pyx_L41_error)
-                                      }
-                                      __pyx_t_11 = (__pyx_v_end_date_idx + __pyx_v_max_idx_in_window);
-                                      __Pyx_INCREF(__Pyx_PyList_GET_ITEM(__pyx_v_date_columns, __pyx_t_11));
-                                      __pyx_t_1 = __Pyx_PyList_GET_ITEM(__pyx_v_date_columns, __pyx_t_11);
-                                    } else {
-                                      __Pyx_INCREF(Py_None);
-                                      __pyx_t_1 = Py_None;
-                                    }
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_forward_max_date, __pyx_t_1) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-                                    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-                                    /* "worker_threads_cy.pyx":459
- *                     'forward_min_valid_abs_sum_block4': forward_min_valid_abs_sum_block4,
- *                     'forward_max_date': date_columns[end_date_idx + max_idx_in_window] if max_idx_in_window >= 0 else None,
- *                     'forward_min_date': date_columns[end_date_idx + min_idx_in_window] if min_idx_in_window >= 0 else None,             # <<<<<<<<<<<<<<
- *                     'n_max_is_max': max_idx_in_window < n_days if n_days > 0 else False,
- *                     'range_ratio_is_less': (max_price / min_price) < user_range_ratio if min_price is not None and min_price != 0 and not isnan(user_range_ratio) else False,
-*/
-                                    __pyx_t_15 = (__pyx_v_min_idx_in_window >= 0);
-                                    if (__pyx_t_15) {
-                                      if (unlikely(__pyx_v_date_columns == Py_None)) {
-                                        PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-                                        __PYX_ERR(0, 459, __pyx_L41_error)
-                                      }
-                                      __pyx_t_11 = (__pyx_v_end_date_idx + __pyx_v_min_idx_in_window);
-                                      __Pyx_INCREF(__Pyx_PyList_GET_ITEM(__pyx_v_date_columns, __pyx_t_11));
-                                      __pyx_t_1 = __Pyx_PyList_GET_ITEM(__pyx_v_date_columns, __pyx_t_11);
-                                    } else {
-                                      __Pyx_INCREF(Py_None);
-                                      __pyx_t_1 = Py_None;
-                                    }
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_forward_min_date, __pyx_t_1) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-                                    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-                                    /* "worker_threads_cy.pyx":460
- *                     'forward_max_date': date_columns[end_date_idx + max_idx_in_window] if max_idx_in_window >= 0 else None,
- *                     'forward_min_date': date_columns[end_date_idx + min_idx_in_window] if min_idx_in_window >= 0 else None,
- *                     'n_max_is_max': max_idx_in_window < n_days if n_days > 0 else False,             # <<<<<<<<<<<<<<
- *                     'range_ratio_is_less': (max_price / min_price) < user_range_ratio if min_price is not None and min_price != 0 and not isnan(user_range_ratio) else False,
- *                     'continuous_abs_is_less': continuous_abs_is_less,
-*/
-                                    __pyx_t_15 = (__pyx_v_n_days > 0);
-                                    if (__pyx_t_15) {
-                                      __pyx_t_22 = __Pyx_PyBool_FromLong((__pyx_v_max_idx_in_window < __pyx_v_n_days)); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 460, __pyx_L41_error)
-                                      __Pyx_GOTREF(__pyx_t_22);
-                                      __pyx_t_1 = __pyx_t_22;
-                                      __pyx_t_22 = 0;
-                                    } else {
-                                      __Pyx_INCREF(Py_False);
-                                      __pyx_t_1 = Py_False;
-                                    }
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_n_max_is_max, __pyx_t_1) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-                                    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-                                    /* "worker_threads_cy.pyx":461
- *                     'forward_min_date': date_columns[end_date_idx + min_idx_in_window] if min_idx_in_window >= 0 else None,
- *                     'n_max_is_max': max_idx_in_window < n_days if n_days > 0 else False,
- *                     'range_ratio_is_less': (max_price / min_price) < user_range_ratio if min_price is not None and min_price != 0 and not isnan(user_range_ratio) else False,             # <<<<<<<<<<<<<<
- *                     'continuous_abs_is_less': continuous_abs_is_less,
- *                     'n_days_max_value': None if isnan(n_days_max_value) else n_days_max_value,
-*/
-                                    __pyx_t_22 = PyFloat_FromDouble(__pyx_v_min_price); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 461, __pyx_L41_error)
-                                    __Pyx_GOTREF(__pyx_t_22);
-                                    __pyx_t_17 = (__pyx_t_22 != Py_None);
-                                    __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
-                                    if (__pyx_t_17) {
-                                    } else {
-                                      __pyx_t_15 = __pyx_t_17;
-                                      goto __pyx_L106_bool_binop_done;
-                                    }
-                                    __pyx_t_17 = (__pyx_v_min_price != 0.0);
-                                    if (__pyx_t_17) {
-                                    } else {
-                                      __pyx_t_15 = __pyx_t_17;
-                                      goto __pyx_L106_bool_binop_done;
-                                    }
-                                    __pyx_t_17 = (!isnan(__pyx_v_user_range_ratio));
-                                    __pyx_t_15 = __pyx_t_17;
-                                    __pyx_L106_bool_binop_done:;
-                                    if (__pyx_t_15) {
-                                      __pyx_t_22 = __Pyx_PyBool_FromLong(((__pyx_v_max_price / __pyx_v_min_price) < __pyx_v_user_range_ratio)); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 461, __pyx_L41_error)
-                                      __Pyx_GOTREF(__pyx_t_22);
-                                      __pyx_t_1 = __pyx_t_22;
-                                      __pyx_t_22 = 0;
-                                    } else {
-                                      __Pyx_INCREF(Py_False);
-                                      __pyx_t_1 = Py_False;
-                                    }
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_range_ratio_is_less, __pyx_t_1) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-                                    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-                                    /* "worker_threads_cy.pyx":462
- *                     'n_max_is_max': max_idx_in_window < n_days if n_days > 0 else False,
- *                     'range_ratio_is_less': (max_price / min_price) < user_range_ratio if min_price is not None and min_price != 0 and not isnan(user_range_ratio) else False,
- *                     'continuous_abs_is_less': continuous_abs_is_less,             # <<<<<<<<<<<<<<
- *                     'n_days_max_value': None if isnan(n_days_max_value) else n_days_max_value,
- *                     'prev_day_change': None if isnan(prev_day_change) else prev_day_change,
-*/
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_continuous_abs_is_less, __pyx_v_continuous_abs_is_less) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-
-                                    /* "worker_threads_cy.pyx":463
- *                     'range_ratio_is_less': (max_price / min_price) < user_range_ratio if min_price is not None and min_price != 0 and not isnan(user_range_ratio) else False,
- *                     'continuous_abs_is_less': continuous_abs_is_less,
- *                     'n_days_max_value': None if isnan(n_days_max_value) else n_days_max_value,             # <<<<<<<<<<<<<<
- *                     'prev_day_change': None if isnan(prev_day_change) else prev_day_change,
- *                     'end_day_change': None if isnan(end_day_change) else end_day_change,
-*/
-                                    __pyx_t_15 = isnan(__pyx_v_n_days_max_value);
-                                    if (__pyx_t_15) {
-                                      __Pyx_INCREF(Py_None);
-                                      __pyx_t_1 = Py_None;
-                                    } else {
-                                      __pyx_t_22 = PyFloat_FromDouble(__pyx_v_n_days_max_value); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 463, __pyx_L41_error)
-                                      __Pyx_GOTREF(__pyx_t_22);
-                                      __pyx_t_1 = __pyx_t_22;
-                                      __pyx_t_22 = 0;
-                                    }
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_n_days_max_value, __pyx_t_1) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-                                    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-                                    /* "worker_threads_cy.pyx":464
- *                     'continuous_abs_is_less': continuous_abs_is_less,
- *                     'n_days_max_value': None if isnan(n_days_max_value) else n_days_max_value,
- *                     'prev_day_change': None if isnan(prev_day_change) else prev_day_change,             # <<<<<<<<<<<<<<
- *                     'end_day_change': None if isnan(end_day_change) else end_day_change,
- *                     'diff_end_value': diff_data_view[stock_idx, end_date_idx],
-*/
-                                    __pyx_t_15 = isnan(__pyx_v_prev_day_change);
-                                    if (__pyx_t_15) {
-                                      __Pyx_INCREF(Py_None);
-                                      __pyx_t_1 = Py_None;
-                                    } else {
-                                      __pyx_t_22 = PyFloat_FromDouble(__pyx_v_prev_day_change); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 464, __pyx_L41_error)
-                                      __Pyx_GOTREF(__pyx_t_22);
-                                      __pyx_t_1 = __pyx_t_22;
-                                      __pyx_t_22 = 0;
-                                    }
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_prev_day_change, __pyx_t_1) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-                                    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-                                    /* "worker_threads_cy.pyx":465
- *                     'n_days_max_value': None if isnan(n_days_max_value) else n_days_max_value,
- *                     'prev_day_change': None if isnan(prev_day_change) else prev_day_change,
- *                     'end_day_change': None if isnan(end_day_change) else end_day_change,             # <<<<<<<<<<<<<<
- *                     'diff_end_value': diff_data_view[stock_idx, end_date_idx],
- *                 }
-*/
-                                    __pyx_t_15 = isnan(__pyx_v_end_day_change);
-                                    if (__pyx_t_15) {
-                                      __Pyx_INCREF(Py_None);
-                                      __pyx_t_1 = Py_None;
-                                    } else {
-                                      __pyx_t_22 = PyFloat_FromDouble(__pyx_v_end_day_change); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 465, __pyx_L41_error)
-                                      __Pyx_GOTREF(__pyx_t_22);
-                                      __pyx_t_1 = __pyx_t_22;
-                                      __pyx_t_22 = 0;
-                                    }
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_end_day_change, __pyx_t_1) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-                                    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-                                    /* "worker_threads_cy.pyx":466
- *                     'prev_day_change': None if isnan(prev_day_change) else prev_day_change,
- *                     'end_day_change': None if isnan(end_day_change) else end_day_change,
- *                     'diff_end_value': diff_data_view[stock_idx, end_date_idx],             # <<<<<<<<<<<<<<
- *                 }
- *                 all_results[date_columns[end_date_idx]].append(row_result)
-*/
-                                    __pyx_t_14 = __pyx_v_stock_idx;
-                                    __pyx_t_10 = __pyx_v_end_date_idx;
-                                    __pyx_t_1 = PyFloat_FromDouble((*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_diff_data_view.data + __pyx_t_14 * __pyx_v_diff_data_view.strides[0]) ) + __pyx_t_10 * __pyx_v_diff_data_view.strides[1]) )))); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 466, __pyx_L41_error)
-                                    __Pyx_GOTREF(__pyx_t_1);
-                                    if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_diff_end_value, __pyx_t_1) < 0) __PYX_ERR(0, 405, __pyx_L41_error)
-                                    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-                                    __Pyx_XDECREF_SET(__pyx_v_row_result, ((PyObject*)__pyx_t_20));
-                                    __pyx_t_20 = 0;
-
-                                    /* "worker_threads_cy.pyx":468
- *                     'diff_end_value': diff_data_view[stock_idx, end_date_idx],
- *                 }
- *                 all_results[date_columns[end_date_idx]].append(row_result)             # <<<<<<<<<<<<<<
- * 
- *     #
-*/
-                                    if (unlikely(__pyx_v_date_columns == Py_None)) {
-                                      PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-                                      __PYX_ERR(0, 468, __pyx_L41_error)
-                                    }
-                                    __pyx_t_20 = __Pyx_PyDict_GetItem(__pyx_v_all_results, __Pyx_PyList_GET_ITEM(__pyx_v_date_columns, __pyx_v_end_date_idx)); if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 468, __pyx_L41_error)
-                                    __Pyx_GOTREF(__pyx_t_20);
-                                    __pyx_t_34 = __Pyx_PyObject_Append(__pyx_t_20, __pyx_v_row_result); if (unlikely(__pyx_t_34 == ((int)-1))) __PYX_ERR(0, 468, __pyx_L41_error)
-                                    __Pyx_DECREF(__pyx_t_20); __pyx_t_20 = 0;
-                                  }
-
-                                  /* "worker_threads_cy.pyx":205
- *                 forward_min_result_c.clear()
- *             # --- with gil  ---
- *             with gil:             # <<<<<<<<<<<<<<
- *                 py_cont_sum = list(cont_sum)
- *                 cont_sum_np = np.array(py_cont_sum, dtype=np.float64)
-*/
-                                  /*finally:*/ {
-                                    /*normal exit:*/{
-                                      __Pyx_PyGILState_Release(__pyx_gilstate_save);
-                                      goto __pyx_L42;
-                                    }
-                                    __pyx_L41_error: {
-                                      __Pyx_PyGILState_Release(__pyx_gilstate_save);
-                                      goto __pyx_L10_error;
-                                    }
-                                    __pyx_L42:;
-                                  }
-                              }
-                            }
-                            goto __pyx_L110;
-                            __pyx_L10_error:;
-                            {
-                                PyGILState_STATE __pyx_gilstate_save = __Pyx_PyGILState_Ensure();
-                                #if CYTHON_COMPILING_IN_CPYTHON_FREETHREADING
-                                PyMutex_Lock(&__pyx_parallel_freethreading_mutex);
-                                #endif
-                                #ifdef _OPENMP
-                                #pragma omp flush(__pyx_parallel_exc_type)
-                                #endif /* _OPENMP */
-                                if (!__pyx_parallel_exc_type) {
-                                  __Pyx_ErrFetchWithState(&__pyx_parallel_exc_type, &__pyx_parallel_exc_value, &__pyx_parallel_exc_tb);
-                                  __pyx_parallel_filename = __pyx_filename; __pyx_parallel_lineno = __pyx_lineno; __pyx_parallel_clineno = __pyx_clineno;
-                                  __Pyx_GOTREF(__pyx_parallel_exc_type);
-                                }
-                                #if CYTHON_COMPILING_IN_CPYTHON_FREETHREADING
-                                PyMutex_Unlock(&__pyx_parallel_freethreading_mutex);
-                                #endif
-                                __Pyx_PyGILState_Release(__pyx_gilstate_save);
-                            }
-                            __pyx_parallel_why = 4;
-                            goto __pyx_L109;
-                            __pyx_L109:;
-                            #ifdef _OPENMP
-                            #pragma omp critical(__pyx_parallel_lastprivates0)
-                            #endif /* _OPENMP */
-                            {
-                                __pyx_parallel_temp0 = __pyx_v_actual_idx;
-                                __pyx_parallel_temp1 = __pyx_v_actual_value;
-                                __pyx_parallel_temp2 = __pyx_v_base_idx;
-                                __pyx_parallel_temp3 = __pyx_v_closest_idx_in_window;
-                                __pyx_parallel_temp4 = __pyx_v_closest_value;
-                                __pyx_parallel_temp5 = __pyx_v_continuous_abs_sum_block1;
-                                __pyx_parallel_temp6 = __pyx_v_continuous_abs_sum_block2;
-                                __pyx_parallel_temp7 = __pyx_v_continuous_abs_sum_block3;
-                                __pyx_parallel_temp8 = __pyx_v_continuous_abs_sum_block4;
-                                __pyx_parallel_temp9 = __pyx_v_continuous_abs_sum_first_half;
-                                __pyx_parallel_temp10 = __pyx_v_continuous_abs_sum_second_half;
-                                __pyx_parallel_temp11 = __pyx_v_diff;
-                                __pyx_parallel_temp12 = __pyx_v_end_date_idx;
-                                __pyx_parallel_temp13 = __pyx_v_end_day_change;
-                                __pyx_parallel_temp14 = __pyx_v_end_value;
-                                __pyx_parallel_temp15 = __pyx_v_forward_max_valid_neg_sum;
-                                __pyx_parallel_temp16 = __pyx_v_forward_max_valid_pos_sum;
-                                __pyx_parallel_temp17 = __pyx_v_forward_max_valid_sum_len;
-                                __pyx_parallel_temp18 = __pyx_v_forward_min_valid_neg_sum;
-                                __pyx_parallel_temp19 = __pyx_v_forward_min_valid_pos_sum;
-                                __pyx_parallel_temp20 = __pyx_v_forward_min_valid_sum_len;
-                                __pyx_parallel_temp21 = __pyx_v_half;
-                                __pyx_parallel_temp22 = __pyx_v_half_valid;
-                                __pyx_parallel_temp23 = __pyx_8genexpr1__pyx_v_i;
-                                __pyx_parallel_temp24 = __pyx_v_i;
-                                __pyx_parallel_temp25 = __pyx_v_idx;
-                                __pyx_parallel_temp26 = __pyx_v_j;
-                                __pyx_parallel_temp27 = __pyx_v_max_idx_in_window;
-                                __pyx_parallel_temp28 = __pyx_v_max_price;
-                                __pyx_parallel_temp29 = __pyx_v_min_diff;
-                                __pyx_parallel_temp30 = __pyx_v_min_idx_in_window;
-                                __pyx_parallel_temp31 = __pyx_v_min_price;
-                                __pyx_parallel_temp32 = __pyx_v_n;
-                                __pyx_parallel_temp33 = __pyx_v_n_days_max_value;
-                                __pyx_parallel_temp34 = __pyx_v_n_valid;
-                                __pyx_parallel_temp35 = __pyx_v_prev_day_change;
-                                __pyx_parallel_temp36 = __pyx_v_price_arr;
-                                __pyx_parallel_temp37 = __pyx_v_q1;
-                                __pyx_parallel_temp38 = __pyx_v_q1_valid;
-                                __pyx_parallel_temp39 = __pyx_v_q2;
-                                __pyx_parallel_temp40 = __pyx_v_q2_valid;
-                                __pyx_parallel_temp41 = __pyx_v_q3;
-                                __pyx_parallel_temp42 = __pyx_v_q3_valid;
-                                __pyx_parallel_temp43 = __pyx_v_start_date_idx;
-                                __pyx_parallel_temp44 = __pyx_v_start_value;
-                                __pyx_parallel_temp45 = __pyx_v_stock_idx;
-                                __pyx_parallel_temp46 = __pyx_v_valid_abs_sum_block1;
-                                __pyx_parallel_temp47 = __pyx_v_valid_abs_sum_block2;
-                                __pyx_parallel_temp48 = __pyx_v_valid_abs_sum_block3;
-                                __pyx_parallel_temp49 = __pyx_v_valid_abs_sum_block4;
-                                __pyx_parallel_temp50 = __pyx_v_valid_abs_sum_first_half;
-                                __pyx_parallel_temp51 = __pyx_v_valid_abs_sum_second_half;
-                                __pyx_parallel_temp52 = __pyx_v_valid_neg_sum;
-                                __pyx_parallel_temp53 = __pyx_v_valid_pos_sum;
-                                __pyx_parallel_temp54 = __pyx_v_window_len;
-                            }
-                            __pyx_L110:;
-                            #ifdef _OPENMP
-                            #pragma omp flush(__pyx_parallel_why)
-                            #endif /* _OPENMP */
-                        }
-                    }
-                    #ifdef _OPENMP
-                    Py_END_ALLOW_THREADS
-                    #else
-{
-PyGILState_STATE __pyx_gilstate_save = __Pyx_PyGILState_Ensure();
-                    #endif /* _OPENMP */
-                    /* Clean up any temporaries */
-                    __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-                    __PYX_XCLEAR_MEMVIEW(&__pyx_t_18, 0);
-                    __pyx_t_18.memview = NULL; __pyx_t_18.data = NULL;
-                    __PYX_XCLEAR_MEMVIEW(&__pyx_t_19, 0);
-                    __pyx_t_19.memview = NULL; __pyx_t_19.data = NULL;
-                    __Pyx_XDECREF(__pyx_t_20); __pyx_t_20 = 0;
-                    __Pyx_XDECREF(__pyx_t_21); __pyx_t_21 = 0;
-                    __Pyx_XDECREF(__pyx_t_22); __pyx_t_22 = 0;
-                    __Pyx_XDECREF(__pyx_t_23); __pyx_t_23 = 0;
-                    __Pyx_XDECREF(__pyx_t_25); __pyx_t_25 = 0;
-                    __Pyx_XDECREF(__pyx_t_26); __pyx_t_26 = 0;
-                    __Pyx_XDECREF(__pyx_t_27); __pyx_t_27 = 0;
-                    __Pyx_XDECREF(__pyx_t_31); __pyx_t_31 = 0;
-                    __Pyx_PyGILState_Release(__pyx_gilstate_save);
-                    #ifndef _OPENMP
-}
-#endif /* _OPENMP */
-                }
-            }
-            if (__pyx_parallel_exc_type) {
-              /* This may have been overridden by a continue, break or return in another thread. Prefer the error. */
-              __pyx_parallel_why = 4;
-            }
-            if (__pyx_parallel_why) {
-              __pyx_v_actual_idx = __pyx_parallel_temp0;
-              __pyx_v_actual_value = __pyx_parallel_temp1;
-              __pyx_v_base_idx = __pyx_parallel_temp2;
-              __pyx_v_closest_idx_in_window = __pyx_parallel_temp3;
-              __pyx_v_closest_value = __pyx_parallel_temp4;
-              __pyx_v_continuous_abs_sum_block1 = __pyx_parallel_temp5;
-              __pyx_v_continuous_abs_sum_block2 = __pyx_parallel_temp6;
-              __pyx_v_continuous_abs_sum_block3 = __pyx_parallel_temp7;
-              __pyx_v_continuous_abs_sum_block4 = __pyx_parallel_temp8;
-              __pyx_v_continuous_abs_sum_first_half = __pyx_parallel_temp9;
-              __pyx_v_continuous_abs_sum_second_half = __pyx_parallel_temp10;
-              __pyx_v_diff = __pyx_parallel_temp11;
-              __pyx_v_end_date_idx = __pyx_parallel_temp12;
-              __pyx_v_end_day_change = __pyx_parallel_temp13;
-              __pyx_v_end_value = __pyx_parallel_temp14;
-              __pyx_v_forward_max_valid_neg_sum = __pyx_parallel_temp15;
-              __pyx_v_forward_max_valid_pos_sum = __pyx_parallel_temp16;
-              __pyx_v_forward_max_valid_sum_len = __pyx_parallel_temp17;
-              __pyx_v_forward_min_valid_neg_sum = __pyx_parallel_temp18;
-              __pyx_v_forward_min_valid_pos_sum = __pyx_parallel_temp19;
-              __pyx_v_forward_min_valid_sum_len = __pyx_parallel_temp20;
-              __pyx_v_half = __pyx_parallel_temp21;
-              __pyx_v_half_valid = __pyx_parallel_temp22;
-              __pyx_8genexpr1__pyx_v_i = __pyx_parallel_temp23;
-              __pyx_v_i = __pyx_parallel_temp24;
-              __pyx_v_idx = __pyx_parallel_temp25;
-              __pyx_v_j = __pyx_parallel_temp26;
-              __pyx_v_max_idx_in_window = __pyx_parallel_temp27;
-              __pyx_v_max_price = __pyx_parallel_temp28;
-              __pyx_v_min_diff = __pyx_parallel_temp29;
-              __pyx_v_min_idx_in_window = __pyx_parallel_temp30;
-              __pyx_v_min_price = __pyx_parallel_temp31;
-              __pyx_v_n = __pyx_parallel_temp32;
-              __pyx_v_n_days_max_value = __pyx_parallel_temp33;
-              __pyx_v_n_valid = __pyx_parallel_temp34;
-              __pyx_v_prev_day_change = __pyx_parallel_temp35;
-              __pyx_v_price_arr = __pyx_parallel_temp36;
-              __pyx_v_q1 = __pyx_parallel_temp37;
-              __pyx_v_q1_valid = __pyx_parallel_temp38;
-              __pyx_v_q2 = __pyx_parallel_temp39;
-              __pyx_v_q2_valid = __pyx_parallel_temp40;
-              __pyx_v_q3 = __pyx_parallel_temp41;
-              __pyx_v_q3_valid = __pyx_parallel_temp42;
-              __pyx_v_start_date_idx = __pyx_parallel_temp43;
-              __pyx_v_start_value = __pyx_parallel_temp44;
-              __pyx_v_stock_idx = __pyx_parallel_temp45;
-              __pyx_v_valid_abs_sum_block1 = __pyx_parallel_temp46;
-              __pyx_v_valid_abs_sum_block2 = __pyx_parallel_temp47;
-              __pyx_v_valid_abs_sum_block3 = __pyx_parallel_temp48;
-              __pyx_v_valid_abs_sum_block4 = __pyx_parallel_temp49;
-              __pyx_v_valid_abs_sum_first_half = __pyx_parallel_temp50;
-              __pyx_v_valid_abs_sum_second_half = __pyx_parallel_temp51;
-              __pyx_v_valid_neg_sum = __pyx_parallel_temp52;
-              __pyx_v_valid_pos_sum = __pyx_parallel_temp53;
-              __pyx_v_window_len = __pyx_parallel_temp54;
-              switch (__pyx_parallel_why) {
-                    case 4:
-                {
-                    PyGILState_STATE __pyx_gilstate_save = __Pyx_PyGILState_Ensure();
-                    #if CYTHON_COMPILING_IN_CPYTHON_FREETHREADING
-                    PyMutex_Lock(&__pyx_parallel_freethreading_mutex);
-                    #endif
-                    __Pyx_GIVEREF(__pyx_parallel_exc_type);
-                    __Pyx_ErrRestoreWithState(__pyx_parallel_exc_type, __pyx_parallel_exc_value, __pyx_parallel_exc_tb);
-                    __pyx_filename = __pyx_parallel_filename; __pyx_lineno = __pyx_parallel_lineno; __pyx_clineno = __pyx_parallel_clineno;
-                    #if CYTHON_COMPILING_IN_CPYTHON_FREETHREADING
-                    PyMutex_Unlock(&__pyx_parallel_freethreading_mutex);
-                    #endif
-                    __Pyx_PyGILState_Release(__pyx_gilstate_save);
-                }
-                goto __pyx_L6_error;
-              }
-            }
+ *                         forward_max_valid_abs_sum_second_half += v
+ *                     if j < q1:             # <<<<<<<<<<<<<<
+ *                         forward_max_valid_abs_sum_block1 += v
+ *                     elif j < q2:
+*/
+            goto __pyx_L128;
+          }
+
+          /* "worker_threads_cy.pyx":517
+ *                     if j < q1:
+ *                         forward_max_valid_abs_sum_block1 += v
+ *                     elif j < q2:             # <<<<<<<<<<<<<<
+ *                         forward_max_valid_abs_sum_block2 += v
+ *                     elif j < q3:
+*/
+          __pyx_t_7 = (__pyx_v_j < __pyx_v_q2);
+          if (__pyx_t_7) {
+
+            /* "worker_threads_cy.pyx":518
+ *                         forward_max_valid_abs_sum_block1 += v
+ *                     elif j < q2:
+ *                         forward_max_valid_abs_sum_block2 += v             # <<<<<<<<<<<<<<
+ *                     elif j < q3:
+ *                         forward_max_valid_abs_sum_block3 += v
+*/
+            __pyx_t_5 = PyFloat_FromDouble(__pyx_v_v); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 518, __pyx_L1_error)
+            __Pyx_GOTREF(__pyx_t_5);
+            __pyx_t_27 = PyNumber_InPlaceAdd(__pyx_v_forward_max_valid_abs_sum_block2, __pyx_t_5); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 518, __pyx_L1_error)
+            __Pyx_GOTREF(__pyx_t_27);
+            __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+            __Pyx_DECREF_SET(__pyx_v_forward_max_valid_abs_sum_block2, __pyx_t_27);
+            __pyx_t_27 = 0;
+
+            /* "worker_threads_cy.pyx":517
+ *                     if j < q1:
+ *                         forward_max_valid_abs_sum_block1 += v
+ *                     elif j < q2:             # <<<<<<<<<<<<<<
+ *                         forward_max_valid_abs_sum_block2 += v
+ *                     elif j < q3:
+*/
+            goto __pyx_L128;
+          }
+
+          /* "worker_threads_cy.pyx":519
+ *                     elif j < q2:
+ *                         forward_max_valid_abs_sum_block2 += v
+ *                     elif j < q3:             # <<<<<<<<<<<<<<
+ *                         forward_max_valid_abs_sum_block3 += v
+ *                     else:
+*/
+          __pyx_t_7 = (__pyx_v_j < __pyx_v_q3);
+          if (__pyx_t_7) {
+
+            /* "worker_threads_cy.pyx":520
+ *                         forward_max_valid_abs_sum_block2 += v
+ *                     elif j < q3:
+ *                         forward_max_valid_abs_sum_block3 += v             # <<<<<<<<<<<<<<
+ *                     else:
+ *                         forward_max_valid_abs_sum_block4 += v
+*/
+            __pyx_t_27 = PyFloat_FromDouble(__pyx_v_v); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 520, __pyx_L1_error)
+            __Pyx_GOTREF(__pyx_t_27);
+            __pyx_t_5 = PyNumber_InPlaceAdd(__pyx_v_forward_max_valid_abs_sum_block3, __pyx_t_27); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 520, __pyx_L1_error)
+            __Pyx_GOTREF(__pyx_t_5);
+            __Pyx_DECREF(__pyx_t_27); __pyx_t_27 = 0;
+            __Pyx_DECREF_SET(__pyx_v_forward_max_valid_abs_sum_block3, __pyx_t_5);
+            __pyx_t_5 = 0;
+
+            /* "worker_threads_cy.pyx":519
+ *                     elif j < q2:
+ *                         forward_max_valid_abs_sum_block2 += v
+ *                     elif j < q3:             # <<<<<<<<<<<<<<
+ *                         forward_max_valid_abs_sum_block3 += v
+ *                     else:
+*/
+            goto __pyx_L128;
+          }
+
+          /* "worker_threads_cy.pyx":522
+ *                         forward_max_valid_abs_sum_block3 += v
+ *                     else:
+ *                         forward_max_valid_abs_sum_block4 += v             # <<<<<<<<<<<<<<
+ *                 forward_max_valid_abs_sum_first_half = round_to_2(forward_max_valid_abs_sum_first_half)
+ *                 forward_max_valid_abs_sum_second_half = round_to_2(forward_max_valid_abs_sum_second_half)
+*/
+          /*else*/ {
+            __pyx_t_5 = PyFloat_FromDouble(__pyx_v_v); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 522, __pyx_L1_error)
+            __Pyx_GOTREF(__pyx_t_5);
+            __pyx_t_27 = PyNumber_InPlaceAdd(__pyx_v_forward_max_valid_abs_sum_block4, __pyx_t_5); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 522, __pyx_L1_error)
+            __Pyx_GOTREF(__pyx_t_27);
+            __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+            __Pyx_DECREF_SET(__pyx_v_forward_max_valid_abs_sum_block4, __pyx_t_27);
+            __pyx_t_27 = 0;
+          }
+          __pyx_L128:;
         }
-        #if ((defined(__APPLE__) || defined(__OSX__)) && (defined(__GNUC__) && (__GNUC__ > 2 || (__GNUC__ == 2 && (__GNUC_MINOR__ > 95)))))
-            #undef likely
-            #undef unlikely
-            #define likely(x)   __builtin_expect(!!(x), 1)
-            #define unlikely(x) __builtin_expect(!!(x), 0)
-        #endif
+
+        /* "worker_threads_cy.pyx":523
+ *                     else:
+ *                         forward_max_valid_abs_sum_block4 += v
+ *                 forward_max_valid_abs_sum_first_half = round_to_2(forward_max_valid_abs_sum_first_half)             # <<<<<<<<<<<<<<
+ *                 forward_max_valid_abs_sum_second_half = round_to_2(forward_max_valid_abs_sum_second_half)
+ *                 forward_max_valid_abs_sum_block1 = round_to_2(forward_max_valid_abs_sum_block1)
+*/
+        __pyx_t_33 = __Pyx_PyFloat_AsDouble(__pyx_v_forward_max_valid_abs_sum_first_half); if (unlikely((__pyx_t_33 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 523, __pyx_L1_error)
+        __pyx_t_20 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_t_33); if (unlikely(__pyx_t_20 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 523, __pyx_L1_error)
+        __pyx_t_27 = PyFloat_FromDouble(__pyx_t_20); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 523, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_27);
+        __Pyx_DECREF_SET(__pyx_v_forward_max_valid_abs_sum_first_half, __pyx_t_27);
+        __pyx_t_27 = 0;
+
+        /* "worker_threads_cy.pyx":524
+ *                         forward_max_valid_abs_sum_block4 += v
+ *                 forward_max_valid_abs_sum_first_half = round_to_2(forward_max_valid_abs_sum_first_half)
+ *                 forward_max_valid_abs_sum_second_half = round_to_2(forward_max_valid_abs_sum_second_half)             # <<<<<<<<<<<<<<
+ *                 forward_max_valid_abs_sum_block1 = round_to_2(forward_max_valid_abs_sum_block1)
+ *                 forward_max_valid_abs_sum_block2 = round_to_2(forward_max_valid_abs_sum_block2)
+*/
+        __pyx_t_20 = __Pyx_PyFloat_AsDouble(__pyx_v_forward_max_valid_abs_sum_second_half); if (unlikely((__pyx_t_20 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 524, __pyx_L1_error)
+        __pyx_t_33 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_t_20); if (unlikely(__pyx_t_33 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 524, __pyx_L1_error)
+        __pyx_t_27 = PyFloat_FromDouble(__pyx_t_33); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 524, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_27);
+        __Pyx_DECREF_SET(__pyx_v_forward_max_valid_abs_sum_second_half, __pyx_t_27);
+        __pyx_t_27 = 0;
+
+        /* "worker_threads_cy.pyx":525
+ *                 forward_max_valid_abs_sum_first_half = round_to_2(forward_max_valid_abs_sum_first_half)
+ *                 forward_max_valid_abs_sum_second_half = round_to_2(forward_max_valid_abs_sum_second_half)
+ *                 forward_max_valid_abs_sum_block1 = round_to_2(forward_max_valid_abs_sum_block1)             # <<<<<<<<<<<<<<
+ *                 forward_max_valid_abs_sum_block2 = round_to_2(forward_max_valid_abs_sum_block2)
+ *                 forward_max_valid_abs_sum_block3 = round_to_2(forward_max_valid_abs_sum_block3)
+*/
+        __pyx_t_33 = __Pyx_PyFloat_AsDouble(__pyx_v_forward_max_valid_abs_sum_block1); if (unlikely((__pyx_t_33 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 525, __pyx_L1_error)
+        __pyx_t_20 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_t_33); if (unlikely(__pyx_t_20 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 525, __pyx_L1_error)
+        __pyx_t_27 = PyFloat_FromDouble(__pyx_t_20); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 525, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_27);
+        __Pyx_DECREF_SET(__pyx_v_forward_max_valid_abs_sum_block1, __pyx_t_27);
+        __pyx_t_27 = 0;
+
+        /* "worker_threads_cy.pyx":526
+ *                 forward_max_valid_abs_sum_second_half = round_to_2(forward_max_valid_abs_sum_second_half)
+ *                 forward_max_valid_abs_sum_block1 = round_to_2(forward_max_valid_abs_sum_block1)
+ *                 forward_max_valid_abs_sum_block2 = round_to_2(forward_max_valid_abs_sum_block2)             # <<<<<<<<<<<<<<
+ *                 forward_max_valid_abs_sum_block3 = round_to_2(forward_max_valid_abs_sum_block3)
+ *                 forward_max_valid_abs_sum_block4 = round_to_2(forward_max_valid_abs_sum_block4)
+*/
+        __pyx_t_20 = __Pyx_PyFloat_AsDouble(__pyx_v_forward_max_valid_abs_sum_block2); if (unlikely((__pyx_t_20 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 526, __pyx_L1_error)
+        __pyx_t_33 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_t_20); if (unlikely(__pyx_t_33 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 526, __pyx_L1_error)
+        __pyx_t_27 = PyFloat_FromDouble(__pyx_t_33); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 526, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_27);
+        __Pyx_DECREF_SET(__pyx_v_forward_max_valid_abs_sum_block2, __pyx_t_27);
+        __pyx_t_27 = 0;
+
+        /* "worker_threads_cy.pyx":527
+ *                 forward_max_valid_abs_sum_block1 = round_to_2(forward_max_valid_abs_sum_block1)
+ *                 forward_max_valid_abs_sum_block2 = round_to_2(forward_max_valid_abs_sum_block2)
+ *                 forward_max_valid_abs_sum_block3 = round_to_2(forward_max_valid_abs_sum_block3)             # <<<<<<<<<<<<<<
+ *                 forward_max_valid_abs_sum_block4 = round_to_2(forward_max_valid_abs_sum_block4)
+ *             else:
+*/
+        __pyx_t_33 = __Pyx_PyFloat_AsDouble(__pyx_v_forward_max_valid_abs_sum_block3); if (unlikely((__pyx_t_33 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 527, __pyx_L1_error)
+        __pyx_t_20 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_t_33); if (unlikely(__pyx_t_20 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 527, __pyx_L1_error)
+        __pyx_t_27 = PyFloat_FromDouble(__pyx_t_20); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 527, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_27);
+        __Pyx_DECREF_SET(__pyx_v_forward_max_valid_abs_sum_block3, __pyx_t_27);
+        __pyx_t_27 = 0;
+
+        /* "worker_threads_cy.pyx":528
+ *                 forward_max_valid_abs_sum_block2 = round_to_2(forward_max_valid_abs_sum_block2)
+ *                 forward_max_valid_abs_sum_block3 = round_to_2(forward_max_valid_abs_sum_block3)
+ *                 forward_max_valid_abs_sum_block4 = round_to_2(forward_max_valid_abs_sum_block4)             # <<<<<<<<<<<<<<
+ *             else:
+ *                 forward_max_valid_abs_sum_first_half = 0
+*/
+        __pyx_t_20 = __Pyx_PyFloat_AsDouble(__pyx_v_forward_max_valid_abs_sum_block4); if (unlikely((__pyx_t_20 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 528, __pyx_L1_error)
+        __pyx_t_33 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_t_20); if (unlikely(__pyx_t_33 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 528, __pyx_L1_error)
+        __pyx_t_27 = PyFloat_FromDouble(__pyx_t_33); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 528, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_27);
+        __Pyx_DECREF_SET(__pyx_v_forward_max_valid_abs_sum_block4, __pyx_t_27);
+        __pyx_t_27 = 0;
+
+        /* "worker_threads_cy.pyx":503
+ *             forward_max_valid_abs_sum_block3 = 0
+ *             forward_max_valid_abs_sum_block4 = 0
+ *             if is_forward and forward_max_result_len > 0:             # <<<<<<<<<<<<<<
+ *                 n = forward_max_result_len
+ *                 half = int(round(n / 2.0))
+*/
+        goto __pyx_L122;
       }
 
-      /* "worker_threads_cy.pyx":129
- * 
- *     #
- *     for i in prange(stock_idx_arr_view.shape[0], nogil=True):             # <<<<<<<<<<<<<<
- *         stock_idx = stock_idx_arr_view[i]
+      /* "worker_threads_cy.pyx":530
+ *                 forward_max_valid_abs_sum_block4 = round_to_2(forward_max_valid_abs_sum_block4)
+ *             else:
+ *                 forward_max_valid_abs_sum_first_half = 0             # <<<<<<<<<<<<<<
+ *                 forward_max_valid_abs_sum_second_half = 0
+ *                 forward_max_valid_abs_sum_block1 = 0
+*/
+      /*else*/ {
+        __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
+        __Pyx_DECREF_SET(__pyx_v_forward_max_valid_abs_sum_first_half, __pyx_mstate_global->__pyx_int_0);
+
+        /* "worker_threads_cy.pyx":531
+ *             else:
+ *                 forward_max_valid_abs_sum_first_half = 0
+ *                 forward_max_valid_abs_sum_second_half = 0             # <<<<<<<<<<<<<<
+ *                 forward_max_valid_abs_sum_block1 = 0
+ *                 forward_max_valid_abs_sum_block2 = 0
+*/
+        __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
+        __Pyx_DECREF_SET(__pyx_v_forward_max_valid_abs_sum_second_half, __pyx_mstate_global->__pyx_int_0);
+
+        /* "worker_threads_cy.pyx":532
+ *                 forward_max_valid_abs_sum_first_half = 0
+ *                 forward_max_valid_abs_sum_second_half = 0
+ *                 forward_max_valid_abs_sum_block1 = 0             # <<<<<<<<<<<<<<
+ *                 forward_max_valid_abs_sum_block2 = 0
+ *                 forward_max_valid_abs_sum_block3 = 0
+*/
+        __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
+        __Pyx_DECREF_SET(__pyx_v_forward_max_valid_abs_sum_block1, __pyx_mstate_global->__pyx_int_0);
+
+        /* "worker_threads_cy.pyx":533
+ *                 forward_max_valid_abs_sum_second_half = 0
+ *                 forward_max_valid_abs_sum_block1 = 0
+ *                 forward_max_valid_abs_sum_block2 = 0             # <<<<<<<<<<<<<<
+ *                 forward_max_valid_abs_sum_block3 = 0
+ *                 forward_max_valid_abs_sum_block4 = 0
+*/
+        __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
+        __Pyx_DECREF_SET(__pyx_v_forward_max_valid_abs_sum_block2, __pyx_mstate_global->__pyx_int_0);
+
+        /* "worker_threads_cy.pyx":534
+ *                 forward_max_valid_abs_sum_block1 = 0
+ *                 forward_max_valid_abs_sum_block2 = 0
+ *                 forward_max_valid_abs_sum_block3 = 0             # <<<<<<<<<<<<<<
+ *                 forward_max_valid_abs_sum_block4 = 0
  * 
 */
-      /*finally:*/ {
-        /*normal exit:*/{
-          __Pyx_FastGIL_Forget();
-          Py_BLOCK_THREADS
-          goto __pyx_L7;
+        __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
+        __Pyx_DECREF_SET(__pyx_v_forward_max_valid_abs_sum_block3, __pyx_mstate_global->__pyx_int_0);
+
+        /* "worker_threads_cy.pyx":535
+ *                 forward_max_valid_abs_sum_block2 = 0
+ *                 forward_max_valid_abs_sum_block3 = 0
+ *                 forward_max_valid_abs_sum_block4 = 0             # <<<<<<<<<<<<<<
+ * 
+ *             # Cython
+*/
+        __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
+        __Pyx_DECREF_SET(__pyx_v_forward_max_valid_abs_sum_block4, __pyx_mstate_global->__pyx_int_0);
+      }
+      __pyx_L122:;
+
+      /* "worker_threads_cy.pyx":538
+ * 
+ *             # Cython
+ *             forward_min_result_len = forward_min_result_c.size()             # <<<<<<<<<<<<<<
+ *             forward_min_valid_abs_sum_first_half = 0
+ *             forward_min_valid_abs_sum_second_half = 0
+*/
+      __pyx_v_forward_min_result_len = __pyx_v_forward_min_result_c.size();
+
+      /* "worker_threads_cy.pyx":539
+ *             # Cython
+ *             forward_min_result_len = forward_min_result_c.size()
+ *             forward_min_valid_abs_sum_first_half = 0             # <<<<<<<<<<<<<<
+ *             forward_min_valid_abs_sum_second_half = 0
+ *             forward_min_valid_abs_sum_block1 = 0
+*/
+      __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
+      __Pyx_DECREF_SET(__pyx_v_forward_min_valid_abs_sum_first_half, __pyx_mstate_global->__pyx_int_0);
+
+      /* "worker_threads_cy.pyx":540
+ *             forward_min_result_len = forward_min_result_c.size()
+ *             forward_min_valid_abs_sum_first_half = 0
+ *             forward_min_valid_abs_sum_second_half = 0             # <<<<<<<<<<<<<<
+ *             forward_min_valid_abs_sum_block1 = 0
+ *             forward_min_valid_abs_sum_block2 = 0
+*/
+      __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
+      __Pyx_DECREF_SET(__pyx_v_forward_min_valid_abs_sum_second_half, __pyx_mstate_global->__pyx_int_0);
+
+      /* "worker_threads_cy.pyx":541
+ *             forward_min_valid_abs_sum_first_half = 0
+ *             forward_min_valid_abs_sum_second_half = 0
+ *             forward_min_valid_abs_sum_block1 = 0             # <<<<<<<<<<<<<<
+ *             forward_min_valid_abs_sum_block2 = 0
+ *             forward_min_valid_abs_sum_block3 = 0
+*/
+      __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
+      __Pyx_DECREF_SET(__pyx_v_forward_min_valid_abs_sum_block1, __pyx_mstate_global->__pyx_int_0);
+
+      /* "worker_threads_cy.pyx":542
+ *             forward_min_valid_abs_sum_second_half = 0
+ *             forward_min_valid_abs_sum_block1 = 0
+ *             forward_min_valid_abs_sum_block2 = 0             # <<<<<<<<<<<<<<
+ *             forward_min_valid_abs_sum_block3 = 0
+ *             forward_min_valid_abs_sum_block4 = 0
+*/
+      __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
+      __Pyx_DECREF_SET(__pyx_v_forward_min_valid_abs_sum_block2, __pyx_mstate_global->__pyx_int_0);
+
+      /* "worker_threads_cy.pyx":543
+ *             forward_min_valid_abs_sum_block1 = 0
+ *             forward_min_valid_abs_sum_block2 = 0
+ *             forward_min_valid_abs_sum_block3 = 0             # <<<<<<<<<<<<<<
+ *             forward_min_valid_abs_sum_block4 = 0
+ *             if is_forward and forward_min_result_len > 0:
+*/
+      __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
+      __Pyx_DECREF_SET(__pyx_v_forward_min_valid_abs_sum_block3, __pyx_mstate_global->__pyx_int_0);
+
+      /* "worker_threads_cy.pyx":544
+ *             forward_min_valid_abs_sum_block2 = 0
+ *             forward_min_valid_abs_sum_block3 = 0
+ *             forward_min_valid_abs_sum_block4 = 0             # <<<<<<<<<<<<<<
+ *             if is_forward and forward_min_result_len > 0:
+ *                 n = forward_min_result_len
+*/
+      __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
+      __Pyx_DECREF_SET(__pyx_v_forward_min_valid_abs_sum_block4, __pyx_mstate_global->__pyx_int_0);
+
+      /* "worker_threads_cy.pyx":545
+ *             forward_min_valid_abs_sum_block3 = 0
+ *             forward_min_valid_abs_sum_block4 = 0
+ *             if is_forward and forward_min_result_len > 0:             # <<<<<<<<<<<<<<
+ *                 n = forward_min_result_len
+ *                 half = int(round(n / 2.0))
+*/
+      if (__pyx_v_is_forward) {
+      } else {
+        __pyx_t_7 = __pyx_v_is_forward;
+        goto __pyx_L130_bool_binop_done;
+      }
+      __pyx_t_21 = (__pyx_v_forward_min_result_len > 0);
+      __pyx_t_7 = __pyx_t_21;
+      __pyx_L130_bool_binop_done:;
+      if (__pyx_t_7) {
+
+        /* "worker_threads_cy.pyx":546
+ *             forward_min_valid_abs_sum_block4 = 0
+ *             if is_forward and forward_min_result_len > 0:
+ *                 n = forward_min_result_len             # <<<<<<<<<<<<<<
+ *                 half = int(round(n / 2.0))
+ *                 q1 = int(round(n / 4.0))
+*/
+        __pyx_v_n = __pyx_v_forward_min_result_len;
+
+        /* "worker_threads_cy.pyx":547
+ *             if is_forward and forward_min_result_len > 0:
+ *                 n = forward_min_result_len
+ *                 half = int(round(n / 2.0))             # <<<<<<<<<<<<<<
+ *                 q1 = int(round(n / 4.0))
+ *                 q2 = int(round(n / 2.0))
+*/
+        __pyx_v_half = ((int)round((((double)__pyx_v_n) / 2.0)));
+
+        /* "worker_threads_cy.pyx":548
+ *                 n = forward_min_result_len
+ *                 half = int(round(n / 2.0))
+ *                 q1 = int(round(n / 4.0))             # <<<<<<<<<<<<<<
+ *                 q2 = int(round(n / 2.0))
+ *                 q3 = int(round(3 * n / 4.0))
+*/
+        __pyx_v_q1 = ((int)round((((double)__pyx_v_n) / 4.0)));
+
+        /* "worker_threads_cy.pyx":549
+ *                 half = int(round(n / 2.0))
+ *                 q1 = int(round(n / 4.0))
+ *                 q2 = int(round(n / 2.0))             # <<<<<<<<<<<<<<
+ *                 q3 = int(round(3 * n / 4.0))
+ *                 for j in range(n):
+*/
+        __pyx_v_q2 = ((int)round((((double)__pyx_v_n) / 2.0)));
+
+        /* "worker_threads_cy.pyx":550
+ *                 q1 = int(round(n / 4.0))
+ *                 q2 = int(round(n / 2.0))
+ *                 q3 = int(round(3 * n / 4.0))             # <<<<<<<<<<<<<<
+ *                 for j in range(n):
+ *                     v = fabs(forward_min_result_c[j])
+*/
+        __pyx_v_q3 = ((int)round((((double)(3 * __pyx_v_n)) / 4.0)));
+
+        /* "worker_threads_cy.pyx":551
+ *                 q2 = int(round(n / 2.0))
+ *                 q3 = int(round(3 * n / 4.0))
+ *                 for j in range(n):             # <<<<<<<<<<<<<<
+ *                     v = fabs(forward_min_result_c[j])
+ *                     if j < half:
+*/
+        __pyx_t_16 = __pyx_v_n;
+        __pyx_t_17 = __pyx_t_16;
+        for (__pyx_t_18 = 0; __pyx_t_18 < __pyx_t_17; __pyx_t_18+=1) {
+          __pyx_v_j = __pyx_t_18;
+
+          /* "worker_threads_cy.pyx":552
+ *                 q3 = int(round(3 * n / 4.0))
+ *                 for j in range(n):
+ *                     v = fabs(forward_min_result_c[j])             # <<<<<<<<<<<<<<
+ *                     if j < half:
+ *                         forward_min_valid_abs_sum_first_half += v
+*/
+          __pyx_v_v = fabs((__pyx_v_forward_min_result_c[__pyx_v_j]));
+
+          /* "worker_threads_cy.pyx":553
+ *                 for j in range(n):
+ *                     v = fabs(forward_min_result_c[j])
+ *                     if j < half:             # <<<<<<<<<<<<<<
+ *                         forward_min_valid_abs_sum_first_half += v
+ *                     else:
+*/
+          __pyx_t_7 = (__pyx_v_j < __pyx_v_half);
+          if (__pyx_t_7) {
+
+            /* "worker_threads_cy.pyx":554
+ *                     v = fabs(forward_min_result_c[j])
+ *                     if j < half:
+ *                         forward_min_valid_abs_sum_first_half += v             # <<<<<<<<<<<<<<
+ *                     else:
+ *                         forward_min_valid_abs_sum_second_half += v
+*/
+            __pyx_t_27 = PyFloat_FromDouble(__pyx_v_v); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 554, __pyx_L1_error)
+            __Pyx_GOTREF(__pyx_t_27);
+            __pyx_t_5 = PyNumber_InPlaceAdd(__pyx_v_forward_min_valid_abs_sum_first_half, __pyx_t_27); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 554, __pyx_L1_error)
+            __Pyx_GOTREF(__pyx_t_5);
+            __Pyx_DECREF(__pyx_t_27); __pyx_t_27 = 0;
+            __Pyx_DECREF_SET(__pyx_v_forward_min_valid_abs_sum_first_half, __pyx_t_5);
+            __pyx_t_5 = 0;
+
+            /* "worker_threads_cy.pyx":553
+ *                 for j in range(n):
+ *                     v = fabs(forward_min_result_c[j])
+ *                     if j < half:             # <<<<<<<<<<<<<<
+ *                         forward_min_valid_abs_sum_first_half += v
+ *                     else:
+*/
+            goto __pyx_L134;
+          }
+
+          /* "worker_threads_cy.pyx":556
+ *                         forward_min_valid_abs_sum_first_half += v
+ *                     else:
+ *                         forward_min_valid_abs_sum_second_half += v             # <<<<<<<<<<<<<<
+ *                     if j < q1:
+ *                         forward_min_valid_abs_sum_block1 += v
+*/
+          /*else*/ {
+            __pyx_t_5 = PyFloat_FromDouble(__pyx_v_v); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 556, __pyx_L1_error)
+            __Pyx_GOTREF(__pyx_t_5);
+            __pyx_t_27 = PyNumber_InPlaceAdd(__pyx_v_forward_min_valid_abs_sum_second_half, __pyx_t_5); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 556, __pyx_L1_error)
+            __Pyx_GOTREF(__pyx_t_27);
+            __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+            __Pyx_DECREF_SET(__pyx_v_forward_min_valid_abs_sum_second_half, __pyx_t_27);
+            __pyx_t_27 = 0;
+          }
+          __pyx_L134:;
+
+          /* "worker_threads_cy.pyx":557
+ *                     else:
+ *                         forward_min_valid_abs_sum_second_half += v
+ *                     if j < q1:             # <<<<<<<<<<<<<<
+ *                         forward_min_valid_abs_sum_block1 += v
+ *                     elif j < q2:
+*/
+          __pyx_t_7 = (__pyx_v_j < __pyx_v_q1);
+          if (__pyx_t_7) {
+
+            /* "worker_threads_cy.pyx":558
+ *                         forward_min_valid_abs_sum_second_half += v
+ *                     if j < q1:
+ *                         forward_min_valid_abs_sum_block1 += v             # <<<<<<<<<<<<<<
+ *                     elif j < q2:
+ *                         forward_min_valid_abs_sum_block2 += v
+*/
+            __pyx_t_27 = PyFloat_FromDouble(__pyx_v_v); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 558, __pyx_L1_error)
+            __Pyx_GOTREF(__pyx_t_27);
+            __pyx_t_5 = PyNumber_InPlaceAdd(__pyx_v_forward_min_valid_abs_sum_block1, __pyx_t_27); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 558, __pyx_L1_error)
+            __Pyx_GOTREF(__pyx_t_5);
+            __Pyx_DECREF(__pyx_t_27); __pyx_t_27 = 0;
+            __Pyx_DECREF_SET(__pyx_v_forward_min_valid_abs_sum_block1, __pyx_t_5);
+            __pyx_t_5 = 0;
+
+            /* "worker_threads_cy.pyx":557
+ *                     else:
+ *                         forward_min_valid_abs_sum_second_half += v
+ *                     if j < q1:             # <<<<<<<<<<<<<<
+ *                         forward_min_valid_abs_sum_block1 += v
+ *                     elif j < q2:
+*/
+            goto __pyx_L135;
+          }
+
+          /* "worker_threads_cy.pyx":559
+ *                     if j < q1:
+ *                         forward_min_valid_abs_sum_block1 += v
+ *                     elif j < q2:             # <<<<<<<<<<<<<<
+ *                         forward_min_valid_abs_sum_block2 += v
+ *                     elif j < q3:
+*/
+          __pyx_t_7 = (__pyx_v_j < __pyx_v_q2);
+          if (__pyx_t_7) {
+
+            /* "worker_threads_cy.pyx":560
+ *                         forward_min_valid_abs_sum_block1 += v
+ *                     elif j < q2:
+ *                         forward_min_valid_abs_sum_block2 += v             # <<<<<<<<<<<<<<
+ *                     elif j < q3:
+ *                         forward_min_valid_abs_sum_block3 += v
+*/
+            __pyx_t_5 = PyFloat_FromDouble(__pyx_v_v); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 560, __pyx_L1_error)
+            __Pyx_GOTREF(__pyx_t_5);
+            __pyx_t_27 = PyNumber_InPlaceAdd(__pyx_v_forward_min_valid_abs_sum_block2, __pyx_t_5); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 560, __pyx_L1_error)
+            __Pyx_GOTREF(__pyx_t_27);
+            __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+            __Pyx_DECREF_SET(__pyx_v_forward_min_valid_abs_sum_block2, __pyx_t_27);
+            __pyx_t_27 = 0;
+
+            /* "worker_threads_cy.pyx":559
+ *                     if j < q1:
+ *                         forward_min_valid_abs_sum_block1 += v
+ *                     elif j < q2:             # <<<<<<<<<<<<<<
+ *                         forward_min_valid_abs_sum_block2 += v
+ *                     elif j < q3:
+*/
+            goto __pyx_L135;
+          }
+
+          /* "worker_threads_cy.pyx":561
+ *                     elif j < q2:
+ *                         forward_min_valid_abs_sum_block2 += v
+ *                     elif j < q3:             # <<<<<<<<<<<<<<
+ *                         forward_min_valid_abs_sum_block3 += v
+ *                     else:
+*/
+          __pyx_t_7 = (__pyx_v_j < __pyx_v_q3);
+          if (__pyx_t_7) {
+
+            /* "worker_threads_cy.pyx":562
+ *                         forward_min_valid_abs_sum_block2 += v
+ *                     elif j < q3:
+ *                         forward_min_valid_abs_sum_block3 += v             # <<<<<<<<<<<<<<
+ *                     else:
+ *                         forward_min_valid_abs_sum_block4 += v
+*/
+            __pyx_t_27 = PyFloat_FromDouble(__pyx_v_v); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 562, __pyx_L1_error)
+            __Pyx_GOTREF(__pyx_t_27);
+            __pyx_t_5 = PyNumber_InPlaceAdd(__pyx_v_forward_min_valid_abs_sum_block3, __pyx_t_27); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 562, __pyx_L1_error)
+            __Pyx_GOTREF(__pyx_t_5);
+            __Pyx_DECREF(__pyx_t_27); __pyx_t_27 = 0;
+            __Pyx_DECREF_SET(__pyx_v_forward_min_valid_abs_sum_block3, __pyx_t_5);
+            __pyx_t_5 = 0;
+
+            /* "worker_threads_cy.pyx":561
+ *                     elif j < q2:
+ *                         forward_min_valid_abs_sum_block2 += v
+ *                     elif j < q3:             # <<<<<<<<<<<<<<
+ *                         forward_min_valid_abs_sum_block3 += v
+ *                     else:
+*/
+            goto __pyx_L135;
+          }
+
+          /* "worker_threads_cy.pyx":564
+ *                         forward_min_valid_abs_sum_block3 += v
+ *                     else:
+ *                         forward_min_valid_abs_sum_block4 += v             # <<<<<<<<<<<<<<
+ *                 forward_min_valid_abs_sum_first_half = round_to_2(forward_min_valid_abs_sum_first_half)
+ *                 forward_min_valid_abs_sum_second_half = round_to_2(forward_min_valid_abs_sum_second_half)
+*/
+          /*else*/ {
+            __pyx_t_5 = PyFloat_FromDouble(__pyx_v_v); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 564, __pyx_L1_error)
+            __Pyx_GOTREF(__pyx_t_5);
+            __pyx_t_27 = PyNumber_InPlaceAdd(__pyx_v_forward_min_valid_abs_sum_block4, __pyx_t_5); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 564, __pyx_L1_error)
+            __Pyx_GOTREF(__pyx_t_27);
+            __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+            __Pyx_DECREF_SET(__pyx_v_forward_min_valid_abs_sum_block4, __pyx_t_27);
+            __pyx_t_27 = 0;
+          }
+          __pyx_L135:;
         }
-        __pyx_L6_error: {
-          __Pyx_FastGIL_Forget();
-          Py_BLOCK_THREADS
+
+        /* "worker_threads_cy.pyx":565
+ *                     else:
+ *                         forward_min_valid_abs_sum_block4 += v
+ *                 forward_min_valid_abs_sum_first_half = round_to_2(forward_min_valid_abs_sum_first_half)             # <<<<<<<<<<<<<<
+ *                 forward_min_valid_abs_sum_second_half = round_to_2(forward_min_valid_abs_sum_second_half)
+ *                 forward_min_valid_abs_sum_block1 = round_to_2(forward_min_valid_abs_sum_block1)
+*/
+        __pyx_t_33 = __Pyx_PyFloat_AsDouble(__pyx_v_forward_min_valid_abs_sum_first_half); if (unlikely((__pyx_t_33 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 565, __pyx_L1_error)
+        __pyx_t_20 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_t_33); if (unlikely(__pyx_t_20 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 565, __pyx_L1_error)
+        __pyx_t_27 = PyFloat_FromDouble(__pyx_t_20); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 565, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_27);
+        __Pyx_DECREF_SET(__pyx_v_forward_min_valid_abs_sum_first_half, __pyx_t_27);
+        __pyx_t_27 = 0;
+
+        /* "worker_threads_cy.pyx":566
+ *                         forward_min_valid_abs_sum_block4 += v
+ *                 forward_min_valid_abs_sum_first_half = round_to_2(forward_min_valid_abs_sum_first_half)
+ *                 forward_min_valid_abs_sum_second_half = round_to_2(forward_min_valid_abs_sum_second_half)             # <<<<<<<<<<<<<<
+ *                 forward_min_valid_abs_sum_block1 = round_to_2(forward_min_valid_abs_sum_block1)
+ *                 forward_min_valid_abs_sum_block2 = round_to_2(forward_min_valid_abs_sum_block2)
+*/
+        __pyx_t_20 = __Pyx_PyFloat_AsDouble(__pyx_v_forward_min_valid_abs_sum_second_half); if (unlikely((__pyx_t_20 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 566, __pyx_L1_error)
+        __pyx_t_33 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_t_20); if (unlikely(__pyx_t_33 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 566, __pyx_L1_error)
+        __pyx_t_27 = PyFloat_FromDouble(__pyx_t_33); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 566, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_27);
+        __Pyx_DECREF_SET(__pyx_v_forward_min_valid_abs_sum_second_half, __pyx_t_27);
+        __pyx_t_27 = 0;
+
+        /* "worker_threads_cy.pyx":567
+ *                 forward_min_valid_abs_sum_first_half = round_to_2(forward_min_valid_abs_sum_first_half)
+ *                 forward_min_valid_abs_sum_second_half = round_to_2(forward_min_valid_abs_sum_second_half)
+ *                 forward_min_valid_abs_sum_block1 = round_to_2(forward_min_valid_abs_sum_block1)             # <<<<<<<<<<<<<<
+ *                 forward_min_valid_abs_sum_block2 = round_to_2(forward_min_valid_abs_sum_block2)
+ *                 forward_min_valid_abs_sum_block3 = round_to_2(forward_min_valid_abs_sum_block3)
+*/
+        __pyx_t_33 = __Pyx_PyFloat_AsDouble(__pyx_v_forward_min_valid_abs_sum_block1); if (unlikely((__pyx_t_33 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 567, __pyx_L1_error)
+        __pyx_t_20 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_t_33); if (unlikely(__pyx_t_20 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 567, __pyx_L1_error)
+        __pyx_t_27 = PyFloat_FromDouble(__pyx_t_20); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 567, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_27);
+        __Pyx_DECREF_SET(__pyx_v_forward_min_valid_abs_sum_block1, __pyx_t_27);
+        __pyx_t_27 = 0;
+
+        /* "worker_threads_cy.pyx":568
+ *                 forward_min_valid_abs_sum_second_half = round_to_2(forward_min_valid_abs_sum_second_half)
+ *                 forward_min_valid_abs_sum_block1 = round_to_2(forward_min_valid_abs_sum_block1)
+ *                 forward_min_valid_abs_sum_block2 = round_to_2(forward_min_valid_abs_sum_block2)             # <<<<<<<<<<<<<<
+ *                 forward_min_valid_abs_sum_block3 = round_to_2(forward_min_valid_abs_sum_block3)
+ *                 forward_min_valid_abs_sum_block4 = round_to_2(forward_min_valid_abs_sum_block4)
+*/
+        __pyx_t_20 = __Pyx_PyFloat_AsDouble(__pyx_v_forward_min_valid_abs_sum_block2); if (unlikely((__pyx_t_20 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 568, __pyx_L1_error)
+        __pyx_t_33 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_t_20); if (unlikely(__pyx_t_33 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 568, __pyx_L1_error)
+        __pyx_t_27 = PyFloat_FromDouble(__pyx_t_33); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 568, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_27);
+        __Pyx_DECREF_SET(__pyx_v_forward_min_valid_abs_sum_block2, __pyx_t_27);
+        __pyx_t_27 = 0;
+
+        /* "worker_threads_cy.pyx":569
+ *                 forward_min_valid_abs_sum_block1 = round_to_2(forward_min_valid_abs_sum_block1)
+ *                 forward_min_valid_abs_sum_block2 = round_to_2(forward_min_valid_abs_sum_block2)
+ *                 forward_min_valid_abs_sum_block3 = round_to_2(forward_min_valid_abs_sum_block3)             # <<<<<<<<<<<<<<
+ *                 forward_min_valid_abs_sum_block4 = round_to_2(forward_min_valid_abs_sum_block4)
+ *             else:
+*/
+        __pyx_t_33 = __Pyx_PyFloat_AsDouble(__pyx_v_forward_min_valid_abs_sum_block3); if (unlikely((__pyx_t_33 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 569, __pyx_L1_error)
+        __pyx_t_20 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_t_33); if (unlikely(__pyx_t_20 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 569, __pyx_L1_error)
+        __pyx_t_27 = PyFloat_FromDouble(__pyx_t_20); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 569, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_27);
+        __Pyx_DECREF_SET(__pyx_v_forward_min_valid_abs_sum_block3, __pyx_t_27);
+        __pyx_t_27 = 0;
+
+        /* "worker_threads_cy.pyx":570
+ *                 forward_min_valid_abs_sum_block2 = round_to_2(forward_min_valid_abs_sum_block2)
+ *                 forward_min_valid_abs_sum_block3 = round_to_2(forward_min_valid_abs_sum_block3)
+ *                 forward_min_valid_abs_sum_block4 = round_to_2(forward_min_valid_abs_sum_block4)             # <<<<<<<<<<<<<<
+ *             else:
+ *                 forward_min_valid_abs_sum_first_half = 0
+*/
+        __pyx_t_20 = __Pyx_PyFloat_AsDouble(__pyx_v_forward_min_valid_abs_sum_block4); if (unlikely((__pyx_t_20 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 570, __pyx_L1_error)
+        __pyx_t_33 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_t_20); if (unlikely(__pyx_t_33 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 570, __pyx_L1_error)
+        __pyx_t_27 = PyFloat_FromDouble(__pyx_t_33); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 570, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_27);
+        __Pyx_DECREF_SET(__pyx_v_forward_min_valid_abs_sum_block4, __pyx_t_27);
+        __pyx_t_27 = 0;
+
+        /* "worker_threads_cy.pyx":545
+ *             forward_min_valid_abs_sum_block3 = 0
+ *             forward_min_valid_abs_sum_block4 = 0
+ *             if is_forward and forward_min_result_len > 0:             # <<<<<<<<<<<<<<
+ *                 n = forward_min_result_len
+ *                 half = int(round(n / 2.0))
+*/
+        goto __pyx_L129;
+      }
+
+      /* "worker_threads_cy.pyx":572
+ *                 forward_min_valid_abs_sum_block4 = round_to_2(forward_min_valid_abs_sum_block4)
+ *             else:
+ *                 forward_min_valid_abs_sum_first_half = 0             # <<<<<<<<<<<<<<
+ *                 forward_min_valid_abs_sum_second_half = 0
+ *                 forward_min_valid_abs_sum_block1 = 0
+*/
+      /*else*/ {
+        __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
+        __Pyx_DECREF_SET(__pyx_v_forward_min_valid_abs_sum_first_half, __pyx_mstate_global->__pyx_int_0);
+
+        /* "worker_threads_cy.pyx":573
+ *             else:
+ *                 forward_min_valid_abs_sum_first_half = 0
+ *                 forward_min_valid_abs_sum_second_half = 0             # <<<<<<<<<<<<<<
+ *                 forward_min_valid_abs_sum_block1 = 0
+ *                 forward_min_valid_abs_sum_block2 = 0
+*/
+        __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
+        __Pyx_DECREF_SET(__pyx_v_forward_min_valid_abs_sum_second_half, __pyx_mstate_global->__pyx_int_0);
+
+        /* "worker_threads_cy.pyx":574
+ *                 forward_min_valid_abs_sum_first_half = 0
+ *                 forward_min_valid_abs_sum_second_half = 0
+ *                 forward_min_valid_abs_sum_block1 = 0             # <<<<<<<<<<<<<<
+ *                 forward_min_valid_abs_sum_block2 = 0
+ *                 forward_min_valid_abs_sum_block3 = 0
+*/
+        __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
+        __Pyx_DECREF_SET(__pyx_v_forward_min_valid_abs_sum_block1, __pyx_mstate_global->__pyx_int_0);
+
+        /* "worker_threads_cy.pyx":575
+ *                 forward_min_valid_abs_sum_second_half = 0
+ *                 forward_min_valid_abs_sum_block1 = 0
+ *                 forward_min_valid_abs_sum_block2 = 0             # <<<<<<<<<<<<<<
+ *                 forward_min_valid_abs_sum_block3 = 0
+ *                 forward_min_valid_abs_sum_block4 = 0
+*/
+        __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
+        __Pyx_DECREF_SET(__pyx_v_forward_min_valid_abs_sum_block2, __pyx_mstate_global->__pyx_int_0);
+
+        /* "worker_threads_cy.pyx":576
+ *                 forward_min_valid_abs_sum_block1 = 0
+ *                 forward_min_valid_abs_sum_block2 = 0
+ *                 forward_min_valid_abs_sum_block3 = 0             # <<<<<<<<<<<<<<
+ *                 forward_min_valid_abs_sum_block4 = 0
+ * 
+*/
+        __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
+        __Pyx_DECREF_SET(__pyx_v_forward_min_valid_abs_sum_block3, __pyx_mstate_global->__pyx_int_0);
+
+        /* "worker_threads_cy.pyx":577
+ *                 forward_min_valid_abs_sum_block2 = 0
+ *                 forward_min_valid_abs_sum_block3 = 0
+ *                 forward_min_valid_abs_sum_block4 = 0             # <<<<<<<<<<<<<<
+ * 
+ *             #
+*/
+        __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
+        __Pyx_DECREF_SET(__pyx_v_forward_min_valid_abs_sum_block4, __pyx_mstate_global->__pyx_int_0);
+      }
+      __pyx_L129:;
+
+      /* "worker_threads_cy.pyx":580
+ * 
+ *             #
+ *             continuous_start_value = cont_sum[0] if cont_sum.size() > 0 else None             # <<<<<<<<<<<<<<
+ *             continuous_start_next_value = cont_sum[1] if cont_sum.size() > 1 else None
+ *             continuous_start_next_next_value = cont_sum[2] if cont_sum.size() > 2 else None
+*/
+      __pyx_t_7 = (__pyx_v_cont_sum.size() > 0);
+      if (__pyx_t_7) {
+        __pyx_t_5 = PyFloat_FromDouble((__pyx_v_cont_sum[0])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 580, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_5);
+        __pyx_t_27 = __pyx_t_5;
+        __pyx_t_5 = 0;
+      } else {
+        __Pyx_INCREF(Py_None);
+        __pyx_t_27 = Py_None;
+      }
+      __Pyx_XDECREF_SET(__pyx_v_continuous_start_value, __pyx_t_27);
+      __pyx_t_27 = 0;
+
+      /* "worker_threads_cy.pyx":581
+ *             #
+ *             continuous_start_value = cont_sum[0] if cont_sum.size() > 0 else None
+ *             continuous_start_next_value = cont_sum[1] if cont_sum.size() > 1 else None             # <<<<<<<<<<<<<<
+ *             continuous_start_next_next_value = cont_sum[2] if cont_sum.size() > 2 else None
+ *             continuous_end_value = cont_sum[cont_sum.size()-1] if cont_sum.size() > 0 else None
+*/
+      __pyx_t_7 = (__pyx_v_cont_sum.size() > 1);
+      if (__pyx_t_7) {
+        __pyx_t_5 = PyFloat_FromDouble((__pyx_v_cont_sum[1])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 581, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_5);
+        __pyx_t_27 = __pyx_t_5;
+        __pyx_t_5 = 0;
+      } else {
+        __Pyx_INCREF(Py_None);
+        __pyx_t_27 = Py_None;
+      }
+      __Pyx_XDECREF_SET(__pyx_v_continuous_start_next_value, __pyx_t_27);
+      __pyx_t_27 = 0;
+
+      /* "worker_threads_cy.pyx":582
+ *             continuous_start_value = cont_sum[0] if cont_sum.size() > 0 else None
+ *             continuous_start_next_value = cont_sum[1] if cont_sum.size() > 1 else None
+ *             continuous_start_next_next_value = cont_sum[2] if cont_sum.size() > 2 else None             # <<<<<<<<<<<<<<
+ *             continuous_end_value = cont_sum[cont_sum.size()-1] if cont_sum.size() > 0 else None
+ *             continuous_end_prev_value = cont_sum[cont_sum.size()-2] if cont_sum.size() > 1 else None
+*/
+      __pyx_t_7 = (__pyx_v_cont_sum.size() > 2);
+      if (__pyx_t_7) {
+        __pyx_t_5 = PyFloat_FromDouble((__pyx_v_cont_sum[2])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 582, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_5);
+        __pyx_t_27 = __pyx_t_5;
+        __pyx_t_5 = 0;
+      } else {
+        __Pyx_INCREF(Py_None);
+        __pyx_t_27 = Py_None;
+      }
+      __Pyx_XDECREF_SET(__pyx_v_continuous_start_next_next_value, __pyx_t_27);
+      __pyx_t_27 = 0;
+
+      /* "worker_threads_cy.pyx":583
+ *             continuous_start_next_value = cont_sum[1] if cont_sum.size() > 1 else None
+ *             continuous_start_next_next_value = cont_sum[2] if cont_sum.size() > 2 else None
+ *             continuous_end_value = cont_sum[cont_sum.size()-1] if cont_sum.size() > 0 else None             # <<<<<<<<<<<<<<
+ *             continuous_end_prev_value = cont_sum[cont_sum.size()-2] if cont_sum.size() > 1 else None
+ *             continuous_end_prev_prev_value = cont_sum[cont_sum.size()-3] if cont_sum.size() > 2 else None
+*/
+      __pyx_t_7 = (__pyx_v_cont_sum.size() > 0);
+      if (__pyx_t_7) {
+        __pyx_t_5 = PyFloat_FromDouble((__pyx_v_cont_sum[(__pyx_v_cont_sum.size() - 1)])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 583, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_5);
+        __pyx_t_27 = __pyx_t_5;
+        __pyx_t_5 = 0;
+      } else {
+        __Pyx_INCREF(Py_None);
+        __pyx_t_27 = Py_None;
+      }
+      __Pyx_XDECREF_SET(__pyx_v_continuous_end_value, __pyx_t_27);
+      __pyx_t_27 = 0;
+
+      /* "worker_threads_cy.pyx":584
+ *             continuous_start_next_next_value = cont_sum[2] if cont_sum.size() > 2 else None
+ *             continuous_end_value = cont_sum[cont_sum.size()-1] if cont_sum.size() > 0 else None
+ *             continuous_end_prev_value = cont_sum[cont_sum.size()-2] if cont_sum.size() > 1 else None             # <<<<<<<<<<<<<<
+ *             continuous_end_prev_prev_value = cont_sum[cont_sum.size()-3] if cont_sum.size() > 2 else None
+ * 
+*/
+      __pyx_t_7 = (__pyx_v_cont_sum.size() > 1);
+      if (__pyx_t_7) {
+        __pyx_t_5 = PyFloat_FromDouble((__pyx_v_cont_sum[(__pyx_v_cont_sum.size() - 2)])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 584, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_5);
+        __pyx_t_27 = __pyx_t_5;
+        __pyx_t_5 = 0;
+      } else {
+        __Pyx_INCREF(Py_None);
+        __pyx_t_27 = Py_None;
+      }
+      __Pyx_XDECREF_SET(__pyx_v_continuous_end_prev_value, __pyx_t_27);
+      __pyx_t_27 = 0;
+
+      /* "worker_threads_cy.pyx":585
+ *             continuous_end_value = cont_sum[cont_sum.size()-1] if cont_sum.size() > 0 else None
+ *             continuous_end_prev_value = cont_sum[cont_sum.size()-2] if cont_sum.size() > 1 else None
+ *             continuous_end_prev_prev_value = cont_sum[cont_sum.size()-3] if cont_sum.size() > 2 else None             # <<<<<<<<<<<<<<
+ * 
+ *             # Python
+*/
+      __pyx_t_7 = (__pyx_v_cont_sum.size() > 2);
+      if (__pyx_t_7) {
+        __pyx_t_5 = PyFloat_FromDouble((__pyx_v_cont_sum[(__pyx_v_cont_sum.size() - 3)])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 585, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_5);
+        __pyx_t_27 = __pyx_t_5;
+        __pyx_t_5 = 0;
+      } else {
+        __Pyx_INCREF(Py_None);
+        __pyx_t_27 = Py_None;
+      }
+      __Pyx_XDECREF_SET(__pyx_v_continuous_end_prev_prev_value, __pyx_t_27);
+      __pyx_t_27 = 0;
+
+      /* "worker_threads_cy.pyx":588
+ * 
+ *             # Python
+ *             forward_max_result = [forward_max_result_c[j] for j in range(forward_max_result_c.size())]             # <<<<<<<<<<<<<<
+ *             forward_min_result = [forward_min_result_c[j] for j in range(forward_min_result_c.size())]
+ * 
+*/
+      { /* enter inner scope */
+        __pyx_t_27 = PyList_New(0); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 588, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_27);
+        __pyx_t_36 = __pyx_v_forward_max_result_c.size();
+        __pyx_t_37 = __pyx_t_36;
+        for (__pyx_t_16 = 0; __pyx_t_16 < __pyx_t_37; __pyx_t_16+=1) {
+          __pyx_8genexpr1__pyx_v_j = __pyx_t_16;
+          __pyx_t_5 = PyFloat_FromDouble((__pyx_v_forward_max_result_c[__pyx_8genexpr1__pyx_v_j])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 588, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_5);
+          if (unlikely(__Pyx_ListComp_Append(__pyx_t_27, (PyObject*)__pyx_t_5))) __PYX_ERR(0, 588, __pyx_L1_error)
+          __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+        }
+      } /* exit inner scope */
+      __Pyx_DECREF_SET(__pyx_v_forward_max_result, ((PyObject*)__pyx_t_27));
+      __pyx_t_27 = 0;
+
+      /* "worker_threads_cy.pyx":589
+ *             # Python
+ *             forward_max_result = [forward_max_result_c[j] for j in range(forward_max_result_c.size())]
+ *             forward_min_result = [forward_min_result_c[j] for j in range(forward_min_result_c.size())]             # <<<<<<<<<<<<<<
+ * 
+ *             #  ops_value
+*/
+      { /* enter inner scope */
+        __pyx_t_27 = PyList_New(0); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 589, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_27);
+        __pyx_t_36 = __pyx_v_forward_min_result_c.size();
+        __pyx_t_37 = __pyx_t_36;
+        for (__pyx_t_16 = 0; __pyx_t_16 < __pyx_t_37; __pyx_t_16+=1) {
+          __pyx_8genexpr2__pyx_v_j = __pyx_t_16;
+          __pyx_t_5 = PyFloat_FromDouble((__pyx_v_forward_min_result_c[__pyx_8genexpr2__pyx_v_j])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 589, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_5);
+          if (unlikely(__Pyx_ListComp_Append(__pyx_t_27, (PyObject*)__pyx_t_5))) __PYX_ERR(0, 589, __pyx_L1_error)
+          __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+        }
+      } /* exit inner scope */
+      __Pyx_DECREF_SET(__pyx_v_forward_min_result, ((PyObject*)__pyx_t_27));
+      __pyx_t_27 = 0;
+
+      /* "worker_threads_cy.pyx":592
+ * 
+ *             #  ops_value
+ *             inc_value = increment_value             # <<<<<<<<<<<<<<
+ *             age_value = after_gt_end_value
+ *             ags_value = after_gt_start_value
+*/
+      __pyx_v_inc_value = __pyx_v_increment_value;
+
+      /* "worker_threads_cy.pyx":593
+ *             #  ops_value
+ *             inc_value = increment_value
+ *             age_value = after_gt_end_value             # <<<<<<<<<<<<<<
+ *             ags_value = after_gt_start_value
+ *             try:
+*/
+      __pyx_v_age_value = __pyx_v_after_gt_end_value;
+
+      /* "worker_threads_cy.pyx":594
+ *             inc_value = increment_value
+ *             age_value = after_gt_end_value
+ *             ags_value = after_gt_start_value             # <<<<<<<<<<<<<<
+ *             try:
+ *                 result_value = user_func(inc_value, age_value, ags_value)
+*/
+      __pyx_v_ags_value = __pyx_v_after_gt_start_value;
+
+      /* "worker_threads_cy.pyx":595
+ *             age_value = after_gt_end_value
+ *             ags_value = after_gt_start_value
+ *             try:             # <<<<<<<<<<<<<<
+ *                 result_value = user_func(inc_value, age_value, ags_value)
+ *                 #  result_value  value  days
+*/
+      {
+        __Pyx_PyThreadState_declare
+        __Pyx_PyThreadState_assign
+        __Pyx_ExceptionSave(&__pyx_t_30, &__pyx_t_29, &__pyx_t_28);
+        __Pyx_XGOTREF(__pyx_t_30);
+        __Pyx_XGOTREF(__pyx_t_29);
+        __Pyx_XGOTREF(__pyx_t_28);
+        /*try:*/ {
+
+          /* "worker_threads_cy.pyx":596
+ *             ags_value = after_gt_start_value
+ *             try:
+ *                 result_value = user_func(inc_value, age_value, ags_value)             # <<<<<<<<<<<<<<
+ *                 #  result_value  value  days
+ *                 if result_value == 'increment_value':
+*/
+          __pyx_t_5 = NULL;
+          __Pyx_INCREF(__pyx_v_user_func);
+          __pyx_t_1 = __pyx_v_user_func; 
+          __pyx_t_8 = PyFloat_FromDouble(__pyx_v_inc_value); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 596, __pyx_L140_error)
+          __Pyx_GOTREF(__pyx_t_8);
+          __pyx_t_4 = PyFloat_FromDouble(__pyx_v_age_value); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 596, __pyx_L140_error)
+          __Pyx_GOTREF(__pyx_t_4);
+          __pyx_t_34 = PyFloat_FromDouble(__pyx_v_ags_value); if (unlikely(!__pyx_t_34)) __PYX_ERR(0, 596, __pyx_L140_error)
+          __Pyx_GOTREF(__pyx_t_34);
+          __pyx_t_6 = 1;
+          #if CYTHON_UNPACK_METHODS
+          if (unlikely(PyMethod_Check(__pyx_t_1))) {
+            __pyx_t_5 = PyMethod_GET_SELF(__pyx_t_1);
+            assert(__pyx_t_5);
+            PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_1);
+            __Pyx_INCREF(__pyx_t_5);
+            __Pyx_INCREF(__pyx__function);
+            __Pyx_DECREF_SET(__pyx_t_1, __pyx__function);
+            __pyx_t_6 = 0;
+          }
+          #endif
+          {
+            PyObject *__pyx_callargs[4] = {__pyx_t_5, __pyx_t_8, __pyx_t_4, __pyx_t_34};
+            __pyx_t_27 = __Pyx_PyObject_FastCall(__pyx_t_1, __pyx_callargs+__pyx_t_6, (4-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+            __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
+            __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+            __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+            __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
+            __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+            if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 596, __pyx_L140_error)
+            __Pyx_GOTREF(__pyx_t_27);
+          }
+          __Pyx_XDECREF_SET(__pyx_v_result_value, __pyx_t_27);
+          __pyx_t_27 = 0;
+
+          /* "worker_threads_cy.pyx":598
+ *                 result_value = user_func(inc_value, age_value, ags_value)
+ *                 #  result_value  value  days
+ *                 if result_value == 'increment_value':             # <<<<<<<<<<<<<<
+ *                     ops_value = increment_value
+ *                     hold_days = increment_days
+*/
+          __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_v_result_value, __pyx_mstate_global->__pyx_n_u_increment_value, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 598, __pyx_L140_error)
+          if (__pyx_t_7) {
+
+            /* "worker_threads_cy.pyx":599
+ *                 #  result_value  value  days
+ *                 if result_value == 'increment_value':
+ *                     ops_value = increment_value             # <<<<<<<<<<<<<<
+ *                     hold_days = increment_days
+ *                 elif result_value == 'after_gt_end_value':
+*/
+            __pyx_t_27 = PyFloat_FromDouble(__pyx_v_increment_value); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 599, __pyx_L140_error)
+            __Pyx_GOTREF(__pyx_t_27);
+            __Pyx_XDECREF_SET(__pyx_v_ops_value, __pyx_t_27);
+            __pyx_t_27 = 0;
+
+            /* "worker_threads_cy.pyx":600
+ *                 if result_value == 'increment_value':
+ *                     ops_value = increment_value
+ *                     hold_days = increment_days             # <<<<<<<<<<<<<<
+ *                 elif result_value == 'after_gt_end_value':
+ *                     ops_value = after_gt_end_value
+*/
+            __pyx_t_27 = __Pyx_PyLong_From_int(__pyx_v_increment_days); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 600, __pyx_L140_error)
+            __Pyx_GOTREF(__pyx_t_27);
+            __Pyx_XDECREF_SET(__pyx_v_hold_days, __pyx_t_27);
+            __pyx_t_27 = 0;
+
+            /* "worker_threads_cy.pyx":598
+ *                 result_value = user_func(inc_value, age_value, ags_value)
+ *                 #  result_value  value  days
+ *                 if result_value == 'increment_value':             # <<<<<<<<<<<<<<
+ *                     ops_value = increment_value
+ *                     hold_days = increment_days
+*/
+            goto __pyx_L148;
+          }
+
+          /* "worker_threads_cy.pyx":601
+ *                     ops_value = increment_value
+ *                     hold_days = increment_days
+ *                 elif result_value == 'after_gt_end_value':             # <<<<<<<<<<<<<<
+ *                     ops_value = after_gt_end_value
+ *                     hold_days = after_gt_end_days
+*/
+          __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_v_result_value, __pyx_mstate_global->__pyx_n_u_after_gt_end_value, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 601, __pyx_L140_error)
+          if (__pyx_t_7) {
+
+            /* "worker_threads_cy.pyx":602
+ *                     hold_days = increment_days
+ *                 elif result_value == 'after_gt_end_value':
+ *                     ops_value = after_gt_end_value             # <<<<<<<<<<<<<<
+ *                     hold_days = after_gt_end_days
+ *                 elif result_value == 'after_gt_start_value':
+*/
+            __pyx_t_27 = PyFloat_FromDouble(__pyx_v_after_gt_end_value); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 602, __pyx_L140_error)
+            __Pyx_GOTREF(__pyx_t_27);
+            __Pyx_XDECREF_SET(__pyx_v_ops_value, __pyx_t_27);
+            __pyx_t_27 = 0;
+
+            /* "worker_threads_cy.pyx":603
+ *                 elif result_value == 'after_gt_end_value':
+ *                     ops_value = after_gt_end_value
+ *                     hold_days = after_gt_end_days             # <<<<<<<<<<<<<<
+ *                 elif result_value == 'after_gt_start_value':
+ *                     ops_value = after_gt_start_value
+*/
+            __pyx_t_27 = __Pyx_PyLong_From_int(__pyx_v_after_gt_end_days); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 603, __pyx_L140_error)
+            __Pyx_GOTREF(__pyx_t_27);
+            __Pyx_XDECREF_SET(__pyx_v_hold_days, __pyx_t_27);
+            __pyx_t_27 = 0;
+
+            /* "worker_threads_cy.pyx":601
+ *                     ops_value = increment_value
+ *                     hold_days = increment_days
+ *                 elif result_value == 'after_gt_end_value':             # <<<<<<<<<<<<<<
+ *                     ops_value = after_gt_end_value
+ *                     hold_days = after_gt_end_days
+*/
+            goto __pyx_L148;
+          }
+
+          /* "worker_threads_cy.pyx":604
+ *                     ops_value = after_gt_end_value
+ *                     hold_days = after_gt_end_days
+ *                 elif result_value == 'after_gt_start_value':             # <<<<<<<<<<<<<<
+ *                     ops_value = after_gt_start_value
+ *                     hold_days = after_gt_start_days
+*/
+          __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_v_result_value, __pyx_mstate_global->__pyx_n_u_after_gt_start_value, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 604, __pyx_L140_error)
+          if (__pyx_t_7) {
+
+            /* "worker_threads_cy.pyx":605
+ *                     hold_days = after_gt_end_days
+ *                 elif result_value == 'after_gt_start_value':
+ *                     ops_value = after_gt_start_value             # <<<<<<<<<<<<<<
+ *                     hold_days = after_gt_start_days
+ *                 else:
+*/
+            __pyx_t_27 = PyFloat_FromDouble(__pyx_v_after_gt_start_value); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 605, __pyx_L140_error)
+            __Pyx_GOTREF(__pyx_t_27);
+            __Pyx_XDECREF_SET(__pyx_v_ops_value, __pyx_t_27);
+            __pyx_t_27 = 0;
+
+            /* "worker_threads_cy.pyx":606
+ *                 elif result_value == 'after_gt_start_value':
+ *                     ops_value = after_gt_start_value
+ *                     hold_days = after_gt_start_days             # <<<<<<<<<<<<<<
+ *                 else:
+ *                     ops_value = result_value
+*/
+            __pyx_t_27 = __Pyx_PyLong_From_int(__pyx_v_after_gt_start_days); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 606, __pyx_L140_error)
+            __Pyx_GOTREF(__pyx_t_27);
+            __Pyx_XDECREF_SET(__pyx_v_hold_days, __pyx_t_27);
+            __pyx_t_27 = 0;
+
+            /* "worker_threads_cy.pyx":604
+ *                     ops_value = after_gt_end_value
+ *                     hold_days = after_gt_end_days
+ *                 elif result_value == 'after_gt_start_value':             # <<<<<<<<<<<<<<
+ *                     ops_value = after_gt_start_value
+ *                     hold_days = after_gt_start_days
+*/
+            goto __pyx_L148;
+          }
+
+          /* "worker_threads_cy.pyx":608
+ *                     hold_days = after_gt_start_days
+ *                 else:
+ *                     ops_value = result_value             # <<<<<<<<<<<<<<
+ *                     hold_days = None
+ * 
+*/
+          /*else*/ {
+            __Pyx_INCREF(__pyx_v_result_value);
+            __Pyx_XDECREF_SET(__pyx_v_ops_value, __pyx_v_result_value);
+
+            /* "worker_threads_cy.pyx":609
+ *                 else:
+ *                     ops_value = result_value
+ *                     hold_days = None             # <<<<<<<<<<<<<<
+ * 
+ *             except Exception as e:
+*/
+            __Pyx_INCREF(Py_None);
+            __Pyx_XDECREF_SET(__pyx_v_hold_days, Py_None);
+          }
+          __pyx_L148:;
+
+          /* "worker_threads_cy.pyx":595
+ *             age_value = after_gt_end_value
+ *             ags_value = after_gt_start_value
+ *             try:             # <<<<<<<<<<<<<<
+ *                 result_value = user_func(inc_value, age_value, ags_value)
+ *                 #  result_value  value  days
+*/
+        }
+        __Pyx_XDECREF(__pyx_t_30); __pyx_t_30 = 0;
+        __Pyx_XDECREF(__pyx_t_29); __pyx_t_29 = 0;
+        __Pyx_XDECREF(__pyx_t_28); __pyx_t_28 = 0;
+        goto __pyx_L147_try_end;
+        __pyx_L140_error:;
+        __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
+        __PYX_XCLEAR_MEMVIEW(&__pyx_t_2, 1);
+        __pyx_t_2.memview = NULL; __pyx_t_2.data = NULL;
+        __PYX_XCLEAR_MEMVIEW(&__pyx_t_22, 1);
+        __pyx_t_22.memview = NULL; __pyx_t_22.data = NULL;
+        __PYX_XCLEAR_MEMVIEW(&__pyx_t_23, 1);
+        __pyx_t_23.memview = NULL; __pyx_t_23.data = NULL;
+        __Pyx_XDECREF(__pyx_t_27); __pyx_t_27 = 0;
+        __PYX_XCLEAR_MEMVIEW(&__pyx_t_3, 1);
+        __pyx_t_3.memview = NULL; __pyx_t_3.data = NULL;
+        __Pyx_XDECREF(__pyx_t_34); __pyx_t_34 = 0;
+        __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
+        __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
+        __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
+
+        /* "worker_threads_cy.pyx":611
+ *                     hold_days = None
+ * 
+ *             except Exception as e:             # <<<<<<<<<<<<<<
+ *                 ops_value = None
+ *                 hold_days = None
+*/
+        __pyx_t_16 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(((PyTypeObject*)PyExc_Exception))));
+        if (__pyx_t_16) {
+          __Pyx_AddTraceback("worker_threads_cy.calculate_batch_cy", __pyx_clineno, __pyx_lineno, __pyx_filename);
+          if (__Pyx_GetException(&__pyx_t_27, &__pyx_t_1, &__pyx_t_34) < 0) __PYX_ERR(0, 611, __pyx_L142_except_error)
+          __Pyx_XGOTREF(__pyx_t_27);
+          __Pyx_XGOTREF(__pyx_t_1);
+          __Pyx_XGOTREF(__pyx_t_34);
+          __Pyx_INCREF(__pyx_t_1);
+          __pyx_v_e = __pyx_t_1;
+          /*try:*/ {
+
+            /* "worker_threads_cy.pyx":612
+ * 
+ *             except Exception as e:
+ *                 ops_value = None             # <<<<<<<<<<<<<<
+ *                 hold_days = None
+ * 
+*/
+            __Pyx_INCREF(Py_None);
+            __Pyx_XDECREF_SET(__pyx_v_ops_value, Py_None);
+
+            /* "worker_threads_cy.pyx":613
+ *             except Exception as e:
+ *                 ops_value = None
+ *                 hold_days = None             # <<<<<<<<<<<<<<
+ * 
+ *             # score
+*/
+            __Pyx_INCREF(Py_None);
+            __Pyx_XDECREF_SET(__pyx_v_hold_days, Py_None);
+          }
+
+          /* "worker_threads_cy.pyx":611
+ *                     hold_days = None
+ * 
+ *             except Exception as e:             # <<<<<<<<<<<<<<
+ *                 ops_value = None
+ *                 hold_days = None
+*/
+          /*finally:*/ {
+            /*normal exit:*/{
+              __Pyx_DECREF(__pyx_v_e); __pyx_v_e = 0;
+              goto __pyx_L155;
+            }
+            __pyx_L155:;
+          }
+          __Pyx_XDECREF(__pyx_t_27); __pyx_t_27 = 0;
+          __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
+          __Pyx_XDECREF(__pyx_t_34); __pyx_t_34 = 0;
+          goto __pyx_L141_exception_handled;
+        }
+        goto __pyx_L142_except_error;
+
+        /* "worker_threads_cy.pyx":595
+ *             age_value = after_gt_end_value
+ *             ags_value = after_gt_start_value
+ *             try:             # <<<<<<<<<<<<<<
+ *                 result_value = user_func(inc_value, age_value, ags_value)
+ *                 #  result_value  value  days
+*/
+        __pyx_L142_except_error:;
+        __Pyx_XGIVEREF(__pyx_t_30);
+        __Pyx_XGIVEREF(__pyx_t_29);
+        __Pyx_XGIVEREF(__pyx_t_28);
+        __Pyx_ExceptionReset(__pyx_t_30, __pyx_t_29, __pyx_t_28);
+        goto __pyx_L1_error;
+        __pyx_L141_exception_handled:;
+        __Pyx_XGIVEREF(__pyx_t_30);
+        __Pyx_XGIVEREF(__pyx_t_29);
+        __Pyx_XGIVEREF(__pyx_t_28);
+        __Pyx_ExceptionReset(__pyx_t_30, __pyx_t_29, __pyx_t_28);
+        __pyx_L147_try_end:;
+      }
+
+      /* "worker_threads_cy.pyx":616
+ * 
+ *             # score
+ *             score = None             # <<<<<<<<<<<<<<
+ *             if score_func is not None:
+ *                 try:
+*/
+      __Pyx_INCREF(Py_None);
+      __Pyx_XDECREF_SET(__pyx_v_score, Py_None);
+
+      /* "worker_threads_cy.pyx":617
+ *             # score
+ *             score = None
+ *             if score_func is not None:             # <<<<<<<<<<<<<<
+ *                 try:
+ *                     score = score_func(
+*/
+      __pyx_t_7 = (__pyx_v_score_func != Py_None);
+      if (__pyx_t_7) {
+
+        /* "worker_threads_cy.pyx":618
+ *             score = None
+ *             if score_func is not None:
+ *                 try:             # <<<<<<<<<<<<<<
+ *                     score = score_func(
+ *                         inc_value, age_value, ags_value
+*/
+        {
+          __Pyx_PyThreadState_declare
+          __Pyx_PyThreadState_assign
+          __Pyx_ExceptionSave(&__pyx_t_28, &__pyx_t_29, &__pyx_t_30);
+          __Pyx_XGOTREF(__pyx_t_28);
+          __Pyx_XGOTREF(__pyx_t_29);
+          __Pyx_XGOTREF(__pyx_t_30);
+          /*try:*/ {
+
+            /* "worker_threads_cy.pyx":619
+ *             if score_func is not None:
+ *                 try:
+ *                     score = score_func(             # <<<<<<<<<<<<<<
+ *                         inc_value, age_value, ags_value
+ *                     )
+*/
+            __pyx_t_1 = NULL;
+            __Pyx_INCREF(__pyx_v_score_func);
+            __pyx_t_27 = __pyx_v_score_func; 
+
+            /* "worker_threads_cy.pyx":620
+ *                 try:
+ *                     score = score_func(
+ *                         inc_value, age_value, ags_value             # <<<<<<<<<<<<<<
+ *                     )
+ *                 except Exception:
+*/
+            __pyx_t_4 = PyFloat_FromDouble(__pyx_v_inc_value); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 620, __pyx_L157_error)
+            __Pyx_GOTREF(__pyx_t_4);
+            __pyx_t_8 = PyFloat_FromDouble(__pyx_v_age_value); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 620, __pyx_L157_error)
+            __Pyx_GOTREF(__pyx_t_8);
+            __pyx_t_5 = PyFloat_FromDouble(__pyx_v_ags_value); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 620, __pyx_L157_error)
+            __Pyx_GOTREF(__pyx_t_5);
+            __pyx_t_6 = 1;
+            #if CYTHON_UNPACK_METHODS
+            if (unlikely(PyMethod_Check(__pyx_t_27))) {
+              __pyx_t_1 = PyMethod_GET_SELF(__pyx_t_27);
+              assert(__pyx_t_1);
+              PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_27);
+              __Pyx_INCREF(__pyx_t_1);
+              __Pyx_INCREF(__pyx__function);
+              __Pyx_DECREF_SET(__pyx_t_27, __pyx__function);
+              __pyx_t_6 = 0;
+            }
+            #endif
+            {
+              PyObject *__pyx_callargs[4] = {__pyx_t_1, __pyx_t_4, __pyx_t_8, __pyx_t_5};
+              __pyx_t_34 = __Pyx_PyObject_FastCall(__pyx_t_27, __pyx_callargs+__pyx_t_6, (4-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+              __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
+              __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+              __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+              __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+              __Pyx_DECREF(__pyx_t_27); __pyx_t_27 = 0;
+              if (unlikely(!__pyx_t_34)) __PYX_ERR(0, 619, __pyx_L157_error)
+              __Pyx_GOTREF(__pyx_t_34);
+            }
+            __Pyx_DECREF_SET(__pyx_v_score, __pyx_t_34);
+            __pyx_t_34 = 0;
+
+            /* "worker_threads_cy.pyx":618
+ *             score = None
+ *             if score_func is not None:
+ *                 try:             # <<<<<<<<<<<<<<
+ *                     score = score_func(
+ *                         inc_value, age_value, ags_value
+*/
+          }
+          __Pyx_XDECREF(__pyx_t_28); __pyx_t_28 = 0;
+          __Pyx_XDECREF(__pyx_t_29); __pyx_t_29 = 0;
+          __Pyx_XDECREF(__pyx_t_30); __pyx_t_30 = 0;
+          goto __pyx_L164_try_end;
+          __pyx_L157_error:;
+          __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
+          __PYX_XCLEAR_MEMVIEW(&__pyx_t_2, 1);
+          __pyx_t_2.memview = NULL; __pyx_t_2.data = NULL;
+          __PYX_XCLEAR_MEMVIEW(&__pyx_t_22, 1);
+          __pyx_t_22.memview = NULL; __pyx_t_22.data = NULL;
+          __PYX_XCLEAR_MEMVIEW(&__pyx_t_23, 1);
+          __pyx_t_23.memview = NULL; __pyx_t_23.data = NULL;
+          __Pyx_XDECREF(__pyx_t_27); __pyx_t_27 = 0;
+          __PYX_XCLEAR_MEMVIEW(&__pyx_t_3, 1);
+          __pyx_t_3.memview = NULL; __pyx_t_3.data = NULL;
+          __Pyx_XDECREF(__pyx_t_34); __pyx_t_34 = 0;
+          __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
+          __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
+          __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
+
+          /* "worker_threads_cy.pyx":622
+ *                         inc_value, age_value, ags_value
+ *                     )
+ *                 except Exception:             # <<<<<<<<<<<<<<
+ *                     score = None
+ *             #
+*/
+          __pyx_t_16 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(((PyTypeObject*)PyExc_Exception))));
+          if (__pyx_t_16) {
+            __Pyx_AddTraceback("worker_threads_cy.calculate_batch_cy", __pyx_clineno, __pyx_lineno, __pyx_filename);
+            if (__Pyx_GetException(&__pyx_t_34, &__pyx_t_27, &__pyx_t_5) < 0) __PYX_ERR(0, 622, __pyx_L159_except_error)
+            __Pyx_XGOTREF(__pyx_t_34);
+            __Pyx_XGOTREF(__pyx_t_27);
+            __Pyx_XGOTREF(__pyx_t_5);
+
+            /* "worker_threads_cy.pyx":623
+ *                     )
+ *                 except Exception:
+ *                     score = None             # <<<<<<<<<<<<<<
+ *             #
+ *             ops_change = None
+*/
+            __Pyx_INCREF(Py_None);
+            __Pyx_DECREF_SET(__pyx_v_score, Py_None);
+            __Pyx_XDECREF(__pyx_t_34); __pyx_t_34 = 0;
+            __Pyx_XDECREF(__pyx_t_27); __pyx_t_27 = 0;
+            __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
+            goto __pyx_L158_exception_handled;
+          }
+          goto __pyx_L159_except_error;
+
+          /* "worker_threads_cy.pyx":618
+ *             score = None
+ *             if score_func is not None:
+ *                 try:             # <<<<<<<<<<<<<<
+ *                     score = score_func(
+ *                         inc_value, age_value, ags_value
+*/
+          __pyx_L159_except_error:;
+          __Pyx_XGIVEREF(__pyx_t_28);
+          __Pyx_XGIVEREF(__pyx_t_29);
+          __Pyx_XGIVEREF(__pyx_t_30);
+          __Pyx_ExceptionReset(__pyx_t_28, __pyx_t_29, __pyx_t_30);
           goto __pyx_L1_error;
+          __pyx_L158_exception_handled:;
+          __Pyx_XGIVEREF(__pyx_t_28);
+          __Pyx_XGIVEREF(__pyx_t_29);
+          __Pyx_XGIVEREF(__pyx_t_30);
+          __Pyx_ExceptionReset(__pyx_t_28, __pyx_t_29, __pyx_t_30);
+          __pyx_L164_try_end:;
         }
-        __pyx_L7:;
+
+        /* "worker_threads_cy.pyx":617
+ *             # score
+ *             score = None
+ *             if score_func is not None:             # <<<<<<<<<<<<<<
+ *                 try:
+ *                     score = score_func(
+*/
       }
+
+      /* "worker_threads_cy.pyx":625
+ *                     score = None
+ *             #
+ *             ops_change = None             # <<<<<<<<<<<<<<
+ *             adjust_days = None
+ *             ops_incre_rate = None
+*/
+      __Pyx_INCREF(Py_None);
+      __Pyx_XDECREF_SET(__pyx_v_ops_change, Py_None);
+
+      /* "worker_threads_cy.pyx":626
+ *             #
+ *             ops_change = None
+ *             adjust_days = None             # <<<<<<<<<<<<<<
+ *             ops_incre_rate = None
+ *             end_value_for_ops = end_value if not isnan(end_value) else None
+*/
+      __Pyx_INCREF(Py_None);
+      __Pyx_XDECREF_SET(__pyx_v_adjust_days, Py_None);
+
+      /* "worker_threads_cy.pyx":627
+ *             ops_change = None
+ *             adjust_days = None
+ *             ops_incre_rate = None             # <<<<<<<<<<<<<<
+ *             end_value_for_ops = end_value if not isnan(end_value) else None
+ *             if ops_value is not None and end_value_for_ops not in (None, 0):
+*/
+      __Pyx_INCREF(Py_None);
+      __Pyx_XDECREF_SET(__pyx_v_ops_incre_rate, Py_None);
+
+      /* "worker_threads_cy.pyx":628
+ *             adjust_days = None
+ *             ops_incre_rate = None
+ *             end_value_for_ops = end_value if not isnan(end_value) else None             # <<<<<<<<<<<<<<
+ *             if ops_value is not None and end_value_for_ops not in (None, 0):
+ *                 try:
+*/
+      __pyx_t_7 = (!isnan(__pyx_v_end_value));
+      if (__pyx_t_7) {
+        __pyx_t_27 = PyFloat_FromDouble(__pyx_v_end_value); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 628, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_27);
+        __pyx_t_5 = __pyx_t_27;
+        __pyx_t_27 = 0;
+      } else {
+        __Pyx_INCREF(Py_None);
+        __pyx_t_5 = Py_None;
+      }
+      __Pyx_XDECREF_SET(__pyx_v_end_value_for_ops, __pyx_t_5);
+      __pyx_t_5 = 0;
+
+      /* "worker_threads_cy.pyx":629
+ *             ops_incre_rate = None
+ *             end_value_for_ops = end_value if not isnan(end_value) else None
+ *             if ops_value is not None and end_value_for_ops not in (None, 0):             # <<<<<<<<<<<<<<
+ *                 try:
+ *                     ops_change = round_to_2((ops_value - end_value_for_ops) / end_value_for_ops * 100)
+*/
+      __pyx_t_21 = (__pyx_v_ops_value != Py_None);
+      if (__pyx_t_21) {
+      } else {
+        __pyx_t_7 = __pyx_t_21;
+        goto __pyx_L168_bool_binop_done;
+      }
+      __Pyx_INCREF(__pyx_v_end_value_for_ops);
+      __pyx_t_5 = __pyx_v_end_value_for_ops;
+      __pyx_t_27 = PyObject_RichCompare(__pyx_t_5, Py_None, Py_NE); __Pyx_XGOTREF(__pyx_t_27); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 629, __pyx_L1_error)
+      __pyx_t_38 = __Pyx_PyObject_IsTrue(__pyx_t_27); if (unlikely((__pyx_t_38 < 0))) __PYX_ERR(0, 629, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_27); __pyx_t_27 = 0;
+      if (__pyx_t_38) {
+      } else {
+        __pyx_t_21 = __pyx_t_38;
+        goto __pyx_L170_bool_binop_done;
+      }
+      __pyx_t_38 = (__Pyx_PyLong_BoolNeObjC(__pyx_t_5, __pyx_mstate_global->__pyx_int_0, 0, 0)); if (unlikely((__pyx_t_38 < 0))) __PYX_ERR(0, 629, __pyx_L1_error)
+      __pyx_t_21 = __pyx_t_38;
+      __pyx_L170_bool_binop_done:;
+      __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+      __pyx_t_38 = __pyx_t_21;
+      __pyx_t_7 = __pyx_t_38;
+      __pyx_L168_bool_binop_done:;
+      if (__pyx_t_7) {
+
+        /* "worker_threads_cy.pyx":630
+ *             end_value_for_ops = end_value if not isnan(end_value) else None
+ *             if ops_value is not None and end_value_for_ops not in (None, 0):
+ *                 try:             # <<<<<<<<<<<<<<
+ *                     ops_change = round_to_2((ops_value - end_value_for_ops) / end_value_for_ops * 100)
+ *                 except Exception:
+*/
+        {
+          __Pyx_PyThreadState_declare
+          __Pyx_PyThreadState_assign
+          __Pyx_ExceptionSave(&__pyx_t_30, &__pyx_t_29, &__pyx_t_28);
+          __Pyx_XGOTREF(__pyx_t_30);
+          __Pyx_XGOTREF(__pyx_t_29);
+          __Pyx_XGOTREF(__pyx_t_28);
+          /*try:*/ {
+
+            /* "worker_threads_cy.pyx":631
+ *             if ops_value is not None and end_value_for_ops not in (None, 0):
+ *                 try:
+ *                     ops_change = round_to_2((ops_value - end_value_for_ops) / end_value_for_ops * 100)             # <<<<<<<<<<<<<<
+ *                 except Exception:
+ *                     ops_change = None
+*/
+            __pyx_t_5 = PyNumber_Subtract(__pyx_v_ops_value, __pyx_v_end_value_for_ops); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 631, __pyx_L172_error)
+            __Pyx_GOTREF(__pyx_t_5);
+            __pyx_t_27 = __Pyx_PyNumber_Divide(__pyx_t_5, __pyx_v_end_value_for_ops); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 631, __pyx_L172_error)
+            __Pyx_GOTREF(__pyx_t_27);
+            __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+            __pyx_t_5 = __Pyx_PyLong_MultiplyObjC(__pyx_t_27, __pyx_mstate_global->__pyx_int_100, 0x64, 0, 0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 631, __pyx_L172_error)
+            __Pyx_GOTREF(__pyx_t_5);
+            __Pyx_DECREF(__pyx_t_27); __pyx_t_27 = 0;
+            __pyx_t_33 = __Pyx_PyFloat_AsDouble(__pyx_t_5); if (unlikely((__pyx_t_33 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 631, __pyx_L172_error)
+            __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+            __pyx_t_20 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_t_33); if (unlikely(__pyx_t_20 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 631, __pyx_L172_error)
+            __pyx_t_5 = PyFloat_FromDouble(__pyx_t_20); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 631, __pyx_L172_error)
+            __Pyx_GOTREF(__pyx_t_5);
+            __Pyx_DECREF_SET(__pyx_v_ops_change, __pyx_t_5);
+            __pyx_t_5 = 0;
+
+            /* "worker_threads_cy.pyx":630
+ *             end_value_for_ops = end_value if not isnan(end_value) else None
+ *             if ops_value is not None and end_value_for_ops not in (None, 0):
+ *                 try:             # <<<<<<<<<<<<<<
+ *                     ops_change = round_to_2((ops_value - end_value_for_ops) / end_value_for_ops * 100)
+ *                 except Exception:
+*/
+          }
+          __Pyx_XDECREF(__pyx_t_30); __pyx_t_30 = 0;
+          __Pyx_XDECREF(__pyx_t_29); __pyx_t_29 = 0;
+          __Pyx_XDECREF(__pyx_t_28); __pyx_t_28 = 0;
+          goto __pyx_L179_try_end;
+          __pyx_L172_error:;
+          __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
+          __PYX_XCLEAR_MEMVIEW(&__pyx_t_2, 1);
+          __pyx_t_2.memview = NULL; __pyx_t_2.data = NULL;
+          __PYX_XCLEAR_MEMVIEW(&__pyx_t_22, 1);
+          __pyx_t_22.memview = NULL; __pyx_t_22.data = NULL;
+          __PYX_XCLEAR_MEMVIEW(&__pyx_t_23, 1);
+          __pyx_t_23.memview = NULL; __pyx_t_23.data = NULL;
+          __Pyx_XDECREF(__pyx_t_27); __pyx_t_27 = 0;
+          __PYX_XCLEAR_MEMVIEW(&__pyx_t_3, 1);
+          __pyx_t_3.memview = NULL; __pyx_t_3.data = NULL;
+          __Pyx_XDECREF(__pyx_t_34); __pyx_t_34 = 0;
+          __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
+          __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
+          __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
+
+          /* "worker_threads_cy.pyx":632
+ *                 try:
+ *                     ops_change = round_to_2((ops_value - end_value_for_ops) / end_value_for_ops * 100)
+ *                 except Exception:             # <<<<<<<<<<<<<<
+ *                     ops_change = None
+ *             if ops_change is not None and ops_change_input is not None and hold_days is not None:
+*/
+          __pyx_t_16 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(((PyTypeObject*)PyExc_Exception))));
+          if (__pyx_t_16) {
+            __Pyx_AddTraceback("worker_threads_cy.calculate_batch_cy", __pyx_clineno, __pyx_lineno, __pyx_filename);
+            if (__Pyx_GetException(&__pyx_t_5, &__pyx_t_27, &__pyx_t_34) < 0) __PYX_ERR(0, 632, __pyx_L174_except_error)
+            __Pyx_XGOTREF(__pyx_t_5);
+            __Pyx_XGOTREF(__pyx_t_27);
+            __Pyx_XGOTREF(__pyx_t_34);
+
+            /* "worker_threads_cy.pyx":633
+ *                     ops_change = round_to_2((ops_value - end_value_for_ops) / end_value_for_ops * 100)
+ *                 except Exception:
+ *                     ops_change = None             # <<<<<<<<<<<<<<
+ *             if ops_change is not None and ops_change_input is not None and hold_days is not None:
+ *                 try:
+*/
+            __Pyx_INCREF(Py_None);
+            __Pyx_DECREF_SET(__pyx_v_ops_change, Py_None);
+            __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
+            __Pyx_XDECREF(__pyx_t_27); __pyx_t_27 = 0;
+            __Pyx_XDECREF(__pyx_t_34); __pyx_t_34 = 0;
+            goto __pyx_L173_exception_handled;
+          }
+          goto __pyx_L174_except_error;
+
+          /* "worker_threads_cy.pyx":630
+ *             end_value_for_ops = end_value if not isnan(end_value) else None
+ *             if ops_value is not None and end_value_for_ops not in (None, 0):
+ *                 try:             # <<<<<<<<<<<<<<
+ *                     ops_change = round_to_2((ops_value - end_value_for_ops) / end_value_for_ops * 100)
+ *                 except Exception:
+*/
+          __pyx_L174_except_error:;
+          __Pyx_XGIVEREF(__pyx_t_30);
+          __Pyx_XGIVEREF(__pyx_t_29);
+          __Pyx_XGIVEREF(__pyx_t_28);
+          __Pyx_ExceptionReset(__pyx_t_30, __pyx_t_29, __pyx_t_28);
+          goto __pyx_L1_error;
+          __pyx_L173_exception_handled:;
+          __Pyx_XGIVEREF(__pyx_t_30);
+          __Pyx_XGIVEREF(__pyx_t_29);
+          __Pyx_XGIVEREF(__pyx_t_28);
+          __Pyx_ExceptionReset(__pyx_t_30, __pyx_t_29, __pyx_t_28);
+          __pyx_L179_try_end:;
+        }
+
+        /* "worker_threads_cy.pyx":629
+ *             ops_incre_rate = None
+ *             end_value_for_ops = end_value if not isnan(end_value) else None
+ *             if ops_value is not None and end_value_for_ops not in (None, 0):             # <<<<<<<<<<<<<<
+ *                 try:
+ *                     ops_change = round_to_2((ops_value - end_value_for_ops) / end_value_for_ops * 100)
+*/
+      }
+
+      /* "worker_threads_cy.pyx":634
+ *                 except Exception:
+ *                     ops_change = None
+ *             if ops_change is not None and ops_change_input is not None and hold_days is not None:             # <<<<<<<<<<<<<<
+ *                 try:
+ *                     if ops_change > ops_change_input and hold_days == 1:
+*/
+      __pyx_t_38 = (__pyx_v_ops_change != Py_None);
+      if (__pyx_t_38) {
+      } else {
+        __pyx_t_7 = __pyx_t_38;
+        goto __pyx_L183_bool_binop_done;
+      }
+      __pyx_t_34 = PyFloat_FromDouble(__pyx_v_ops_change_input); if (unlikely(!__pyx_t_34)) __PYX_ERR(0, 634, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_34);
+      __pyx_t_38 = (__pyx_t_34 != Py_None);
+      __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
+      if (__pyx_t_38) {
+      } else {
+        __pyx_t_7 = __pyx_t_38;
+        goto __pyx_L183_bool_binop_done;
+      }
+      __pyx_t_38 = (__pyx_v_hold_days != Py_None);
+      __pyx_t_7 = __pyx_t_38;
+      __pyx_L183_bool_binop_done:;
+      if (__pyx_t_7) {
+
+        /* "worker_threads_cy.pyx":635
+ *                     ops_change = None
+ *             if ops_change is not None and ops_change_input is not None and hold_days is not None:
+ *                 try:             # <<<<<<<<<<<<<<
+ *                     if ops_change > ops_change_input and hold_days == 1:
+ *                         adjust_days = round_to_2(op_days / 3.0)
+*/
+        {
+          __Pyx_PyThreadState_declare
+          __Pyx_PyThreadState_assign
+          __Pyx_ExceptionSave(&__pyx_t_28, &__pyx_t_29, &__pyx_t_30);
+          __Pyx_XGOTREF(__pyx_t_28);
+          __Pyx_XGOTREF(__pyx_t_29);
+          __Pyx_XGOTREF(__pyx_t_30);
+          /*try:*/ {
+
+            /* "worker_threads_cy.pyx":636
+ *             if ops_change is not None and ops_change_input is not None and hold_days is not None:
+ *                 try:
+ *                     if ops_change > ops_change_input and hold_days == 1:             # <<<<<<<<<<<<<<
+ *                         adjust_days = round_to_2(op_days / 3.0)
+ *                     else:
+*/
+            __pyx_t_34 = PyFloat_FromDouble(__pyx_v_ops_change_input); if (unlikely(!__pyx_t_34)) __PYX_ERR(0, 636, __pyx_L186_error)
+            __Pyx_GOTREF(__pyx_t_34);
+            __pyx_t_27 = PyObject_RichCompare(__pyx_v_ops_change, __pyx_t_34, Py_GT); __Pyx_XGOTREF(__pyx_t_27); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 636, __pyx_L186_error)
+            __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
+            __pyx_t_38 = __Pyx_PyObject_IsTrue(__pyx_t_27); if (unlikely((__pyx_t_38 < 0))) __PYX_ERR(0, 636, __pyx_L186_error)
+            __Pyx_DECREF(__pyx_t_27); __pyx_t_27 = 0;
+            if (__pyx_t_38) {
+            } else {
+              __pyx_t_7 = __pyx_t_38;
+              goto __pyx_L195_bool_binop_done;
+            }
+            __pyx_t_38 = (__Pyx_PyLong_BoolEqObjC(__pyx_v_hold_days, __pyx_mstate_global->__pyx_int_1, 1, 0)); if (unlikely((__pyx_t_38 < 0))) __PYX_ERR(0, 636, __pyx_L186_error)
+            __pyx_t_7 = __pyx_t_38;
+            __pyx_L195_bool_binop_done:;
+            if (__pyx_t_7) {
+
+              /* "worker_threads_cy.pyx":637
+ *                 try:
+ *                     if ops_change > ops_change_input and hold_days == 1:
+ *                         adjust_days = round_to_2(op_days / 3.0)             # <<<<<<<<<<<<<<
+ *                     else:
+ *                         adjust_days = hold_days + 1
+*/
+              __pyx_t_20 = __pyx_f_17worker_threads_cy_round_to_2((((double)__pyx_v_op_days) / 3.0)); if (unlikely(__pyx_t_20 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 637, __pyx_L186_error)
+              __pyx_t_27 = PyFloat_FromDouble(__pyx_t_20); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 637, __pyx_L186_error)
+              __Pyx_GOTREF(__pyx_t_27);
+              __Pyx_DECREF_SET(__pyx_v_adjust_days, __pyx_t_27);
+              __pyx_t_27 = 0;
+
+              /* "worker_threads_cy.pyx":636
+ *             if ops_change is not None and ops_change_input is not None and hold_days is not None:
+ *                 try:
+ *                     if ops_change > ops_change_input and hold_days == 1:             # <<<<<<<<<<<<<<
+ *                         adjust_days = round_to_2(op_days / 3.0)
+ *                     else:
+*/
+              goto __pyx_L194;
+            }
+
+            /* "worker_threads_cy.pyx":639
+ *                         adjust_days = round_to_2(op_days / 3.0)
+ *                     else:
+ *                         adjust_days = hold_days + 1             # <<<<<<<<<<<<<<
+ *                 except Exception:
+ *                     adjust_days = None
+*/
+            /*else*/ {
+              __pyx_t_27 = __Pyx_PyLong_AddObjC(__pyx_v_hold_days, __pyx_mstate_global->__pyx_int_1, 1, 0, 0); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 639, __pyx_L186_error)
+              __Pyx_GOTREF(__pyx_t_27);
+              __Pyx_DECREF_SET(__pyx_v_adjust_days, __pyx_t_27);
+              __pyx_t_27 = 0;
+            }
+            __pyx_L194:;
+
+            /* "worker_threads_cy.pyx":635
+ *                     ops_change = None
+ *             if ops_change is not None and ops_change_input is not None and hold_days is not None:
+ *                 try:             # <<<<<<<<<<<<<<
+ *                     if ops_change > ops_change_input and hold_days == 1:
+ *                         adjust_days = round_to_2(op_days / 3.0)
+*/
+          }
+          __Pyx_XDECREF(__pyx_t_28); __pyx_t_28 = 0;
+          __Pyx_XDECREF(__pyx_t_29); __pyx_t_29 = 0;
+          __Pyx_XDECREF(__pyx_t_30); __pyx_t_30 = 0;
+          goto __pyx_L193_try_end;
+          __pyx_L186_error:;
+          __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
+          __PYX_XCLEAR_MEMVIEW(&__pyx_t_2, 1);
+          __pyx_t_2.memview = NULL; __pyx_t_2.data = NULL;
+          __PYX_XCLEAR_MEMVIEW(&__pyx_t_22, 1);
+          __pyx_t_22.memview = NULL; __pyx_t_22.data = NULL;
+          __PYX_XCLEAR_MEMVIEW(&__pyx_t_23, 1);
+          __pyx_t_23.memview = NULL; __pyx_t_23.data = NULL;
+          __Pyx_XDECREF(__pyx_t_27); __pyx_t_27 = 0;
+          __PYX_XCLEAR_MEMVIEW(&__pyx_t_3, 1);
+          __pyx_t_3.memview = NULL; __pyx_t_3.data = NULL;
+          __Pyx_XDECREF(__pyx_t_34); __pyx_t_34 = 0;
+          __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
+          __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
+          __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
+
+          /* "worker_threads_cy.pyx":640
+ *                     else:
+ *                         adjust_days = hold_days + 1
+ *                 except Exception:             # <<<<<<<<<<<<<<
+ *                     adjust_days = None
+ *             if ops_change is not None and adjust_days not in (None, 0):
+*/
+          __pyx_t_16 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(((PyTypeObject*)PyExc_Exception))));
+          if (__pyx_t_16) {
+            __Pyx_AddTraceback("worker_threads_cy.calculate_batch_cy", __pyx_clineno, __pyx_lineno, __pyx_filename);
+            if (__Pyx_GetException(&__pyx_t_27, &__pyx_t_34, &__pyx_t_5) < 0) __PYX_ERR(0, 640, __pyx_L188_except_error)
+            __Pyx_XGOTREF(__pyx_t_27);
+            __Pyx_XGOTREF(__pyx_t_34);
+            __Pyx_XGOTREF(__pyx_t_5);
+
+            /* "worker_threads_cy.pyx":641
+ *                         adjust_days = hold_days + 1
+ *                 except Exception:
+ *                     adjust_days = None             # <<<<<<<<<<<<<<
+ *             if ops_change is not None and adjust_days not in (None, 0):
+ *                 try:
+*/
+            __Pyx_INCREF(Py_None);
+            __Pyx_DECREF_SET(__pyx_v_adjust_days, Py_None);
+            __Pyx_XDECREF(__pyx_t_27); __pyx_t_27 = 0;
+            __Pyx_XDECREF(__pyx_t_34); __pyx_t_34 = 0;
+            __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
+            goto __pyx_L187_exception_handled;
+          }
+          goto __pyx_L188_except_error;
+
+          /* "worker_threads_cy.pyx":635
+ *                     ops_change = None
+ *             if ops_change is not None and ops_change_input is not None and hold_days is not None:
+ *                 try:             # <<<<<<<<<<<<<<
+ *                     if ops_change > ops_change_input and hold_days == 1:
+ *                         adjust_days = round_to_2(op_days / 3.0)
+*/
+          __pyx_L188_except_error:;
+          __Pyx_XGIVEREF(__pyx_t_28);
+          __Pyx_XGIVEREF(__pyx_t_29);
+          __Pyx_XGIVEREF(__pyx_t_30);
+          __Pyx_ExceptionReset(__pyx_t_28, __pyx_t_29, __pyx_t_30);
+          goto __pyx_L1_error;
+          __pyx_L187_exception_handled:;
+          __Pyx_XGIVEREF(__pyx_t_28);
+          __Pyx_XGIVEREF(__pyx_t_29);
+          __Pyx_XGIVEREF(__pyx_t_30);
+          __Pyx_ExceptionReset(__pyx_t_28, __pyx_t_29, __pyx_t_30);
+          __pyx_L193_try_end:;
+        }
+
+        /* "worker_threads_cy.pyx":634
+ *                 except Exception:
+ *                     ops_change = None
+ *             if ops_change is not None and ops_change_input is not None and hold_days is not None:             # <<<<<<<<<<<<<<
+ *                 try:
+ *                     if ops_change > ops_change_input and hold_days == 1:
+*/
+      }
+
+      /* "worker_threads_cy.pyx":642
+ *                 except Exception:
+ *                     adjust_days = None
+ *             if ops_change is not None and adjust_days not in (None, 0):             # <<<<<<<<<<<<<<
+ *                 try:
+ *                     ops_incre_rate = round_to_2(ops_change / adjust_days)
+*/
+      __pyx_t_38 = (__pyx_v_ops_change != Py_None);
+      if (__pyx_t_38) {
+      } else {
+        __pyx_t_7 = __pyx_t_38;
+        goto __pyx_L200_bool_binop_done;
+      }
+      __Pyx_INCREF(__pyx_v_adjust_days);
+      __pyx_t_5 = __pyx_v_adjust_days;
+      __pyx_t_34 = PyObject_RichCompare(__pyx_t_5, Py_None, Py_NE); __Pyx_XGOTREF(__pyx_t_34); if (unlikely(!__pyx_t_34)) __PYX_ERR(0, 642, __pyx_L1_error)
+      __pyx_t_21 = __Pyx_PyObject_IsTrue(__pyx_t_34); if (unlikely((__pyx_t_21 < 0))) __PYX_ERR(0, 642, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
+      if (__pyx_t_21) {
+      } else {
+        __pyx_t_38 = __pyx_t_21;
+        goto __pyx_L202_bool_binop_done;
+      }
+      __pyx_t_21 = (__Pyx_PyLong_BoolNeObjC(__pyx_t_5, __pyx_mstate_global->__pyx_int_0, 0, 0)); if (unlikely((__pyx_t_21 < 0))) __PYX_ERR(0, 642, __pyx_L1_error)
+      __pyx_t_38 = __pyx_t_21;
+      __pyx_L202_bool_binop_done:;
+      __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+      __pyx_t_21 = __pyx_t_38;
+      __pyx_t_7 = __pyx_t_21;
+      __pyx_L200_bool_binop_done:;
+      if (__pyx_t_7) {
+
+        /* "worker_threads_cy.pyx":643
+ *                     adjust_days = None
+ *             if ops_change is not None and adjust_days not in (None, 0):
+ *                 try:             # <<<<<<<<<<<<<<
+ *                     ops_incre_rate = round_to_2(ops_change / adjust_days)
+ *                 except Exception:
+*/
+        {
+          __Pyx_PyThreadState_declare
+          __Pyx_PyThreadState_assign
+          __Pyx_ExceptionSave(&__pyx_t_30, &__pyx_t_29, &__pyx_t_28);
+          __Pyx_XGOTREF(__pyx_t_30);
+          __Pyx_XGOTREF(__pyx_t_29);
+          __Pyx_XGOTREF(__pyx_t_28);
+          /*try:*/ {
+
+            /* "worker_threads_cy.pyx":644
+ *             if ops_change is not None and adjust_days not in (None, 0):
+ *                 try:
+ *                     ops_incre_rate = round_to_2(ops_change / adjust_days)             # <<<<<<<<<<<<<<
+ *                 except Exception:
+ *                     ops_incre_rate = None
+*/
+            __pyx_t_5 = __Pyx_PyNumber_Divide(__pyx_v_ops_change, __pyx_v_adjust_days); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 644, __pyx_L204_error)
+            __Pyx_GOTREF(__pyx_t_5);
+            __pyx_t_20 = __Pyx_PyFloat_AsDouble(__pyx_t_5); if (unlikely((__pyx_t_20 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 644, __pyx_L204_error)
+            __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+            __pyx_t_33 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_t_20); if (unlikely(__pyx_t_33 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 644, __pyx_L204_error)
+            __pyx_t_5 = PyFloat_FromDouble(__pyx_t_33); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 644, __pyx_L204_error)
+            __Pyx_GOTREF(__pyx_t_5);
+            __Pyx_DECREF_SET(__pyx_v_ops_incre_rate, __pyx_t_5);
+            __pyx_t_5 = 0;
+
+            /* "worker_threads_cy.pyx":643
+ *                     adjust_days = None
+ *             if ops_change is not None and adjust_days not in (None, 0):
+ *                 try:             # <<<<<<<<<<<<<<
+ *                     ops_incre_rate = round_to_2(ops_change / adjust_days)
+ *                 except Exception:
+*/
+          }
+          __Pyx_XDECREF(__pyx_t_30); __pyx_t_30 = 0;
+          __Pyx_XDECREF(__pyx_t_29); __pyx_t_29 = 0;
+          __Pyx_XDECREF(__pyx_t_28); __pyx_t_28 = 0;
+          goto __pyx_L211_try_end;
+          __pyx_L204_error:;
+          __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
+          __PYX_XCLEAR_MEMVIEW(&__pyx_t_2, 1);
+          __pyx_t_2.memview = NULL; __pyx_t_2.data = NULL;
+          __PYX_XCLEAR_MEMVIEW(&__pyx_t_22, 1);
+          __pyx_t_22.memview = NULL; __pyx_t_22.data = NULL;
+          __PYX_XCLEAR_MEMVIEW(&__pyx_t_23, 1);
+          __pyx_t_23.memview = NULL; __pyx_t_23.data = NULL;
+          __Pyx_XDECREF(__pyx_t_27); __pyx_t_27 = 0;
+          __PYX_XCLEAR_MEMVIEW(&__pyx_t_3, 1);
+          __pyx_t_3.memview = NULL; __pyx_t_3.data = NULL;
+          __Pyx_XDECREF(__pyx_t_34); __pyx_t_34 = 0;
+          __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
+          __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
+          __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
+
+          /* "worker_threads_cy.pyx":645
+ *                 try:
+ *                     ops_incre_rate = round_to_2(ops_change / adjust_days)
+ *                 except Exception:             # <<<<<<<<<<<<<<
+ *                     ops_incre_rate = None
+ * 
+*/
+          __pyx_t_16 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(((PyTypeObject*)PyExc_Exception))));
+          if (__pyx_t_16) {
+            __Pyx_AddTraceback("worker_threads_cy.calculate_batch_cy", __pyx_clineno, __pyx_lineno, __pyx_filename);
+            if (__Pyx_GetException(&__pyx_t_5, &__pyx_t_34, &__pyx_t_27) < 0) __PYX_ERR(0, 645, __pyx_L206_except_error)
+            __Pyx_XGOTREF(__pyx_t_5);
+            __Pyx_XGOTREF(__pyx_t_34);
+            __Pyx_XGOTREF(__pyx_t_27);
+
+            /* "worker_threads_cy.pyx":646
+ *                     ops_incre_rate = round_to_2(ops_change / adjust_days)
+ *                 except Exception:
+ *                     ops_incre_rate = None             # <<<<<<<<<<<<<<
+ * 
+ *             row_result = {
+*/
+            __Pyx_INCREF(Py_None);
+            __Pyx_DECREF_SET(__pyx_v_ops_incre_rate, Py_None);
+            __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
+            __Pyx_XDECREF(__pyx_t_34); __pyx_t_34 = 0;
+            __Pyx_XDECREF(__pyx_t_27); __pyx_t_27 = 0;
+            goto __pyx_L205_exception_handled;
+          }
+          goto __pyx_L206_except_error;
+
+          /* "worker_threads_cy.pyx":643
+ *                     adjust_days = None
+ *             if ops_change is not None and adjust_days not in (None, 0):
+ *                 try:             # <<<<<<<<<<<<<<
+ *                     ops_incre_rate = round_to_2(ops_change / adjust_days)
+ *                 except Exception:
+*/
+          __pyx_L206_except_error:;
+          __Pyx_XGIVEREF(__pyx_t_30);
+          __Pyx_XGIVEREF(__pyx_t_29);
+          __Pyx_XGIVEREF(__pyx_t_28);
+          __Pyx_ExceptionReset(__pyx_t_30, __pyx_t_29, __pyx_t_28);
+          goto __pyx_L1_error;
+          __pyx_L205_exception_handled:;
+          __Pyx_XGIVEREF(__pyx_t_30);
+          __Pyx_XGIVEREF(__pyx_t_29);
+          __Pyx_XGIVEREF(__pyx_t_28);
+          __Pyx_ExceptionReset(__pyx_t_30, __pyx_t_29, __pyx_t_28);
+          __pyx_L211_try_end:;
+        }
+
+        /* "worker_threads_cy.pyx":642
+ *                 except Exception:
+ *                     adjust_days = None
+ *             if ops_change is not None and adjust_days not in (None, 0):             # <<<<<<<<<<<<<<
+ *                 try:
+ *                     ops_incre_rate = round_to_2(ops_change / adjust_days)
+*/
+      }
+
+      /* "worker_threads_cy.pyx":649
+ * 
+ *             row_result = {
+ *                 'stock_idx': stock_idx,             # <<<<<<<<<<<<<<
+ *                 'max_value': [date_columns[end_date_idx + max_idx_in_window] if max_idx_in_window >= 0 else None, max_price],
+ *                 'min_value': [date_columns[end_date_idx + min_idx_in_window] if min_idx_in_window >= 0 else None, min_price],
+*/
+      __pyx_t_27 = __Pyx_PyDict_NewPresized(71); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 649, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_27);
+      __pyx_t_34 = __Pyx_PyLong_From_int(__pyx_v_stock_idx); if (unlikely(!__pyx_t_34)) __PYX_ERR(0, 649, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_34);
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_stock_idx, __pyx_t_34) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
+
+      /* "worker_threads_cy.pyx":650
+ *             row_result = {
+ *                 'stock_idx': stock_idx,
+ *                 'max_value': [date_columns[end_date_idx + max_idx_in_window] if max_idx_in_window >= 0 else None, max_price],             # <<<<<<<<<<<<<<
+ *                 'min_value': [date_columns[end_date_idx + min_idx_in_window] if min_idx_in_window >= 0 else None, min_price],
+ *                 'end_value': [date_columns[end_date_idx], end_value],
+*/
+      __pyx_t_7 = (__pyx_v_max_idx_in_window >= 0);
+      if (__pyx_t_7) {
+        if (unlikely(__pyx_v_date_columns == Py_None)) {
+          PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
+          __PYX_ERR(0, 650, __pyx_L1_error)
+        }
+        __pyx_t_16 = (__pyx_v_end_date_idx + __pyx_v_max_idx_in_window);
+        __Pyx_INCREF(__Pyx_PyList_GET_ITEM(__pyx_v_date_columns, __pyx_t_16));
+        __pyx_t_34 = __Pyx_PyList_GET_ITEM(__pyx_v_date_columns, __pyx_t_16);
+      } else {
+        __Pyx_INCREF(Py_None);
+        __pyx_t_34 = Py_None;
+      }
+      __pyx_t_5 = PyFloat_FromDouble(__pyx_v_max_price); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 650, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_5);
+      __pyx_t_8 = PyList_New(2); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 650, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_8);
+      __Pyx_GIVEREF(__pyx_t_34);
+      if (__Pyx_PyList_SET_ITEM(__pyx_t_8, 0, __pyx_t_34) != (0)) __PYX_ERR(0, 650, __pyx_L1_error);
+      __Pyx_GIVEREF(__pyx_t_5);
+      if (__Pyx_PyList_SET_ITEM(__pyx_t_8, 1, __pyx_t_5) != (0)) __PYX_ERR(0, 650, __pyx_L1_error);
+      __pyx_t_34 = 0;
+      __pyx_t_5 = 0;
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_max_value, __pyx_t_8) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+
+      /* "worker_threads_cy.pyx":651
+ *                 'stock_idx': stock_idx,
+ *                 'max_value': [date_columns[end_date_idx + max_idx_in_window] if max_idx_in_window >= 0 else None, max_price],
+ *                 'min_value': [date_columns[end_date_idx + min_idx_in_window] if min_idx_in_window >= 0 else None, min_price],             # <<<<<<<<<<<<<<
+ *                 'end_value': [date_columns[end_date_idx], end_value],
+ *                 'start_value': [date_columns[start_date_idx], start_value],
+*/
+      __pyx_t_7 = (__pyx_v_min_idx_in_window >= 0);
+      if (__pyx_t_7) {
+        if (unlikely(__pyx_v_date_columns == Py_None)) {
+          PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
+          __PYX_ERR(0, 651, __pyx_L1_error)
+        }
+        __pyx_t_16 = (__pyx_v_end_date_idx + __pyx_v_min_idx_in_window);
+        __Pyx_INCREF(__Pyx_PyList_GET_ITEM(__pyx_v_date_columns, __pyx_t_16));
+        __pyx_t_8 = __Pyx_PyList_GET_ITEM(__pyx_v_date_columns, __pyx_t_16);
+      } else {
+        __Pyx_INCREF(Py_None);
+        __pyx_t_8 = Py_None;
+      }
+      __pyx_t_5 = PyFloat_FromDouble(__pyx_v_min_price); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 651, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_5);
+      __pyx_t_34 = PyList_New(2); if (unlikely(!__pyx_t_34)) __PYX_ERR(0, 651, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_34);
+      __Pyx_GIVEREF(__pyx_t_8);
+      if (__Pyx_PyList_SET_ITEM(__pyx_t_34, 0, __pyx_t_8) != (0)) __PYX_ERR(0, 651, __pyx_L1_error);
+      __Pyx_GIVEREF(__pyx_t_5);
+      if (__Pyx_PyList_SET_ITEM(__pyx_t_34, 1, __pyx_t_5) != (0)) __PYX_ERR(0, 651, __pyx_L1_error);
+      __pyx_t_8 = 0;
+      __pyx_t_5 = 0;
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_min_value, __pyx_t_34) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
+
+      /* "worker_threads_cy.pyx":652
+ *                 'max_value': [date_columns[end_date_idx + max_idx_in_window] if max_idx_in_window >= 0 else None, max_price],
+ *                 'min_value': [date_columns[end_date_idx + min_idx_in_window] if min_idx_in_window >= 0 else None, min_price],
+ *                 'end_value': [date_columns[end_date_idx], end_value],             # <<<<<<<<<<<<<<
+ *                 'start_value': [date_columns[start_date_idx], start_value],
+ *                 'actual_value': [date_columns[actual_idx] if actual_idx >= 0 and actual_idx < num_dates else None, actual_value],
+*/
+      if (unlikely(__pyx_v_date_columns == Py_None)) {
+        PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
+        __PYX_ERR(0, 652, __pyx_L1_error)
+      }
+      __pyx_t_34 = PyFloat_FromDouble(__pyx_v_end_value); if (unlikely(!__pyx_t_34)) __PYX_ERR(0, 652, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_34);
+      __pyx_t_5 = PyList_New(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 652, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_5);
+      __Pyx_INCREF(__Pyx_PyList_GET_ITEM(__pyx_v_date_columns, __pyx_v_end_date_idx));
+      __Pyx_GIVEREF(__Pyx_PyList_GET_ITEM(__pyx_v_date_columns, __pyx_v_end_date_idx));
+      if (__Pyx_PyList_SET_ITEM(__pyx_t_5, 0, __Pyx_PyList_GET_ITEM(__pyx_v_date_columns, __pyx_v_end_date_idx)) != (0)) __PYX_ERR(0, 652, __pyx_L1_error);
+      __Pyx_GIVEREF(__pyx_t_34);
+      if (__Pyx_PyList_SET_ITEM(__pyx_t_5, 1, __pyx_t_34) != (0)) __PYX_ERR(0, 652, __pyx_L1_error);
+      __pyx_t_34 = 0;
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_end_value, __pyx_t_5) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+
+      /* "worker_threads_cy.pyx":653
+ *                 'min_value': [date_columns[end_date_idx + min_idx_in_window] if min_idx_in_window >= 0 else None, min_price],
+ *                 'end_value': [date_columns[end_date_idx], end_value],
+ *                 'start_value': [date_columns[start_date_idx], start_value],             # <<<<<<<<<<<<<<
+ *                 'actual_value': [date_columns[actual_idx] if actual_idx >= 0 and actual_idx < num_dates else None, actual_value],
+ *                 'closest_value': [date_columns[end_date_idx + closest_idx_in_window] if closest_idx_in_window >= 0 else None, closest_value],
+*/
+      if (unlikely(__pyx_v_date_columns == Py_None)) {
+        PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
+        __PYX_ERR(0, 653, __pyx_L1_error)
+      }
+      __pyx_t_5 = PyFloat_FromDouble(__pyx_v_start_value); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 653, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_5);
+      __pyx_t_34 = PyList_New(2); if (unlikely(!__pyx_t_34)) __PYX_ERR(0, 653, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_34);
+      __Pyx_INCREF(__Pyx_PyList_GET_ITEM(__pyx_v_date_columns, __pyx_v_start_date_idx));
+      __Pyx_GIVEREF(__Pyx_PyList_GET_ITEM(__pyx_v_date_columns, __pyx_v_start_date_idx));
+      if (__Pyx_PyList_SET_ITEM(__pyx_t_34, 0, __Pyx_PyList_GET_ITEM(__pyx_v_date_columns, __pyx_v_start_date_idx)) != (0)) __PYX_ERR(0, 653, __pyx_L1_error);
+      __Pyx_GIVEREF(__pyx_t_5);
+      if (__Pyx_PyList_SET_ITEM(__pyx_t_34, 1, __pyx_t_5) != (0)) __PYX_ERR(0, 653, __pyx_L1_error);
+      __pyx_t_5 = 0;
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_start_value, __pyx_t_34) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
+
+      /* "worker_threads_cy.pyx":654
+ *                 'end_value': [date_columns[end_date_idx], end_value],
+ *                 'start_value': [date_columns[start_date_idx], start_value],
+ *                 'actual_value': [date_columns[actual_idx] if actual_idx >= 0 and actual_idx < num_dates else None, actual_value],             # <<<<<<<<<<<<<<
+ *                 'closest_value': [date_columns[end_date_idx + closest_idx_in_window] if closest_idx_in_window >= 0 else None, closest_value],
+ *                 'continuous_results': py_cont_sum,
+*/
+      __pyx_t_21 = (__pyx_v_actual_idx >= 0);
+      if (__pyx_t_21) {
+      } else {
+        __pyx_t_7 = __pyx_t_21;
+        goto __pyx_L214_bool_binop_done;
+      }
+      __pyx_t_21 = (__pyx_v_actual_idx < __pyx_v_num_dates);
+      __pyx_t_7 = __pyx_t_21;
+      __pyx_L214_bool_binop_done:;
+      if (__pyx_t_7) {
+        if (unlikely(__pyx_v_date_columns == Py_None)) {
+          PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
+          __PYX_ERR(0, 654, __pyx_L1_error)
+        }
+        __Pyx_INCREF(__Pyx_PyList_GET_ITEM(__pyx_v_date_columns, __pyx_v_actual_idx));
+        __pyx_t_34 = __Pyx_PyList_GET_ITEM(__pyx_v_date_columns, __pyx_v_actual_idx);
+      } else {
+        __Pyx_INCREF(Py_None);
+        __pyx_t_34 = Py_None;
+      }
+      __pyx_t_5 = PyFloat_FromDouble(__pyx_v_actual_value); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 654, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_5);
+      __pyx_t_8 = PyList_New(2); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 654, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_8);
+      __Pyx_GIVEREF(__pyx_t_34);
+      if (__Pyx_PyList_SET_ITEM(__pyx_t_8, 0, __pyx_t_34) != (0)) __PYX_ERR(0, 654, __pyx_L1_error);
+      __Pyx_GIVEREF(__pyx_t_5);
+      if (__Pyx_PyList_SET_ITEM(__pyx_t_8, 1, __pyx_t_5) != (0)) __PYX_ERR(0, 654, __pyx_L1_error);
+      __pyx_t_34 = 0;
+      __pyx_t_5 = 0;
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_actual_value, __pyx_t_8) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+
+      /* "worker_threads_cy.pyx":655
+ *                 'start_value': [date_columns[start_date_idx], start_value],
+ *                 'actual_value': [date_columns[actual_idx] if actual_idx >= 0 and actual_idx < num_dates else None, actual_value],
+ *                 'closest_value': [date_columns[end_date_idx + closest_idx_in_window] if closest_idx_in_window >= 0 else None, closest_value],             # <<<<<<<<<<<<<<
+ *                 'continuous_results': py_cont_sum,
+ *                 'continuous_len': len(py_cont_sum),
+*/
+      __pyx_t_7 = (__pyx_v_closest_idx_in_window >= 0);
+      if (__pyx_t_7) {
+        if (unlikely(__pyx_v_date_columns == Py_None)) {
+          PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
+          __PYX_ERR(0, 655, __pyx_L1_error)
+        }
+        __pyx_t_16 = (__pyx_v_end_date_idx + __pyx_v_closest_idx_in_window);
+        __Pyx_INCREF(__Pyx_PyList_GET_ITEM(__pyx_v_date_columns, __pyx_t_16));
+        __pyx_t_8 = __Pyx_PyList_GET_ITEM(__pyx_v_date_columns, __pyx_t_16);
+      } else {
+        __Pyx_INCREF(Py_None);
+        __pyx_t_8 = Py_None;
+      }
+      __pyx_t_5 = PyFloat_FromDouble(__pyx_v_closest_value); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 655, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_5);
+      __pyx_t_34 = PyList_New(2); if (unlikely(!__pyx_t_34)) __PYX_ERR(0, 655, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_34);
+      __Pyx_GIVEREF(__pyx_t_8);
+      if (__Pyx_PyList_SET_ITEM(__pyx_t_34, 0, __pyx_t_8) != (0)) __PYX_ERR(0, 655, __pyx_L1_error);
+      __Pyx_GIVEREF(__pyx_t_5);
+      if (__Pyx_PyList_SET_ITEM(__pyx_t_34, 1, __pyx_t_5) != (0)) __PYX_ERR(0, 655, __pyx_L1_error);
+      __pyx_t_8 = 0;
+      __pyx_t_5 = 0;
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_closest_value, __pyx_t_34) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
+
+      /* "worker_threads_cy.pyx":656
+ *                 'actual_value': [date_columns[actual_idx] if actual_idx >= 0 and actual_idx < num_dates else None, actual_value],
+ *                 'closest_value': [date_columns[end_date_idx + closest_idx_in_window] if closest_idx_in_window >= 0 else None, closest_value],
+ *                 'continuous_results': py_cont_sum,             # <<<<<<<<<<<<<<
+ *                 'continuous_len': len(py_cont_sum),
+ *                 'continuous_start_value': continuous_start_value,
+*/
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_continuous_results, __pyx_v_py_cont_sum) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+
+      /* "worker_threads_cy.pyx":657
+ *                 'closest_value': [date_columns[end_date_idx + closest_idx_in_window] if closest_idx_in_window >= 0 else None, closest_value],
+ *                 'continuous_results': py_cont_sum,
+ *                 'continuous_len': len(py_cont_sum),             # <<<<<<<<<<<<<<
+ *                 'continuous_start_value': continuous_start_value,
+ *                 'continuous_start_next_value': continuous_start_next_value,
+*/
+      __pyx_t_31 = __Pyx_PyList_GET_SIZE(__pyx_v_py_cont_sum); if (unlikely(__pyx_t_31 == ((Py_ssize_t)-1))) __PYX_ERR(0, 657, __pyx_L1_error)
+      __pyx_t_34 = PyLong_FromSsize_t(__pyx_t_31); if (unlikely(!__pyx_t_34)) __PYX_ERR(0, 657, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_34);
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_continuous_len, __pyx_t_34) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
+
+      /* "worker_threads_cy.pyx":658
+ *                 'continuous_results': py_cont_sum,
+ *                 'continuous_len': len(py_cont_sum),
+ *                 'continuous_start_value': continuous_start_value,             # <<<<<<<<<<<<<<
+ *                 'continuous_start_next_value': continuous_start_next_value,
+ *                 'continuous_start_next_next_value': continuous_start_next_next_value,
+*/
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_continuous_start_value, __pyx_v_continuous_start_value) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+
+      /* "worker_threads_cy.pyx":659
+ *                 'continuous_len': len(py_cont_sum),
+ *                 'continuous_start_value': continuous_start_value,
+ *                 'continuous_start_next_value': continuous_start_next_value,             # <<<<<<<<<<<<<<
+ *                 'continuous_start_next_next_value': continuous_start_next_next_value,
+ *                 'continuous_end_value': continuous_end_value,
+*/
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_continuous_start_next_value, __pyx_v_continuous_start_next_value) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+
+      /* "worker_threads_cy.pyx":660
+ *                 'continuous_start_value': continuous_start_value,
+ *                 'continuous_start_next_value': continuous_start_next_value,
+ *                 'continuous_start_next_next_value': continuous_start_next_next_value,             # <<<<<<<<<<<<<<
+ *                 'continuous_end_value': continuous_end_value,
+ *                 'continuous_end_prev_value': continuous_end_prev_value,
+*/
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_continuous_start_next_next_value, __pyx_v_continuous_start_next_next_value) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+
+      /* "worker_threads_cy.pyx":661
+ *                 'continuous_start_next_value': continuous_start_next_value,
+ *                 'continuous_start_next_next_value': continuous_start_next_next_value,
+ *                 'continuous_end_value': continuous_end_value,             # <<<<<<<<<<<<<<
+ *                 'continuous_end_prev_value': continuous_end_prev_value,
+ *                 'continuous_end_prev_prev_value': continuous_end_prev_prev_value,
+*/
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_continuous_end_value, __pyx_v_continuous_end_value) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+
+      /* "worker_threads_cy.pyx":662
+ *                 'continuous_start_next_next_value': continuous_start_next_next_value,
+ *                 'continuous_end_value': continuous_end_value,
+ *                 'continuous_end_prev_value': continuous_end_prev_value,             # <<<<<<<<<<<<<<
+ *                 'continuous_end_prev_prev_value': continuous_end_prev_prev_value,
+ *                 'continuous_abs_sum_first_half': continuous_abs_sum_first_half,
+*/
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_continuous_end_prev_value, __pyx_v_continuous_end_prev_value) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+
+      /* "worker_threads_cy.pyx":663
+ *                 'continuous_end_value': continuous_end_value,
+ *                 'continuous_end_prev_value': continuous_end_prev_value,
+ *                 'continuous_end_prev_prev_value': continuous_end_prev_prev_value,             # <<<<<<<<<<<<<<
+ *                 'continuous_abs_sum_first_half': continuous_abs_sum_first_half,
+ *                 'continuous_abs_sum_second_half': continuous_abs_sum_second_half,
+*/
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_continuous_end_prev_prev_value, __pyx_v_continuous_end_prev_prev_value) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+
+      /* "worker_threads_cy.pyx":664
+ *                 'continuous_end_prev_value': continuous_end_prev_value,
+ *                 'continuous_end_prev_prev_value': continuous_end_prev_prev_value,
+ *                 'continuous_abs_sum_first_half': continuous_abs_sum_first_half,             # <<<<<<<<<<<<<<
+ *                 'continuous_abs_sum_second_half': continuous_abs_sum_second_half,
+ *                 'continuous_abs_sum_block1': continuous_abs_sum_block1,
+*/
+      __pyx_t_34 = PyFloat_FromDouble(__pyx_v_continuous_abs_sum_first_half); if (unlikely(!__pyx_t_34)) __PYX_ERR(0, 664, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_34);
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_continuous_abs_sum_first_half, __pyx_t_34) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
+
+      /* "worker_threads_cy.pyx":665
+ *                 'continuous_end_prev_prev_value': continuous_end_prev_prev_value,
+ *                 'continuous_abs_sum_first_half': continuous_abs_sum_first_half,
+ *                 'continuous_abs_sum_second_half': continuous_abs_sum_second_half,             # <<<<<<<<<<<<<<
+ *                 'continuous_abs_sum_block1': continuous_abs_sum_block1,
+ *                 'continuous_abs_sum_block2': continuous_abs_sum_block2,
+*/
+      __pyx_t_34 = PyFloat_FromDouble(__pyx_v_continuous_abs_sum_second_half); if (unlikely(!__pyx_t_34)) __PYX_ERR(0, 665, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_34);
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_continuous_abs_sum_second_half, __pyx_t_34) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
+
+      /* "worker_threads_cy.pyx":666
+ *                 'continuous_abs_sum_first_half': continuous_abs_sum_first_half,
+ *                 'continuous_abs_sum_second_half': continuous_abs_sum_second_half,
+ *                 'continuous_abs_sum_block1': continuous_abs_sum_block1,             # <<<<<<<<<<<<<<
+ *                 'continuous_abs_sum_block2': continuous_abs_sum_block2,
+ *                 'continuous_abs_sum_block3': continuous_abs_sum_block3,
+*/
+      __pyx_t_34 = PyFloat_FromDouble(__pyx_v_continuous_abs_sum_block1); if (unlikely(!__pyx_t_34)) __PYX_ERR(0, 666, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_34);
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_continuous_abs_sum_block1, __pyx_t_34) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
+
+      /* "worker_threads_cy.pyx":667
+ *                 'continuous_abs_sum_second_half': continuous_abs_sum_second_half,
+ *                 'continuous_abs_sum_block1': continuous_abs_sum_block1,
+ *                 'continuous_abs_sum_block2': continuous_abs_sum_block2,             # <<<<<<<<<<<<<<
+ *                 'continuous_abs_sum_block3': continuous_abs_sum_block3,
+ *                 'continuous_abs_sum_block4': continuous_abs_sum_block4,
+*/
+      __pyx_t_34 = PyFloat_FromDouble(__pyx_v_continuous_abs_sum_block2); if (unlikely(!__pyx_t_34)) __PYX_ERR(0, 667, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_34);
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_continuous_abs_sum_block2, __pyx_t_34) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
+
+      /* "worker_threads_cy.pyx":668
+ *                 'continuous_abs_sum_block1': continuous_abs_sum_block1,
+ *                 'continuous_abs_sum_block2': continuous_abs_sum_block2,
+ *                 'continuous_abs_sum_block3': continuous_abs_sum_block3,             # <<<<<<<<<<<<<<
+ *                 'continuous_abs_sum_block4': continuous_abs_sum_block4,
+ *                 'forward_max_result': forward_max_result,
+*/
+      __pyx_t_34 = PyFloat_FromDouble(__pyx_v_continuous_abs_sum_block3); if (unlikely(!__pyx_t_34)) __PYX_ERR(0, 668, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_34);
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_continuous_abs_sum_block3, __pyx_t_34) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
+
+      /* "worker_threads_cy.pyx":669
+ *                 'continuous_abs_sum_block2': continuous_abs_sum_block2,
+ *                 'continuous_abs_sum_block3': continuous_abs_sum_block3,
+ *                 'continuous_abs_sum_block4': continuous_abs_sum_block4,             # <<<<<<<<<<<<<<
+ *                 'forward_max_result': forward_max_result,
+ *                 'forward_min_result': forward_min_result,
+*/
+      __pyx_t_34 = PyFloat_FromDouble(__pyx_v_continuous_abs_sum_block4); if (unlikely(!__pyx_t_34)) __PYX_ERR(0, 669, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_34);
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_continuous_abs_sum_block4, __pyx_t_34) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
+
+      /* "worker_threads_cy.pyx":670
+ *                 'continuous_abs_sum_block3': continuous_abs_sum_block3,
+ *                 'continuous_abs_sum_block4': continuous_abs_sum_block4,
+ *                 'forward_max_result': forward_max_result,             # <<<<<<<<<<<<<<
+ *                 'forward_min_result': forward_min_result,
+ *                 'valid_sum_arr': [valid_sum_arr[j] for j in range(valid_sum_len)],
+*/
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_forward_max_result, __pyx_v_forward_max_result) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+
+      /* "worker_threads_cy.pyx":671
+ *                 'continuous_abs_sum_block4': continuous_abs_sum_block4,
+ *                 'forward_max_result': forward_max_result,
+ *                 'forward_min_result': forward_min_result,             # <<<<<<<<<<<<<<
+ *                 'valid_sum_arr': [valid_sum_arr[j] for j in range(valid_sum_len)],
+ *                 'valid_sum_len': valid_sum_len,
+*/
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_forward_min_result, __pyx_v_forward_min_result) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+      { /* enter inner scope */
+
+        /* "worker_threads_cy.pyx":672
+ *                 'forward_max_result': forward_max_result,
+ *                 'forward_min_result': forward_min_result,
+ *                 'valid_sum_arr': [valid_sum_arr[j] for j in range(valid_sum_len)],             # <<<<<<<<<<<<<<
+ *                 'valid_sum_len': valid_sum_len,
+ *                 'valid_pos_sum': valid_pos_sum,
+*/
+        __pyx_t_34 = PyList_New(0); if (unlikely(!__pyx_t_34)) __PYX_ERR(0, 672, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_34);
+        __pyx_t_16 = __pyx_v_valid_sum_len;
+        __pyx_t_17 = __pyx_t_16;
+        for (__pyx_t_18 = 0; __pyx_t_18 < __pyx_t_17; __pyx_t_18+=1) {
+          __pyx_8genexpr3__pyx_v_j = __pyx_t_18;
+          __pyx_t_5 = PyFloat_FromDouble((__pyx_v_valid_sum_arr[__pyx_8genexpr3__pyx_v_j])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 672, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_5);
+          if (unlikely(__Pyx_ListComp_Append(__pyx_t_34, (PyObject*)__pyx_t_5))) __PYX_ERR(0, 672, __pyx_L1_error)
+          __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+        }
+      } /* exit inner scope */
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_valid_sum_arr, __pyx_t_34) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
+
+      /* "worker_threads_cy.pyx":673
+ *                 'forward_min_result': forward_min_result,
+ *                 'valid_sum_arr': [valid_sum_arr[j] for j in range(valid_sum_len)],
+ *                 'valid_sum_len': valid_sum_len,             # <<<<<<<<<<<<<<
+ *                 'valid_pos_sum': valid_pos_sum,
+ *                 'valid_neg_sum': valid_neg_sum,
+*/
+      __pyx_t_34 = __Pyx_PyLong_From_int(__pyx_v_valid_sum_len); if (unlikely(!__pyx_t_34)) __PYX_ERR(0, 673, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_34);
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_valid_sum_len, __pyx_t_34) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
+
+      /* "worker_threads_cy.pyx":674
+ *                 'valid_sum_arr': [valid_sum_arr[j] for j in range(valid_sum_len)],
+ *                 'valid_sum_len': valid_sum_len,
+ *                 'valid_pos_sum': valid_pos_sum,             # <<<<<<<<<<<<<<
+ *                 'valid_neg_sum': valid_neg_sum,
+ *                 'forward_max_valid_sum_arr': forward_max_result,
+*/
+      __pyx_t_34 = PyFloat_FromDouble(__pyx_v_valid_pos_sum); if (unlikely(!__pyx_t_34)) __PYX_ERR(0, 674, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_34);
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_valid_pos_sum, __pyx_t_34) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
+
+      /* "worker_threads_cy.pyx":675
+ *                 'valid_sum_len': valid_sum_len,
+ *                 'valid_pos_sum': valid_pos_sum,
+ *                 'valid_neg_sum': valid_neg_sum,             # <<<<<<<<<<<<<<
+ *                 'forward_max_valid_sum_arr': forward_max_result,
+ *                 'forward_max_valid_sum_len': forward_max_valid_sum_len,
+*/
+      __pyx_t_34 = PyFloat_FromDouble(__pyx_v_valid_neg_sum); if (unlikely(!__pyx_t_34)) __PYX_ERR(0, 675, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_34);
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_valid_neg_sum, __pyx_t_34) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
+
+      /* "worker_threads_cy.pyx":676
+ *                 'valid_pos_sum': valid_pos_sum,
+ *                 'valid_neg_sum': valid_neg_sum,
+ *                 'forward_max_valid_sum_arr': forward_max_result,             # <<<<<<<<<<<<<<
+ *                 'forward_max_valid_sum_len': forward_max_valid_sum_len,
+ *                 'forward_max_valid_pos_sum': forward_max_valid_pos_sum,
+*/
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_forward_max_valid_sum_arr, __pyx_v_forward_max_result) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+
+      /* "worker_threads_cy.pyx":677
+ *                 'valid_neg_sum': valid_neg_sum,
+ *                 'forward_max_valid_sum_arr': forward_max_result,
+ *                 'forward_max_valid_sum_len': forward_max_valid_sum_len,             # <<<<<<<<<<<<<<
+ *                 'forward_max_valid_pos_sum': forward_max_valid_pos_sum,
+ *                 'forward_max_valid_neg_sum': forward_max_valid_neg_sum,
+*/
+      __pyx_t_34 = __Pyx_PyLong_From_int(__pyx_v_forward_max_valid_sum_len); if (unlikely(!__pyx_t_34)) __PYX_ERR(0, 677, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_34);
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_forward_max_valid_sum_len, __pyx_t_34) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
+
+      /* "worker_threads_cy.pyx":678
+ *                 'forward_max_valid_sum_arr': forward_max_result,
+ *                 'forward_max_valid_sum_len': forward_max_valid_sum_len,
+ *                 'forward_max_valid_pos_sum': forward_max_valid_pos_sum,             # <<<<<<<<<<<<<<
+ *                 'forward_max_valid_neg_sum': forward_max_valid_neg_sum,
+ *                 'forward_min_valid_sum_arr': forward_min_result,
+*/
+      __pyx_t_34 = PyFloat_FromDouble(__pyx_v_forward_max_valid_pos_sum); if (unlikely(!__pyx_t_34)) __PYX_ERR(0, 678, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_34);
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_forward_max_valid_pos_sum, __pyx_t_34) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
+
+      /* "worker_threads_cy.pyx":679
+ *                 'forward_max_valid_sum_len': forward_max_valid_sum_len,
+ *                 'forward_max_valid_pos_sum': forward_max_valid_pos_sum,
+ *                 'forward_max_valid_neg_sum': forward_max_valid_neg_sum,             # <<<<<<<<<<<<<<
+ *                 'forward_min_valid_sum_arr': forward_min_result,
+ *                 'forward_min_valid_sum_len': forward_min_valid_sum_len,
+*/
+      __pyx_t_34 = PyFloat_FromDouble(__pyx_v_forward_max_valid_neg_sum); if (unlikely(!__pyx_t_34)) __PYX_ERR(0, 679, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_34);
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_forward_max_valid_neg_sum, __pyx_t_34) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
+
+      /* "worker_threads_cy.pyx":680
+ *                 'forward_max_valid_pos_sum': forward_max_valid_pos_sum,
+ *                 'forward_max_valid_neg_sum': forward_max_valid_neg_sum,
+ *                 'forward_min_valid_sum_arr': forward_min_result,             # <<<<<<<<<<<<<<
+ *                 'forward_min_valid_sum_len': forward_min_valid_sum_len,
+ *                 'forward_min_valid_pos_sum': forward_min_valid_pos_sum,
+*/
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_forward_min_valid_sum_arr, __pyx_v_forward_min_result) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+
+      /* "worker_threads_cy.pyx":681
+ *                 'forward_max_valid_neg_sum': forward_max_valid_neg_sum,
+ *                 'forward_min_valid_sum_arr': forward_min_result,
+ *                 'forward_min_valid_sum_len': forward_min_valid_sum_len,             # <<<<<<<<<<<<<<
+ *                 'forward_min_valid_pos_sum': forward_min_valid_pos_sum,
+ *                 'forward_min_valid_neg_sum': forward_min_valid_neg_sum,
+*/
+      __pyx_t_34 = __Pyx_PyLong_From_int(__pyx_v_forward_min_valid_sum_len); if (unlikely(!__pyx_t_34)) __PYX_ERR(0, 681, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_34);
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_forward_min_valid_sum_len, __pyx_t_34) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
+
+      /* "worker_threads_cy.pyx":682
+ *                 'forward_min_valid_sum_arr': forward_min_result,
+ *                 'forward_min_valid_sum_len': forward_min_valid_sum_len,
+ *                 'forward_min_valid_pos_sum': forward_min_valid_pos_sum,             # <<<<<<<<<<<<<<
+ *                 'forward_min_valid_neg_sum': forward_min_valid_neg_sum,
+ *                 'valid_abs_sum_first_half': valid_abs_sum_first_half,
+*/
+      __pyx_t_34 = PyFloat_FromDouble(__pyx_v_forward_min_valid_pos_sum); if (unlikely(!__pyx_t_34)) __PYX_ERR(0, 682, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_34);
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_forward_min_valid_pos_sum, __pyx_t_34) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
+
+      /* "worker_threads_cy.pyx":683
+ *                 'forward_min_valid_sum_len': forward_min_valid_sum_len,
+ *                 'forward_min_valid_pos_sum': forward_min_valid_pos_sum,
+ *                 'forward_min_valid_neg_sum': forward_min_valid_neg_sum,             # <<<<<<<<<<<<<<
+ *                 'valid_abs_sum_first_half': valid_abs_sum_first_half,
+ *                 'valid_abs_sum_second_half': valid_abs_sum_second_half,
+*/
+      __pyx_t_34 = PyFloat_FromDouble(__pyx_v_forward_min_valid_neg_sum); if (unlikely(!__pyx_t_34)) __PYX_ERR(0, 683, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_34);
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_forward_min_valid_neg_sum, __pyx_t_34) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
+
+      /* "worker_threads_cy.pyx":684
+ *                 'forward_min_valid_pos_sum': forward_min_valid_pos_sum,
+ *                 'forward_min_valid_neg_sum': forward_min_valid_neg_sum,
+ *                 'valid_abs_sum_first_half': valid_abs_sum_first_half,             # <<<<<<<<<<<<<<
+ *                 'valid_abs_sum_second_half': valid_abs_sum_second_half,
+ *                 'valid_abs_sum_block1': valid_abs_sum_block1,
+*/
+      __pyx_t_34 = PyFloat_FromDouble(__pyx_v_valid_abs_sum_first_half); if (unlikely(!__pyx_t_34)) __PYX_ERR(0, 684, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_34);
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_valid_abs_sum_first_half, __pyx_t_34) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
+
+      /* "worker_threads_cy.pyx":685
+ *                 'forward_min_valid_neg_sum': forward_min_valid_neg_sum,
+ *                 'valid_abs_sum_first_half': valid_abs_sum_first_half,
+ *                 'valid_abs_sum_second_half': valid_abs_sum_second_half,             # <<<<<<<<<<<<<<
+ *                 'valid_abs_sum_block1': valid_abs_sum_block1,
+ *                 'valid_abs_sum_block2': valid_abs_sum_block2,
+*/
+      __pyx_t_34 = PyFloat_FromDouble(__pyx_v_valid_abs_sum_second_half); if (unlikely(!__pyx_t_34)) __PYX_ERR(0, 685, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_34);
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_valid_abs_sum_second_half, __pyx_t_34) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
+
+      /* "worker_threads_cy.pyx":686
+ *                 'valid_abs_sum_first_half': valid_abs_sum_first_half,
+ *                 'valid_abs_sum_second_half': valid_abs_sum_second_half,
+ *                 'valid_abs_sum_block1': valid_abs_sum_block1,             # <<<<<<<<<<<<<<
+ *                 'valid_abs_sum_block2': valid_abs_sum_block2,
+ *                 'valid_abs_sum_block3': valid_abs_sum_block3,
+*/
+      __pyx_t_34 = PyFloat_FromDouble(__pyx_v_valid_abs_sum_block1); if (unlikely(!__pyx_t_34)) __PYX_ERR(0, 686, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_34);
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_valid_abs_sum_block1, __pyx_t_34) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
+
+      /* "worker_threads_cy.pyx":687
+ *                 'valid_abs_sum_second_half': valid_abs_sum_second_half,
+ *                 'valid_abs_sum_block1': valid_abs_sum_block1,
+ *                 'valid_abs_sum_block2': valid_abs_sum_block2,             # <<<<<<<<<<<<<<
+ *                 'valid_abs_sum_block3': valid_abs_sum_block3,
+ *                 'valid_abs_sum_block4': valid_abs_sum_block4,
+*/
+      __pyx_t_34 = PyFloat_FromDouble(__pyx_v_valid_abs_sum_block2); if (unlikely(!__pyx_t_34)) __PYX_ERR(0, 687, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_34);
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_valid_abs_sum_block2, __pyx_t_34) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
+
+      /* "worker_threads_cy.pyx":688
+ *                 'valid_abs_sum_block1': valid_abs_sum_block1,
+ *                 'valid_abs_sum_block2': valid_abs_sum_block2,
+ *                 'valid_abs_sum_block3': valid_abs_sum_block3,             # <<<<<<<<<<<<<<
+ *                 'valid_abs_sum_block4': valid_abs_sum_block4,
+ *                 'forward_max_valid_abs_sum_first_half': forward_max_valid_abs_sum_first_half,
+*/
+      __pyx_t_34 = PyFloat_FromDouble(__pyx_v_valid_abs_sum_block3); if (unlikely(!__pyx_t_34)) __PYX_ERR(0, 688, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_34);
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_valid_abs_sum_block3, __pyx_t_34) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
+
+      /* "worker_threads_cy.pyx":689
+ *                 'valid_abs_sum_block2': valid_abs_sum_block2,
+ *                 'valid_abs_sum_block3': valid_abs_sum_block3,
+ *                 'valid_abs_sum_block4': valid_abs_sum_block4,             # <<<<<<<<<<<<<<
+ *                 'forward_max_valid_abs_sum_first_half': forward_max_valid_abs_sum_first_half,
+ *                 'forward_max_valid_abs_sum_second_half': forward_max_valid_abs_sum_second_half,
+*/
+      __pyx_t_34 = PyFloat_FromDouble(__pyx_v_valid_abs_sum_block4); if (unlikely(!__pyx_t_34)) __PYX_ERR(0, 689, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_34);
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_valid_abs_sum_block4, __pyx_t_34) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
+
+      /* "worker_threads_cy.pyx":690
+ *                 'valid_abs_sum_block3': valid_abs_sum_block3,
+ *                 'valid_abs_sum_block4': valid_abs_sum_block4,
+ *                 'forward_max_valid_abs_sum_first_half': forward_max_valid_abs_sum_first_half,             # <<<<<<<<<<<<<<
+ *                 'forward_max_valid_abs_sum_second_half': forward_max_valid_abs_sum_second_half,
+ *                 'forward_max_valid_abs_sum_block1': forward_max_valid_abs_sum_block1,
+*/
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_forward_max_valid_abs_sum_first, __pyx_v_forward_max_valid_abs_sum_first_half) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+
+      /* "worker_threads_cy.pyx":691
+ *                 'valid_abs_sum_block4': valid_abs_sum_block4,
+ *                 'forward_max_valid_abs_sum_first_half': forward_max_valid_abs_sum_first_half,
+ *                 'forward_max_valid_abs_sum_second_half': forward_max_valid_abs_sum_second_half,             # <<<<<<<<<<<<<<
+ *                 'forward_max_valid_abs_sum_block1': forward_max_valid_abs_sum_block1,
+ *                 'forward_max_valid_abs_sum_block2': forward_max_valid_abs_sum_block2,
+*/
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_forward_max_valid_abs_sum_second, __pyx_v_forward_max_valid_abs_sum_second_half) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+
+      /* "worker_threads_cy.pyx":692
+ *                 'forward_max_valid_abs_sum_first_half': forward_max_valid_abs_sum_first_half,
+ *                 'forward_max_valid_abs_sum_second_half': forward_max_valid_abs_sum_second_half,
+ *                 'forward_max_valid_abs_sum_block1': forward_max_valid_abs_sum_block1,             # <<<<<<<<<<<<<<
+ *                 'forward_max_valid_abs_sum_block2': forward_max_valid_abs_sum_block2,
+ *                 'forward_max_valid_abs_sum_block3': forward_max_valid_abs_sum_block3,
+*/
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_forward_max_valid_abs_sum_block1, __pyx_v_forward_max_valid_abs_sum_block1) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+
+      /* "worker_threads_cy.pyx":693
+ *                 'forward_max_valid_abs_sum_second_half': forward_max_valid_abs_sum_second_half,
+ *                 'forward_max_valid_abs_sum_block1': forward_max_valid_abs_sum_block1,
+ *                 'forward_max_valid_abs_sum_block2': forward_max_valid_abs_sum_block2,             # <<<<<<<<<<<<<<
+ *                 'forward_max_valid_abs_sum_block3': forward_max_valid_abs_sum_block3,
+ *                 'forward_max_valid_abs_sum_block4': forward_max_valid_abs_sum_block4,
+*/
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_forward_max_valid_abs_sum_block2, __pyx_v_forward_max_valid_abs_sum_block2) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+
+      /* "worker_threads_cy.pyx":694
+ *                 'forward_max_valid_abs_sum_block1': forward_max_valid_abs_sum_block1,
+ *                 'forward_max_valid_abs_sum_block2': forward_max_valid_abs_sum_block2,
+ *                 'forward_max_valid_abs_sum_block3': forward_max_valid_abs_sum_block3,             # <<<<<<<<<<<<<<
+ *                 'forward_max_valid_abs_sum_block4': forward_max_valid_abs_sum_block4,
+ *                 'forward_min_valid_abs_sum_first_half': forward_min_valid_abs_sum_first_half,
+*/
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_forward_max_valid_abs_sum_block3, __pyx_v_forward_max_valid_abs_sum_block3) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+
+      /* "worker_threads_cy.pyx":695
+ *                 'forward_max_valid_abs_sum_block2': forward_max_valid_abs_sum_block2,
+ *                 'forward_max_valid_abs_sum_block3': forward_max_valid_abs_sum_block3,
+ *                 'forward_max_valid_abs_sum_block4': forward_max_valid_abs_sum_block4,             # <<<<<<<<<<<<<<
+ *                 'forward_min_valid_abs_sum_first_half': forward_min_valid_abs_sum_first_half,
+ *                 'forward_min_valid_abs_sum_second_half': forward_min_valid_abs_sum_second_half,
+*/
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_forward_max_valid_abs_sum_block4, __pyx_v_forward_max_valid_abs_sum_block4) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+
+      /* "worker_threads_cy.pyx":696
+ *                 'forward_max_valid_abs_sum_block3': forward_max_valid_abs_sum_block3,
+ *                 'forward_max_valid_abs_sum_block4': forward_max_valid_abs_sum_block4,
+ *                 'forward_min_valid_abs_sum_first_half': forward_min_valid_abs_sum_first_half,             # <<<<<<<<<<<<<<
+ *                 'forward_min_valid_abs_sum_second_half': forward_min_valid_abs_sum_second_half,
+ *                 'forward_min_valid_abs_sum_block1': forward_min_valid_abs_sum_block1,
+*/
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_forward_min_valid_abs_sum_first, __pyx_v_forward_min_valid_abs_sum_first_half) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+
+      /* "worker_threads_cy.pyx":697
+ *                 'forward_max_valid_abs_sum_block4': forward_max_valid_abs_sum_block4,
+ *                 'forward_min_valid_abs_sum_first_half': forward_min_valid_abs_sum_first_half,
+ *                 'forward_min_valid_abs_sum_second_half': forward_min_valid_abs_sum_second_half,             # <<<<<<<<<<<<<<
+ *                 'forward_min_valid_abs_sum_block1': forward_min_valid_abs_sum_block1,
+ *                 'forward_min_valid_abs_sum_block2': forward_min_valid_abs_sum_block2,
+*/
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_forward_min_valid_abs_sum_second, __pyx_v_forward_min_valid_abs_sum_second_half) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+
+      /* "worker_threads_cy.pyx":698
+ *                 'forward_min_valid_abs_sum_first_half': forward_min_valid_abs_sum_first_half,
+ *                 'forward_min_valid_abs_sum_second_half': forward_min_valid_abs_sum_second_half,
+ *                 'forward_min_valid_abs_sum_block1': forward_min_valid_abs_sum_block1,             # <<<<<<<<<<<<<<
+ *                 'forward_min_valid_abs_sum_block2': forward_min_valid_abs_sum_block2,
+ *                 'forward_min_valid_abs_sum_block3': forward_min_valid_abs_sum_block3,
+*/
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_forward_min_valid_abs_sum_block1, __pyx_v_forward_min_valid_abs_sum_block1) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+
+      /* "worker_threads_cy.pyx":699
+ *                 'forward_min_valid_abs_sum_second_half': forward_min_valid_abs_sum_second_half,
+ *                 'forward_min_valid_abs_sum_block1': forward_min_valid_abs_sum_block1,
+ *                 'forward_min_valid_abs_sum_block2': forward_min_valid_abs_sum_block2,             # <<<<<<<<<<<<<<
+ *                 'forward_min_valid_abs_sum_block3': forward_min_valid_abs_sum_block3,
+ *                 'forward_min_valid_abs_sum_block4': forward_min_valid_abs_sum_block4,
+*/
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_forward_min_valid_abs_sum_block2, __pyx_v_forward_min_valid_abs_sum_block2) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+
+      /* "worker_threads_cy.pyx":700
+ *                 'forward_min_valid_abs_sum_block1': forward_min_valid_abs_sum_block1,
+ *                 'forward_min_valid_abs_sum_block2': forward_min_valid_abs_sum_block2,
+ *                 'forward_min_valid_abs_sum_block3': forward_min_valid_abs_sum_block3,             # <<<<<<<<<<<<<<
+ *                 'forward_min_valid_abs_sum_block4': forward_min_valid_abs_sum_block4,
+ *                 'forward_max_date': date_columns[end_date_idx + max_idx_in_window] if max_idx_in_window >= 0 else None,
+*/
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_forward_min_valid_abs_sum_block3, __pyx_v_forward_min_valid_abs_sum_block3) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+
+      /* "worker_threads_cy.pyx":701
+ *                 'forward_min_valid_abs_sum_block2': forward_min_valid_abs_sum_block2,
+ *                 'forward_min_valid_abs_sum_block3': forward_min_valid_abs_sum_block3,
+ *                 'forward_min_valid_abs_sum_block4': forward_min_valid_abs_sum_block4,             # <<<<<<<<<<<<<<
+ *                 'forward_max_date': date_columns[end_date_idx + max_idx_in_window] if max_idx_in_window >= 0 else None,
+ *                 'forward_min_date': date_columns[end_date_idx + min_idx_in_window] if min_idx_in_window >= 0 else None,
+*/
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_forward_min_valid_abs_sum_block4, __pyx_v_forward_min_valid_abs_sum_block4) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+
+      /* "worker_threads_cy.pyx":702
+ *                 'forward_min_valid_abs_sum_block3': forward_min_valid_abs_sum_block3,
+ *                 'forward_min_valid_abs_sum_block4': forward_min_valid_abs_sum_block4,
+ *                 'forward_max_date': date_columns[end_date_idx + max_idx_in_window] if max_idx_in_window >= 0 else None,             # <<<<<<<<<<<<<<
+ *                 'forward_min_date': date_columns[end_date_idx + min_idx_in_window] if min_idx_in_window >= 0 else None,
+ *                 'n_max_is_max': max_idx_in_window < n_days if n_days > 0 else False,
+*/
+      __pyx_t_7 = (__pyx_v_max_idx_in_window >= 0);
+      if (__pyx_t_7) {
+        if (unlikely(__pyx_v_date_columns == Py_None)) {
+          PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
+          __PYX_ERR(0, 702, __pyx_L1_error)
+        }
+        __pyx_t_16 = (__pyx_v_end_date_idx + __pyx_v_max_idx_in_window);
+        __Pyx_INCREF(__Pyx_PyList_GET_ITEM(__pyx_v_date_columns, __pyx_t_16));
+        __pyx_t_34 = __Pyx_PyList_GET_ITEM(__pyx_v_date_columns, __pyx_t_16);
+      } else {
+        __Pyx_INCREF(Py_None);
+        __pyx_t_34 = Py_None;
+      }
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_forward_max_date, __pyx_t_34) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
+
+      /* "worker_threads_cy.pyx":703
+ *                 'forward_min_valid_abs_sum_block4': forward_min_valid_abs_sum_block4,
+ *                 'forward_max_date': date_columns[end_date_idx + max_idx_in_window] if max_idx_in_window >= 0 else None,
+ *                 'forward_min_date': date_columns[end_date_idx + min_idx_in_window] if min_idx_in_window >= 0 else None,             # <<<<<<<<<<<<<<
+ *                 'n_max_is_max': max_idx_in_window < n_days if n_days > 0 else False,
+ *                 'range_ratio_is_less': (max_price / min_price) < user_range_ratio if min_price is not None and min_price != 0 and not isnan(user_range_ratio) else False,
+*/
+      __pyx_t_7 = (__pyx_v_min_idx_in_window >= 0);
+      if (__pyx_t_7) {
+        if (unlikely(__pyx_v_date_columns == Py_None)) {
+          PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
+          __PYX_ERR(0, 703, __pyx_L1_error)
+        }
+        __pyx_t_16 = (__pyx_v_end_date_idx + __pyx_v_min_idx_in_window);
+        __Pyx_INCREF(__Pyx_PyList_GET_ITEM(__pyx_v_date_columns, __pyx_t_16));
+        __pyx_t_34 = __Pyx_PyList_GET_ITEM(__pyx_v_date_columns, __pyx_t_16);
+      } else {
+        __Pyx_INCREF(Py_None);
+        __pyx_t_34 = Py_None;
+      }
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_forward_min_date, __pyx_t_34) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
+
+      /* "worker_threads_cy.pyx":704
+ *                 'forward_max_date': date_columns[end_date_idx + max_idx_in_window] if max_idx_in_window >= 0 else None,
+ *                 'forward_min_date': date_columns[end_date_idx + min_idx_in_window] if min_idx_in_window >= 0 else None,
+ *                 'n_max_is_max': max_idx_in_window < n_days if n_days > 0 else False,             # <<<<<<<<<<<<<<
+ *                 'range_ratio_is_less': (max_price / min_price) < user_range_ratio if min_price is not None and min_price != 0 and not isnan(user_range_ratio) else False,
+ *                 'continuous_abs_is_less': continuous_abs_is_less,
+*/
+      __pyx_t_7 = (__pyx_v_n_days > 0);
+      if (__pyx_t_7) {
+        __pyx_t_5 = __Pyx_PyBool_FromLong((__pyx_v_max_idx_in_window < __pyx_v_n_days)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 704, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_5);
+        __pyx_t_34 = __pyx_t_5;
+        __pyx_t_5 = 0;
+      } else {
+        __Pyx_INCREF(Py_False);
+        __pyx_t_34 = Py_False;
+      }
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_n_max_is_max, __pyx_t_34) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
+
+      /* "worker_threads_cy.pyx":705
+ *                 'forward_min_date': date_columns[end_date_idx + min_idx_in_window] if min_idx_in_window >= 0 else None,
+ *                 'n_max_is_max': max_idx_in_window < n_days if n_days > 0 else False,
+ *                 'range_ratio_is_less': (max_price / min_price) < user_range_ratio if min_price is not None and min_price != 0 and not isnan(user_range_ratio) else False,             # <<<<<<<<<<<<<<
+ *                 'continuous_abs_is_less': continuous_abs_is_less,
+ *                 'n_days_max_value': None if isnan(n_days_max_value) else n_days_max_value,
+*/
+      __pyx_t_5 = PyFloat_FromDouble(__pyx_v_min_price); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 705, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_5);
+      __pyx_t_21 = (__pyx_t_5 != Py_None);
+      __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+      if (__pyx_t_21) {
+      } else {
+        __pyx_t_7 = __pyx_t_21;
+        goto __pyx_L218_bool_binop_done;
+      }
+      __pyx_t_21 = (__pyx_v_min_price != 0.0);
+      if (__pyx_t_21) {
+      } else {
+        __pyx_t_7 = __pyx_t_21;
+        goto __pyx_L218_bool_binop_done;
+      }
+      __pyx_t_21 = (!isnan(__pyx_v_user_range_ratio));
+      __pyx_t_7 = __pyx_t_21;
+      __pyx_L218_bool_binop_done:;
+      if (__pyx_t_7) {
+        __pyx_t_5 = __Pyx_PyBool_FromLong(((__pyx_v_max_price / __pyx_v_min_price) < __pyx_v_user_range_ratio)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 705, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_5);
+        __pyx_t_34 = __pyx_t_5;
+        __pyx_t_5 = 0;
+      } else {
+        __Pyx_INCREF(Py_False);
+        __pyx_t_34 = Py_False;
+      }
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_range_ratio_is_less, __pyx_t_34) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
+
+      /* "worker_threads_cy.pyx":706
+ *                 'n_max_is_max': max_idx_in_window < n_days if n_days > 0 else False,
+ *                 'range_ratio_is_less': (max_price / min_price) < user_range_ratio if min_price is not None and min_price != 0 and not isnan(user_range_ratio) else False,
+ *                 'continuous_abs_is_less': continuous_abs_is_less,             # <<<<<<<<<<<<<<
+ *                 'n_days_max_value': None if isnan(n_days_max_value) else n_days_max_value,
+ *                 'prev_day_change': None if isnan(prev_day_change) else prev_day_change,
+*/
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_continuous_abs_is_less, __pyx_v_continuous_abs_is_less) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+
+      /* "worker_threads_cy.pyx":707
+ *                 'range_ratio_is_less': (max_price / min_price) < user_range_ratio if min_price is not None and min_price != 0 and not isnan(user_range_ratio) else False,
+ *                 'continuous_abs_is_less': continuous_abs_is_less,
+ *                 'n_days_max_value': None if isnan(n_days_max_value) else n_days_max_value,             # <<<<<<<<<<<<<<
+ *                 'prev_day_change': None if isnan(prev_day_change) else prev_day_change,
+ *                 'end_day_change': None if isnan(end_day_change) else end_day_change,
+*/
+      __pyx_t_7 = isnan(__pyx_v_n_days_max_value);
+      if (__pyx_t_7) {
+        __Pyx_INCREF(Py_None);
+        __pyx_t_34 = Py_None;
+      } else {
+        __pyx_t_5 = PyFloat_FromDouble(__pyx_v_n_days_max_value); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 707, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_5);
+        __pyx_t_34 = __pyx_t_5;
+        __pyx_t_5 = 0;
+      }
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_n_days_max_value, __pyx_t_34) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
+
+      /* "worker_threads_cy.pyx":708
+ *                 'continuous_abs_is_less': continuous_abs_is_less,
+ *                 'n_days_max_value': None if isnan(n_days_max_value) else n_days_max_value,
+ *                 'prev_day_change': None if isnan(prev_day_change) else prev_day_change,             # <<<<<<<<<<<<<<
+ *                 'end_day_change': None if isnan(end_day_change) else end_day_change,
+ *                 'diff_end_value': diff_data_view[stock_idx, end_date_idx],
+*/
+      __pyx_t_7 = isnan(__pyx_v_prev_day_change);
+      if (__pyx_t_7) {
+        __Pyx_INCREF(Py_None);
+        __pyx_t_34 = Py_None;
+      } else {
+        __pyx_t_5 = PyFloat_FromDouble(__pyx_v_prev_day_change); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 708, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_5);
+        __pyx_t_34 = __pyx_t_5;
+        __pyx_t_5 = 0;
+      }
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_prev_day_change, __pyx_t_34) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
+
+      /* "worker_threads_cy.pyx":709
+ *                 'n_days_max_value': None if isnan(n_days_max_value) else n_days_max_value,
+ *                 'prev_day_change': None if isnan(prev_day_change) else prev_day_change,
+ *                 'end_day_change': None if isnan(end_day_change) else end_day_change,             # <<<<<<<<<<<<<<
+ *                 'diff_end_value': diff_data_view[stock_idx, end_date_idx],
+ *                 'increment_value': None if isnan(increment_value) else round_to_2(increment_value),
+*/
+      __pyx_t_7 = isnan(__pyx_v_end_day_change);
+      if (__pyx_t_7) {
+        __Pyx_INCREF(Py_None);
+        __pyx_t_34 = Py_None;
+      } else {
+        __pyx_t_5 = PyFloat_FromDouble(__pyx_v_end_day_change); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 709, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_5);
+        __pyx_t_34 = __pyx_t_5;
+        __pyx_t_5 = 0;
+      }
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_end_day_change, __pyx_t_34) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
+
+      /* "worker_threads_cy.pyx":710
+ *                 'prev_day_change': None if isnan(prev_day_change) else prev_day_change,
+ *                 'end_day_change': None if isnan(end_day_change) else end_day_change,
+ *                 'diff_end_value': diff_data_view[stock_idx, end_date_idx],             # <<<<<<<<<<<<<<
+ *                 'increment_value': None if isnan(increment_value) else round_to_2(increment_value),
+ *                 'after_gt_end_value': None if isnan(after_gt_end_value) else round_to_2(after_gt_end_value),
+*/
+      __pyx_t_19 = __pyx_v_stock_idx;
+      __pyx_t_14 = __pyx_v_end_date_idx;
+      __pyx_t_34 = PyFloat_FromDouble((*((double *) ( /* dim=1 */ (( /* dim=0 */ (__pyx_v_diff_data_view.data + __pyx_t_19 * __pyx_v_diff_data_view.strides[0]) ) + __pyx_t_14 * __pyx_v_diff_data_view.strides[1]) )))); if (unlikely(!__pyx_t_34)) __PYX_ERR(0, 710, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_34);
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_diff_end_value, __pyx_t_34) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
+
+      /* "worker_threads_cy.pyx":711
+ *                 'end_day_change': None if isnan(end_day_change) else end_day_change,
+ *                 'diff_end_value': diff_data_view[stock_idx, end_date_idx],
+ *                 'increment_value': None if isnan(increment_value) else round_to_2(increment_value),             # <<<<<<<<<<<<<<
+ *                 'after_gt_end_value': None if isnan(after_gt_end_value) else round_to_2(after_gt_end_value),
+ *                 'after_gt_start_value': None if isnan(after_gt_start_value) else round_to_2(after_gt_start_value),
+*/
+      __pyx_t_7 = isnan(__pyx_v_increment_value);
+      if (__pyx_t_7) {
+        __Pyx_INCREF(Py_None);
+        __pyx_t_34 = Py_None;
+      } else {
+        __pyx_t_33 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_v_increment_value); if (unlikely(__pyx_t_33 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 711, __pyx_L1_error)
+        __pyx_t_5 = PyFloat_FromDouble(__pyx_t_33); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 711, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_5);
+        __pyx_t_34 = __pyx_t_5;
+        __pyx_t_5 = 0;
+      }
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_increment_value, __pyx_t_34) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
+
+      /* "worker_threads_cy.pyx":712
+ *                 'diff_end_value': diff_data_view[stock_idx, end_date_idx],
+ *                 'increment_value': None if isnan(increment_value) else round_to_2(increment_value),
+ *                 'after_gt_end_value': None if isnan(after_gt_end_value) else round_to_2(after_gt_end_value),             # <<<<<<<<<<<<<<
+ *                 'after_gt_start_value': None if isnan(after_gt_start_value) else round_to_2(after_gt_start_value),
+ *                 'ops_value': None if ops_value is None or isnan(ops_value) else round_to_2(ops_value),
+*/
+      __pyx_t_7 = isnan(__pyx_v_after_gt_end_value);
+      if (__pyx_t_7) {
+        __Pyx_INCREF(Py_None);
+        __pyx_t_34 = Py_None;
+      } else {
+        __pyx_t_33 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_v_after_gt_end_value); if (unlikely(__pyx_t_33 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 712, __pyx_L1_error)
+        __pyx_t_5 = PyFloat_FromDouble(__pyx_t_33); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 712, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_5);
+        __pyx_t_34 = __pyx_t_5;
+        __pyx_t_5 = 0;
+      }
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_after_gt_end_value, __pyx_t_34) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
+
+      /* "worker_threads_cy.pyx":713
+ *                 'increment_value': None if isnan(increment_value) else round_to_2(increment_value),
+ *                 'after_gt_end_value': None if isnan(after_gt_end_value) else round_to_2(after_gt_end_value),
+ *                 'after_gt_start_value': None if isnan(after_gt_start_value) else round_to_2(after_gt_start_value),             # <<<<<<<<<<<<<<
+ *                 'ops_value': None if ops_value is None or isnan(ops_value) else round_to_2(ops_value),
+ *                 'hold_days': hold_days,
+*/
+      __pyx_t_7 = isnan(__pyx_v_after_gt_start_value);
+      if (__pyx_t_7) {
+        __Pyx_INCREF(Py_None);
+        __pyx_t_34 = Py_None;
+      } else {
+        __pyx_t_33 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_v_after_gt_start_value); if (unlikely(__pyx_t_33 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 713, __pyx_L1_error)
+        __pyx_t_5 = PyFloat_FromDouble(__pyx_t_33); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 713, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_5);
+        __pyx_t_34 = __pyx_t_5;
+        __pyx_t_5 = 0;
+      }
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_after_gt_start_value, __pyx_t_34) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
+
+      /* "worker_threads_cy.pyx":714
+ *                 'after_gt_end_value': None if isnan(after_gt_end_value) else round_to_2(after_gt_end_value),
+ *                 'after_gt_start_value': None if isnan(after_gt_start_value) else round_to_2(after_gt_start_value),
+ *                 'ops_value': None if ops_value is None or isnan(ops_value) else round_to_2(ops_value),             # <<<<<<<<<<<<<<
+ *                 'hold_days': hold_days,
+ *                 'ops_change': ops_change,
+*/
+      __pyx_t_21 = (__pyx_v_ops_value == Py_None);
+      if (!__pyx_t_21) {
+      } else {
+        __pyx_t_7 = __pyx_t_21;
+        goto __pyx_L221_bool_binop_done;
+      }
+      __pyx_t_39 = __Pyx_PyFloat_AsDouble(__pyx_v_ops_value); if (unlikely((__pyx_t_39 == (long double)-1) && PyErr_Occurred())) __PYX_ERR(0, 714, __pyx_L1_error)
+      __pyx_t_21 = isnan(__pyx_t_39);
+      __pyx_t_7 = __pyx_t_21;
+      __pyx_L221_bool_binop_done:;
+      if (__pyx_t_7) {
+        __Pyx_INCREF(Py_None);
+        __pyx_t_34 = Py_None;
+      } else {
+        __pyx_t_33 = __Pyx_PyFloat_AsDouble(__pyx_v_ops_value); if (unlikely((__pyx_t_33 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 714, __pyx_L1_error)
+        __pyx_t_20 = __pyx_f_17worker_threads_cy_round_to_2(__pyx_t_33); if (unlikely(__pyx_t_20 == ((double)-1) && PyErr_Occurred())) __PYX_ERR(0, 714, __pyx_L1_error)
+        __pyx_t_5 = PyFloat_FromDouble(__pyx_t_20); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 714, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_5);
+        __pyx_t_34 = __pyx_t_5;
+        __pyx_t_5 = 0;
+      }
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_ops_value, __pyx_t_34) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
+
+      /* "worker_threads_cy.pyx":715
+ *                 'after_gt_start_value': None if isnan(after_gt_start_value) else round_to_2(after_gt_start_value),
+ *                 'ops_value': None if ops_value is None or isnan(ops_value) else round_to_2(ops_value),
+ *                 'hold_days': hold_days,             # <<<<<<<<<<<<<<
+ *                 'ops_change': ops_change,
+ *                 'adjust_days': adjust_days,
+*/
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_hold_days, __pyx_v_hold_days) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+
+      /* "worker_threads_cy.pyx":716
+ *                 'ops_value': None if ops_value is None or isnan(ops_value) else round_to_2(ops_value),
+ *                 'hold_days': hold_days,
+ *                 'ops_change': ops_change,             # <<<<<<<<<<<<<<
+ *                 'adjust_days': adjust_days,
+ *                 'ops_incre_rate': ops_incre_rate,
+*/
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_ops_change, __pyx_v_ops_change) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+
+      /* "worker_threads_cy.pyx":717
+ *                 'hold_days': hold_days,
+ *                 'ops_change': ops_change,
+ *                 'adjust_days': adjust_days,             # <<<<<<<<<<<<<<
+ *                 'ops_incre_rate': ops_incre_rate,
+ *                 'score': score,
+*/
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_adjust_days, __pyx_v_adjust_days) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+
+      /* "worker_threads_cy.pyx":718
+ *                 'ops_change': ops_change,
+ *                 'adjust_days': adjust_days,
+ *                 'ops_incre_rate': ops_incre_rate,             # <<<<<<<<<<<<<<
+ *                 'score': score,
+ *             }
+*/
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_ops_incre_rate, __pyx_v_ops_incre_rate) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+
+      /* "worker_threads_cy.pyx":719
+ *                 'adjust_days': adjust_days,
+ *                 'ops_incre_rate': ops_incre_rate,
+ *                 'score': score,             # <<<<<<<<<<<<<<
+ *             }
+ *             all_results[date_columns[end_date_idx]].append(row_result)
+*/
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_score, __pyx_v_score) < 0) __PYX_ERR(0, 649, __pyx_L1_error)
+      __Pyx_XDECREF_SET(__pyx_v_row_result, ((PyObject*)__pyx_t_27));
+      __pyx_t_27 = 0;
+
+      /* "worker_threads_cy.pyx":721
+ *                 'score': score,
+ *             }
+ *             all_results[date_columns[end_date_idx]].append(row_result)             # <<<<<<<<<<<<<<
+ * 
+ *     #
+*/
+      if (unlikely(__pyx_v_date_columns == Py_None)) {
+        PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
+        __PYX_ERR(0, 721, __pyx_L1_error)
+      }
+      __pyx_t_27 = __Pyx_PyDict_GetItem(__pyx_v_all_results, __Pyx_PyList_GET_ITEM(__pyx_v_date_columns, __pyx_v_end_date_idx)); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 721, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_27);
+      __pyx_t_40 = __Pyx_PyObject_Append(__pyx_t_27, __pyx_v_row_result); if (unlikely(__pyx_t_40 == ((int)-1))) __PYX_ERR(0, 721, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_27); __pyx_t_27 = 0;
+    }
   }
 
-  /* "worker_threads_cy.pyx":471
+  /* "worker_threads_cy.pyx":724
  * 
  *     #
  *     sorted_results = []             # <<<<<<<<<<<<<<
  *     for idx in range(end_date_start_idx, end_date_end_idx-1, -1):
  *         end_date = date_columns[idx]
 */
-  __pyx_t_20 = PyList_New(0); if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 471, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_20);
-  __pyx_v_sorted_results = ((PyObject*)__pyx_t_20);
-  __pyx_t_20 = 0;
+  __pyx_t_27 = PyList_New(0); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 724, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_27);
+  __pyx_v_sorted_results = ((PyObject*)__pyx_t_27);
+  __pyx_t_27 = 0;
 
-  /* "worker_threads_cy.pyx":472
+  /* "worker_threads_cy.pyx":725
  *     #
  *     sorted_results = []
  *     for idx in range(end_date_start_idx, end_date_end_idx-1, -1):             # <<<<<<<<<<<<<<
  *         end_date = date_columns[idx]
  *         if end_date in all_results:
 */
-  __pyx_t_4 = (__pyx_v_end_date_end_idx - 1);
-  __pyx_t_5 = __pyx_t_4;
-  for (__pyx_t_6 = __pyx_v_end_date_start_idx; __pyx_t_6 > __pyx_t_5; __pyx_t_6-=1) {
-    __pyx_v_idx = __pyx_t_6;
+  __pyx_t_9 = (__pyx_v_end_date_end_idx - 1);
+  __pyx_t_10 = __pyx_t_9;
+  for (__pyx_t_11 = __pyx_v_end_date_start_idx; __pyx_t_11 > __pyx_t_10; __pyx_t_11-=1) {
+    __pyx_v_idx = __pyx_t_11;
 
-    /* "worker_threads_cy.pyx":473
+    /* "worker_threads_cy.pyx":726
  *     sorted_results = []
  *     for idx in range(end_date_start_idx, end_date_end_idx-1, -1):
  *         end_date = date_columns[idx]             # <<<<<<<<<<<<<<
@@ -25800,57 +29301,57 @@ PyGILState_STATE __pyx_gilstate_save = __Pyx_PyGILState_Ensure();
 */
     if (unlikely(__pyx_v_date_columns == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-      __PYX_ERR(0, 473, __pyx_L1_error)
+      __PYX_ERR(0, 726, __pyx_L1_error)
     }
-    __pyx_t_20 = __Pyx_PyList_GET_ITEM(__pyx_v_date_columns, __pyx_v_idx);
-    __Pyx_INCREF(__pyx_t_20);
-    __Pyx_XDECREF_SET(__pyx_v_end_date, __pyx_t_20);
-    __pyx_t_20 = 0;
+    __pyx_t_27 = __Pyx_PyList_GET_ITEM(__pyx_v_date_columns, __pyx_v_idx);
+    __Pyx_INCREF(__pyx_t_27);
+    __Pyx_XDECREF_SET(__pyx_v_end_date, __pyx_t_27);
+    __pyx_t_27 = 0;
 
-    /* "worker_threads_cy.pyx":474
+    /* "worker_threads_cy.pyx":727
  *     for idx in range(end_date_start_idx, end_date_end_idx-1, -1):
  *         end_date = date_columns[idx]
  *         if end_date in all_results:             # <<<<<<<<<<<<<<
  *             sorted_results.append({
  *                 'end_date': end_date,
 */
-    __pyx_t_15 = (__Pyx_PyDict_ContainsTF(__pyx_v_end_date, __pyx_v_all_results, Py_EQ)); if (unlikely((__pyx_t_15 < 0))) __PYX_ERR(0, 474, __pyx_L1_error)
-    if (__pyx_t_15) {
+    __pyx_t_7 = (__Pyx_PyDict_ContainsTF(__pyx_v_end_date, __pyx_v_all_results, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 727, __pyx_L1_error)
+    if (__pyx_t_7) {
 
-      /* "worker_threads_cy.pyx":476
+      /* "worker_threads_cy.pyx":729
  *         if end_date in all_results:
  *             sorted_results.append({
  *                 'end_date': end_date,             # <<<<<<<<<<<<<<
  *                 'stocks': all_results[end_date]
  *             })
 */
-      __pyx_t_20 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 476, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_20);
-      if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_end_date, __pyx_v_end_date) < 0) __PYX_ERR(0, 476, __pyx_L1_error)
+      __pyx_t_27 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 729, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_27);
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_end_date, __pyx_v_end_date) < 0) __PYX_ERR(0, 729, __pyx_L1_error)
 
-      /* "worker_threads_cy.pyx":477
+      /* "worker_threads_cy.pyx":730
  *             sorted_results.append({
  *                 'end_date': end_date,
  *                 'stocks': all_results[end_date]             # <<<<<<<<<<<<<<
  *             })
  * 
 */
-      __pyx_t_1 = __Pyx_PyDict_GetItem(__pyx_v_all_results, __pyx_v_end_date); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 477, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_1);
-      if (PyDict_SetItem(__pyx_t_20, __pyx_mstate_global->__pyx_n_u_stocks, __pyx_t_1) < 0) __PYX_ERR(0, 476, __pyx_L1_error)
-      __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+      __pyx_t_34 = __Pyx_PyDict_GetItem(__pyx_v_all_results, __pyx_v_end_date); if (unlikely(!__pyx_t_34)) __PYX_ERR(0, 730, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_34);
+      if (PyDict_SetItem(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_stocks, __pyx_t_34) < 0) __PYX_ERR(0, 729, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
 
-      /* "worker_threads_cy.pyx":475
+      /* "worker_threads_cy.pyx":728
  *         end_date = date_columns[idx]
  *         if end_date in all_results:
  *             sorted_results.append({             # <<<<<<<<<<<<<<
  *                 'end_date': end_date,
  *                 'stocks': all_results[end_date]
 */
-      __pyx_t_34 = __Pyx_PyList_Append(__pyx_v_sorted_results, __pyx_t_20); if (unlikely(__pyx_t_34 == ((int)-1))) __PYX_ERR(0, 475, __pyx_L1_error)
-      __Pyx_DECREF(__pyx_t_20); __pyx_t_20 = 0;
+      __pyx_t_40 = __Pyx_PyList_Append(__pyx_v_sorted_results, __pyx_t_27); if (unlikely(__pyx_t_40 == ((int)-1))) __PYX_ERR(0, 728, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_27); __pyx_t_27 = 0;
 
-      /* "worker_threads_cy.pyx":474
+      /* "worker_threads_cy.pyx":727
  *     for idx in range(end_date_start_idx, end_date_end_idx-1, -1):
  *         end_date = date_columns[idx]
  *         if end_date in all_results:             # <<<<<<<<<<<<<<
@@ -25860,7 +29361,7 @@ PyGILState_STATE __pyx_gilstate_save = __Pyx_PyGILState_Ensure();
     }
   }
 
-  /* "worker_threads_cy.pyx":480
+  /* "worker_threads_cy.pyx":733
  *             })
  * 
  *     return sorted_results             # <<<<<<<<<<<<<<
@@ -25870,7 +29371,7 @@ PyGILState_STATE __pyx_gilstate_save = __Pyx_PyGILState_Ensure();
   __pyx_r = __pyx_v_sorted_results;
   goto __pyx_L0;
 
-  /* "worker_threads_cy.pyx":73
+  /* "worker_threads_cy.pyx":72
  *     valid_len[0] = valid_idx
  * 
  * def calculate_batch_cy(             # <<<<<<<<<<<<<<
@@ -25883,13 +29384,13 @@ PyGILState_STATE __pyx_gilstate_save = __Pyx_PyGILState_Ensure();
   __Pyx_XDECREF(__pyx_t_1);
   __PYX_XCLEAR_MEMVIEW(&__pyx_t_2, 1);
   __PYX_XCLEAR_MEMVIEW(&__pyx_t_3, 1);
-  __PYX_XCLEAR_MEMVIEW(&__pyx_t_18, 1);
-  __PYX_XCLEAR_MEMVIEW(&__pyx_t_19, 1);
-  __Pyx_XDECREF(__pyx_t_20);
-  __Pyx_XDECREF(__pyx_t_21);
-  __Pyx_XDECREF(__pyx_t_22);
-  __Pyx_XDECREF(__pyx_t_23);
-  __Pyx_XDECREF(__pyx_t_31);
+  __Pyx_XDECREF(__pyx_t_4);
+  __Pyx_XDECREF(__pyx_t_5);
+  __Pyx_XDECREF(__pyx_t_8);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_t_22, 1);
+  __PYX_XCLEAR_MEMVIEW(&__pyx_t_23, 1);
+  __Pyx_XDECREF(__pyx_t_27);
+  __Pyx_XDECREF(__pyx_t_34);
   { PyObject *__pyx_type, *__pyx_value, *__pyx_tb;
     __Pyx_PyThreadState_declare
     __Pyx_PyThreadState_assign
@@ -25913,6 +29414,9 @@ PyGILState_STATE __pyx_gilstate_save = __Pyx_PyGILState_Ensure();
   __PYX_XCLEAR_MEMVIEW(&__pyx_v_diff_data_view, 1);
   __PYX_XCLEAR_MEMVIEW(&__pyx_v_stock_idx_arr_view, 1);
   __Pyx_XDECREF((PyObject *)__pyx_v_cont_sum_np);
+  __Pyx_XDECREF(__pyx_v_user_func);
+  __Pyx_XDECREF(__pyx_v_score_func);
+  __Pyx_XDECREF(__pyx_v_make_user_func);
   __Pyx_XDECREF(__pyx_v_end_date);
   __Pyx_XDECREF(__pyx_v_py_cont_sum);
   __Pyx_XDECREF(__pyx_v_forward_max_result);
@@ -25932,11 +29436,23 @@ PyGILState_STATE __pyx_gilstate_save = __Pyx_PyGILState_Ensure();
   __Pyx_XDECREF(__pyx_v_forward_min_valid_abs_sum_block4);
   __Pyx_XDECREF(__pyx_v_max_abs_val);
   __Pyx_XDECREF(__pyx_v_continuous_abs_is_less);
-  __Pyx_XDECREF(__pyx_v_maxv);
-  __Pyx_XDECREF(__pyx_v_v);
+  __Pyx_XDECREF(__pyx_v_continuous_start_value);
+  __Pyx_XDECREF(__pyx_v_continuous_start_next_value);
+  __Pyx_XDECREF(__pyx_v_continuous_start_next_next_value);
+  __Pyx_XDECREF(__pyx_v_continuous_end_value);
+  __Pyx_XDECREF(__pyx_v_continuous_end_prev_value);
+  __Pyx_XDECREF(__pyx_v_continuous_end_prev_prev_value);
+  __Pyx_XDECREF(__pyx_v_result_value);
+  __Pyx_XDECREF(__pyx_v_ops_value);
+  __Pyx_XDECREF(__pyx_v_hold_days);
+  __Pyx_XDECREF(__pyx_v_e);
+  __Pyx_XDECREF(__pyx_v_score);
+  __Pyx_XDECREF(__pyx_v_ops_change);
+  __Pyx_XDECREF(__pyx_v_adjust_days);
+  __Pyx_XDECREF(__pyx_v_ops_incre_rate);
+  __Pyx_XDECREF(__pyx_v_end_value_for_ops);
   __Pyx_XDECREF(__pyx_v_row_result);
   __Pyx_XDECREF(__pyx_v_sorted_results);
-  __Pyx_XDECREF(__pyx_7genexpr__pyx_v_v);
   __Pyx_XGIVEREF(__pyx_r);
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
@@ -28022,43 +31538,58 @@ __Pyx_RefNannySetupContext("PyInit_worker_threads_cy", 0);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
   /* "worker_threads_cy.pyx":6
- * # distutils: extra_link_args = -fopenmp
+ * # distutils: extra_link_args = /openmp
  * 
  * import numpy as np             # <<<<<<<<<<<<<<
  * cimport numpy as np
- * from cython.parallel import prange
+ * from libc.math cimport isnan, fabs, round
 */
   __pyx_t_5 = __Pyx_ImportDottedModule(__pyx_mstate_global->__pyx_n_u_numpy, NULL); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 6, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_np, __pyx_t_5) < 0) __PYX_ERR(0, 6, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "worker_threads_cy.pyx":13
+  /* "worker_threads_cy.pyx":12
  * 
  * ctypedef np.float64_t DTYPE_t
  * cdef double NAN = float('nan')             # <<<<<<<<<<<<<<
  * 
  * cdef inline double round_to_2(double x) nogil:
 */
-  __pyx_t_10 = __Pyx_PyUnicode_AsDouble(__pyx_mstate_global->__pyx_n_u_nan); if (unlikely(__pyx_t_10 == ((double)((double)-1)) && PyErr_Occurred())) __PYX_ERR(0, 13, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyUnicode_AsDouble(__pyx_mstate_global->__pyx_n_u_nan); if (unlikely(__pyx_t_10 == ((double)((double)-1)) && PyErr_Occurred())) __PYX_ERR(0, 12, __pyx_L1_error)
   __pyx_v_17worker_threads_cy_NAN = __pyx_t_10;
 
-  /* "worker_threads_cy.pyx":73
+  /* "worker_threads_cy.pyx":92
+ *     double after_gt_start_ratio,
+ *     str expr,
+ *     double ops_change_input=0.09,             # <<<<<<<<<<<<<<
+ *     str formula_expr=None
+ * ):
+*/
+  __pyx_t_5 = PyFloat_FromDouble(((double)0.09)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 92, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+
+  /* "worker_threads_cy.pyx":72
  *     valid_len[0] = valid_idx
  * 
  * def calculate_batch_cy(             # <<<<<<<<<<<<<<
  *     np.ndarray[DTYPE_t, ndim=2] price_data,
  *     list date_columns,
 */
-  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_17worker_threads_cy_1calculate_batch_cy, 0, __pyx_mstate_global->__pyx_n_u_calculate_batch_cy, NULL, __pyx_mstate_global->__pyx_n_u_worker_threads_cy, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[0])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 73, __pyx_L1_error)
+  __pyx_t_4 = PyTuple_Pack(2, __pyx_t_5, Py_None); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 72, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_17worker_threads_cy_1calculate_batch_cy, 0, __pyx_mstate_global->__pyx_n_u_calculate_batch_cy, NULL, __pyx_mstate_global->__pyx_n_u_worker_threads_cy, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[0])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 72, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_calculate_batch_cy, __pyx_t_5) < 0) __PYX_ERR(0, 73, __pyx_L1_error)
+  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_5, __pyx_t_4);
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_calculate_batch_cy, __pyx_t_5) < 0) __PYX_ERR(0, 72, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
   /* "worker_threads_cy.pyx":1
  * # distutils: language = c++             # <<<<<<<<<<<<<<
  * # cython: boundscheck=False, wraparound=False, cdivision=True, initializedcheck=False
- * # distutils: extra_compile_args = -fopenmp
+ * # distutils: extra_compile_args = /openmp
 */
   __pyx_t_5 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
@@ -28150,6 +31681,7 @@ static const __Pyx_StringTabEntry __pyx_string_tab[] = {
   {__pyx_k_Note_that_Cython_is_deliberately, sizeof(__pyx_k_Note_that_Cython_is_deliberately), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_Note_that_Cython_is_deliberately */
   {__pyx_k_O, sizeof(__pyx_k_O), 0, 0, 1}, /* PyObject cname: __pyx_n_b_O */
   {__pyx_k_Out_of_bounds_on_buffer_access_a, sizeof(__pyx_k_Out_of_bounds_on_buffer_access_a), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_Out_of_bounds_on_buffer_access_a */
+  {__pyx_k_OverflowError, sizeof(__pyx_k_OverflowError), 0, 1, 1}, /* PyObject cname: __pyx_n_u_OverflowError */
   {__pyx_k_PickleError, sizeof(__pyx_k_PickleError), 0, 1, 1}, /* PyObject cname: __pyx_n_u_PickleError */
   {__pyx_k_Sequence, sizeof(__pyx_k_Sequence), 0, 1, 1}, /* PyObject cname: __pyx_n_u_Sequence */
   {__pyx_k_Step_may_not_be_zero_axis_d, sizeof(__pyx_k_Step_may_not_be_zero_axis_d), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_Step_may_not_be_zero_axis_d */
@@ -28171,6 +31703,17 @@ static const __Pyx_StringTabEntry __pyx_string_tab[] = {
   {__pyx_k_actual_idx, sizeof(__pyx_k_actual_idx), 0, 1, 1}, /* PyObject cname: __pyx_n_u_actual_idx */
   {__pyx_k_actual_value, sizeof(__pyx_k_actual_value), 0, 1, 1}, /* PyObject cname: __pyx_n_u_actual_value */
   {__pyx_k_add_note, sizeof(__pyx_k_add_note), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_add_note */
+  {__pyx_k_adjust_days, sizeof(__pyx_k_adjust_days), 0, 1, 1}, /* PyObject cname: __pyx_n_u_adjust_days */
+  {__pyx_k_after_gt_end_days, sizeof(__pyx_k_after_gt_end_days), 0, 1, 1}, /* PyObject cname: __pyx_n_u_after_gt_end_days */
+  {__pyx_k_after_gt_end_ratio, sizeof(__pyx_k_after_gt_end_ratio), 0, 1, 1}, /* PyObject cname: __pyx_n_u_after_gt_end_ratio */
+  {__pyx_k_after_gt_end_threshold, sizeof(__pyx_k_after_gt_end_threshold), 0, 1, 1}, /* PyObject cname: __pyx_n_u_after_gt_end_threshold */
+  {__pyx_k_after_gt_end_value, sizeof(__pyx_k_after_gt_end_value), 0, 1, 1}, /* PyObject cname: __pyx_n_u_after_gt_end_value */
+  {__pyx_k_after_gt_start_days, sizeof(__pyx_k_after_gt_start_days), 0, 1, 1}, /* PyObject cname: __pyx_n_u_after_gt_start_days */
+  {__pyx_k_after_gt_start_ratio, sizeof(__pyx_k_after_gt_start_ratio), 0, 1, 1}, /* PyObject cname: __pyx_n_u_after_gt_start_ratio */
+  {__pyx_k_after_gt_start_threshold, sizeof(__pyx_k_after_gt_start_threshold), 0, 1, 1}, /* PyObject cname: __pyx_n_u_after_gt_start_threshold */
+  {__pyx_k_after_gt_start_value, sizeof(__pyx_k_after_gt_start_value), 0, 1, 1}, /* PyObject cname: __pyx_n_u_after_gt_start_value */
+  {__pyx_k_age_value, sizeof(__pyx_k_age_value), 0, 1, 1}, /* PyObject cname: __pyx_n_u_age_value */
+  {__pyx_k_ags_value, sizeof(__pyx_k_ags_value), 0, 1, 1}, /* PyObject cname: __pyx_n_u_ags_value */
   {__pyx_k_all_results, sizeof(__pyx_k_all_results), 0, 1, 1}, /* PyObject cname: __pyx_n_u_all_results */
   {__pyx_k_allocate_buffer, sizeof(__pyx_k_allocate_buffer), 0, 1, 1}, /* PyObject cname: __pyx_n_u_allocate_buffer */
   {__pyx_k_and, sizeof(__pyx_k_and), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_and */
@@ -28218,6 +31761,8 @@ static const __Pyx_StringTabEntry __pyx_string_tab[] = {
   {__pyx_k_disable, sizeof(__pyx_k_disable), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_disable */
   {__pyx_k_dtype, sizeof(__pyx_k_dtype), 0, 1, 1}, /* PyObject cname: __pyx_n_u_dtype */
   {__pyx_k_dtype_is_object, sizeof(__pyx_k_dtype_is_object), 0, 1, 1}, /* PyObject cname: __pyx_n_u_dtype_is_object */
+  {__pyx_k_e, sizeof(__pyx_k_e), 0, 1, 1}, /* PyObject cname: __pyx_n_u_e */
+  {__pyx_k_empty, sizeof(__pyx_k_empty), 0, 1, 1}, /* PyObject cname: __pyx_n_u_empty */
   {__pyx_k_enable, sizeof(__pyx_k_enable), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_enable */
   {__pyx_k_encode, sizeof(__pyx_k_encode), 0, 1, 1}, /* PyObject cname: __pyx_n_u_encode */
   {__pyx_k_end_date, sizeof(__pyx_k_end_date), 0, 1, 1}, /* PyObject cname: __pyx_n_u_end_date */
@@ -28226,15 +31771,20 @@ static const __Pyx_StringTabEntry __pyx_string_tab[] = {
   {__pyx_k_end_date_start_idx, sizeof(__pyx_k_end_date_start_idx), 0, 1, 1}, /* PyObject cname: __pyx_n_u_end_date_start_idx */
   {__pyx_k_end_day_change, sizeof(__pyx_k_end_day_change), 0, 1, 1}, /* PyObject cname: __pyx_n_u_end_day_change */
   {__pyx_k_end_value, sizeof(__pyx_k_end_value), 0, 1, 1}, /* PyObject cname: __pyx_n_u_end_value */
+  {__pyx_k_end_value_for_ops, sizeof(__pyx_k_end_value_for_ops), 0, 1, 1}, /* PyObject cname: __pyx_n_u_end_value_for_ops */
   {__pyx_k_enumerate, sizeof(__pyx_k_enumerate), 0, 1, 1}, /* PyObject cname: __pyx_n_u_enumerate */
   {__pyx_k_error, sizeof(__pyx_k_error), 0, 1, 1}, /* PyObject cname: __pyx_n_u_error */
+  {__pyx_k_expr, sizeof(__pyx_k_expr), 0, 1, 1}, /* PyObject cname: __pyx_n_u_expr */
+  {__pyx_k_fallback_idx, sizeof(__pyx_k_fallback_idx), 0, 1, 1}, /* PyObject cname: __pyx_n_u_fallback_idx */
   {__pyx_k_flags, sizeof(__pyx_k_flags), 0, 1, 1}, /* PyObject cname: __pyx_n_u_flags */
   {__pyx_k_float64, sizeof(__pyx_k_float64), 0, 1, 1}, /* PyObject cname: __pyx_n_u_float64 */
   {__pyx_k_format, sizeof(__pyx_k_format), 0, 1, 1}, /* PyObject cname: __pyx_n_u_format */
+  {__pyx_k_formula_expr, sizeof(__pyx_k_formula_expr), 0, 1, 1}, /* PyObject cname: __pyx_n_u_formula_expr */
   {__pyx_k_fortran, sizeof(__pyx_k_fortran), 0, 1, 1}, /* PyObject cname: __pyx_n_u_fortran */
   {__pyx_k_forward_max_date, sizeof(__pyx_k_forward_max_date), 0, 1, 1}, /* PyObject cname: __pyx_n_u_forward_max_date */
   {__pyx_k_forward_max_result, sizeof(__pyx_k_forward_max_result), 0, 1, 1}, /* PyObject cname: __pyx_n_u_forward_max_result */
   {__pyx_k_forward_max_result_c, sizeof(__pyx_k_forward_max_result_c), 0, 1, 1}, /* PyObject cname: __pyx_n_u_forward_max_result_c */
+  {__pyx_k_forward_max_result_len, sizeof(__pyx_k_forward_max_result_len), 0, 1, 1}, /* PyObject cname: __pyx_n_u_forward_max_result_len */
   {__pyx_k_forward_max_valid_abs_sum_block1, sizeof(__pyx_k_forward_max_valid_abs_sum_block1), 0, 1, 1}, /* PyObject cname: __pyx_n_u_forward_max_valid_abs_sum_block1 */
   {__pyx_k_forward_max_valid_abs_sum_block2, sizeof(__pyx_k_forward_max_valid_abs_sum_block2), 0, 1, 1}, /* PyObject cname: __pyx_n_u_forward_max_valid_abs_sum_block2 */
   {__pyx_k_forward_max_valid_abs_sum_block3, sizeof(__pyx_k_forward_max_valid_abs_sum_block3), 0, 1, 1}, /* PyObject cname: __pyx_n_u_forward_max_valid_abs_sum_block3 */
@@ -28248,6 +31798,7 @@ static const __Pyx_StringTabEntry __pyx_string_tab[] = {
   {__pyx_k_forward_min_date, sizeof(__pyx_k_forward_min_date), 0, 1, 1}, /* PyObject cname: __pyx_n_u_forward_min_date */
   {__pyx_k_forward_min_result, sizeof(__pyx_k_forward_min_result), 0, 1, 1}, /* PyObject cname: __pyx_n_u_forward_min_result */
   {__pyx_k_forward_min_result_c, sizeof(__pyx_k_forward_min_result_c), 0, 1, 1}, /* PyObject cname: __pyx_n_u_forward_min_result_c */
+  {__pyx_k_forward_min_result_len, sizeof(__pyx_k_forward_min_result_len), 0, 1, 1}, /* PyObject cname: __pyx_n_u_forward_min_result_len */
   {__pyx_k_forward_min_valid_abs_sum_block1, sizeof(__pyx_k_forward_min_valid_abs_sum_block1), 0, 1, 1}, /* PyObject cname: __pyx_n_u_forward_min_valid_abs_sum_block1 */
   {__pyx_k_forward_min_valid_abs_sum_block2, sizeof(__pyx_k_forward_min_valid_abs_sum_block2), 0, 1, 1}, /* PyObject cname: __pyx_n_u_forward_min_valid_abs_sum_block2 */
   {__pyx_k_forward_min_valid_abs_sum_block3, sizeof(__pyx_k_forward_min_valid_abs_sum_block3), 0, 1, 1}, /* PyObject cname: __pyx_n_u_forward_min_valid_abs_sum_block3 */
@@ -28258,6 +31809,7 @@ static const __Pyx_StringTabEntry __pyx_string_tab[] = {
   {__pyx_k_forward_min_valid_pos_sum, sizeof(__pyx_k_forward_min_valid_pos_sum), 0, 1, 1}, /* PyObject cname: __pyx_n_u_forward_min_valid_pos_sum */
   {__pyx_k_forward_min_valid_sum_arr, sizeof(__pyx_k_forward_min_valid_sum_arr), 0, 1, 1}, /* PyObject cname: __pyx_n_u_forward_min_valid_sum_arr */
   {__pyx_k_forward_min_valid_sum_len, sizeof(__pyx_k_forward_min_valid_sum_len), 0, 1, 1}, /* PyObject cname: __pyx_n_u_forward_min_valid_sum_len */
+  {__pyx_k_found, sizeof(__pyx_k_found), 0, 1, 1}, /* PyObject cname: __pyx_n_u_found */
   {__pyx_k_func, sizeof(__pyx_k_func), 0, 1, 1}, /* PyObject cname: __pyx_n_u_func */
   {__pyx_k_gc, sizeof(__pyx_k_gc), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_gc */
   {__pyx_k_getstate, sizeof(__pyx_k_getstate), 0, 1, 1}, /* PyObject cname: __pyx_n_u_getstate */
@@ -28265,10 +31817,16 @@ static const __Pyx_StringTabEntry __pyx_string_tab[] = {
   {__pyx_k_got_differing_extents_in_dimensi, sizeof(__pyx_k_got_differing_extents_in_dimensi), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_got_differing_extents_in_dimensi */
   {__pyx_k_half, sizeof(__pyx_k_half), 0, 1, 1}, /* PyObject cname: __pyx_n_u_half */
   {__pyx_k_half_valid, sizeof(__pyx_k_half_valid), 0, 1, 1}, /* PyObject cname: __pyx_n_u_half_valid */
+  {__pyx_k_hold_days, sizeof(__pyx_k_hold_days), 0, 1, 1}, /* PyObject cname: __pyx_n_u_hold_days */
   {__pyx_k_i, sizeof(__pyx_k_i), 0, 1, 1}, /* PyObject cname: __pyx_n_u_i */
   {__pyx_k_id, sizeof(__pyx_k_id), 0, 1, 1}, /* PyObject cname: __pyx_n_u_id */
   {__pyx_k_idx, sizeof(__pyx_k_idx), 0, 1, 1}, /* PyObject cname: __pyx_n_u_idx */
   {__pyx_k_import, sizeof(__pyx_k_import), 0, 1, 1}, /* PyObject cname: __pyx_n_u_import */
+  {__pyx_k_inc_rate, sizeof(__pyx_k_inc_rate), 0, 1, 1}, /* PyObject cname: __pyx_n_u_inc_rate */
+  {__pyx_k_inc_value, sizeof(__pyx_k_inc_value), 0, 1, 1}, /* PyObject cname: __pyx_n_u_inc_value */
+  {__pyx_k_increment_days, sizeof(__pyx_k_increment_days), 0, 1, 1}, /* PyObject cname: __pyx_n_u_increment_days */
+  {__pyx_k_increment_threshold, sizeof(__pyx_k_increment_threshold), 0, 1, 1}, /* PyObject cname: __pyx_n_u_increment_threshold */
+  {__pyx_k_increment_value, sizeof(__pyx_k_increment_value), 0, 1, 1}, /* PyObject cname: __pyx_n_u_increment_value */
   {__pyx_k_index, sizeof(__pyx_k_index), 0, 1, 1}, /* PyObject cname: __pyx_n_u_index */
   {__pyx_k_initializing, sizeof(__pyx_k_initializing), 0, 1, 1}, /* PyObject cname: __pyx_n_u_initializing */
   {__pyx_k_is_coroutine, sizeof(__pyx_k_is_coroutine), 0, 1, 1}, /* PyObject cname: __pyx_n_u_is_coroutine */
@@ -28277,7 +31835,9 @@ static const __Pyx_StringTabEntry __pyx_string_tab[] = {
   {__pyx_k_itemsize, sizeof(__pyx_k_itemsize), 0, 1, 1}, /* PyObject cname: __pyx_n_u_itemsize */
   {__pyx_k_itemsize_0_for_cython_array, sizeof(__pyx_k_itemsize_0_for_cython_array), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_itemsize_0_for_cython_array */
   {__pyx_k_j, sizeof(__pyx_k_j), 0, 1, 1}, /* PyObject cname: __pyx_n_u_j */
+  {__pyx_k_k, sizeof(__pyx_k_k), 0, 1, 1}, /* PyObject cname: __pyx_n_u_k */
   {__pyx_k_main, sizeof(__pyx_k_main), 0, 1, 1}, /* PyObject cname: __pyx_n_u_main */
+  {__pyx_k_make_user_func, sizeof(__pyx_k_make_user_func), 0, 1, 1}, /* PyObject cname: __pyx_n_u_make_user_func */
   {__pyx_k_max, sizeof(__pyx_k_max), 0, 1, 1}, /* PyObject cname: __pyx_n_u_max */
   {__pyx_k_max_abs_val, sizeof(__pyx_k_max_abs_val), 0, 1, 1}, /* PyObject cname: __pyx_n_u_max_abs_val */
   {__pyx_k_max_idx_in_window, sizeof(__pyx_k_max_idx_in_window), 0, 1, 1}, /* PyObject cname: __pyx_n_u_max_idx_in_window */
@@ -28295,6 +31855,7 @@ static const __Pyx_StringTabEntry __pyx_string_tab[] = {
   {__pyx_k_n_days, sizeof(__pyx_k_n_days), 0, 1, 1}, /* PyObject cname: __pyx_n_u_n_days */
   {__pyx_k_n_days_max, sizeof(__pyx_k_n_days_max), 0, 1, 1}, /* PyObject cname: __pyx_n_u_n_days_max */
   {__pyx_k_n_days_max_value, sizeof(__pyx_k_n_days_max_value), 0, 1, 1}, /* PyObject cname: __pyx_n_u_n_days_max_value */
+  {__pyx_k_n_increment, sizeof(__pyx_k_n_increment), 0, 1, 1}, /* PyObject cname: __pyx_n_u_n_increment */
   {__pyx_k_n_max_is_max, sizeof(__pyx_k_n_max_is_max), 0, 1, 1}, /* PyObject cname: __pyx_n_u_n_max_is_max */
   {__pyx_k_n_valid, sizeof(__pyx_k_n_valid), 0, 1, 1}, /* PyObject cname: __pyx_n_u_n_valid */
   {__pyx_k_name, sizeof(__pyx_k_name), 0, 1, 1}, /* PyObject cname: __pyx_n_u_name */
@@ -28311,10 +31872,16 @@ static const __Pyx_StringTabEntry __pyx_string_tab[] = {
   {__pyx_k_numpy__core_umath_failed_to_impo, sizeof(__pyx_k_numpy__core_umath_failed_to_impo), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_numpy__core_umath_failed_to_impo */
   {__pyx_k_obj, sizeof(__pyx_k_obj), 0, 1, 1}, /* PyObject cname: __pyx_n_u_obj */
   {__pyx_k_object, sizeof(__pyx_k_object), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_object */
+  {__pyx_k_op_days, sizeof(__pyx_k_op_days), 0, 1, 1}, /* PyObject cname: __pyx_n_u_op_days */
+  {__pyx_k_ops_change, sizeof(__pyx_k_ops_change), 0, 1, 1}, /* PyObject cname: __pyx_n_u_ops_change */
+  {__pyx_k_ops_change_input, sizeof(__pyx_k_ops_change_input), 0, 1, 1}, /* PyObject cname: __pyx_n_u_ops_change_input */
+  {__pyx_k_ops_incre_rate, sizeof(__pyx_k_ops_incre_rate), 0, 1, 1}, /* PyObject cname: __pyx_n_u_ops_incre_rate */
+  {__pyx_k_ops_value, sizeof(__pyx_k_ops_value), 0, 1, 1}, /* PyObject cname: __pyx_n_u_ops_value */
   {__pyx_k_pack, sizeof(__pyx_k_pack), 0, 1, 1}, /* PyObject cname: __pyx_n_u_pack */
   {__pyx_k_pickle, sizeof(__pyx_k_pickle), 0, 1, 1}, /* PyObject cname: __pyx_n_u_pickle */
   {__pyx_k_pop, sizeof(__pyx_k_pop), 0, 1, 1}, /* PyObject cname: __pyx_n_u_pop */
   {__pyx_k_prev_day_change, sizeof(__pyx_k_prev_day_change), 0, 1, 1}, /* PyObject cname: __pyx_n_u_prev_day_change */
+  {__pyx_k_prev_v, sizeof(__pyx_k_prev_v), 0, 1, 1}, /* PyObject cname: __pyx_n_u_prev_v */
   {__pyx_k_price_arr, sizeof(__pyx_k_price_arr), 0, 1, 1}, /* PyObject cname: __pyx_n_u_price_arr */
   {__pyx_k_price_data, sizeof(__pyx_k_price_data), 0, 1, 1}, /* PyObject cname: __pyx_n_u_price_data */
   {__pyx_k_price_data_view, sizeof(__pyx_k_price_data_view), 0, 1, 1}, /* PyObject cname: __pyx_n_u_price_data_view */
@@ -28337,7 +31904,10 @@ static const __Pyx_StringTabEntry __pyx_string_tab[] = {
   {__pyx_k_reduce_cython, sizeof(__pyx_k_reduce_cython), 0, 1, 1}, /* PyObject cname: __pyx_n_u_reduce_cython */
   {__pyx_k_reduce_ex, sizeof(__pyx_k_reduce_ex), 0, 1, 1}, /* PyObject cname: __pyx_n_u_reduce_ex */
   {__pyx_k_register, sizeof(__pyx_k_register), 0, 1, 1}, /* PyObject cname: __pyx_n_u_register */
+  {__pyx_k_result_value, sizeof(__pyx_k_result_value), 0, 1, 1}, /* PyObject cname: __pyx_n_u_result_value */
   {__pyx_k_row_result, sizeof(__pyx_k_row_result), 0, 1, 1}, /* PyObject cname: __pyx_n_u_row_result */
+  {__pyx_k_score, sizeof(__pyx_k_score), 0, 1, 1}, /* PyObject cname: __pyx_n_u_score */
+  {__pyx_k_score_func, sizeof(__pyx_k_score_func), 0, 1, 1}, /* PyObject cname: __pyx_n_u_score_func */
   {__pyx_k_set_name, sizeof(__pyx_k_set_name), 0, 1, 1}, /* PyObject cname: __pyx_n_u_set_name */
   {__pyx_k_setstate, sizeof(__pyx_k_setstate), 0, 1, 1}, /* PyObject cname: __pyx_n_u_setstate */
   {__pyx_k_setstate_cython, sizeof(__pyx_k_setstate_cython), 0, 1, 1}, /* PyObject cname: __pyx_n_u_setstate_cython */
@@ -28366,8 +31936,11 @@ static const __Pyx_StringTabEntry __pyx_string_tab[] = {
   {__pyx_k_unable_to_allocate_shape_and_str, sizeof(__pyx_k_unable_to_allocate_shape_and_str), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_unable_to_allocate_shape_and_str */
   {__pyx_k_unpack, sizeof(__pyx_k_unpack), 0, 1, 1}, /* PyObject cname: __pyx_n_u_unpack */
   {__pyx_k_update, sizeof(__pyx_k_update), 0, 1, 1}, /* PyObject cname: __pyx_n_u_update */
+  {__pyx_k_user_func, sizeof(__pyx_k_user_func), 0, 1, 1}, /* PyObject cname: __pyx_n_u_user_func */
   {__pyx_k_user_range_ratio, sizeof(__pyx_k_user_range_ratio), 0, 1, 1}, /* PyObject cname: __pyx_n_u_user_range_ratio */
   {__pyx_k_v, sizeof(__pyx_k_v), 0, 1, 1}, /* PyObject cname: __pyx_n_u_v */
+  {__pyx_k_v_now, sizeof(__pyx_k_v_now), 0, 1, 1}, /* PyObject cname: __pyx_n_u_v_now */
+  {__pyx_k_v_prev, sizeof(__pyx_k_v_prev), 0, 1, 1}, /* PyObject cname: __pyx_n_u_v_prev */
   {__pyx_k_valid_abs_sum_block1, sizeof(__pyx_k_valid_abs_sum_block1), 0, 1, 1}, /* PyObject cname: __pyx_n_u_valid_abs_sum_block1 */
   {__pyx_k_valid_abs_sum_block2, sizeof(__pyx_k_valid_abs_sum_block2), 0, 1, 1}, /* PyObject cname: __pyx_n_u_valid_abs_sum_block2 */
   {__pyx_k_valid_abs_sum_block3, sizeof(__pyx_k_valid_abs_sum_block3), 0, 1, 1}, /* PyObject cname: __pyx_n_u_valid_abs_sum_block3 */
@@ -28380,6 +31953,7 @@ static const __Pyx_StringTabEntry __pyx_string_tab[] = {
   {__pyx_k_valid_sum_len, sizeof(__pyx_k_valid_sum_len), 0, 1, 1}, /* PyObject cname: __pyx_n_u_valid_sum_len */
   {__pyx_k_width, sizeof(__pyx_k_width), 0, 1, 1}, /* PyObject cname: __pyx_n_u_width */
   {__pyx_k_window_len, sizeof(__pyx_k_window_len), 0, 1, 1}, /* PyObject cname: __pyx_n_u_window_len */
+  {__pyx_k_worker_threads, sizeof(__pyx_k_worker_threads), 0, 1, 1}, /* PyObject cname: __pyx_n_u_worker_threads */
   {__pyx_k_worker_threads_cy, sizeof(__pyx_k_worker_threads_cy), 0, 1, 1}, /* PyObject cname: __pyx_n_u_worker_threads_cy */
   {__pyx_k_worker_threads_cy_pyx, sizeof(__pyx_k_worker_threads_cy_pyx), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_worker_threads_cy_pyx */
   {__pyx_k_x, sizeof(__pyx_k_x), 0, 1, 1}, /* PyObject cname: __pyx_n_u_x */
@@ -28392,17 +31966,18 @@ static int __Pyx_InitStrings(__Pyx_StringTabEntry const *t, PyObject **target, c
 
 static int __Pyx_InitCachedBuiltins(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
-  __pyx_builtin_range = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_range); if (!__pyx_builtin_range) __PYX_ERR(0, 30, __pyx_L1_error)
-  __pyx_builtin_max = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_max); if (!__pyx_builtin_max) __PYX_ERR(0, 317, __pyx_L1_error)
+  __pyx_builtin_range = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_range); if (!__pyx_builtin_range) __PYX_ERR(0, 29, __pyx_L1_error)
+  __pyx_builtin_enumerate = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_enumerate); if (!__pyx_builtin_enumerate) __PYX_ERR(0, 240, __pyx_L1_error)
+  __pyx_builtin_max = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_max); if (!__pyx_builtin_max) __PYX_ERR(0, 408, __pyx_L1_error)
   __pyx_builtin_MemoryError = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_MemoryError); if (!__pyx_builtin_MemoryError) __PYX_ERR(1, 79, __pyx_L1_error)
+  __pyx_builtin_TypeError = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_TypeError); if (!__pyx_builtin_TypeError) __PYX_ERR(1, 83, __pyx_L1_error)
+  __pyx_builtin_OverflowError = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_OverflowError); if (!__pyx_builtin_OverflowError) __PYX_ERR(1, 83, __pyx_L1_error)
+  __pyx_builtin_IndexError = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_IndexError); if (!__pyx_builtin_IndexError) __PYX_ERR(1, 96, __pyx_L1_error)
   __pyx_builtin___import__ = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_import); if (!__pyx_builtin___import__) __PYX_ERR(1, 101, __pyx_L1_error)
   __pyx_builtin_ValueError = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_ValueError); if (!__pyx_builtin_ValueError) __PYX_ERR(1, 139, __pyx_L1_error)
-  __pyx_builtin_enumerate = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_enumerate); if (!__pyx_builtin_enumerate) __PYX_ERR(1, 157, __pyx_L1_error)
-  __pyx_builtin_TypeError = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_TypeError); if (!__pyx_builtin_TypeError) __PYX_ERR(1, 2, __pyx_L1_error)
   __pyx_builtin_AssertionError = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_AssertionError); if (!__pyx_builtin_AssertionError) __PYX_ERR(1, 373, __pyx_L1_error)
   __pyx_builtin_Ellipsis = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_Ellipsis); if (!__pyx_builtin_Ellipsis) __PYX_ERR(1, 408, __pyx_L1_error)
   __pyx_builtin_id = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_id); if (!__pyx_builtin_id) __PYX_ERR(1, 618, __pyx_L1_error)
-  __pyx_builtin_IndexError = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_IndexError); if (!__pyx_builtin_IndexError) __PYX_ERR(1, 914, __pyx_L1_error)
   __pyx_builtin_ImportError = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_ImportError); if (!__pyx_builtin_ImportError) __PYX_ERR(2, 1051, __pyx_L1_error)
   return 0;
   __pyx_L1_error:;
@@ -28463,9 +32038,9 @@ static int __Pyx_InitConstants(__pyx_mstatetype *__pyx_mstate) {
   __pyx_mstate->__pyx_umethod_PyDict_Type_pop.type = (PyObject*)&PyDict_Type;
   __pyx_mstate->__pyx_umethod_PyDict_Type_pop.method_name = &__pyx_mstate->__pyx_n_u_pop;
   if (__Pyx_InitStrings(__pyx_string_tab, __pyx_mstate->__pyx_string_tab, __pyx_string_tab_encodings) < 0) __PYX_ERR(0, 1, __pyx_L1_error);
-  __pyx_mstate->__pyx_float_neg_1e308 = PyFloat_FromDouble(-1e308); if (unlikely(!__pyx_mstate->__pyx_float_neg_1e308)) __PYX_ERR(0, 1, __pyx_L1_error)
   __pyx_mstate->__pyx_int_0 = PyLong_FromLong(0); if (unlikely(!__pyx_mstate->__pyx_int_0)) __PYX_ERR(0, 1, __pyx_L1_error)
   __pyx_mstate->__pyx_int_1 = PyLong_FromLong(1); if (unlikely(!__pyx_mstate->__pyx_int_1)) __PYX_ERR(0, 1, __pyx_L1_error)
+  __pyx_mstate->__pyx_int_100 = PyLong_FromLong(100); if (unlikely(!__pyx_mstate->__pyx_int_100)) __PYX_ERR(0, 1, __pyx_L1_error)
   __pyx_mstate->__pyx_int_112105877 = PyLong_FromLong(112105877L); if (unlikely(!__pyx_mstate->__pyx_int_112105877)) __PYX_ERR(0, 1, __pyx_L1_error)
   __pyx_mstate->__pyx_int_136983863 = PyLong_FromLong(136983863L); if (unlikely(!__pyx_mstate->__pyx_int_136983863)) __PYX_ERR(0, 1, __pyx_L1_error)
   __pyx_mstate->__pyx_int_184977713 = PyLong_FromLong(184977713L); if (unlikely(!__pyx_mstate->__pyx_int_184977713)) __PYX_ERR(0, 1, __pyx_L1_error)
@@ -28477,10 +32052,10 @@ static int __Pyx_InitConstants(__pyx_mstatetype *__pyx_mstate) {
 /* #### Code section: init_codeobjects ### */
 \
         typedef struct {
-            unsigned int argcount : 4;
+            unsigned int argcount : 5;
             unsigned int num_posonly_args : 1;
             unsigned int num_kwonly_args : 1;
-            unsigned int nlocals : 7;
+            unsigned int nlocals : 8;
             unsigned int flags : 10;
             unsigned int first_line : 7;
             unsigned int line_table_length : 17;
@@ -28500,9 +32075,9 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
   PyObject* tuple_dedup_map = PyDict_New();
   if (unlikely(!tuple_dedup_map)) return -1;
   {
-    const __Pyx_PyCode_New_function_description descr = {14, 0, 0, 107, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 73, 3666};
-    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_price_data, __pyx_mstate->__pyx_n_u_date_columns, __pyx_mstate->__pyx_n_u_width, __pyx_mstate->__pyx_n_u_start_option, __pyx_mstate->__pyx_n_u_shift_days, __pyx_mstate->__pyx_n_u_end_date_start_idx, __pyx_mstate->__pyx_n_u_end_date_end_idx, __pyx_mstate->__pyx_n_u_diff_data, __pyx_mstate->__pyx_n_u_stock_idx_arr, __pyx_mstate->__pyx_n_u_is_forward, __pyx_mstate->__pyx_n_u_n_days, __pyx_mstate->__pyx_n_u_user_range_ratio, __pyx_mstate->__pyx_n_u_continuous_abs_threshold, __pyx_mstate->__pyx_n_u_n_days_max, __pyx_mstate->__pyx_n_u_num_stocks, __pyx_mstate->__pyx_n_u_num_dates, __pyx_mstate->__pyx_n_u_stock_idx, __pyx_mstate->__pyx_n_u_idx, __pyx_mstate->__pyx_n_u_end_date_idx, __pyx_mstate->__pyx_n_u_start_date_idx, __pyx_mstate->__pyx_n_u_max_price, __pyx_mstate->__pyx_n_u_min_price, __pyx_mstate->__pyx_n_u_end_value, __pyx_mstate->__pyx_n_u_start_value, __pyx_mstate->__pyx_n_u_actual_value, __pyx_mstate->__pyx_n_u_closest_value, __pyx_mstate->__pyx_n_u_max_idx_in_window, __pyx_mstate->__pyx_n_u_min_idx_in_window, __pyx_mstate->__pyx_n_u_closest_idx_in_window, __pyx_mstate->__pyx_n_u_i, __pyx_mstate->__pyx_n_u_j, __pyx_mstate->__pyx_n_u_window_len, __pyx_mstate->__pyx_n_u_base_idx, __pyx_mstate->__pyx_n_u_actual_idx, __pyx_mstate->__pyx_n_u_all_results, __pyx_mstate->__pyx_n_u_cont_sum, __pyx_mstate->__pyx_n_u_forward_max_result_c, __pyx_mstate->__pyx_n_u_forward_min_result_c, __pyx_mstate->__pyx_n_u_price_data_view, __pyx_mstate->__pyx_n_u_diff_data_view, __pyx_mstate->__pyx_n_u_stock_idx_arr_view, __pyx_mstate->__pyx_n_u_min_diff, __pyx_mstate->__pyx_n_u_diff, __pyx_mstate->__pyx_n_u_n, __pyx_mstate->__pyx_n_u_half, __pyx_mstate->__pyx_n_u_q1, __pyx_mstate->__pyx_n_u_q2, __pyx_mstate->__pyx_n_u_q3, __pyx_mstate->__pyx_n_u_continuous_abs_sum_first_half, __pyx_mstate->__pyx_n_u_continuous_abs_sum_second_half, __pyx_mstate->__pyx_n_u_continuous_abs_sum_block1, __pyx_mstate->__pyx_n_u_continuous_abs_sum_block2, __pyx_mstate->__pyx_n_u_continuous_abs_sum_block3, __pyx_mstate->__pyx_n_u_continuous_abs_sum_block4, __pyx_mstate->__pyx_n_u_valid_sum_arr, __pyx_mstate->__pyx_n_u_valid_sum_len, __pyx_mstate->__pyx_n_u_valid_pos_sum, __pyx_mstate->__pyx_n_u_valid_neg_sum, __pyx_mstate->__pyx_n_u_cont_sum_np, __pyx_mstate->__pyx_n_u_prev_day_change, __pyx_mstate->__pyx_n_u_end_day_change, __pyx_mstate->__pyx_n_u_n_days_max_value, __pyx_mstate->__pyx_n_u_price_arr, __pyx_mstate->__pyx_n_u_n_valid, __pyx_mstate->__pyx_n_u_half_valid, __pyx_mstate->__pyx_n_u_q1_valid, __pyx_mstate->__pyx_n_u_q2_valid, __pyx_mstate->__pyx_n_u_q3_valid, __pyx_mstate->__pyx_n_u_valid_abs_sum_first_half, __pyx_mstate->__pyx_n_u_valid_abs_sum_second_half, __pyx_mstate->__pyx_n_u_valid_abs_sum_block1, __pyx_mstate->__pyx_n_u_valid_abs_sum_block2, __pyx_mstate->__pyx_n_u_valid_abs_sum_block3, __pyx_mstate->__pyx_n_u_valid_abs_sum_block4, __pyx_mstate->__pyx_n_u_forward_max_valid_sum_arr, __pyx_mstate->__pyx_n_u_forward_max_valid_sum_len, __pyx_mstate->__pyx_n_u_forward_max_valid_pos_sum, __pyx_mstate->__pyx_n_u_forward_max_valid_neg_sum, __pyx_mstate->__pyx_n_u_forward_min_valid_sum_arr, __pyx_mstate->__pyx_n_u_forward_min_valid_sum_len, __pyx_mstate->__pyx_n_u_forward_min_valid_pos_sum, __pyx_mstate->__pyx_n_u_forward_min_valid_neg_sum, __pyx_mstate->__pyx_n_u_end_date, __pyx_mstate->__pyx_n_u_py_cont_sum, __pyx_mstate->__pyx_n_u_forward_max_result, __pyx_mstate->__pyx_n_u_forward_min_result, __pyx_mstate->__pyx_n_u_abs_arr, __pyx_mstate->__pyx_n_u_forward_max_valid_abs_sum_first, __pyx_mstate->__pyx_n_u_forward_max_valid_abs_sum_second, __pyx_mstate->__pyx_n_u_forward_max_valid_abs_sum_block1, __pyx_mstate->__pyx_n_u_forward_max_valid_abs_sum_block2, __pyx_mstate->__pyx_n_u_forward_max_valid_abs_sum_block3, __pyx_mstate->__pyx_n_u_forward_max_valid_abs_sum_block4, __pyx_mstate->__pyx_n_u_forward_min_valid_abs_sum_first, __pyx_mstate->__pyx_n_u_forward_min_valid_abs_sum_second, __pyx_mstate->__pyx_n_u_forward_min_valid_abs_sum_block1, __pyx_mstate->__pyx_n_u_forward_min_valid_abs_sum_block2, __pyx_mstate->__pyx_n_u_forward_min_valid_abs_sum_block3, __pyx_mstate->__pyx_n_u_forward_min_valid_abs_sum_block4, __pyx_mstate->__pyx_n_u_max_abs_val, __pyx_mstate->__pyx_n_u_continuous_abs_is_less, __pyx_mstate->__pyx_n_u_maxv, __pyx_mstate->__pyx_n_u_v, __pyx_mstate->__pyx_n_u_row_result, __pyx_mstate->__pyx_n_u_sorted_results, __pyx_mstate->__pyx_n_u_v, __pyx_mstate->__pyx_n_u_i};
-    __pyx_mstate_global->__pyx_codeobj_tab[0] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_worker_threads_cy_pyx, __pyx_mstate->__pyx_n_u_calculate_batch_cy, __pyx_k_F_1_6_A_q_Q_1_uA_9_a_q_1L_1_fAQ, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[0])) goto bad;
+    const __Pyx_PyCode_New_function_description descr = {21, 0, 0, 155, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 72, 5505};
+    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_price_data, __pyx_mstate->__pyx_n_u_date_columns, __pyx_mstate->__pyx_n_u_width, __pyx_mstate->__pyx_n_u_start_option, __pyx_mstate->__pyx_n_u_shift_days, __pyx_mstate->__pyx_n_u_end_date_start_idx, __pyx_mstate->__pyx_n_u_end_date_end_idx, __pyx_mstate->__pyx_n_u_diff_data, __pyx_mstate->__pyx_n_u_stock_idx_arr, __pyx_mstate->__pyx_n_u_is_forward, __pyx_mstate->__pyx_n_u_n_days, __pyx_mstate->__pyx_n_u_user_range_ratio, __pyx_mstate->__pyx_n_u_continuous_abs_threshold, __pyx_mstate->__pyx_n_u_n_days_max, __pyx_mstate->__pyx_n_u_op_days, __pyx_mstate->__pyx_n_u_inc_rate, __pyx_mstate->__pyx_n_u_after_gt_end_ratio, __pyx_mstate->__pyx_n_u_after_gt_start_ratio, __pyx_mstate->__pyx_n_u_expr, __pyx_mstate->__pyx_n_u_ops_change_input, __pyx_mstate->__pyx_n_u_formula_expr, __pyx_mstate->__pyx_n_u_num_stocks, __pyx_mstate->__pyx_n_u_num_dates, __pyx_mstate->__pyx_n_u_stock_idx, __pyx_mstate->__pyx_n_u_idx, __pyx_mstate->__pyx_n_u_end_date_idx, __pyx_mstate->__pyx_n_u_start_date_idx, __pyx_mstate->__pyx_n_u_max_price, __pyx_mstate->__pyx_n_u_min_price, __pyx_mstate->__pyx_n_u_end_value, __pyx_mstate->__pyx_n_u_start_value, __pyx_mstate->__pyx_n_u_actual_value, __pyx_mstate->__pyx_n_u_closest_value, __pyx_mstate->__pyx_n_u_max_idx_in_window, __pyx_mstate->__pyx_n_u_min_idx_in_window, __pyx_mstate->__pyx_n_u_closest_idx_in_window, __pyx_mstate->__pyx_n_u_i, __pyx_mstate->__pyx_n_u_j, __pyx_mstate->__pyx_n_u_window_len, __pyx_mstate->__pyx_n_u_base_idx, __pyx_mstate->__pyx_n_u_actual_idx, __pyx_mstate->__pyx_n_u_all_results, __pyx_mstate->__pyx_n_u_cont_sum, __pyx_mstate->__pyx_n_u_forward_max_result_c, __pyx_mstate->__pyx_n_u_forward_min_result_c, __pyx_mstate->__pyx_n_u_price_data_view, __pyx_mstate->__pyx_n_u_diff_data_view, __pyx_mstate->__pyx_n_u_stock_idx_arr_view, __pyx_mstate->__pyx_n_u_min_diff, __pyx_mstate->__pyx_n_u_diff, __pyx_mstate->__pyx_n_u_n, __pyx_mstate->__pyx_n_u_half, __pyx_mstate->__pyx_n_u_q1, __pyx_mstate->__pyx_n_u_q2, __pyx_mstate->__pyx_n_u_q3, __pyx_mstate->__pyx_n_u_continuous_abs_sum_first_half, __pyx_mstate->__pyx_n_u_continuous_abs_sum_second_half, __pyx_mstate->__pyx_n_u_continuous_abs_sum_block1, __pyx_mstate->__pyx_n_u_continuous_abs_sum_block2, __pyx_mstate->__pyx_n_u_continuous_abs_sum_block3, __pyx_mstate->__pyx_n_u_continuous_abs_sum_block4, __pyx_mstate->__pyx_n_u_valid_sum_arr, __pyx_mstate->__pyx_n_u_valid_sum_len, __pyx_mstate->__pyx_n_u_valid_pos_sum, __pyx_mstate->__pyx_n_u_valid_neg_sum, __pyx_mstate->__pyx_n_u_cont_sum_np, __pyx_mstate->__pyx_n_u_prev_day_change, __pyx_mstate->__pyx_n_u_end_day_change, __pyx_mstate->__pyx_n_u_n_days_max_value, __pyx_mstate->__pyx_n_u_price_arr, __pyx_mstate->__pyx_n_u_n_valid, __pyx_mstate->__pyx_n_u_half_valid, __pyx_mstate->__pyx_n_u_q1_valid, __pyx_mstate->__pyx_n_u_q2_valid, __pyx_mstate->__pyx_n_u_q3_valid, __pyx_mstate->__pyx_n_u_valid_abs_sum_first_half, __pyx_mstate->__pyx_n_u_valid_abs_sum_second_half, __pyx_mstate->__pyx_n_u_valid_abs_sum_block1, __pyx_mstate->__pyx_n_u_valid_abs_sum_block2, __pyx_mstate->__pyx_n_u_valid_abs_sum_block3, __pyx_mstate->__pyx_n_u_valid_abs_sum_block4, __pyx_mstate->__pyx_n_u_forward_max_valid_sum_arr, __pyx_mstate->__pyx_n_u_forward_max_valid_sum_len, __pyx_mstate->__pyx_n_u_forward_max_valid_pos_sum, __pyx_mstate->__pyx_n_u_forward_max_valid_neg_sum, __pyx_mstate->__pyx_n_u_forward_min_valid_sum_arr, __pyx_mstate->__pyx_n_u_forward_min_valid_sum_len, __pyx_mstate->__pyx_n_u_forward_min_valid_pos_sum, __pyx_mstate->__pyx_n_u_forward_min_valid_neg_sum, __pyx_mstate->__pyx_n_u_increment_value, __pyx_mstate->__pyx_n_u_after_gt_end_value, __pyx_mstate->__pyx_n_u_after_gt_start_value, __pyx_mstate->__pyx_n_u_increment_days, __pyx_mstate->__pyx_n_u_after_gt_end_days, __pyx_mstate->__pyx_n_u_after_gt_start_days, __pyx_mstate->__pyx_n_u_increment_threshold, __pyx_mstate->__pyx_n_u_after_gt_end_threshold, __pyx_mstate->__pyx_n_u_after_gt_start_threshold, __pyx_mstate->__pyx_n_u_n_increment, __pyx_mstate->__pyx_n_u_v, __pyx_mstate->__pyx_n_u_prev_v, __pyx_mstate->__pyx_n_u_k, __pyx_mstate->__pyx_n_u_user_func, __pyx_mstate->__pyx_n_u_score_func, __pyx_mstate->__pyx_n_u_make_user_func, __pyx_mstate->__pyx_n_u_end_date, __pyx_mstate->__pyx_n_u_found, __pyx_mstate->__pyx_n_u_fallback_idx, __pyx_mstate->__pyx_n_u_v_now, __pyx_mstate->__pyx_n_u_v_prev, __pyx_mstate->__pyx_n_u_py_cont_sum, __pyx_mstate->__pyx_n_u_forward_max_result, __pyx_mstate->__pyx_n_u_forward_min_result, __pyx_mstate->__pyx_n_u_abs_arr, __pyx_mstate->__pyx_n_u_forward_max_valid_abs_sum_first, __pyx_mstate->__pyx_n_u_forward_max_valid_abs_sum_second, __pyx_mstate->__pyx_n_u_forward_max_valid_abs_sum_block1, __pyx_mstate->__pyx_n_u_forward_max_valid_abs_sum_block2, __pyx_mstate->__pyx_n_u_forward_max_valid_abs_sum_block3, __pyx_mstate->__pyx_n_u_forward_max_valid_abs_sum_block4, __pyx_mstate->__pyx_n_u_forward_min_valid_abs_sum_first, __pyx_mstate->__pyx_n_u_forward_min_valid_abs_sum_second, __pyx_mstate->__pyx_n_u_forward_min_valid_abs_sum_block1, __pyx_mstate->__pyx_n_u_forward_min_valid_abs_sum_block2, __pyx_mstate->__pyx_n_u_forward_min_valid_abs_sum_block3, __pyx_mstate->__pyx_n_u_forward_min_valid_abs_sum_block4, __pyx_mstate->__pyx_n_u_max_abs_val, __pyx_mstate->__pyx_n_u_continuous_abs_is_less, __pyx_mstate->__pyx_n_u_maxv, __pyx_mstate->__pyx_n_u_forward_max_result_len, __pyx_mstate->__pyx_n_u_forward_min_result_len, __pyx_mstate->__pyx_n_u_continuous_start_value, __pyx_mstate->__pyx_n_u_continuous_start_next_value, __pyx_mstate->__pyx_n_u_continuous_start_next_next_value, __pyx_mstate->__pyx_n_u_continuous_end_value, __pyx_mstate->__pyx_n_u_continuous_end_prev_value, __pyx_mstate->__pyx_n_u_continuous_end_prev_prev_value, __pyx_mstate->__pyx_n_u_inc_value, __pyx_mstate->__pyx_n_u_age_value, __pyx_mstate->__pyx_n_u_ags_value, __pyx_mstate->__pyx_n_u_result_value, __pyx_mstate->__pyx_n_u_ops_value, __pyx_mstate->__pyx_n_u_hold_days, __pyx_mstate->__pyx_n_u_e, __pyx_mstate->__pyx_n_u_score, __pyx_mstate->__pyx_n_u_ops_change, __pyx_mstate->__pyx_n_u_adjust_days, __pyx_mstate->__pyx_n_u_ops_incre_rate, __pyx_mstate->__pyx_n_u_end_value_for_ops, __pyx_mstate->__pyx_n_u_row_result, __pyx_mstate->__pyx_n_u_sorted_results, __pyx_mstate->__pyx_n_u_v, __pyx_mstate->__pyx_n_u_j, __pyx_mstate->__pyx_n_u_j, __pyx_mstate->__pyx_n_u_j};
+    __pyx_mstate_global->__pyx_codeobj_tab[0] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_worker_threads_cy_pyx, __pyx_mstate->__pyx_n_u_calculate_batch_cy, __pyx_k_F_1_6_A_q_Q_1_Q_q_q_A_A_Q_q_aq, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[0])) goto bad;
   }
   Py_DECREF(tuple_dedup_map);
   return 0;
@@ -28743,6 +32318,175 @@ static PyObject *__Pyx_GetBuiltinName(PyObject *name) {
     }
     return result;
 }
+
+/* GetTopmostException */
+#if CYTHON_USE_EXC_INFO_STACK && CYTHON_FAST_THREAD_STATE
+static _PyErr_StackItem *
+__Pyx_PyErr_GetTopmostException(PyThreadState *tstate)
+{
+    _PyErr_StackItem *exc_info = tstate->exc_info;
+    while ((exc_info->exc_value == NULL || exc_info->exc_value == Py_None) &&
+           exc_info->previous_item != NULL)
+    {
+        exc_info = exc_info->previous_item;
+    }
+    return exc_info;
+}
+#endif
+
+/* SaveResetException */
+#if CYTHON_FAST_THREAD_STATE
+static CYTHON_INLINE void __Pyx__ExceptionSave(PyThreadState *tstate, PyObject **type, PyObject **value, PyObject **tb) {
+  #if CYTHON_USE_EXC_INFO_STACK && PY_VERSION_HEX >= 0x030B00a4
+    _PyErr_StackItem *exc_info = __Pyx_PyErr_GetTopmostException(tstate);
+    PyObject *exc_value = exc_info->exc_value;
+    if (exc_value == NULL || exc_value == Py_None) {
+        *value = NULL;
+        *type = NULL;
+        *tb = NULL;
+    } else {
+        *value = exc_value;
+        Py_INCREF(*value);
+        *type = (PyObject*) Py_TYPE(exc_value);
+        Py_INCREF(*type);
+        *tb = PyException_GetTraceback(exc_value);
+    }
+  #elif CYTHON_USE_EXC_INFO_STACK
+    _PyErr_StackItem *exc_info = __Pyx_PyErr_GetTopmostException(tstate);
+    *type = exc_info->exc_type;
+    *value = exc_info->exc_value;
+    *tb = exc_info->exc_traceback;
+    Py_XINCREF(*type);
+    Py_XINCREF(*value);
+    Py_XINCREF(*tb);
+  #else
+    *type = tstate->exc_type;
+    *value = tstate->exc_value;
+    *tb = tstate->exc_traceback;
+    Py_XINCREF(*type);
+    Py_XINCREF(*value);
+    Py_XINCREF(*tb);
+  #endif
+}
+static CYTHON_INLINE void __Pyx__ExceptionReset(PyThreadState *tstate, PyObject *type, PyObject *value, PyObject *tb) {
+  #if CYTHON_USE_EXC_INFO_STACK && PY_VERSION_HEX >= 0x030B00a4
+    _PyErr_StackItem *exc_info = tstate->exc_info;
+    PyObject *tmp_value = exc_info->exc_value;
+    exc_info->exc_value = value;
+    Py_XDECREF(tmp_value);
+    Py_XDECREF(type);
+    Py_XDECREF(tb);
+  #else
+    PyObject *tmp_type, *tmp_value, *tmp_tb;
+    #if CYTHON_USE_EXC_INFO_STACK
+    _PyErr_StackItem *exc_info = tstate->exc_info;
+    tmp_type = exc_info->exc_type;
+    tmp_value = exc_info->exc_value;
+    tmp_tb = exc_info->exc_traceback;
+    exc_info->exc_type = type;
+    exc_info->exc_value = value;
+    exc_info->exc_traceback = tb;
+    #else
+    tmp_type = tstate->exc_type;
+    tmp_value = tstate->exc_value;
+    tmp_tb = tstate->exc_traceback;
+    tstate->exc_type = type;
+    tstate->exc_value = value;
+    tstate->exc_traceback = tb;
+    #endif
+    Py_XDECREF(tmp_type);
+    Py_XDECREF(tmp_value);
+    Py_XDECREF(tmp_tb);
+  #endif
+}
+#endif
+
+/* FastTypeChecks */
+#if CYTHON_COMPILING_IN_CPYTHON
+static int __Pyx_InBases(PyTypeObject *a, PyTypeObject *b) {
+    while (a) {
+        a = __Pyx_PyType_GetSlot(a, tp_base, PyTypeObject*);
+        if (a == b)
+            return 1;
+    }
+    return b == &PyBaseObject_Type;
+}
+static CYTHON_INLINE int __Pyx_IsSubtype(PyTypeObject *a, PyTypeObject *b) {
+    PyObject *mro;
+    if (a == b) return 1;
+    mro = a->tp_mro;
+    if (likely(mro)) {
+        Py_ssize_t i, n;
+        n = PyTuple_GET_SIZE(mro);
+        for (i = 0; i < n; i++) {
+            if (PyTuple_GET_ITEM(mro, i) == (PyObject *)b)
+                return 1;
+        }
+        return 0;
+    }
+    return __Pyx_InBases(a, b);
+}
+static CYTHON_INLINE int __Pyx_IsAnySubtype2(PyTypeObject *cls, PyTypeObject *a, PyTypeObject *b) {
+    PyObject *mro;
+    if (cls == a || cls == b) return 1;
+    mro = cls->tp_mro;
+    if (likely(mro)) {
+        Py_ssize_t i, n;
+        n = PyTuple_GET_SIZE(mro);
+        for (i = 0; i < n; i++) {
+            PyObject *base = PyTuple_GET_ITEM(mro, i);
+            if (base == (PyObject *)a || base == (PyObject *)b)
+                return 1;
+        }
+        return 0;
+    }
+    return __Pyx_InBases(cls, a) || __Pyx_InBases(cls, b);
+}
+static CYTHON_INLINE int __Pyx_inner_PyErr_GivenExceptionMatches2(PyObject *err, PyObject* exc_type1, PyObject *exc_type2) {
+    if (exc_type1) {
+        return __Pyx_IsAnySubtype2((PyTypeObject*)err, (PyTypeObject*)exc_type1, (PyTypeObject*)exc_type2);
+    } else {
+        return __Pyx_IsSubtype((PyTypeObject*)err, (PyTypeObject*)exc_type2);
+    }
+}
+static int __Pyx_PyErr_GivenExceptionMatchesTuple(PyObject *exc_type, PyObject *tuple) {
+    Py_ssize_t i, n;
+    assert(PyExceptionClass_Check(exc_type));
+    n = PyTuple_GET_SIZE(tuple);
+    for (i=0; i<n; i++) {
+        if (exc_type == PyTuple_GET_ITEM(tuple, i)) return 1;
+    }
+    for (i=0; i<n; i++) {
+        PyObject *t = PyTuple_GET_ITEM(tuple, i);
+        if (likely(PyExceptionClass_Check(t))) {
+            if (__Pyx_inner_PyErr_GivenExceptionMatches2(exc_type, NULL, t)) return 1;
+        } else {
+        }
+    }
+    return 0;
+}
+static CYTHON_INLINE int __Pyx_PyErr_GivenExceptionMatches(PyObject *err, PyObject* exc_type) {
+    if (likely(err == exc_type)) return 1;
+    if (likely(PyExceptionClass_Check(err))) {
+        if (likely(PyExceptionClass_Check(exc_type))) {
+            return __Pyx_inner_PyErr_GivenExceptionMatches2(err, NULL, exc_type);
+        } else if (likely(PyTuple_Check(exc_type))) {
+            return __Pyx_PyErr_GivenExceptionMatchesTuple(err, exc_type);
+        } else {
+        }
+    }
+    return PyErr_GivenExceptionMatches(err, exc_type);
+}
+static CYTHON_INLINE int __Pyx_PyErr_GivenExceptionMatches2(PyObject *err, PyObject *exc_type1, PyObject *exc_type2) {
+    assert(PyExceptionClass_Check(exc_type1));
+    assert(PyExceptionClass_Check(exc_type2));
+    if (likely(err == exc_type1 || err == exc_type2)) return 1;
+    if (likely(PyExceptionClass_Check(err))) {
+        return __Pyx_inner_PyErr_GivenExceptionMatches2(err, exc_type1, exc_type2);
+    }
+    return (PyErr_GivenExceptionMatches(err, exc_type1) || PyErr_GivenExceptionMatches(err, exc_type2));
+}
+#endif
 
 /* TupleAndListFromArray */
 #if !CYTHON_COMPILING_IN_CPYTHON && CYTHON_METH_FASTCALL
@@ -30673,88 +34417,6 @@ static CYTHON_INLINE int __Pyx_TypeTest(PyObject *obj, PyTypeObject *type) {
     return 0;
 }
 
-/* GetTopmostException */
-#if CYTHON_USE_EXC_INFO_STACK && CYTHON_FAST_THREAD_STATE
-static _PyErr_StackItem *
-__Pyx_PyErr_GetTopmostException(PyThreadState *tstate)
-{
-    _PyErr_StackItem *exc_info = tstate->exc_info;
-    while ((exc_info->exc_value == NULL || exc_info->exc_value == Py_None) &&
-           exc_info->previous_item != NULL)
-    {
-        exc_info = exc_info->previous_item;
-    }
-    return exc_info;
-}
-#endif
-
-/* SaveResetException */
-#if CYTHON_FAST_THREAD_STATE
-static CYTHON_INLINE void __Pyx__ExceptionSave(PyThreadState *tstate, PyObject **type, PyObject **value, PyObject **tb) {
-  #if CYTHON_USE_EXC_INFO_STACK && PY_VERSION_HEX >= 0x030B00a4
-    _PyErr_StackItem *exc_info = __Pyx_PyErr_GetTopmostException(tstate);
-    PyObject *exc_value = exc_info->exc_value;
-    if (exc_value == NULL || exc_value == Py_None) {
-        *value = NULL;
-        *type = NULL;
-        *tb = NULL;
-    } else {
-        *value = exc_value;
-        Py_INCREF(*value);
-        *type = (PyObject*) Py_TYPE(exc_value);
-        Py_INCREF(*type);
-        *tb = PyException_GetTraceback(exc_value);
-    }
-  #elif CYTHON_USE_EXC_INFO_STACK
-    _PyErr_StackItem *exc_info = __Pyx_PyErr_GetTopmostException(tstate);
-    *type = exc_info->exc_type;
-    *value = exc_info->exc_value;
-    *tb = exc_info->exc_traceback;
-    Py_XINCREF(*type);
-    Py_XINCREF(*value);
-    Py_XINCREF(*tb);
-  #else
-    *type = tstate->exc_type;
-    *value = tstate->exc_value;
-    *tb = tstate->exc_traceback;
-    Py_XINCREF(*type);
-    Py_XINCREF(*value);
-    Py_XINCREF(*tb);
-  #endif
-}
-static CYTHON_INLINE void __Pyx__ExceptionReset(PyThreadState *tstate, PyObject *type, PyObject *value, PyObject *tb) {
-  #if CYTHON_USE_EXC_INFO_STACK && PY_VERSION_HEX >= 0x030B00a4
-    _PyErr_StackItem *exc_info = tstate->exc_info;
-    PyObject *tmp_value = exc_info->exc_value;
-    exc_info->exc_value = value;
-    Py_XDECREF(tmp_value);
-    Py_XDECREF(type);
-    Py_XDECREF(tb);
-  #else
-    PyObject *tmp_type, *tmp_value, *tmp_tb;
-    #if CYTHON_USE_EXC_INFO_STACK
-    _PyErr_StackItem *exc_info = tstate->exc_info;
-    tmp_type = exc_info->exc_type;
-    tmp_value = exc_info->exc_value;
-    tmp_tb = exc_info->exc_traceback;
-    exc_info->exc_type = type;
-    exc_info->exc_value = value;
-    exc_info->exc_traceback = tb;
-    #else
-    tmp_type = tstate->exc_type;
-    tmp_value = tstate->exc_value;
-    tmp_tb = tstate->exc_traceback;
-    tstate->exc_type = type;
-    tstate->exc_value = value;
-    tstate->exc_traceback = tb;
-    #endif
-    Py_XDECREF(tmp_type);
-    Py_XDECREF(tmp_value);
-    Py_XDECREF(tmp_tb);
-  #endif
-}
-#endif
-
 /* GetException */
 #if CYTHON_FAST_THREAD_STATE
 static int __Pyx__GetException(PyThreadState *tstate, PyObject **type, PyObject **value, PyObject **tb)
@@ -31056,93 +34718,6 @@ static PyObject *__Pyx_ImportDottedModule(PyObject *name, PyObject *parts_tuple)
 #endif
     return __Pyx__ImportDottedModule(name, parts_tuple);
 }
-
-/* FastTypeChecks */
-#if CYTHON_COMPILING_IN_CPYTHON
-static int __Pyx_InBases(PyTypeObject *a, PyTypeObject *b) {
-    while (a) {
-        a = __Pyx_PyType_GetSlot(a, tp_base, PyTypeObject*);
-        if (a == b)
-            return 1;
-    }
-    return b == &PyBaseObject_Type;
-}
-static CYTHON_INLINE int __Pyx_IsSubtype(PyTypeObject *a, PyTypeObject *b) {
-    PyObject *mro;
-    if (a == b) return 1;
-    mro = a->tp_mro;
-    if (likely(mro)) {
-        Py_ssize_t i, n;
-        n = PyTuple_GET_SIZE(mro);
-        for (i = 0; i < n; i++) {
-            if (PyTuple_GET_ITEM(mro, i) == (PyObject *)b)
-                return 1;
-        }
-        return 0;
-    }
-    return __Pyx_InBases(a, b);
-}
-static CYTHON_INLINE int __Pyx_IsAnySubtype2(PyTypeObject *cls, PyTypeObject *a, PyTypeObject *b) {
-    PyObject *mro;
-    if (cls == a || cls == b) return 1;
-    mro = cls->tp_mro;
-    if (likely(mro)) {
-        Py_ssize_t i, n;
-        n = PyTuple_GET_SIZE(mro);
-        for (i = 0; i < n; i++) {
-            PyObject *base = PyTuple_GET_ITEM(mro, i);
-            if (base == (PyObject *)a || base == (PyObject *)b)
-                return 1;
-        }
-        return 0;
-    }
-    return __Pyx_InBases(cls, a) || __Pyx_InBases(cls, b);
-}
-static CYTHON_INLINE int __Pyx_inner_PyErr_GivenExceptionMatches2(PyObject *err, PyObject* exc_type1, PyObject *exc_type2) {
-    if (exc_type1) {
-        return __Pyx_IsAnySubtype2((PyTypeObject*)err, (PyTypeObject*)exc_type1, (PyTypeObject*)exc_type2);
-    } else {
-        return __Pyx_IsSubtype((PyTypeObject*)err, (PyTypeObject*)exc_type2);
-    }
-}
-static int __Pyx_PyErr_GivenExceptionMatchesTuple(PyObject *exc_type, PyObject *tuple) {
-    Py_ssize_t i, n;
-    assert(PyExceptionClass_Check(exc_type));
-    n = PyTuple_GET_SIZE(tuple);
-    for (i=0; i<n; i++) {
-        if (exc_type == PyTuple_GET_ITEM(tuple, i)) return 1;
-    }
-    for (i=0; i<n; i++) {
-        PyObject *t = PyTuple_GET_ITEM(tuple, i);
-        if (likely(PyExceptionClass_Check(t))) {
-            if (__Pyx_inner_PyErr_GivenExceptionMatches2(exc_type, NULL, t)) return 1;
-        } else {
-        }
-    }
-    return 0;
-}
-static CYTHON_INLINE int __Pyx_PyErr_GivenExceptionMatches(PyObject *err, PyObject* exc_type) {
-    if (likely(err == exc_type)) return 1;
-    if (likely(PyExceptionClass_Check(err))) {
-        if (likely(PyExceptionClass_Check(exc_type))) {
-            return __Pyx_inner_PyErr_GivenExceptionMatches2(err, NULL, exc_type);
-        } else if (likely(PyTuple_Check(exc_type))) {
-            return __Pyx_PyErr_GivenExceptionMatchesTuple(err, exc_type);
-        } else {
-        }
-    }
-    return PyErr_GivenExceptionMatches(err, exc_type);
-}
-static CYTHON_INLINE int __Pyx_PyErr_GivenExceptionMatches2(PyObject *err, PyObject *exc_type1, PyObject *exc_type2) {
-    assert(PyExceptionClass_Check(exc_type1));
-    assert(PyExceptionClass_Check(exc_type2));
-    if (likely(err == exc_type1 || err == exc_type2)) return 1;
-    if (likely(PyExceptionClass_Check(err))) {
-        return __Pyx_inner_PyErr_GivenExceptionMatches2(err, exc_type1, exc_type2);
-    }
-    return (PyErr_GivenExceptionMatches(err, exc_type1) || PyErr_GivenExceptionMatches(err, exc_type2));
-}
-#endif
 
 /* PySequenceMultiply */
 static PyObject* __Pyx_PySequence_Multiply_Generic(PyObject *seq, Py_ssize_t mul) {
@@ -32045,6 +35620,393 @@ static PyObject *__Pyx_PyLong_AbsNeg(PyObject *n) {
 bad:
     return NULL;
 }
+
+/* PyLongCompare */
+  static CYTHON_INLINE int __Pyx_PyLong_BoolNeObjC(PyObject *op1, PyObject *op2, long intval, long inplace) {
+    CYTHON_MAYBE_UNUSED_VAR(intval);
+    CYTHON_UNUSED_VAR(inplace);
+    if (op1 == op2) {
+        return 0;
+    }
+    #if CYTHON_USE_PYLONG_INTERNALS
+    if (likely(PyLong_CheckExact(op1))) {
+        int unequal;
+        unsigned long uintval;
+        Py_ssize_t size = __Pyx_PyLong_DigitCount(op1);
+        const digit* digits = __Pyx_PyLong_Digits(op1);
+        if (intval == 0) {
+            return (__Pyx_PyLong_IsZero(op1) != 1);
+        } else if (intval < 0) {
+            if (__Pyx_PyLong_IsNonNeg(op1))
+                return 1;
+            intval = -intval;
+        } else {
+            if (__Pyx_PyLong_IsNeg(op1))
+                return 1;
+        }
+        uintval = (unsigned long) intval;
+#if PyLong_SHIFT * 4 < SIZEOF_LONG*8
+        if (uintval >> (PyLong_SHIFT * 4)) {
+            unequal = (size != 5) || (digits[0] != (uintval & (unsigned long) PyLong_MASK))
+                 | (digits[1] != ((uintval >> (1 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK)) | (digits[2] != ((uintval >> (2 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK)) | (digits[3] != ((uintval >> (3 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK)) | (digits[4] != ((uintval >> (4 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK));
+        } else
+#endif
+#if PyLong_SHIFT * 3 < SIZEOF_LONG*8
+        if (uintval >> (PyLong_SHIFT * 3)) {
+            unequal = (size != 4) || (digits[0] != (uintval & (unsigned long) PyLong_MASK))
+                 | (digits[1] != ((uintval >> (1 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK)) | (digits[2] != ((uintval >> (2 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK)) | (digits[3] != ((uintval >> (3 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK));
+        } else
+#endif
+#if PyLong_SHIFT * 2 < SIZEOF_LONG*8
+        if (uintval >> (PyLong_SHIFT * 2)) {
+            unequal = (size != 3) || (digits[0] != (uintval & (unsigned long) PyLong_MASK))
+                 | (digits[1] != ((uintval >> (1 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK)) | (digits[2] != ((uintval >> (2 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK));
+        } else
+#endif
+#if PyLong_SHIFT * 1 < SIZEOF_LONG*8
+        if (uintval >> (PyLong_SHIFT * 1)) {
+            unequal = (size != 2) || (digits[0] != (uintval & (unsigned long) PyLong_MASK))
+                 | (digits[1] != ((uintval >> (1 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK));
+        } else
+#endif
+            unequal = (size != 1) || (((unsigned long) digits[0]) != (uintval & (unsigned long) PyLong_MASK));
+        return (unequal != 0);
+    }
+    #endif
+    if (PyFloat_CheckExact(op1)) {
+        const long b = intval;
+        double a = __Pyx_PyFloat_AS_DOUBLE(op1);
+        return ((double)a != (double)b);
+    }
+    return __Pyx_PyObject_IsTrueAndDecref(
+        PyObject_RichCompare(op1, op2, Py_NE));
+}
+
+/* PyLongBinop */
+  #if !CYTHON_COMPILING_IN_PYPY
+static PyObject* __Pyx_Fallback___Pyx_PyLong_MultiplyObjC(PyObject *op1, PyObject *op2, int inplace) {
+    return (inplace ? PyNumber_InPlaceMultiply : PyNumber_Multiply)(op1, op2);
+}
+#if CYTHON_USE_PYLONG_INTERNALS
+static PyObject* __Pyx_Unpacked___Pyx_PyLong_MultiplyObjC(PyObject *op1, PyObject *op2, long intval, int inplace, int zerodivision_check) {
+    CYTHON_MAYBE_UNUSED_VAR(inplace);
+    CYTHON_UNUSED_VAR(zerodivision_check);
+    const long b = intval;
+    long a, x;
+#ifdef HAVE_LONG_LONG
+    const PY_LONG_LONG llb = intval;
+    PY_LONG_LONG lla, llx;
+#endif
+    if (unlikely(__Pyx_PyLong_IsZero(op1))) {
+        return __Pyx_NewRef(op1);
+    }
+    if (likely(__Pyx_PyLong_IsCompact(op1))) {
+        a = __Pyx_PyLong_CompactValue(op1);
+    } else {
+        const digit* digits = __Pyx_PyLong_Digits(op1);
+        const Py_ssize_t size = __Pyx_PyLong_SignedDigitCount(op1);
+        switch (size) {
+            case -2:
+                if (8 * sizeof(long) - 1 > 2 * PyLong_SHIFT+30) {
+                    a = -(long) (((((unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0]));
+                    break;
+                #ifdef HAVE_LONG_LONG
+                } else if (8 * sizeof(PY_LONG_LONG) - 1 > 2 * PyLong_SHIFT+30) {
+                    lla = -(PY_LONG_LONG) (((((unsigned PY_LONG_LONG)digits[1]) << PyLong_SHIFT) | (unsigned PY_LONG_LONG)digits[0]));
+                    goto long_long;
+                #endif
+                }
+                CYTHON_FALLTHROUGH;
+            case 2:
+                if (8 * sizeof(long) - 1 > 2 * PyLong_SHIFT+30) {
+                    a = (long) (((((unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0]));
+                    break;
+                #ifdef HAVE_LONG_LONG
+                } else if (8 * sizeof(PY_LONG_LONG) - 1 > 2 * PyLong_SHIFT+30) {
+                    lla = (PY_LONG_LONG) (((((unsigned PY_LONG_LONG)digits[1]) << PyLong_SHIFT) | (unsigned PY_LONG_LONG)digits[0]));
+                    goto long_long;
+                #endif
+                }
+                CYTHON_FALLTHROUGH;
+            case -3:
+                if (8 * sizeof(long) - 1 > 3 * PyLong_SHIFT+30) {
+                    a = -(long) (((((((unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0]));
+                    break;
+                #ifdef HAVE_LONG_LONG
+                } else if (8 * sizeof(PY_LONG_LONG) - 1 > 3 * PyLong_SHIFT+30) {
+                    lla = -(PY_LONG_LONG) (((((((unsigned PY_LONG_LONG)digits[2]) << PyLong_SHIFT) | (unsigned PY_LONG_LONG)digits[1]) << PyLong_SHIFT) | (unsigned PY_LONG_LONG)digits[0]));
+                    goto long_long;
+                #endif
+                }
+                CYTHON_FALLTHROUGH;
+            case 3:
+                if (8 * sizeof(long) - 1 > 3 * PyLong_SHIFT+30) {
+                    a = (long) (((((((unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0]));
+                    break;
+                #ifdef HAVE_LONG_LONG
+                } else if (8 * sizeof(PY_LONG_LONG) - 1 > 3 * PyLong_SHIFT+30) {
+                    lla = (PY_LONG_LONG) (((((((unsigned PY_LONG_LONG)digits[2]) << PyLong_SHIFT) | (unsigned PY_LONG_LONG)digits[1]) << PyLong_SHIFT) | (unsigned PY_LONG_LONG)digits[0]));
+                    goto long_long;
+                #endif
+                }
+                CYTHON_FALLTHROUGH;
+            case -4:
+                if (8 * sizeof(long) - 1 > 4 * PyLong_SHIFT+30) {
+                    a = -(long) (((((((((unsigned long)digits[3]) << PyLong_SHIFT) | (unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0]));
+                    break;
+                #ifdef HAVE_LONG_LONG
+                } else if (8 * sizeof(PY_LONG_LONG) - 1 > 4 * PyLong_SHIFT+30) {
+                    lla = -(PY_LONG_LONG) (((((((((unsigned PY_LONG_LONG)digits[3]) << PyLong_SHIFT) | (unsigned PY_LONG_LONG)digits[2]) << PyLong_SHIFT) | (unsigned PY_LONG_LONG)digits[1]) << PyLong_SHIFT) | (unsigned PY_LONG_LONG)digits[0]));
+                    goto long_long;
+                #endif
+                }
+                CYTHON_FALLTHROUGH;
+            case 4:
+                if (8 * sizeof(long) - 1 > 4 * PyLong_SHIFT+30) {
+                    a = (long) (((((((((unsigned long)digits[3]) << PyLong_SHIFT) | (unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0]));
+                    break;
+                #ifdef HAVE_LONG_LONG
+                } else if (8 * sizeof(PY_LONG_LONG) - 1 > 4 * PyLong_SHIFT+30) {
+                    lla = (PY_LONG_LONG) (((((((((unsigned PY_LONG_LONG)digits[3]) << PyLong_SHIFT) | (unsigned PY_LONG_LONG)digits[2]) << PyLong_SHIFT) | (unsigned PY_LONG_LONG)digits[1]) << PyLong_SHIFT) | (unsigned PY_LONG_LONG)digits[0]));
+                    goto long_long;
+                #endif
+                }
+                CYTHON_FALLTHROUGH;
+            default: return PyLong_Type.tp_as_number->nb_multiply(op1, op2);
+        }
+    }
+            CYTHON_UNUSED_VAR(a);
+            CYTHON_UNUSED_VAR(b);
+            #ifdef HAVE_LONG_LONG
+            lla = a;
+            goto long_long;
+            #else
+            return PyLong_Type.tp_as_number->nb_multiply(op1, op2);
+            #endif
+        return PyLong_FromLong(x);
+#ifdef HAVE_LONG_LONG
+    long_long:
+            llx = lla * llb;
+        return PyLong_FromLongLong(llx);
+#endif
+    return __Pyx_Fallback___Pyx_PyLong_MultiplyObjC(op1, op2, inplace);
+    
+    
+}
+#endif
+static PyObject* __Pyx_Float___Pyx_PyLong_MultiplyObjC(PyObject *float_val, long intval, int zerodivision_check) {
+    CYTHON_UNUSED_VAR(zerodivision_check);
+    const long b = intval;
+    double a = __Pyx_PyFloat_AS_DOUBLE(float_val);
+        double result;
+        
+        result = ((double)a) * (double)b;
+        return PyFloat_FromDouble(result);
+}
+static CYTHON_INLINE PyObject* __Pyx_PyLong_MultiplyObjC(PyObject *op1, PyObject *op2, long intval, int inplace, int zerodivision_check) {
+    CYTHON_MAYBE_UNUSED_VAR(intval);
+    CYTHON_UNUSED_VAR(zerodivision_check);
+    #if CYTHON_USE_PYLONG_INTERNALS
+    if (likely(PyLong_CheckExact(op1))) {
+        return __Pyx_Unpacked___Pyx_PyLong_MultiplyObjC(op1, op2, intval, inplace, zerodivision_check);
+    }
+    #endif
+    if (PyFloat_CheckExact(op1)) {
+        return __Pyx_Float___Pyx_PyLong_MultiplyObjC(op1, intval, zerodivision_check);
+    }
+    return __Pyx_Fallback___Pyx_PyLong_MultiplyObjC(op1, op2, inplace);
+}
+#endif
+
+/* PyLongCompare */
+  static CYTHON_INLINE int __Pyx_PyLong_BoolEqObjC(PyObject *op1, PyObject *op2, long intval, long inplace) {
+    CYTHON_MAYBE_UNUSED_VAR(intval);
+    CYTHON_UNUSED_VAR(inplace);
+    if (op1 == op2) {
+        return 1;
+    }
+    #if CYTHON_USE_PYLONG_INTERNALS
+    if (likely(PyLong_CheckExact(op1))) {
+        int unequal;
+        unsigned long uintval;
+        Py_ssize_t size = __Pyx_PyLong_DigitCount(op1);
+        const digit* digits = __Pyx_PyLong_Digits(op1);
+        if (intval == 0) {
+            return (__Pyx_PyLong_IsZero(op1) == 1);
+        } else if (intval < 0) {
+            if (__Pyx_PyLong_IsNonNeg(op1))
+                return 0;
+            intval = -intval;
+        } else {
+            if (__Pyx_PyLong_IsNeg(op1))
+                return 0;
+        }
+        uintval = (unsigned long) intval;
+#if PyLong_SHIFT * 4 < SIZEOF_LONG*8
+        if (uintval >> (PyLong_SHIFT * 4)) {
+            unequal = (size != 5) || (digits[0] != (uintval & (unsigned long) PyLong_MASK))
+                 | (digits[1] != ((uintval >> (1 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK)) | (digits[2] != ((uintval >> (2 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK)) | (digits[3] != ((uintval >> (3 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK)) | (digits[4] != ((uintval >> (4 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK));
+        } else
+#endif
+#if PyLong_SHIFT * 3 < SIZEOF_LONG*8
+        if (uintval >> (PyLong_SHIFT * 3)) {
+            unequal = (size != 4) || (digits[0] != (uintval & (unsigned long) PyLong_MASK))
+                 | (digits[1] != ((uintval >> (1 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK)) | (digits[2] != ((uintval >> (2 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK)) | (digits[3] != ((uintval >> (3 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK));
+        } else
+#endif
+#if PyLong_SHIFT * 2 < SIZEOF_LONG*8
+        if (uintval >> (PyLong_SHIFT * 2)) {
+            unequal = (size != 3) || (digits[0] != (uintval & (unsigned long) PyLong_MASK))
+                 | (digits[1] != ((uintval >> (1 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK)) | (digits[2] != ((uintval >> (2 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK));
+        } else
+#endif
+#if PyLong_SHIFT * 1 < SIZEOF_LONG*8
+        if (uintval >> (PyLong_SHIFT * 1)) {
+            unequal = (size != 2) || (digits[0] != (uintval & (unsigned long) PyLong_MASK))
+                 | (digits[1] != ((uintval >> (1 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK));
+        } else
+#endif
+            unequal = (size != 1) || (((unsigned long) digits[0]) != (uintval & (unsigned long) PyLong_MASK));
+        return (unequal == 0);
+    }
+    #endif
+    if (PyFloat_CheckExact(op1)) {
+        const long b = intval;
+        double a = __Pyx_PyFloat_AS_DOUBLE(op1);
+        return ((double)a == (double)b);
+    }
+    return __Pyx_PyObject_IsTrueAndDecref(
+        PyObject_RichCompare(op1, op2, Py_EQ));
+}
+
+/* PyLongBinop */
+  #if !CYTHON_COMPILING_IN_PYPY
+static PyObject* __Pyx_Fallback___Pyx_PyLong_AddObjC(PyObject *op1, PyObject *op2, int inplace) {
+    return (inplace ? PyNumber_InPlaceAdd : PyNumber_Add)(op1, op2);
+}
+#if CYTHON_USE_PYLONG_INTERNALS
+static PyObject* __Pyx_Unpacked___Pyx_PyLong_AddObjC(PyObject *op1, PyObject *op2, long intval, int inplace, int zerodivision_check) {
+    CYTHON_MAYBE_UNUSED_VAR(inplace);
+    CYTHON_UNUSED_VAR(zerodivision_check);
+    const long b = intval;
+    long a, x;
+#ifdef HAVE_LONG_LONG
+    const PY_LONG_LONG llb = intval;
+    PY_LONG_LONG lla, llx;
+#endif
+    if (unlikely(__Pyx_PyLong_IsZero(op1))) {
+        return __Pyx_NewRef(op2);
+    }
+    if (likely(__Pyx_PyLong_IsCompact(op1))) {
+        a = __Pyx_PyLong_CompactValue(op1);
+    } else {
+        const digit* digits = __Pyx_PyLong_Digits(op1);
+        const Py_ssize_t size = __Pyx_PyLong_SignedDigitCount(op1);
+        switch (size) {
+            case -2:
+                if (8 * sizeof(long) - 1 > 2 * PyLong_SHIFT) {
+                    a = -(long) (((((unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0]));
+                    break;
+                #ifdef HAVE_LONG_LONG
+                } else if (8 * sizeof(PY_LONG_LONG) - 1 > 2 * PyLong_SHIFT) {
+                    lla = -(PY_LONG_LONG) (((((unsigned PY_LONG_LONG)digits[1]) << PyLong_SHIFT) | (unsigned PY_LONG_LONG)digits[0]));
+                    goto long_long;
+                #endif
+                }
+                CYTHON_FALLTHROUGH;
+            case 2:
+                if (8 * sizeof(long) - 1 > 2 * PyLong_SHIFT) {
+                    a = (long) (((((unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0]));
+                    break;
+                #ifdef HAVE_LONG_LONG
+                } else if (8 * sizeof(PY_LONG_LONG) - 1 > 2 * PyLong_SHIFT) {
+                    lla = (PY_LONG_LONG) (((((unsigned PY_LONG_LONG)digits[1]) << PyLong_SHIFT) | (unsigned PY_LONG_LONG)digits[0]));
+                    goto long_long;
+                #endif
+                }
+                CYTHON_FALLTHROUGH;
+            case -3:
+                if (8 * sizeof(long) - 1 > 3 * PyLong_SHIFT) {
+                    a = -(long) (((((((unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0]));
+                    break;
+                #ifdef HAVE_LONG_LONG
+                } else if (8 * sizeof(PY_LONG_LONG) - 1 > 3 * PyLong_SHIFT) {
+                    lla = -(PY_LONG_LONG) (((((((unsigned PY_LONG_LONG)digits[2]) << PyLong_SHIFT) | (unsigned PY_LONG_LONG)digits[1]) << PyLong_SHIFT) | (unsigned PY_LONG_LONG)digits[0]));
+                    goto long_long;
+                #endif
+                }
+                CYTHON_FALLTHROUGH;
+            case 3:
+                if (8 * sizeof(long) - 1 > 3 * PyLong_SHIFT) {
+                    a = (long) (((((((unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0]));
+                    break;
+                #ifdef HAVE_LONG_LONG
+                } else if (8 * sizeof(PY_LONG_LONG) - 1 > 3 * PyLong_SHIFT) {
+                    lla = (PY_LONG_LONG) (((((((unsigned PY_LONG_LONG)digits[2]) << PyLong_SHIFT) | (unsigned PY_LONG_LONG)digits[1]) << PyLong_SHIFT) | (unsigned PY_LONG_LONG)digits[0]));
+                    goto long_long;
+                #endif
+                }
+                CYTHON_FALLTHROUGH;
+            case -4:
+                if (8 * sizeof(long) - 1 > 4 * PyLong_SHIFT) {
+                    a = -(long) (((((((((unsigned long)digits[3]) << PyLong_SHIFT) | (unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0]));
+                    break;
+                #ifdef HAVE_LONG_LONG
+                } else if (8 * sizeof(PY_LONG_LONG) - 1 > 4 * PyLong_SHIFT) {
+                    lla = -(PY_LONG_LONG) (((((((((unsigned PY_LONG_LONG)digits[3]) << PyLong_SHIFT) | (unsigned PY_LONG_LONG)digits[2]) << PyLong_SHIFT) | (unsigned PY_LONG_LONG)digits[1]) << PyLong_SHIFT) | (unsigned PY_LONG_LONG)digits[0]));
+                    goto long_long;
+                #endif
+                }
+                CYTHON_FALLTHROUGH;
+            case 4:
+                if (8 * sizeof(long) - 1 > 4 * PyLong_SHIFT) {
+                    a = (long) (((((((((unsigned long)digits[3]) << PyLong_SHIFT) | (unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0]));
+                    break;
+                #ifdef HAVE_LONG_LONG
+                } else if (8 * sizeof(PY_LONG_LONG) - 1 > 4 * PyLong_SHIFT) {
+                    lla = (PY_LONG_LONG) (((((((((unsigned PY_LONG_LONG)digits[3]) << PyLong_SHIFT) | (unsigned PY_LONG_LONG)digits[2]) << PyLong_SHIFT) | (unsigned PY_LONG_LONG)digits[1]) << PyLong_SHIFT) | (unsigned PY_LONG_LONG)digits[0]));
+                    goto long_long;
+                #endif
+                }
+                CYTHON_FALLTHROUGH;
+            default: return PyLong_Type.tp_as_number->nb_add(op1, op2);
+        }
+    }
+            x = a + b;
+        return PyLong_FromLong(x);
+#ifdef HAVE_LONG_LONG
+    long_long:
+            llx = lla + llb;
+        return PyLong_FromLongLong(llx);
+#endif
+    return __Pyx_Fallback___Pyx_PyLong_AddObjC(op1, op2, inplace);
+    
+    
+}
+#endif
+static PyObject* __Pyx_Float___Pyx_PyLong_AddObjC(PyObject *float_val, long intval, int zerodivision_check) {
+    CYTHON_UNUSED_VAR(zerodivision_check);
+    const long b = intval;
+    double a = __Pyx_PyFloat_AS_DOUBLE(float_val);
+        double result;
+        
+        result = ((double)a) + (double)b;
+        return PyFloat_FromDouble(result);
+}
+static CYTHON_INLINE PyObject* __Pyx_PyLong_AddObjC(PyObject *op1, PyObject *op2, long intval, int inplace, int zerodivision_check) {
+    CYTHON_MAYBE_UNUSED_VAR(intval);
+    CYTHON_UNUSED_VAR(zerodivision_check);
+    #if CYTHON_USE_PYLONG_INTERNALS
+    if (likely(PyLong_CheckExact(op1))) {
+        return __Pyx_Unpacked___Pyx_PyLong_AddObjC(op1, op2, intval, inplace, zerodivision_check);
+    }
+    #endif
+    if (PyFloat_CheckExact(op1)) {
+        return __Pyx_Float___Pyx_PyLong_AddObjC(op1, intval, zerodivision_check);
+    }
+    return __Pyx_Fallback___Pyx_PyLong_AddObjC(op1, op2, inplace);
+}
+#endif
 
 /* PyObjectCall2Args */
   static CYTHON_INLINE PyObject* __Pyx_PyObject_Call2Args(PyObject* function, PyObject* arg1, PyObject* arg2) {

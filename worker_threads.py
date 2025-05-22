@@ -6,6 +6,40 @@ import time
 from multiprocessing import Pool, cpu_count
 import concurrent.futures
 import worker_threads_cy  # 这是你用Cython编译出来的模块
+import re
+
+# 全局缩写映射表
+abbr_map = {
+    'MAX': 'max_value', 'MIN': 'min_value', 'END': 'end_value', 'START': 'start_value',
+    'ACT': 'actual_value', 'CLS': 'closest_value', 'NDAYMAX': 'n_days_max_value',
+    'NMAXISMAX': 'n_max_is_max', 'RRL': 'range_ratio_is_less', 'CAL': 'continuous_abs_is_less',
+    'PDC': 'prev_day_change', 'EDC': 'end_day_change', 'DEV': 'diff_end_value',
+    'CR': 'continuous_results', 'CL': 'continuous_len',
+    'CSV': 'continuous_start_value', 'CSNV': 'continuous_start_next_value',
+    'CSNNV': 'continuous_start_next_next_value', 'CEV': 'continuous_end_value',
+    'CEPV': 'continuous_end_prev_value', 'CEPPV': 'continuous_end_prev_prev_value',
+    'CASFH': 'continuous_abs_sum_first_half', 'CASSH': 'continuous_abs_sum_second_half',
+    'CASB1': 'continuous_abs_sum_block1', 'CASB2': 'continuous_abs_sum_block2',
+    'CASB3': 'continuous_abs_sum_block3', 'CASB4': 'continuous_abs_sum_block4',
+    'VSA': 'valid_sum_arr', 'VSL': 'valid_sum_len', 'VPS': 'valid_pos_sum', 'VNS': 'valid_neg_sum',
+    'VASFH': 'valid_abs_sum_first_half', 'VASSH': 'valid_abs_sum_second_half',
+    'VASB1': 'valid_abs_sum_block1', 'VASB2': 'valid_abs_sum_block2',
+    'VASB3': 'valid_abs_sum_block3', 'VASB4': 'valid_abs_sum_block4',
+    'FMD': 'forward_max_date', 'FMR': 'forward_max_result',
+    'FMVSL': 'forward_max_valid_sum_len', 'FMVSA': 'forward_max_valid_sum_arr',
+    'FMVPS': 'forward_max_valid_pos_sum', 'FMVNS': 'forward_max_valid_neg_sum',
+    'FMVASFH': 'forward_max_valid_abs_sum_first_half', 'FMVASSH': 'forward_max_valid_abs_sum_second_half',
+    'FMVASB1': 'forward_max_valid_abs_sum_block1', 'FMVASB2': 'forward_max_valid_abs_sum_block2',
+    'FMVASB3': 'forward_max_valid_abs_sum_block3', 'FMVASB4': 'forward_max_valid_abs_sum_block4',
+    'FMinD': 'forward_min_date', 'FMinR': 'forward_min_result',
+    'FMinVSL': 'forward_min_valid_sum_len', 'FMinVSA': 'forward_min_valid_sum_arr',
+    'FMinVPS': 'forward_min_valid_pos_sum', 'FMinVNS': 'forward_min_valid_neg_sum',
+    'FMinVASFH': 'forward_min_valid_abs_sum_first_half', 'FMinVASSH': 'forward_min_valid_abs_sum_second_half',
+    'FMinVASB1': 'forward_min_valid_abs_sum_block1', 'FMinVASB2': 'forward_min_valid_abs_sum_block2',
+    'FMinVASB3': 'forward_min_valid_abs_sum_block3', 'FMinVASB4': 'forward_min_valid_abs_sum_block4',
+    'INC': 'increment_value', 'AGE': 'after_gt_end_value', 'AGS': 'after_gt_start_value',
+    'OPS': 'ops_value', 'HD': 'hold_days', 'OPC': 'ops_change', 'ADJ': 'adjust_days', 'OIR': 'ops_incre_rate'
+}
 
 def split_indices(total, n_parts):
     part_size = (total + n_parts - 1) // n_parts
@@ -14,10 +48,10 @@ def split_indices(total, n_parts):
 
 def cy_batch_worker(args):
     import worker_threads_cy
-    price_data_np, date_columns, width, start_option, shift_days, end_date_start_idx, end_date_end_idx, diff_data_np, stock_idx_arr, is_forward, n_days, user_range_ratio, continuous_abs_threshold, n_days_max = args
+    price_data_np, date_columns, width, start_option, shift_days, end_date_start_idx, end_date_end_idx, diff_data_np, stock_idx_arr, is_forward, n_days, user_range_ratio, continuous_abs_threshold, n_days_max, op_days, inc_rate, after_gt_end_ratio, after_gt_start_ratio, expr, ops_change_input, formula_expr = args
     stock_idx_arr = np.ascontiguousarray(stock_idx_arr, dtype=np.int32)
     date_grouped_results = worker_threads_cy.calculate_batch_cy(
-        price_data_np, date_columns, width, start_option, shift_days, end_date_start_idx, end_date_end_idx, diff_data_np, stock_idx_arr, is_forward, n_days, user_range_ratio, continuous_abs_threshold, n_days_max
+        price_data_np, date_columns, width, start_option, shift_days, end_date_start_idx, end_date_end_idx, diff_data_np, stock_idx_arr, is_forward, n_days, user_range_ratio, continuous_abs_threshold, n_days_max, op_days, inc_rate, after_gt_end_ratio, after_gt_start_ratio, expr, ops_change_input, formula_expr
     )
     return date_grouped_results
 
@@ -63,7 +97,7 @@ class RowResult:
         'forward_min_valid_abs_sum_block2', 'forward_min_valid_abs_sum_block3',
         'forward_min_valid_abs_sum_block4', 'increment_value', 'after_gt_end_value',
         'after_gt_start_value', 'ops_value', 'hold_days', 'ops_change',
-        'adjust_days', 'ops_incre_rate'
+        'adjust_days', 'ops_incre_rate', 'score'
     ]
 
     def __init__(self):
@@ -153,7 +187,7 @@ class CalculateThread(QThread):
         shift_days = params.get("shift_days")
         is_forward = params.get("is_forward")
         n_days = params.get("n_days", 5)
-        expr = params.get("expr", "")
+        expr = params.get("expr", "") or ''
         ops_change_input = params.get("ops_change", 0) * 0.01
         columns = list(self.diff_data.columns)
         end_idx = columns.index(end_date)
@@ -810,9 +844,17 @@ class CalculateThread(QThread):
         # 调用Cython加速方法
         t0 = time.time()
         n_days_max = params.get("n_days_max", 0)
+        op_days = int(params.get('op_days', 0))
+        inc_rate = float(params.get('inc_rate', 0)) * 0.01
+        after_gt_end_ratio = float(params.get('after_gt_end_ratio', 0)) * 0.01
+        after_gt_start_ratio = float(params.get('after_gt_start_ratio', 0)) * 0.01
+        expr = params.get('expr', '') or ''
+        ops_change_input = params.get("ops_change", 0)
+        formula_expr = params.get('formula_expr', '') or ''
+        formula_expr = replace_abbr(formula_expr, abbr_map)
         all_results = worker_threads_cy.calculate_batch_cy(
             price_data_np, date_columns, width, start_option, shift_days, end_date_start_idx, end_date_end_idx,
-            diff_data_np, np.arange(price_data_np.shape[0], dtype=np.int32), is_forward, n_days, user_range_ratio, continuous_abs_threshold, n_days_max
+            diff_data_np, np.arange(price_data_np.shape[0], dtype=np.int32), is_forward, n_days, user_range_ratio, continuous_abs_threshold, n_days_max, op_days, inc_rate, after_gt_end_ratio, after_gt_start_ratio, expr, ops_change_input, formula_expr
         )
         t1 = time.time()
         print(f"calculate_batch_cy 总耗时: {t1 - t0:.4f}秒")
@@ -834,6 +876,19 @@ class CalculateThread(QThread):
         except Exception:
             return default
 
+    def expr_to_tuple(self, expr, abbr_map):
+        # 1. 缩写转全名
+        for abbr, full in abbr_map.items():
+            expr = re.sub(rf'\b{abbr}\b', full, expr)
+        # 2. 自动将 result = xxx 替换为 result = (xxx, xxx_days)
+        for full in abbr_map.values():
+            expr = re.sub(
+                rf'result\s*=\s*{full}\b',
+                f'result = ({full}, {full.replace("value", "days")})',
+                expr
+            )
+        return expr
+
     def calculate_batch_16_cores(self, params):
         columns = list(self.diff_data.columns)
         date_columns = list(self.price_data.columns[2:])
@@ -845,34 +900,53 @@ class CalculateThread(QThread):
         range_value = params.get('range_value', None)
         user_range_ratio = self.safe_float(range_value)
         continuous_abs_threshold = self.safe_float(params.get('continuous_abs_threshold', None))
-        end_date_start = "2023-11-17"
-        # end_date_start = "2025-04-30"
+        # end_date_start = "2023-11-17"
+        end_date_start = "2025-04-08"
         end_date_end = "2025-04-30"
         end_date_start_idx = date_columns.index(end_date_start)
         end_date_end_idx = date_columns.index(end_date_end)
         price_data_np = self.price_data.iloc[:, 2:].values.astype(np.float64)
         diff_data_np = self.diff_data.values.astype(np.float64)
         num_stocks = price_data_np.shape[0]
-        n_proc = 16
+        n_proc = cpu_count()
         stock_idx_arr = np.arange(num_stocks, dtype=np.int32)
         stock_idx_ranges = split_indices(num_stocks, n_proc)
         n_days_max = params.get("n_days_max", 0)
+        op_days = int(params.get('op_days', 0))
+        inc_rate = float(params.get('inc_rate', 0)) * 0.01
+        after_gt_end_ratio = float(params.get('after_gt_end_ratio', 0)) * 0.01
+        after_gt_start_ratio = float(params.get('after_gt_start_ratio', 0)) * 0.01
+        expr = params.get('expr', '') or ''
+        expr = convert_expr_to_return_var_name(expr)
+        print(f"expr: {expr}")
+        formula_expr = params.get('formula_expr', '') or ''
+        formula_expr = replace_abbr(formula_expr, abbr_map)
+        print(f"formula_expr: {formula_expr}")
+        
+        ops_change_input = params.get("ops_change", 0)
         args_list = [
             (
-                price_data_np,  # 全量
+                price_data_np,
                 date_columns,
                 width,
                 start_option,
                 shift_days,
                 end_date_start_idx,
                 end_date_end_idx,
-                diff_data_np,   # 全量
+                diff_data_np,
                 np.ascontiguousarray(stock_idx_arr[start:end], dtype=np.int32),
                 is_forward,
                 n_days,
                 user_range_ratio,
                 continuous_abs_threshold,
-                n_days_max
+                n_days_max,
+                op_days,
+                inc_rate,
+                after_gt_end_ratio,
+                after_gt_start_ratio,
+                expr,
+                ops_change_input,
+                formula_expr
             )
             for (start, end) in stock_idx_ranges if end > start
         ]
@@ -898,7 +972,7 @@ class CalculateThread(QThread):
                     'stocks': merged_results[end_date]
                 })
         t1 = time.time()
-        print(f"calculate_batch_16_cores 总耗时: {t1 - t0:.4f}秒")
+        print(f"calculate_batch_{n_proc}_cores 总耗时: {t1 - t0:.4f}秒")
         print(f"len(sorted_results): {len(sorted_results)}")
         result = {
             "dates": sorted_results,
@@ -1024,38 +1098,6 @@ class SelectStockThread(QThread):
         self.sort_mode = sort_mode  # '最大值排序' or '最小值排序'
 
     def run(self):
-        # abbr_map反查表
-        abbr_map = {
-            'MAX': 'max_value', 'MIN': 'min_value', 'END': 'end_value', 'START': 'start_value',
-            'ACT': 'actual_value', 'CLS': 'closest_value', 'NMAX': 'n_max_value',
-            'NMAXISMAX': 'n_max_is_max', 'RRL': 'range_ratio_is_less', 'CAL': 'continuous_abs_is_less',
-            'PDC': 'prev_day_change', 'EDC': 'end_day_change', 'DEV': 'diff_end_value',
-            'CR': 'continuous_results', 'CL': 'continuous_len',
-            'CSV': 'continuous_start_value', 'CSNV': 'continuous_start_next_value',
-            'CSNNV': 'continuous_start_next_next_value', 'CEV': 'continuous_end_value',
-            'CEPV': 'continuous_end_prev_value', 'CEPPV': 'continuous_end_prev_prev_value',
-            'CASFH': 'continuous_abs_sum_first_half', 'CASSH': 'continuous_abs_sum_second_half',
-            'CASB1': 'continuous_abs_sum_block1', 'CASB2': 'continuous_abs_sum_block2',
-            'CASB3': 'continuous_abs_sum_block3', 'CASB4': 'continuous_abs_sum_block4',
-            'VSA': 'valid_sum_arr', 'VSL': 'valid_sum_len', 'VPS': 'valid_pos_sum', 'VNS': 'valid_neg_sum',
-            'VASFH': 'valid_abs_sum_first_half', 'VASSH': 'valid_abs_sum_second_half',
-            'VASB1': 'valid_abs_sum_block1', 'VASB2': 'valid_abs_sum_block2',
-            'VASB3': 'valid_abs_sum_block3', 'VASB4': 'valid_abs_sum_block4',
-            'FMD': 'forward_max_date', 'FMR': 'forward_max_result',
-            'FMVSL': 'forward_max_valid_sum_len', 'FMVSA': 'forward_max_valid_sum_arr',
-            'FMVPS': 'forward_max_valid_pos_sum', 'FMVNS': 'forward_max_valid_neg_sum',
-            'FMVASFH': 'forward_max_valid_abs_sum_first_half', 'FMVASSH': 'forward_max_valid_abs_sum_second_half',
-            'FMVASB1': 'forward_max_valid_abs_sum_block1', 'FMVASB2': 'forward_max_valid_abs_sum_block2',
-            'FMVASB3': 'forward_max_valid_abs_sum_block3', 'FMVASB4': 'forward_max_valid_abs_sum_block4',
-            'FMinD': 'forward_min_date', 'FMinR': 'forward_min_result',
-            'FMinVSL': 'forward_min_valid_sum_len', 'FMinVSA': 'forward_min_valid_sum_arr',
-            'FMinVPS': 'forward_min_valid_pos_sum', 'FMinVNS': 'forward_min_valid_neg_sum',
-            'FMinVASFH': 'forward_min_valid_abs_sum_first_half', 'FMinVASSH': 'forward_min_valid_abs_sum_second_half',
-            'FMinVASB1': 'forward_min_valid_abs_sum_block1', 'FMinVASB2': 'forward_min_valid_abs_sum_block2',
-            'FMinVASB3': 'forward_min_valid_abs_sum_block3', 'FMinVASB4': 'forward_min_valid_abs_sum_block4',
-            'INC': 'increment_value', 'AGE': 'after_gt_end_value', 'AGS': 'after_gt_start_value',
-            'OPS': 'ops_value', 'HD': 'hold_days', 'OPC': 'ops_change', 'ADJ': 'adjust_days', 'OIR': 'ops_incre_rate'
-        }
         import re
         # 替换公式中的缩写为原参数名
         expr = self.formula_expr
@@ -1089,3 +1131,51 @@ class SelectStockThread(QThread):
         selected = results[:self.select_count]
         print(f"[SelectStockThread] selected: {selected}")
         self.finished.emit(selected)
+
+def replace_abbr(expr, abbr_map):
+    for abbr, full in abbr_map.items():
+        expr = re.sub(rf'\b{abbr}\b', full, expr)
+    return expr
+
+def convert_expr_to_return_var_name(expr):
+    """把返回变量的表达式转换成返回变量名的表达式
+    例如：
+    if INC > 10:
+        result = INC
+    转换成：
+    if INC > 10:
+        result = 'increment_value'
+    """
+    lines = expr.split('\n')
+    new_lines = []
+    for line in lines:
+        if 'result =' in line:
+            var = line.split('=')[1].strip()
+            if var == 'INC':
+                new_lines.append("    result = 'increment_value'")
+            elif var == 'AGE':
+                new_lines.append("    result = 'after_gt_end_value'")
+            elif var == 'AGS':
+                new_lines.append("    result = 'after_gt_start_value'")
+            else:
+                new_lines.append(line)
+        else:
+            new_lines.append(line)
+    return '\n'.join(new_lines)
+
+def make_user_func(expr):
+    # 预处理表达式，把返回变量的表达式转换成返回变量名的表达式
+    expr = convert_expr_to_return_var_name(expr)
+    def user_func(INC, AGE, AGS):
+        # 动态执行表达式
+        local_vars = {
+            'INC': INC,
+            'AGE': AGE,
+            'AGS': AGS,
+            'increment_value': INC,
+            'after_gt_end_value': AGE,
+            'after_gt_start_value': AGS
+        }
+        exec(expr, {}, local_vars)
+        return local_vars.get('result', None)  # 直接返回表达式的结果，不做值判断
+    return user_func
