@@ -504,7 +504,7 @@ def show_params_table(parent, all_results, n_days=0, n_days_max=0, range_value=N
         f'开始日到结束日之间连续累加值绝对值小于{continuous_abs_threshold}',
         '前1组结束日地址值',
         '前1组结束地址前1日涨跌幅', '前1组结束日涨跌幅', '后1组结束地址值',
-        '递增值', '后值大于结束地址值', '后值大于前值返回值', '操作值', '持有天数', '操作涨幅', '调整天数', '日均涨幅'
+        '递增值', '后值大于结束地址值', '后值大于前值返回值', '操作值', '持有天数', '操作涨幅', '调整天数', '日均涨幅', '得分'
     ]
     table = QTableWidget(len(stocks_data), len(headers))
     table.setHorizontalHeaderLabels(headers)
@@ -569,6 +569,7 @@ def show_params_table(parent, all_results, n_days=0, n_days_max=0, range_value=N
             table.setItem(row_idx, 21, QTableWidgetItem(get_percent(row.get('ops_change', ''))))
             table.setItem(row_idx, 22, QTableWidgetItem(str(get_val(row.get('adjust_days', '')))))
             table.setItem(row_idx, 23, QTableWidgetItem(get_percent(row.get('ops_incre_rate', ''))))
+            table.setItem(row_idx, 24, QTableWidgetItem(str(get_val(row.get('score', '')))))
         table.resizeColumnsToContents()
         table.horizontalHeader().setFixedHeight(50)
         table.horizontalHeader().setStyleSheet("font-size: 12px;")
