@@ -900,8 +900,9 @@ class CalculateThread(QThread):
         range_value = params.get('range_value', None)
         user_range_ratio = self.safe_float(range_value)
         continuous_abs_threshold = self.safe_float(params.get('continuous_abs_threshold', None))
-        # end_date_start = "2023-11-17"
-        end_date_start = "2025-04-08"
+        end_date_start = "2023-11-17"
+        # end_date_start = "2025-04-08"
+        # end_date_start = "2025-04-30"
         end_date_end = "2025-04-30"
         end_date_start_idx = date_columns.index(end_date_start)
         end_date_end_idx = date_columns.index(end_date_end)
@@ -909,6 +910,7 @@ class CalculateThread(QThread):
         diff_data_np = self.diff_data.values.astype(np.float64)
         num_stocks = price_data_np.shape[0]
         n_proc = cpu_count()
+        # n_proc = 1
         stock_idx_arr = np.arange(num_stocks, dtype=np.int32)
         stock_idx_ranges = split_indices(num_stocks, n_proc)
         n_days_max = params.get("n_days_max", 0)
@@ -959,10 +961,9 @@ class CalculateThread(QThread):
             futures = [executor.submit(cy_batch_worker, args) for args in args_list]
             for fut in concurrent.futures.as_completed(futures):
                 process_results = fut.result()
-                for date_data in process_results:
-                    end_date = date_data['end_date']
+                for end_date, stocks in process_results.items():
                     if end_date in merged_results:
-                        merged_results[end_date].extend(date_data['stocks'])
+                        merged_results[end_date].extend(stocks)
         sorted_results = []
         for idx in range(end_date_start_idx, end_date_end_idx-1, -1):
             end_date = date_columns[idx]
