@@ -472,7 +472,7 @@ def query_row_result(rows, keyword, n_days=0):
         return f"未找到与'{keyword}'相关的股票信息。"
     return '\n'.join(results)
 
-def show_params_table(parent, all_results, n_days=0, n_days_max=0, range_value=None, continuous_abs_threshold=None, as_widget=False, price_data=None):
+def show_params_table(parent, all_results, end_date=None, n_days=0, n_days_max=0, range_value=None, continuous_abs_threshold=None, as_widget=False, price_data=None):
     if not all_results or not all_results.get("dates"):
         QMessageBox.information(parent, "提示", "请先生成参数！")
         return None
@@ -481,18 +481,33 @@ def show_params_table(parent, all_results, n_days=0, n_days_max=0, range_value=N
         QMessageBox.information(parent, "提示", "没有可用的日期数据！")
         return None
 
-    last_date_data = dates[-1]
-    end_date = last_date_data.get("end_date")
-    stocks_data = last_date_data.get("stocks", [])
+    # 新增：根据end_date查找
+    last_date_data = None
+    if isinstance(dates, dict):
+        # dates是dict，直接用end_date查找
+        if end_date is None:
+            end_date = sorted(dates.keys())[-1]  # 默认取最后一天
+        last_date_data = {"end_date": end_date, "stocks": dates.get(end_date, [])}
+    else:
+        # dates是list，兼容老格式
+        if end_date is None:
+            last_date_data = dates[-1]
+        else:
+            last_date_data = next((d for d in dates if d.get("end_date") == end_date), None)
 
-    if not stocks_data:
+    if not last_date_data or not last_date_data.get("stocks"):
         QMessageBox.information(parent, "提示", f"日期 {end_date} 没有股票数据！")
         return None
+
+    stocks_data = last_date_data.get("stocks", [])
 
     date_picker = QDateEdit(parent)
     date_picker.setDisplayFormat("yyyy-MM-dd")
     date_picker.setCalendarPopup(True)
-    date_list = [d['end_date'] for d in dates]
+    if isinstance(dates, dict):
+        date_list = sorted(dates.keys())
+    else:
+        date_list = [d['end_date'] for d in dates]
     date_picker.setDate(QDate.fromString(end_date, "yyyy-MM-dd"))
     date_picker.setFixedWidth(180)
     date_picker.setStyleSheet("font-size: 12px; height: 20px;")
@@ -541,7 +556,7 @@ def show_params_table(parent, all_results, n_days=0, n_days_max=0, range_value=N
 
     def update_table(stocks_data):
         table.setRowCount(len(stocks_data))
-        for row_idx, row in enumerate(sorted(stocks_data, key=lambda r: r.get('stock_idx', 0))):
+        for row_idx, row in enumerate(stocks_data):
             stock_idx = row.get('stock_idx', 0)
             code = price_data.iloc[stock_idx, 0] if price_data is not None else row.get('code', '')
             name = price_data.iloc[stock_idx, 1] if price_data is not None else row.get('name', '')
@@ -578,13 +593,12 @@ def show_params_table(parent, all_results, n_days=0, n_days_max=0, range_value=N
 
     def on_date_changed():
         selected_date = date_picker.date().toString("yyyy-MM-dd")
-        found = False
-        for d in dates:
-            if d['end_date'] == selected_date:
-                stocks_data = d['stocks']
-                found = True
-                break
-        if not found:
+        if isinstance(dates, dict):
+            stocks_data = dates.get(selected_date, [])
+        else:
+            stocks_data = next((d['stocks'] for d in dates if d.get("end_date") == selected_date), [])
+        
+        if not stocks_data:
             QMessageBox.information(parent, "提示", f"没有该结束日期（{selected_date}）的数据！")
             return
         update_table(stocks_data)

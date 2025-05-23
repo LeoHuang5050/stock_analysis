@@ -96,7 +96,9 @@ def calculate_batch_cy(
     double after_gt_start_ratio,
     str expr,
     double ops_change_input=0.09,
-    str formula_expr=None
+    str formula_expr=None,
+    int select_count=10,
+    str sort_mode="最大值排序"
 ):
     cdef int num_stocks = price_data.shape[0]
     cdef int num_dates = price_data.shape[1]
@@ -645,6 +647,8 @@ def calculate_batch_cy(
                     forward_min_valid_abs_sum_block2 = 0
                     forward_min_valid_abs_sum_block3 = 0
                     forward_min_valid_abs_sum_block4 = 0
+                valid_pos_sum = round_to_2(valid_pos_sum)
+                valid_neg_sum = round_to_2(valid_neg_sum)
 
                 
             # with gil
@@ -735,8 +739,6 @@ def calculate_batch_cy(
                     ops_incre_rate = round_to_2(ops_change / adjust_days)
                 except Exception:
                     ops_incre_rate = None
-            if stock_idx == 0:
-                print(f'正在执行....')
 
             # 新增：score 计算
             score = None
@@ -819,86 +821,169 @@ def calculate_batch_cy(
                     score = formula_vars.get('result', None)
                     if score is not None and score != 0:
                         score = round_to_2(score)
-                        if stock_idx == 0:
-                            print(f'[SCORE] stock_idx={stock_idx}, score={score}')
                 except Exception as e:
                     if stock_idx == 0:
                         print(f'[Exception] 执行表达式发生异常: {e}')
                     score = None
-                
-            row_result = {
-                'stock_idx': stock_idx,
-                'max_value': [max_value_date, max_price],
-                'min_value': [min_value_date, min_price],
-                'end_value': [end_value_date, end_value],
-                'start_value': [start_value_date, start_value],
-                'actual_value': [actual_value_date, actual_value],
-                'closest_value': [closest_value_date, closest_value],
-                'continuous_results': py_cont_sum,
-                'continuous_len': continuous_len,
-                'continuous_start_value': continuous_start_value,
-                'continuous_start_next_value': continuous_start_next_value,
-                'continuous_start_next_next_value': continuous_start_next_next_value,
-                'continuous_end_value': continuous_end_value,
-                'continuous_end_prev_value': continuous_end_prev_value,
-                'continuous_end_prev_prev_value': continuous_end_prev_prev_value,
-                'continuous_abs_sum_first_half': continuous_abs_sum_first_half,
-                'continuous_abs_sum_second_half': continuous_abs_sum_second_half,
-                'continuous_abs_sum_block1': continuous_abs_sum_block1,
-                'continuous_abs_sum_block2': continuous_abs_sum_block2,
-                'continuous_abs_sum_block3': continuous_abs_sum_block3,
-                'continuous_abs_sum_block4': continuous_abs_sum_block4,
-                'forward_max_result': forward_max_result,
-                'forward_min_result': forward_min_result,
-                'valid_sum_arr': valid_sum_arr,
-                'valid_sum_len': valid_sum_len,
-                'valid_pos_sum': valid_pos_sum,
-                'valid_neg_sum': valid_neg_sum,
-                'forward_max_valid_sum_arr': forward_max_result,
-                'forward_max_valid_sum_len': forward_max_valid_sum_len,
-                'forward_max_valid_pos_sum': forward_max_valid_pos_sum,
-                'forward_max_valid_neg_sum': forward_max_valid_neg_sum,
-                'forward_min_valid_sum_arr': forward_min_result,
-                'forward_min_valid_sum_len': forward_min_valid_sum_len,
-                'forward_min_valid_pos_sum': forward_min_valid_pos_sum,
-                'forward_min_valid_neg_sum': forward_min_valid_neg_sum,
-                'valid_abs_sum_first_half': valid_abs_sum_first_half,
-                'valid_abs_sum_second_half': valid_abs_sum_second_half,
-                'valid_abs_sum_block1': valid_abs_sum_block1,
-                'valid_abs_sum_block2': valid_abs_sum_block2,
-                'valid_abs_sum_block3': valid_abs_sum_block3,
-                'valid_abs_sum_block4': valid_abs_sum_block4,
-                'forward_max_valid_abs_sum_first_half': forward_max_valid_abs_sum_first_half,
-                'forward_max_valid_abs_sum_second_half': forward_max_valid_abs_sum_second_half,
-                'forward_max_valid_abs_sum_block1': forward_max_valid_abs_sum_block1,
-                'forward_max_valid_abs_sum_block2': forward_max_valid_abs_sum_block2,
-                'forward_max_valid_abs_sum_block3': forward_max_valid_abs_sum_block3,
-                'forward_max_valid_abs_sum_block4': forward_max_valid_abs_sum_block4,
-                'forward_min_valid_abs_sum_first_half': forward_min_valid_abs_sum_first_half,
-                'forward_min_valid_abs_sum_second_half': forward_min_valid_abs_sum_second_half,
-                'forward_min_valid_abs_sum_block1': forward_min_valid_abs_sum_block1,
-                'forward_min_valid_abs_sum_block2': forward_min_valid_abs_sum_block2,
-                'forward_min_valid_abs_sum_block3': forward_min_valid_abs_sum_block3,
-                'forward_min_valid_abs_sum_block4': forward_min_valid_abs_sum_block4,
-                'forward_max_date': forward_max_date_str,
-                'forward_min_date': forward_min_date_str,
-                'n_max_is_max': n_max_is_max_result,
-                'range_ratio_is_less': range_ratio_is_less,
-                'continuous_abs_is_less': continuous_abs_is_less,
-                'n_days_max_value': n_days_max_value,
-                'prev_day_change': prev_day_change,
-                'end_day_change': end_day_change,
-                'diff_end_value': diff_data_view[stock_idx, end_date_idx],
-                'increment_value': increment_value,
-                'after_gt_end_value': after_gt_end_value,
-                'after_gt_start_value': after_gt_start_value,
-                'ops_value': ops_value,
-                'hold_days': hold_days,
-                'ops_change': ops_change,
-                'adjust_days': adjust_days,
-                'ops_incre_rate': ops_incre_rate,
-                'score': score,
-            }
-            all_results[date_columns[end_date_idx]].append(row_result)
+
+            if end_date_idx != end_date_end_idx:
+                if score is not None and score != 0 and not isnan(end_value) and hold_days != -1:
+                    row_result = {
+                        'stock_idx': stock_idx,
+                        'max_value': [max_value_date, max_price],
+                        'min_value': [min_value_date, min_price],
+                        'end_value': [end_value_date, end_value],
+                        'start_value': [start_value_date, start_value],
+                        'actual_value': [actual_value_date, actual_value],
+                        'closest_value': [closest_value_date, closest_value],
+                        'continuous_results': py_cont_sum,
+                        'continuous_len': continuous_len,
+                        'continuous_start_value': continuous_start_value,
+                        'continuous_start_next_value': continuous_start_next_value,
+                        'continuous_start_next_next_value': continuous_start_next_next_value,
+                        'continuous_end_value': continuous_end_value,
+                        'continuous_end_prev_value': continuous_end_prev_value,
+                        'continuous_end_prev_prev_value': continuous_end_prev_prev_value,
+                        'continuous_abs_sum_first_half': continuous_abs_sum_first_half,
+                        'continuous_abs_sum_second_half': continuous_abs_sum_second_half,
+                        'continuous_abs_sum_block1': continuous_abs_sum_block1,
+                        'continuous_abs_sum_block2': continuous_abs_sum_block2,
+                        'continuous_abs_sum_block3': continuous_abs_sum_block3,
+                        'continuous_abs_sum_block4': continuous_abs_sum_block4,
+                        'forward_max_result': forward_max_result,
+                        'forward_min_result': forward_min_result,
+                        'valid_sum_arr': valid_sum_arr,
+                        'valid_sum_len': valid_sum_len,
+                        'valid_pos_sum': valid_pos_sum,
+                        'valid_neg_sum': valid_neg_sum,
+                        'forward_max_valid_sum_arr': forward_max_result,
+                        'forward_max_valid_sum_len': forward_max_valid_sum_len,
+                        'forward_max_valid_pos_sum': forward_max_valid_pos_sum,
+                        'forward_max_valid_neg_sum': forward_max_valid_neg_sum,
+                        'forward_min_valid_sum_arr': forward_min_result,
+                        'forward_min_valid_sum_len': forward_min_valid_sum_len,
+                        'forward_min_valid_pos_sum': forward_min_valid_pos_sum,
+                        'forward_min_valid_neg_sum': forward_min_valid_neg_sum,
+                        'valid_abs_sum_first_half': valid_abs_sum_first_half,
+                        'valid_abs_sum_second_half': valid_abs_sum_second_half,
+                        'valid_abs_sum_block1': valid_abs_sum_block1,
+                        'valid_abs_sum_block2': valid_abs_sum_block2,
+                        'valid_abs_sum_block3': valid_abs_sum_block3,
+                        'valid_abs_sum_block4': valid_abs_sum_block4,
+                        'forward_max_valid_abs_sum_first_half': forward_max_valid_abs_sum_first_half,
+                        'forward_max_valid_abs_sum_second_half': forward_max_valid_abs_sum_second_half,
+                        'forward_max_valid_abs_sum_block1': forward_max_valid_abs_sum_block1,
+                        'forward_max_valid_abs_sum_block2': forward_max_valid_abs_sum_block2,
+                        'forward_max_valid_abs_sum_block3': forward_max_valid_abs_sum_block3,
+                        'forward_max_valid_abs_sum_block4': forward_max_valid_abs_sum_block4,
+                        'forward_min_valid_abs_sum_first_half': forward_min_valid_abs_sum_first_half,
+                        'forward_min_valid_abs_sum_second_half': forward_min_valid_abs_sum_second_half,
+                        'forward_min_valid_abs_sum_block1': forward_min_valid_abs_sum_block1,
+                        'forward_min_valid_abs_sum_block2': forward_min_valid_abs_sum_block2,
+                        'forward_min_valid_abs_sum_block3': forward_min_valid_abs_sum_block3,
+                        'forward_min_valid_abs_sum_block4': forward_min_valid_abs_sum_block4,
+                        'forward_max_date': forward_max_date_str,
+                        'forward_min_date': forward_min_date_str,
+                        'n_max_is_max': n_max_is_max_result,
+                        'range_ratio_is_less': range_ratio_is_less,
+                        'continuous_abs_is_less': continuous_abs_is_less,
+                        'n_days_max_value': n_days_max_value,
+                        'prev_day_change': prev_day_change,
+                        'end_day_change': end_day_change,
+                        'diff_end_value': diff_data_view[stock_idx, end_date_idx],
+                        'increment_value': increment_value,
+                        'after_gt_end_value': after_gt_end_value,
+                        'after_gt_start_value': after_gt_start_value,
+                        'ops_value': ops_value,
+                        'hold_days': hold_days,
+                        'ops_change': ops_change,
+                        'adjust_days': adjust_days,
+                        'ops_incre_rate': ops_incre_rate,
+                        'score': score,
+                    }
+                    current_stocks = all_results.get(date_columns[end_date_idx], [])
+                    current_stocks.append(row_result)
+                    # 按score排序
+                    if sort_mode == "最大值排序":
+                        current_stocks.sort(key=lambda x: x['score'], reverse=True)
+                    else:  # 最小值排序
+                        current_stocks.sort(key=lambda x: x['score'])
+                    # 只保留指定数量的结果
+                    all_results[date_columns[end_date_idx]] = current_stocks[:select_count]
+            else:
+                row_result = {
+                        'stock_idx': stock_idx,
+                        'max_value': [max_value_date, max_price],
+                        'min_value': [min_value_date, min_price],
+                        'end_value': [end_value_date, end_value],
+                        'start_value': [start_value_date, start_value],
+                        'actual_value': [actual_value_date, actual_value],
+                        'closest_value': [closest_value_date, closest_value],
+                        'continuous_results': py_cont_sum,
+                        'continuous_len': continuous_len,
+                        'continuous_start_value': continuous_start_value,
+                        'continuous_start_next_value': continuous_start_next_value,
+                        'continuous_start_next_next_value': continuous_start_next_next_value,
+                        'continuous_end_value': continuous_end_value,
+                        'continuous_end_prev_value': continuous_end_prev_value,
+                        'continuous_end_prev_prev_value': continuous_end_prev_prev_value,
+                        'continuous_abs_sum_first_half': continuous_abs_sum_first_half,
+                        'continuous_abs_sum_second_half': continuous_abs_sum_second_half,
+                        'continuous_abs_sum_block1': continuous_abs_sum_block1,
+                        'continuous_abs_sum_block2': continuous_abs_sum_block2,
+                        'continuous_abs_sum_block3': continuous_abs_sum_block3,
+                        'continuous_abs_sum_block4': continuous_abs_sum_block4,
+                        'forward_max_result': forward_max_result,
+                        'forward_min_result': forward_min_result,
+                        'valid_sum_arr': valid_sum_arr,
+                        'valid_sum_len': valid_sum_len,
+                        'valid_pos_sum': valid_pos_sum,
+                        'valid_neg_sum': valid_neg_sum,
+                        'forward_max_valid_sum_arr': forward_max_result,
+                        'forward_max_valid_sum_len': forward_max_valid_sum_len,
+                        'forward_max_valid_pos_sum': forward_max_valid_pos_sum,
+                        'forward_max_valid_neg_sum': forward_max_valid_neg_sum,
+                        'forward_min_valid_sum_arr': forward_min_result,
+                        'forward_min_valid_sum_len': forward_min_valid_sum_len,
+                        'forward_min_valid_pos_sum': forward_min_valid_pos_sum,
+                        'forward_min_valid_neg_sum': forward_min_valid_neg_sum,
+                        'valid_abs_sum_first_half': valid_abs_sum_first_half,
+                        'valid_abs_sum_second_half': valid_abs_sum_second_half,
+                        'valid_abs_sum_block1': valid_abs_sum_block1,
+                        'valid_abs_sum_block2': valid_abs_sum_block2,
+                        'valid_abs_sum_block3': valid_abs_sum_block3,
+                        'valid_abs_sum_block4': valid_abs_sum_block4,
+                        'forward_max_valid_abs_sum_first_half': forward_max_valid_abs_sum_first_half,
+                        'forward_max_valid_abs_sum_second_half': forward_max_valid_abs_sum_second_half,
+                        'forward_max_valid_abs_sum_block1': forward_max_valid_abs_sum_block1,
+                        'forward_max_valid_abs_sum_block2': forward_max_valid_abs_sum_block2,
+                        'forward_max_valid_abs_sum_block3': forward_max_valid_abs_sum_block3,
+                        'forward_max_valid_abs_sum_block4': forward_max_valid_abs_sum_block4,
+                        'forward_min_valid_abs_sum_first_half': forward_min_valid_abs_sum_first_half,
+                        'forward_min_valid_abs_sum_second_half': forward_min_valid_abs_sum_second_half,
+                        'forward_min_valid_abs_sum_block1': forward_min_valid_abs_sum_block1,
+                        'forward_min_valid_abs_sum_block2': forward_min_valid_abs_sum_block2,
+                        'forward_min_valid_abs_sum_block3': forward_min_valid_abs_sum_block3,
+                        'forward_min_valid_abs_sum_block4': forward_min_valid_abs_sum_block4,
+                        'forward_max_date': forward_max_date_str,
+                        'forward_min_date': forward_min_date_str,
+                        'n_max_is_max': n_max_is_max_result,
+                        'range_ratio_is_less': range_ratio_is_less,
+                        'continuous_abs_is_less': continuous_abs_is_less,
+                        'n_days_max_value': n_days_max_value,
+                        'prev_day_change': prev_day_change,
+                        'end_day_change': end_day_change,
+                        'diff_end_value': diff_data_view[stock_idx, end_date_idx],
+                        'increment_value': increment_value,
+                        'after_gt_end_value': after_gt_end_value,
+                        'after_gt_start_value': after_gt_start_value,
+                        'ops_value': ops_value,
+                        'hold_days': hold_days,
+                        'ops_change': ops_change,
+                        'adjust_days': adjust_days,
+                        'ops_incre_rate': ops_incre_rate,
+                        'score': score,
+                    }
+                all_results[date_columns[end_date_idx]].append(row_result)
     
     return all_results
