@@ -332,9 +332,12 @@ class StockAnalysisApp(QWidget):
         self.clear_result_area()
         params = {}
         params['n_days_max'] = self.n_days_max_spin.value()
+        # 获取当前选中的结束日期
+        end_date = self.date_picker.date().toString("yyyy-MM-dd")
         table = show_params_table(
             parent=self,
             all_results=all_results,
+            end_date=end_date,  # 传入end_date
             n_days=self.n_days if hasattr(self, 'n_days') else 0,
             n_days_max=params['n_days_max'],
             range_value=getattr(self, 'range_value', None),
