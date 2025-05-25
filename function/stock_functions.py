@@ -712,6 +712,7 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
     # 选股结果缓存
     widget.selected_results = []
     widget.select_thread = None
+    widget.current_table = None  # 用于存储当前表格
 
     # 选股逻辑
     def do_select():
@@ -738,11 +739,19 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
                 w.setParent(None)
         table = show_formula_select_table_result(parent, result, getattr(parent, 'init', None) and getattr(parent.init, 'price_data', None))
         if table:
+            widget.current_table = table  # 保存当前表格引用
             parent_layout.addWidget(table)
         else:
             output_edit.setText("没有选股结果。")
 
+    # 排序方式变化时的处理函数
+    def on_sort_mode_changed():
+        if widget.current_table is not None:
+            # 重新计算并刷新表格
+            do_select()
+
     select_btn.clicked.connect(do_select)
+    sort_combo.currentTextChanged.connect(on_sort_mode_changed)  # 添加排序方式变化的监听
 
     return widget
 
@@ -803,16 +812,31 @@ def format_stock_table(result):
             lines.append(f"{code}\t{name}\t{hold_days}\t{ops_change}\t{ops_incre_rate}")
     return "\n".join(lines)
 
-def show_formula_select_table_result(parent, result, price_data=None):
+def show_formula_select_table_result(parent, result, price_data=None, output_edit=None):
     merged_results = result.get('dates', {})
+    headers = ["股票代码", "股票名称", "持有天数", "操作涨幅", "日均涨跌幅", "得分"]
     if not merged_results:
-        return None
+        table = QTableWidget(0, len(headers), parent)
+        table.setHorizontalHeaderLabels(headers)
+        table.resizeColumnsToContents()
+        table.horizontalHeader().setFixedHeight(50)
+        table.horizontalHeader().setStyleSheet("font-size: 12px;")
+        return table
     # 只展示第一个日期的数据
     first_date = list(merged_results.keys())[0]
     stocks = merged_results[first_date]
-    headers = ["股票代码", "股票名称", "持有天数", "操作涨幅", "日均涨跌幅", "得分"]
-    table = QTableWidget(len(stocks), len(headers), parent)
+    if not stocks:
+        table = QTableWidget(0, len(headers), parent)
+        table.setHorizontalHeaderLabels(headers)
+        table.resizeColumnsToContents()
+        table.horizontalHeader().setFixedHeight(50)
+        table.horizontalHeader().setStyleSheet("font-size: 12px;")
+        return table
+    table = QTableWidget(len(stocks) + 2, len(headers), parent)  # 多两行：空行+均值行
     table.setHorizontalHeaderLabels(headers)
+    hold_days_list = []
+    ops_change_list = []
+    ops_incre_rate_list = []
     for row_idx, stock in enumerate(stocks):
         stock_idx = stock.get('stock_idx', None)
         if price_data is not None and stock_idx is not None:
@@ -825,12 +849,52 @@ def show_formula_select_table_result(parent, result, price_data=None):
         ops_change = stock.get('ops_change', '')
         ops_incre_rate = stock.get('ops_incre_rate', '')
         score = stock.get('score', '')
+        # 加%号显示
+        ops_change_str = f"{ops_change}%" if ops_change != '' else ''
+        ops_incre_rate_str = f"{ops_incre_rate}%" if ops_incre_rate != '' else ''
         table.setItem(row_idx, 0, QTableWidgetItem(str(code)))
         table.setItem(row_idx, 1, QTableWidgetItem(str(name)))
         table.setItem(row_idx, 2, QTableWidgetItem(str(hold_days)))
-        table.setItem(row_idx, 3, QTableWidgetItem(str(ops_change)))
-        table.setItem(row_idx, 4, QTableWidgetItem(str(ops_incre_rate)))
+        table.setItem(row_idx, 3, QTableWidgetItem(ops_change_str))
+        table.setItem(row_idx, 4, QTableWidgetItem(ops_incre_rate_str))
         table.setItem(row_idx, 5, QTableWidgetItem(str(score)))
+        # 收集用于均值计算的数据
+        try:
+            hold_days_list.append(float(hold_days))
+        except Exception:
+            pass
+        try:
+            ops_change_list.append(float(ops_change))
+        except Exception:
+            pass
+        try:
+            ops_incre_rate_list.append(float(ops_incre_rate))
+        except Exception:
+            pass
+    # 插入空行
+    empty_row_idx = len(stocks)
+    for col in range(len(headers)):
+        table.setItem(empty_row_idx, col, QTableWidgetItem(""))
+    # 计算均值
+    def safe_mean(lst):
+        return round(sum(lst) / len(lst), 2) if lst else ''
+    mean_hold_days = safe_mean(hold_days_list)
+    mean_ops_change = safe_mean(ops_change_list)
+    mean_ops_incre_rate = safe_mean(ops_incre_rate_list)
+    # 计算日均涨跌幅列的值
+    min_incre_rate = ''
+    if mean_hold_days and mean_hold_days != 0 and mean_ops_change != '':
+        calc1 = mean_ops_incre_rate if mean_ops_incre_rate != '' else float('inf')
+        calc2 = mean_ops_change / mean_hold_days if mean_hold_days != 0 else float('inf')
+        min_incre_rate = round(min(calc1, calc2), 2)
+    # 插入均值行
+    mean_row_idx = len(stocks) + 1
+    table.setItem(mean_row_idx, 0, QTableWidgetItem(""))
+    table.setItem(mean_row_idx, 1, QTableWidgetItem(str(first_date)))
+    table.setItem(mean_row_idx, 2, QTableWidgetItem(str(mean_hold_days)))
+    table.setItem(mean_row_idx, 3, QTableWidgetItem(f"{mean_ops_change}%" if mean_ops_change != '' else ''))
+    table.setItem(mean_row_idx, 4, QTableWidgetItem(f"{min_incre_rate}%" if min_incre_rate != '' else ''))
+    table.setItem(mean_row_idx, 5, QTableWidgetItem(""))
     table.resizeColumnsToContents()
     table.horizontalHeader().setFixedHeight(50)
     table.horizontalHeader().setStyleSheet("font-size: 12px;")

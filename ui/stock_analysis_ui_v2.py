@@ -463,7 +463,10 @@ class StockAnalysisApp(QWidget):
             self.last_calculate_result is None or
             self.last_formula_expr != current_formula
         )
-        print(f'get_or_calculate_result only_show_selected: {only_show_selected}')
+        # 如果是公式选股，强制每次都重新计算
+        if only_show_selected:
+            need_recalc = True
+
         if need_recalc:
             # 收集所有参数
             params = {}
