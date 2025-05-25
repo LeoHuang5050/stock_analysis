@@ -43,7 +43,7 @@ cdef void calc_continuous_sum(
 
 cdef void calc_valid_sum_and_pos_neg(
     vector[double]& arr,
-    double* valid_sum,
+    vector[double]& valid_sum,
     int* valid_len,
     double* pos_sum,
     double* neg_sum
@@ -60,14 +60,16 @@ cdef void calc_valid_sum_and_pos_neg(
         return
     for i in range(n):
         v = arr[i]
+        if isnan(v):  # 跳过 NaN 值
+            continue
         abs_v = fabs(v)
         next_abs = fabs(arr[i+1]) if i < n-1 else 0
         if i < n-1 and next_abs > abs_v:
-            valid_sum[valid_idx] = v
+            valid_sum.push_back(v)
         elif i < n-1:
-            valid_sum[valid_idx] = arr[i+1] if arr[i+1] >= 0 else -fabs(arr[i+1])
+            valid_sum.push_back(arr[i+1] if arr[i+1] >= 0 else -fabs(arr[i+1]))
         else:
-            valid_sum[valid_idx] = v
+            valid_sum.push_back(v)
         if valid_sum[valid_idx] > 0:
             pos_sum[0] += valid_sum[valid_idx]
         elif valid_sum[valid_idx] < 0:
@@ -98,7 +100,8 @@ def calculate_batch_cy(
     double ops_change_input=0.09,
     str formula_expr=None,
     int select_count=10,
-    str sort_mode="最大值排序"
+    str sort_mode="最大值排序",
+    bint only_show_selected=False
 ):
     cdef int num_stocks = price_data.shape[0]
     cdef int num_dates = price_data.shape[1]
@@ -126,9 +129,10 @@ def calculate_batch_cy(
     cdef int n_valid, half_valid, q1_valid, q2_valid, q3_valid
     cdef double valid_abs_sum_first_half, valid_abs_sum_second_half
     cdef double valid_abs_sum_block1, valid_abs_sum_block2, valid_abs_sum_block3, valid_abs_sum_block4
-    cdef double forward_max_valid_sum_arr[1000]
+    cdef vector[double] valid_sum_vec
+    cdef vector[double] forward_max_valid_sum_vec
+    cdef vector[double] forward_min_valid_sum_vec
     cdef double forward_max_valid_pos_sum, forward_max_valid_neg_sum
-    cdef double forward_min_valid_sum_arr[1000]
     cdef double forward_min_valid_pos_sum, forward_min_valid_neg_sum
     cdef double increment_value = NAN
     cdef double after_gt_end_value = NAN
@@ -346,8 +350,9 @@ def calculate_batch_cy(
                     after_gt_start_value = NAN
 
                 # 主连续累加值的有效累加值及正负加和
+                valid_sum_vec.clear()
                 calc_valid_sum_and_pos_neg(
-                    cont_sum, valid_sum_arr, &valid_sum_len, &valid_pos_sum, &valid_neg_sum)
+                    cont_sum, valid_sum_vec, &valid_sum_len, &valid_pos_sum, &valid_neg_sum)
                 
                 n = cont_sum.size()
                 half = int(round(n / 2.0))
@@ -483,10 +488,13 @@ def calculate_batch_cy(
                 # 计算正累加和和负累加和
                 # 向前最大有效累加值的正负加和
                 if forward_max_result_c.size() > 0:
+                    forward_max_valid_sum_vec.clear()
                     calc_valid_sum_and_pos_neg(
                         forward_max_result_c,
-                        forward_max_valid_sum_arr, &forward_max_valid_sum_len,
+                        forward_max_valid_sum_vec, &forward_max_valid_sum_len,
                         &forward_max_valid_pos_sum, &forward_max_valid_neg_sum)
+                    forward_max_valid_pos_sum = round_to_2(forward_max_valid_pos_sum)
+                    forward_max_valid_neg_sum = round_to_2(forward_max_valid_neg_sum)
                 else:
                     forward_max_valid_sum_len = 0
                     forward_max_valid_pos_sum = 0
@@ -494,10 +502,14 @@ def calculate_batch_cy(
 
                 # 向前最小有效累加值的正负加和
                 if forward_min_result_c.size() > 0:
+                    forward_min_valid_sum_vec.clear()
                     calc_valid_sum_and_pos_neg(
                         forward_min_result_c,
-                        forward_min_valid_sum_arr, &forward_min_valid_sum_len,
+                        forward_min_valid_sum_vec, &forward_min_valid_sum_len,
                         &forward_min_valid_pos_sum, &forward_min_valid_neg_sum)
+                    # 添加 round_to_2 处理
+                    forward_min_valid_pos_sum = round_to_2(forward_min_valid_pos_sum)
+                    forward_min_valid_neg_sum = round_to_2(forward_min_valid_neg_sum)
                 else:
                     forward_min_valid_sum_len = 0
                     forward_min_valid_pos_sum = 0
@@ -560,17 +572,17 @@ def calculate_batch_cy(
                 q2_valid = int(round(n_valid / 2.0))
                 q3_valid = int(round(3 * n_valid / 4.0))
                 for j in range(half_valid):
-                    valid_abs_sum_first_half += fabs(valid_sum_arr[j])
+                    valid_abs_sum_first_half += fabs(valid_sum_vec[j])
                 for j in range(half_valid, n_valid):
-                    valid_abs_sum_second_half += fabs(valid_sum_arr[j])
+                    valid_abs_sum_second_half += fabs(valid_sum_vec[j])
                 for j in range(q1_valid):
-                    valid_abs_sum_block1 += fabs(valid_sum_arr[j])
+                    valid_abs_sum_block1 += fabs(valid_sum_vec[j])
                 for j in range(q1_valid, q2_valid):
-                    valid_abs_sum_block2 += fabs(valid_sum_arr[j])
+                    valid_abs_sum_block2 += fabs(valid_sum_vec[j])
                 for j in range(q2_valid, q3_valid):
-                    valid_abs_sum_block3 += fabs(valid_sum_arr[j])
+                    valid_abs_sum_block3 += fabs(valid_sum_vec[j])
                 for j in range(q3_valid, n_valid):
-                    valid_abs_sum_block4 += fabs(valid_sum_arr[j])
+                    valid_abs_sum_block4 += fabs(valid_sum_vec[j])
                 valid_abs_sum_first_half = round_to_2(valid_abs_sum_first_half)
                 valid_abs_sum_second_half = round_to_2(valid_abs_sum_second_half)
                 valid_abs_sum_block1 = round_to_2(valid_abs_sum_block1)
@@ -592,7 +604,7 @@ def calculate_batch_cy(
                     q2 = int(round(n / 2.0))
                     q3 = int(round(3 * n / 4.0))
                     for j in range(n):
-                        v = fabs(forward_max_valid_sum_arr[j])
+                        v = fabs(forward_max_valid_sum_vec[j])
                         if j < half:
                             forward_max_valid_abs_sum_first_half += v
                         else:
@@ -627,7 +639,7 @@ def calculate_batch_cy(
                     q2 = <int>(round(n / 2.0))
                     q3 = <int>(round(3 * n / 4.0))
                     for j in range(n):
-                        v = fabs(forward_min_valid_sum_arr[j])
+                        v = fabs(forward_min_valid_sum_vec[j])
                         if j < half:
                             forward_min_valid_abs_sum_first_half += v
                         else:
@@ -693,6 +705,11 @@ def calculate_batch_cy(
             py_cont_sum = list(cont_sum)
             forward_max_result = [forward_max_result_c[j] for j in range(forward_max_result_c.size())]
             forward_min_result = [forward_min_result_c[j] for j in range(forward_min_result_c.size())]
+            
+            forward_max_valid_sum_arr = [forward_max_valid_sum_vec[j] for j in range(forward_max_valid_sum_vec.size())]
+            forward_min_valid_sum_arr = [forward_min_valid_sum_vec[j] for j in range(forward_min_valid_sum_vec.size())]
+            py_valid_sum_arr = [valid_sum_vec[j] for j in range(valid_sum_vec.size())]
+            
             # 递增值等都算好后，计算 ops_value
             inc_value = increment_value
             age_value = after_gt_end_value
@@ -772,7 +789,7 @@ def calculate_batch_cy(
                     'continuous_abs_sum_block2': continuous_abs_sum_block2,
                     'continuous_abs_sum_block3': continuous_abs_sum_block3,
                     'continuous_abs_sum_block4': continuous_abs_sum_block4,
-                    'valid_sum_arr': valid_sum_arr,
+                    'valid_sum_arr': py_valid_sum_arr,
                     'valid_sum_len': valid_sum_len,
                     'valid_pos_sum': valid_pos_sum,
                     'valid_neg_sum': valid_neg_sum,
@@ -785,7 +802,7 @@ def calculate_batch_cy(
                     'forward_max_date': forward_max_date_str,
                     'forward_max_result': forward_max_result,
                     'forward_max_valid_sum_len': forward_max_valid_sum_len,
-                    'forward_max_valid_sum_arr': forward_max_result,
+                    'forward_max_valid_sum_arr': forward_max_valid_sum_arr,
                     'forward_max_valid_pos_sum': forward_max_valid_pos_sum,
                     'forward_max_valid_neg_sum': forward_max_valid_neg_sum,
                     'forward_max_valid_abs_sum_first_half': forward_max_valid_abs_sum_first_half,
@@ -797,7 +814,7 @@ def calculate_batch_cy(
                     'forward_min_date': forward_min_date_str,
                     'forward_min_result': forward_min_result,
                     'forward_min_valid_sum_len': forward_min_valid_sum_len,
-                    'forward_min_valid_sum_arr': forward_min_result,
+                    'forward_min_valid_sum_arr': forward_min_valid_sum_arr,
                     'forward_min_valid_pos_sum': forward_min_valid_pos_sum,
                     'forward_min_valid_neg_sum': forward_min_valid_neg_sum,
                     'forward_min_valid_abs_sum_first_half': forward_min_valid_abs_sum_first_half,
@@ -825,8 +842,9 @@ def calculate_batch_cy(
                     if stock_idx == 0:
                         print(f'[Exception] 执行表达式发生异常: {e}')
                     score = None
-
-            if end_date_idx != end_date_end_idx:
+            if stock_idx == 0:
+                print(f'only_show_selected: {only_show_selected}')
+            if only_show_selected:
                 if score is not None and score != 0 and not isnan(end_value) and hold_days != -1:
                     row_result = {
                         'stock_idx': stock_idx,
@@ -852,15 +870,15 @@ def calculate_batch_cy(
                         'continuous_abs_sum_block4': continuous_abs_sum_block4,
                         'forward_max_result': forward_max_result,
                         'forward_min_result': forward_min_result,
-                        'valid_sum_arr': valid_sum_arr,
+                        'valid_sum_arr': py_valid_sum_arr,
                         'valid_sum_len': valid_sum_len,
                         'valid_pos_sum': valid_pos_sum,
                         'valid_neg_sum': valid_neg_sum,
-                        'forward_max_valid_sum_arr': forward_max_result,
+                        'forward_max_valid_sum_arr': forward_max_valid_sum_arr,
                         'forward_max_valid_sum_len': forward_max_valid_sum_len,
                         'forward_max_valid_pos_sum': forward_max_valid_pos_sum,
                         'forward_max_valid_neg_sum': forward_max_valid_neg_sum,
-                        'forward_min_valid_sum_arr': forward_min_result,
+                        'forward_min_valid_sum_arr': forward_min_valid_sum_arr,
                         'forward_min_valid_sum_len': forward_min_valid_sum_len,
                         'forward_min_valid_pos_sum': forward_min_valid_pos_sum,
                         'forward_min_valid_neg_sum': forward_min_valid_neg_sum,
@@ -935,15 +953,15 @@ def calculate_batch_cy(
                         'continuous_abs_sum_block4': continuous_abs_sum_block4,
                         'forward_max_result': forward_max_result,
                         'forward_min_result': forward_min_result,
-                        'valid_sum_arr': valid_sum_arr,
+                        'valid_sum_arr': py_valid_sum_arr,
                         'valid_sum_len': valid_sum_len,
                         'valid_pos_sum': valid_pos_sum,
                         'valid_neg_sum': valid_neg_sum,
-                        'forward_max_valid_sum_arr': forward_max_result,
+                        'forward_max_valid_sum_arr': forward_max_valid_sum_arr,
                         'forward_max_valid_sum_len': forward_max_valid_sum_len,
                         'forward_max_valid_pos_sum': forward_max_valid_pos_sum,
                         'forward_max_valid_neg_sum': forward_max_valid_neg_sum,
-                        'forward_min_valid_sum_arr': forward_min_result,
+                        'forward_min_valid_sum_arr': forward_min_valid_sum_arr,
                         'forward_min_valid_sum_len': forward_min_valid_sum_len,
                         'forward_min_valid_pos_sum': forward_min_valid_pos_sum,
                         'forward_min_valid_neg_sum': forward_min_valid_neg_sum,
