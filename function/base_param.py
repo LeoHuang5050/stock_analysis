@@ -12,7 +12,7 @@ class BaseParamHandler:
     def on_calculate_clicked(self, params=None):
         if self.main_window.init.price_data is None:
             QMessageBox.warning(self.main_window, "提示", "请先上传Excel文件！")
-            return
+            return None
         
         # 收集所有参数
         if params is None:
@@ -31,10 +31,10 @@ class BaseParamHandler:
             "after_gt_end_ratio": float(self.main_window.after_gt_end_edit.text() or 0),
             "after_gt_start_ratio": float(self.main_window.after_gt_prev_edit.text() or 0),
             "expr": self.main_window.expr_edit.text().strip(),
-            "ops_change": float(self.main_window.ops_change_edit.text() or 0)
+            "ops_change": float(self.main_window.ops_change_edit.text() or 0),# 添加 only_show_selected 参数
         })
         
-        self.main_window.result_text.setText("正在批量计算参数，请稍候...")
+        self.main_window.result_text.setText("正在计算参数，请稍候...")
         QApplication.processEvents()
         
         calc = CalculateThread(
@@ -54,6 +54,8 @@ class BaseParamHandler:
         self.main_window.forward_max_result = result.get('forward_max_result')
         self.main_window.forward_min_date = result.get('forward_min_date')
         self.main_window.forward_min_result = result.get('forward_min_result')
+        
+        return result
 
     def update_shift_spin_range(self):
         # 获取当前区间

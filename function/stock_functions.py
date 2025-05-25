@@ -5,8 +5,11 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTextEdit, QLineEdit, QSpinBox, QComboBox, QPushButton, QTableWidget, QTableWidgetItem, QSizePolicy, QDialog, QTabWidget, QMessageBox, QGridLayout, QDateEdit
 from PyQt5.QtCore import QDate
+import time
 
 import math
+import concurrent.futures
+from multiprocessing import cpu_count
 
 # 连续累加值参数表头
 param_headers = [
@@ -224,24 +227,8 @@ def show_continuous_sum_table(parent, all_results, price_data, as_widget=False):
         tab_widget.addTab(table3, f"向前最大连续累加值 ({end_date})")
         tab_widget.addTab(table4, f"向前最小连续累加值 ({end_date})")
 
-        # 添加日期选择框
-        date_picker = QDateEdit(parent)
-        date_picker.setDisplayFormat("yyyy-MM-dd")
-        date_picker.setCalendarPopup(True)
-        date_list = [d['end_date'] for d in dates]
-        date_picker.setDate(QDate.fromString(end_date, "yyyy-MM-dd"))
-        date_picker.setFixedWidth(180)
-        date_picker.setStyleSheet("font-size: 12px; height: 20px;")
-
-        # 顶部布局
-        top_layout = QHBoxLayout()
-        top_layout.addStretch(1)
-        top_layout.addWidget(QLabel("选择结束日期："))
-        top_layout.addWidget(date_picker)
-
-        # 主布局
+        # 主布局（去除顶部日期选择器）
         main_layout = QVBoxLayout()
-        main_layout.addLayout(top_layout)
         main_layout.addWidget(tab_widget)
 
         if as_widget:
@@ -249,22 +236,6 @@ def show_continuous_sum_table(parent, all_results, price_data, as_widget=False):
             container.setLayout(main_layout)
             container.setMinimumSize(1200, 600)
             container.show()
-
-            # 切换日期时刷新所有表格内容
-            def on_date_changed():
-                selected_date = date_picker.date().toString("yyyy-MM-dd")
-                found = False
-                for d in dates:
-                    if d['end_date'] == selected_date:
-                        stocks_data = d['stocks']
-                        found = True
-                        break
-                if not found:
-                    QMessageBox.information(parent, "提示", f"没有该结束日期（{selected_date}）的数据！")
-                    return
-                update_tables(stocks_data)
-
-            date_picker.dateChanged.connect(on_date_changed)
             return container
         else:
             dialog = QWidget()
@@ -703,11 +674,8 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
     sort_combo.addItems(["最大值排序", "最小值排序"])
     select_btn = QPushButton("进行选股")
     select_btn.setFixedSize(100, 50)
-    select_btn.setStyleSheet("background-color: #f0f0f0; border: none;")  # 设置与主界面一致的背景色
-    result_btn = QPushButton("查看结果")
-    result_btn.setFixedSize(100, 50)
-    result_btn.setStyleSheet("background-color: #f0f0f0; border: none;")  # 设置与主界面一致的背景色
-    for w in [select_count_label, select_count_spin, sort_label, sort_combo, select_btn, result_btn]:
+    select_btn.setStyleSheet("background-color: #f0f0f0; border: none;")
+    for w in [select_count_label, select_count_spin, sort_label, sort_combo, select_btn]:
         top_layout.addWidget(w)
     layout.addLayout(top_layout)
 
@@ -747,30 +715,34 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
 
     # 选股逻辑
     def do_select():
-        output_edit.setText("正在生成参数，请稍候...")
-        formula_expr = formula_input.toPlainText().strip()  # 如果是QTextEdit
-        # formula_expr = formula_input.text().strip()  # 如果是QLineEdit
-        if hasattr(parent, 'on_calculate_clicked'):
-            parent.on_calculate_clicked(formula_expr=formula_expr)
-            output_edit.setText("参数生成完毕，请点击'查看结果'按钮查看选股结果。")
-        else:
-            output_edit.setText("未找到生成参数的方法！")
-
-    def show_selected():
-        selected = getattr(widget, 'selected_results', [])
-        if not selected:
-            output_edit.setText("请先进行选股！")
+        # 读取控件值
+        formula_expr = formula_input.toPlainText().strip()
+        select_count = select_count_spin.value()
+        sort_mode = sort_combo.currentText()
+        # 调用主窗口的统一逻辑
+        result = parent.get_or_calculate_result(
+            formula_expr=formula_expr,
+            select_count=select_count,
+            sort_mode=sort_mode,
+            show_main_output=False,
+            only_show_selected=True
+        )
+        if result is None:
+            output_edit.setText("请先上传数据文件！")
             return
-        # 构造表格文本
-        headers = ["代码", "名称", "持有天数", "操作涨幅", "日均涨幅", "得分"]
-        lines = ["\t".join(headers)]
-        for row in selected:
-            line = "\t".join(str(row.get(k, "")) for k in ["code", "name", "hold_days", "ops_change", "ops_incre_rate", "score"])
-            lines.append(line)
-        output_edit.setText("\n".join(lines))
+        # 修正：直接用 layout 变量（show_formula_select_table 的 layout），而不是 output_edit.parent()
+        parent_layout = layout  # layout 是 show_formula_select_table 作用域内的主布局
+        for i in reversed(range(parent_layout.count())):
+            w = parent_layout.itemAt(i).widget()
+            if w is not None:
+                w.setParent(None)
+        table = show_formula_select_table_result(parent, result, getattr(parent, 'init', None) and getattr(parent.init, 'price_data', None))
+        if table:
+            parent_layout.addWidget(table)
+        else:
+            output_edit.setText("没有选股结果。")
 
     select_btn.clicked.connect(do_select)
-    result_btn.clicked.connect(show_selected)
 
     return widget
 
@@ -813,3 +785,53 @@ def calc_continuous_sum_sliding_window(arr, window_size):
                 cont_sum.append(window[j])
         results.append(cont_sum)
     return results
+
+def format_stock_table(result):
+    merged_results = result.get('dates', {})
+    if not merged_results:
+        return "没有选股结果。"
+    lines = []
+    # 表头
+    lines.append("股票代码\t股票名称\t持有天数\t操作涨幅\t日均涨跌幅")
+    for date, stocks in merged_results.items():
+        for stock in stocks:
+            code = stock.get('code', stock.get('stock_idx', ''))
+            name = stock.get('name', '')
+            hold_days = stock.get('hold_days', '')
+            ops_change = stock.get('ops_change', '')
+            ops_incre_rate = stock.get('ops_incre_rate', '')
+            lines.append(f"{code}\t{name}\t{hold_days}\t{ops_change}\t{ops_incre_rate}")
+    return "\n".join(lines)
+
+def show_formula_select_table_result(parent, result, price_data=None):
+    merged_results = result.get('dates', {})
+    if not merged_results:
+        return None
+    # 只展示第一个日期的数据
+    first_date = list(merged_results.keys())[0]
+    stocks = merged_results[first_date]
+    headers = ["股票代码", "股票名称", "持有天数", "操作涨幅", "日均涨跌幅", "得分"]
+    table = QTableWidget(len(stocks), len(headers), parent)
+    table.setHorizontalHeaderLabels(headers)
+    for row_idx, stock in enumerate(stocks):
+        stock_idx = stock.get('stock_idx', None)
+        if price_data is not None and stock_idx is not None:
+            code = price_data.iloc[stock_idx, 0]
+            name = price_data.iloc[stock_idx, 1]
+        else:
+            code = stock.get('code', stock.get('stock_idx', ''))
+            name = stock.get('name', '')
+        hold_days = stock.get('hold_days', '')
+        ops_change = stock.get('ops_change', '')
+        ops_incre_rate = stock.get('ops_incre_rate', '')
+        score = stock.get('score', '')
+        table.setItem(row_idx, 0, QTableWidgetItem(str(code)))
+        table.setItem(row_idx, 1, QTableWidgetItem(str(name)))
+        table.setItem(row_idx, 2, QTableWidgetItem(str(hold_days)))
+        table.setItem(row_idx, 3, QTableWidgetItem(str(ops_change)))
+        table.setItem(row_idx, 4, QTableWidgetItem(str(ops_incre_rate)))
+        table.setItem(row_idx, 5, QTableWidgetItem(str(score)))
+    table.resizeColumnsToContents()
+    table.horizontalHeader().setFixedHeight(50)
+    table.horizontalHeader().setStyleSheet("font-size: 12px;")
+    return table

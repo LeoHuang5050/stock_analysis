@@ -59,6 +59,10 @@ class StockAnalysisApp(QWidget):
         self.base_param = BaseParamHandler(self)
         self.init_ui()
         self.connect_signals()
+        # 统一缓存变量
+        self.last_end_date = None
+        self.last_calculate_result = None
+        self.last_formula_expr = None
 
     def init_ui(self):
         main_layout = QVBoxLayout(self)
@@ -285,8 +289,8 @@ class StockAnalysisApp(QWidget):
         self.confirm_btn.clicked.connect(self.on_confirm_range)
         self.calc_btn.clicked.connect(self.on_calculate_clicked)
         # self.query_btn.clicked.connect(self.on_query_param)
-        self.continuous_sum_btn.clicked.connect(self.on_continuous_sum_clicked)
-        self.param_show_btn.clicked.connect(self.on_param_show_clicked)
+        self.continuous_sum_btn.clicked.connect(self.on_continuous_sum_btn_clicked)
+        self.param_show_btn.clicked.connect(self.on_param_show_btn_clicked)
         self.formula_select_btn.clicked.connect(self.on_formula_select_clicked)
 
     def on_query_param(self):
@@ -312,9 +316,33 @@ class StockAnalysisApp(QWidget):
             self.table_widget = None
         self.output_stack.setCurrentWidget(self.result_text)
 
+    def on_continuous_sum_btn_clicked(self):
+        if self.init.price_data is None:
+            self.result_text.setText("请先上传数据文件！")
+            self.output_stack.setCurrentWidget(self.result_text)
+            return
+        self.on_continuous_sum_clicked()
+
     def on_continuous_sum_clicked(self):
-        all_results = getattr(self, 'all_row_results', None)
-        from function.stock_functions import show_continuous_sum_table
+        result = self.get_or_calculate_result()
+        if result is None:
+            return
+        merged_results = result.get('dates', {})
+        if merged_results is None or not merged_results:
+            self.result_text.setText("获取连续累加值失败，请检查参数设置！")
+            self.output_stack.setCurrentWidget(self.result_text)
+            self.last_end_date = self.date_picker.date().toString("yyyy-MM-dd")
+            self.last_calculate_result = None
+            return
+        all_results = {
+            "dates": [
+                {
+                    "end_date": date,
+                    "stocks": stocks
+                }
+                for date, stocks in merged_results.items()
+            ]
+        }
         self.clear_result_area()
         table = show_continuous_sum_table(self, all_results, self.init.price_data, as_widget=True)
         if table:
@@ -326,18 +354,42 @@ class StockAnalysisApp(QWidget):
             self.result_text.setText("没有可展示的连续累加值数据。")
             self.output_stack.setCurrentWidget(self.result_text)
 
+    def on_param_show_btn_clicked(self):
+        if self.init.price_data is None:
+            self.result_text.setText("请先上传数据文件！")
+            self.output_stack.setCurrentWidget(self.result_text)
+            return
+        self.on_param_show_clicked()
+
     def on_param_show_clicked(self):
-        all_results = getattr(self, 'all_row_results', None)
-        from function.stock_functions import show_params_table
+        result = self.get_or_calculate_result()
+        if result is None:
+            return
+        merged_results = result.get('dates', {})
+        if merged_results is None or not merged_results:
+            self.result_text.setText("获取参数明细失败，请检查参数设置！")
+            self.output_stack.setCurrentWidget(self.result_text)
+            self.last_end_date = self.date_picker.date().toString("yyyy-MM-dd")
+            self.last_calculate_result = None
+            return
+        all_results = {
+            "dates": [
+                {
+                    "end_date": date,
+                    "stocks": stocks
+                }
+                for date, stocks in merged_results.items()
+            ]
+        }
         self.clear_result_area()
+        from function.stock_functions import show_params_table
         params = {}
         params['n_days_max'] = self.n_days_max_spin.value()
-        # 获取当前选中的结束日期
         end_date = self.date_picker.date().toString("yyyy-MM-dd")
         table = show_params_table(
             parent=self,
             all_results=all_results,
-            end_date=end_date,  # 传入end_date
+            end_date=end_date,
             n_days=self.n_days if hasattr(self, 'n_days') else 0,
             n_days_max=params['n_days_max'],
             range_value=getattr(self, 'range_value', None),
@@ -402,3 +454,52 @@ class StockAnalysisApp(QWidget):
         self.result_text.setText("区间已确认，请继续设置参数...")
         self.output_stack.setCurrentWidget(self.result_text)
         self.init.on_confirm_range()
+
+    def get_or_calculate_result(self, formula_expr=None, select_count=None, sort_mode=None, show_main_output=True, only_show_selected=None):
+        end_date = self.date_picker.date().toString("yyyy-MM-dd")
+        current_formula = formula_expr if formula_expr is not None else self.expr_edit.text()
+        need_recalc = (
+            self.last_end_date != end_date or
+            self.last_calculate_result is None or
+            self.last_formula_expr != current_formula
+        )
+        print(f'get_or_calculate_result only_show_selected: {only_show_selected}')
+        if need_recalc:
+            # 收集所有参数
+            params = {}
+            params['width'] = self.width_spin.value()
+            params['start_option'] = self.start_option_combo.currentText()
+            params['shift_days'] = self.shift_spin.value()
+            params['is_forward'] = self.direction_checkbox.isChecked()
+            params['n_days'] = self.n_days_spin.value()
+            params['n_days_max'] = self.n_days_max_spin.value()
+            params['range_value'] = self.range_value_edit.text()
+            params['continuous_abs_threshold'] = self.continuous_abs_threshold_edit.text()
+            params['op_days'] = self.op_days_edit.text()
+            params['inc_rate'] = self.inc_rate_edit.text()
+            params['after_gt_end_ratio'] = self.after_gt_end_edit.text()
+            params['after_gt_start_ratio'] = self.after_gt_prev_edit.text()
+            # 选股公式、数量、排序方式参数
+            params['expr'] = current_formula
+            params['select_count'] = select_count if select_count is not None else 10
+            params['sort_mode'] = sort_mode if sort_mode is not None else "最大值排序"
+            params['ops_change'] = self.ops_change_edit.text()
+            # 选股计算公式
+            params['formula_expr'] = formula_expr if formula_expr is not None else (self.formula_expr_edit.text() if hasattr(self, 'formula_expr_edit') else '')
+            params['end_date_start'] = end_date
+            params['end_date_end'] = end_date
+            if only_show_selected is not None:
+                params['only_show_selected'] = only_show_selected
+            result = self.base_param.on_calculate_clicked(params)
+            if result is None:
+                if show_main_output:
+                    self.result_text.setText("请先上传数据文件！")
+                    self.output_stack.setCurrentWidget(self.result_text)
+                self.last_end_date = end_date
+                self.last_formula_expr = current_formula
+                self.last_calculate_result = None
+                return None
+            self.last_end_date = end_date
+            self.last_formula_expr = current_formula
+            self.last_calculate_result = result
+        return self.last_calculate_result

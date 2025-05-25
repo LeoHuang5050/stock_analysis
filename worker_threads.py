@@ -46,15 +46,6 @@ def split_indices(total, n_parts):
     # 返回每个分组的起止索引（左闭右开）
     return [(i * part_size, min((i + 1) * part_size, total)) for i in range(n_parts)]
 
-def cy_batch_worker(args):
-    import worker_threads_cy
-    price_data_np, date_columns, width, start_option, shift_days, end_date_start_idx, end_date_end_idx, diff_data_np, stock_idx_arr, is_forward, n_days, user_range_ratio, continuous_abs_threshold, n_days_max, op_days, inc_rate, after_gt_end_ratio, after_gt_start_ratio, expr, ops_change_input, formula_expr, select_count, sort_mode = args
-    stock_idx_arr = np.ascontiguousarray(stock_idx_arr, dtype=np.int32)
-    date_grouped_results = worker_threads_cy.calculate_batch_cy(
-        price_data_np, date_columns, width, start_option, shift_days, end_date_start_idx, end_date_end_idx, diff_data_np, stock_idx_arr, is_forward, n_days, user_range_ratio, continuous_abs_threshold, n_days_max, op_days, inc_rate, after_gt_end_ratio, after_gt_start_ratio, expr, ops_change_input, formula_expr, select_count, sort_mode
-    )
-    return date_grouped_results
-
 class OpValue:
     def __init__(self, key, value, days):
         self.key = key
@@ -900,10 +891,9 @@ class CalculateThread(QThread):
         range_value = params.get('range_value', None)
         user_range_ratio = self.safe_float(range_value)
         continuous_abs_threshold = self.safe_float(params.get('continuous_abs_threshold', None))
-        end_date_start = "2023-11-17"
-        # end_date_start = "2025-04-08"
-        # end_date_start = "2025-04-30"
-        end_date_end = "2025-04-30"
+        end_date_start = params.get('end_date_start', "2025-04-30")
+        end_date_end = params.get('end_date_end', "2025-04-30")
+        print(f"end_date_start: {end_date_start}, end_date_end: {end_date_end}")
         end_date_start_idx = date_columns.index(end_date_start)
         end_date_end_idx = date_columns.index(end_date_end)
         price_data_np = self.price_data.iloc[:, 2:].values.astype(np.float64)
@@ -922,11 +912,10 @@ class CalculateThread(QThread):
         expr = convert_expr_to_return_var_name(expr)
         formula_expr = params.get('formula_expr', '') or ''
         formula_expr = replace_abbr(formula_expr, abbr_map)
-        
         ops_change_input = params.get("ops_change", 0)
         select_count = int(params.get('select_count', 10))
         sort_mode = params.get('sort_mode', '最大值排序')
-        
+        only_show_selected = params.get('only_show_selected', False)
         args_list = [
             (
                 price_data_np,
@@ -951,7 +940,8 @@ class CalculateThread(QThread):
                 ops_change_input,
                 formula_expr,
                 select_count,
-                sort_mode
+                sort_mode,
+                only_show_selected
             )
             for (start, end) in stock_idx_ranges if end > start
         ]
@@ -967,16 +957,18 @@ class CalculateThread(QThread):
                 for end_date, stocks in process_results.items():
                     if end_date in merged_results:
                         merged_results[end_date].extend(stocks)
-        for end_date in merged_results:
-            if end_date != date_columns[end_date_end_idx]:
+        t1 = time.time()
+        print(f"calculate_batch_{n_proc}_cores 总耗时: {t1 - t0:.4f}秒")
+        print(f"日期数量: {len(merged_results)}")
+        print(f"总股票数量: {sum(len(stocks) for stocks in merged_results.values())}")
+        if only_show_selected:
+            for end_date in merged_results:
                 merged_results[end_date] = sorted(
                     merged_results[end_date],
                     key=lambda x: x['score'],
                     reverse=(sort_mode == "最大值排序")
                 )[:select_count]
-        t1 = time.time()
-        print(f"calculate_batch_{n_proc}_cores 总耗时: {t1 - t0:.4f}秒")
-        print(f"len(sorted_results): {len(merged_results)}")
+        
         result = {
             "dates": merged_results,
             "shift_days": shift_days,
@@ -1134,12 +1126,7 @@ class SelectStockThread(QThread):
         selected = results[:self.select_count]
         print(f"[SelectStockThread] selected: {selected}")
         self.finished.emit(selected)
-
-def replace_abbr(expr, abbr_map):
-    for abbr, full in abbr_map.items():
-        expr = re.sub(rf'\b{abbr}\b', full, expr)
-    return expr
-
+        
 def convert_expr_to_return_var_name(expr):
     """把返回变量的表达式转换成返回变量名的表达式
     例如：
@@ -1182,3 +1169,22 @@ def make_user_func(expr):
         exec(expr, {}, local_vars)
         return local_vars.get('result', None)  # 直接返回表达式的结果，不做值判断
     return user_func
+
+def cy_batch_worker(args):
+    import worker_threads_cy
+    price_data_np, date_columns, width, start_option, shift_days, end_date_start_idx, end_date_end_idx, diff_data_np, stock_idx_arr, is_forward, n_days, user_range_ratio, continuous_abs_threshold, n_days_max, op_days, inc_rate, after_gt_end_ratio, after_gt_start_ratio, expr, ops_change_input, formula_expr, select_count, sort_mode, only_show_selected = args
+    stock_idx_arr = np.ascontiguousarray(stock_idx_arr, dtype=np.int32)
+    date_grouped_results = worker_threads_cy.calculate_batch_cy(
+        price_data_np, date_columns, width, start_option, shift_days, end_date_start_idx, end_date_end_idx, diff_data_np, stock_idx_arr, is_forward, n_days, user_range_ratio, continuous_abs_threshold, n_days_max, op_days, inc_rate, after_gt_end_ratio, after_gt_start_ratio, expr, ops_change_input, formula_expr, select_count, sort_mode, only_show_selected
+    )
+    return date_grouped_results
+
+def replace_abbr(expr, abbr_map):
+    for abbr, full in abbr_map.items():
+        expr = re.sub(rf'\b{abbr}\b', full, expr)
+    return expr
+
+def split_indices(total, n_parts):
+    part_size = (total + n_parts - 1) // n_parts
+    # 返回每个分组的起止索引（左闭右开）
+    return [(i * part_size, min((i + 1) * part_size, total)) for i in range(n_parts)]
