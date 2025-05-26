@@ -472,17 +472,6 @@ def show_params_table(parent, all_results, end_date=None, n_days=0, n_days_max=0
 
     stocks_data = last_date_data.get("stocks", [])
 
-    date_picker = QDateEdit(parent)
-    date_picker.setDisplayFormat("yyyy-MM-dd")
-    date_picker.setCalendarPopup(True)
-    if isinstance(dates, dict):
-        date_list = sorted(dates.keys())
-    else:
-        date_list = [d['end_date'] for d in dates]
-    date_picker.setDate(QDate.fromString(end_date, "yyyy-MM-dd"))
-    date_picker.setFixedWidth(180)
-    date_picker.setStyleSheet("font-size: 12px; height: 20px;")
-
     headers = [
         '代码', '名称', '最大值', '最小值', '结束值', '开始值', '实际开始日期值', '最接近值',
         f'前1组结束地址前{n_days_max}日最大值', '前N最大值', 
@@ -490,7 +479,7 @@ def show_params_table(parent, all_results, end_date=None, n_days=0, n_days_max=0
         f'开始日到结束日之间连续累加值绝对值小于{continuous_abs_threshold}',
         '前1组结束日地址值',
         '前1组结束地址前1日涨跌幅', '前1组结束日涨跌幅', '后1组结束地址值',
-        '递增值', '后值大于结束地址值', '后值大于前值返回值', '操作值', '持有天数', '操作涨幅', '调整天数', '日均涨幅', '得分'
+        '递增值', '后值大于结束地址值', '后值大于前值返回值', '操作值', '持有天数', '操作涨幅', '调整天数', '日均涨幅'
     ]
     table = QTableWidget(len(stocks_data), len(headers))
     table.setHorizontalHeaderLabels(headers)
@@ -526,6 +515,8 @@ def show_params_table(parent, all_results, end_date=None, n_days=0, n_days_max=0
         return '' if val is None else val
 
     def update_table(stocks_data):
+        # 每次刷新表格时都排序
+        stocks_data = sorted(stocks_data, key=lambda row: row.get('stock_idx', 0))
         table.setRowCount(len(stocks_data))
         for row_idx, row in enumerate(stocks_data):
             stock_idx = row.get('stock_idx', 0)
@@ -555,34 +546,13 @@ def show_params_table(parent, all_results, end_date=None, n_days=0, n_days_max=0
             table.setItem(row_idx, 21, QTableWidgetItem(get_percent(row.get('ops_change', ''))))
             table.setItem(row_idx, 22, QTableWidgetItem(str(get_val(row.get('adjust_days', '')))))
             table.setItem(row_idx, 23, QTableWidgetItem(get_percent(row.get('ops_incre_rate', ''))))
-            table.setItem(row_idx, 24, QTableWidgetItem(str(get_val(row.get('score', '')))))
         table.resizeColumnsToContents()
         table.horizontalHeader().setFixedHeight(50)
         table.horizontalHeader().setStyleSheet("font-size: 12px;")
 
     update_table(stocks_data)
 
-    def on_date_changed():
-        selected_date = date_picker.date().toString("yyyy-MM-dd")
-        if isinstance(dates, dict):
-            stocks_data = dates.get(selected_date, [])
-        else:
-            stocks_data = next((d['stocks'] for d in dates if d.get("end_date") == selected_date), [])
-        
-        if not stocks_data:
-            QMessageBox.information(parent, "提示", f"没有该结束日期（{selected_date}）的数据！")
-            return
-        update_table(stocks_data)
-
-    date_picker.dateChanged.connect(on_date_changed)
-
-    top_layout = QHBoxLayout()
-    top_layout.addStretch(1)
-    top_layout.addWidget(QLabel("选择结束日期："))
-    top_layout.addWidget(date_picker)
-
     main_layout = QVBoxLayout()
-    main_layout.addLayout(top_layout)
     main_layout.addWidget(table)
 
     if as_widget:
@@ -641,9 +611,15 @@ class FormulaExprEdit(QTextEdit):
             try:
                 compile(expr_text, '<string>', 'exec')
                 self.setText(expr_text)
+                # --- 新增：同步到主界面参数 ---
+                main_window = self.parent()
+                # 递归向上找主窗口
+                while main_window and not hasattr(main_window, 'last_formula_expr'):
+                    main_window = main_window.parent()
+                if main_window and hasattr(main_window, 'last_formula_expr'):
+                    main_window.last_formula_expr = expr_text.strip()
                 dialog.accept()
             except SyntaxError as e:
-                from PyQt5.QtWidgets import QMessageBox
                 QMessageBox.warning(dialog, "语法错误", f"表达式存在语法错误，请检查！\n\n{e}")
         btn_ok.clicked.connect(on_ok)
         dialog.exec_()
@@ -661,6 +637,10 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
     top_layout.addWidget(formula_label)
     formula_input = FormulaExprEdit()
     top_layout.addWidget(formula_input, 3)
+    # 公式输入变更时同步到主界面变量
+    def on_formula_changed():
+        parent.last_formula_expr = formula_input.toPlainText().strip()
+    formula_input.textChanged.connect(on_formula_changed)
 
     select_count_label = QLabel("选股数量:")
     select_count_label.setStyleSheet("border: none;")  # 去掉边框
@@ -718,6 +698,9 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
     def do_select():
         # 读取控件值
         formula_expr = formula_input.toPlainText().strip()
+        if not formula_expr:
+            output_edit.setText("请先填写选股公式")
+            return
         select_count = select_count_spin.value()
         sort_mode = sort_combo.currentText()
         # 调用主窗口的统一逻辑

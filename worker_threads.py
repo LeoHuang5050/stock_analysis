@@ -899,8 +899,8 @@ class CalculateThread(QThread):
         price_data_np = self.price_data.iloc[:, 2:].values.astype(np.float64)
         diff_data_np = self.diff_data.values.astype(np.float64)
         num_stocks = price_data_np.shape[0]
-        # n_proc = cpu_count()
-        n_proc = 1
+        n_proc = cpu_count()
+        # n_proc = 1
         stock_idx_arr = np.arange(num_stocks, dtype=np.int32)
         stock_idx_ranges = split_indices(num_stocks, n_proc)
         n_days_max = params.get("n_days_max", 0)
