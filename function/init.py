@@ -87,44 +87,5 @@ class StockAnalysisInit:
             if self.main_window.width_spin.value() > max_width:
                 self.main_window.width_spin.setValue(max_width)
 
-    def on_confirm_range(self):
-        end_date = self.main_window.date_picker.date().toString("yyyy-MM-dd")
-        width = self.main_window.width_spin.value()
-        shift_days = self.main_window.shift_spin.value()
-        end_idx = self.workdays_str.index(end_date)
-        start_idx = max(0, end_idx - width + shift_days)
-        date_range = self.workdays_str[start_idx:end_idx+1]
-        self.confirmed_date_range = date_range  # 保存下来
-        
-        # 获取区间内的股票价格数据
-        first_row = self.price_data.iloc[0]
-        price_data = [first_row[d] for d in date_range]
-        max_value = max([v for v in price_data if pd.notna(v)])
-        min_value = min([v for v in price_data if pd.notna(v)])
-        
-        # 保存这些值供后续使用
-        self.range_max_value = max_value
-        self.range_min_value = min_value
-        self.range_price_data = price_data
-        self.range_date_range = date_range
-
-        # 新增：设置提示
-        start_date = date_range[0] if date_range else ""
-        end_date = date_range[-1] if date_range else ""
-        
-
-        # 新增：设置操作天数最大值和标签
-        end_idx = self.workdays_str.index(end_date)
-        max_op_days = len(self.workdays_str) - end_idx - 1  # 最大可操作天数为end_date到数组结束的距离
-        if max_op_days < 0:
-            max_op_days = 0
-
-        self.main_window.result_text.setText(
-            f"日期宽度设置完毕，开始日期为：{start_date}，结束日期为：{end_date}，最大设置操作天数为：{max_op_days}"
-        )
-        self.main_window.op_days_label.setText(f"操作天数（最大{max_op_days}）")
-        from PyQt5.QtGui import QIntValidator
-        self.main_window.op_days_edit.setValidator(QIntValidator(0, max_op_days))
-
     def on_start_option_changed(self, idx):
         pass  # 不再做隐藏/显示 
