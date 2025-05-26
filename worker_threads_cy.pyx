@@ -225,7 +225,7 @@ def calculate_batch_cy(
                     closest_idx_in_window = -1
                     if not isnan(end_value):
                         min_diff = 1e308
-                        for j in range(window_len):
+                        for j in range(1, window_len):  # j=0为结束日自身，跳过
                             if not isnan(price_data_view[stock_idx, end_date_idx + j]):
                                 diff = fabs(price_data_view[stock_idx, end_date_idx + j] - end_value)
                                 if diff < min_diff:
