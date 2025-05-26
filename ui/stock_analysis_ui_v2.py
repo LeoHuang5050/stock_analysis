@@ -466,58 +466,49 @@ class StockAnalysisApp(QWidget):
     def get_or_calculate_result(self, formula_expr=None, select_count=None, sort_mode=None, show_main_output=True, only_show_selected=None, is_auto_analysis=False):
         end_date = self.date_picker.date().toString("yyyy-MM-dd")
         current_formula = formula_expr if formula_expr is not None else self.expr_edit.text()
-        need_recalc = (
-            self.last_end_date != end_date or
-            self.last_calculate_result is None or
-            self.last_formula_expr != current_formula
-        )
-        # 如果是公式选股，强制每次都重新计算
-        if only_show_selected:
-            need_recalc = True
-
-        if need_recalc:
-            # 收集所有参数
-            params = {}
-            params['width'] = self.width_spin.value()
-            params['start_option'] = self.start_option_combo.currentText()
-            params['shift_days'] = self.shift_spin.value()
-            params['is_forward'] = self.direction_checkbox.isChecked()
-            params['n_days'] = self.n_days_spin.value()
-            params['n_days_max'] = self.n_days_max_spin.value()
-            params['range_value'] = self.range_value_edit.text()
-            params['continuous_abs_threshold'] = self.continuous_abs_threshold_edit.text()
-            params['op_days'] = self.op_days_edit.text()
-            params['inc_rate'] = self.inc_rate_edit.text()
-            params['after_gt_end_ratio'] = self.after_gt_end_edit.text()
-            params['after_gt_start_ratio'] = self.after_gt_prev_edit.text()
-            # 选股公式、数量、排序方式参数
-            params['expr'] = current_formula
-            params['select_count'] = select_count if select_count is not None else 10
-            params['sort_mode'] = sort_mode if sort_mode is not None else "最大值排序"
-            params['ops_change'] = self.ops_change_edit.text()
-            # 选股计算公式
-            params['formula_expr'] = formula_expr if formula_expr is not None else (self.formula_expr_edit.text() if hasattr(self, 'formula_expr_edit') else '')
-            # 获取end_date_start和end_date_end
-            if is_auto_analysis and hasattr(self, 'start_date_picker') and hasattr(self, 'end_date_picker'):
-                params['end_date_start'] = self.start_date_picker.date().toString("yyyy-MM-dd")
-                params['end_date_end'] = self.end_date_picker.date().toString("yyyy-MM-dd")
-            else:
-                params['end_date_start'] = end_date
-                params['end_date_end'] = end_date
-            if only_show_selected is not None:
-                params['only_show_selected'] = only_show_selected
-            result = self.base_param.on_calculate_clicked(params)
-            if result is None:
-                if show_main_output:
-                    self.result_text.setText("请先上传数据文件！")
-                    self.output_stack.setCurrentWidget(self.result_text)
-                self.last_end_date = end_date
-                self.last_formula_expr = current_formula
-                self.last_calculate_result = None
-                return None
+        # 每次都强制重新计算
+        # 收集所有参数
+        params = {}
+        params['width'] = self.width_spin.value()
+        params['start_option'] = self.start_option_combo.currentText()
+        params['shift_days'] = self.shift_spin.value()
+        params['is_forward'] = self.direction_checkbox.isChecked()
+        params['n_days'] = self.n_days_spin.value()
+        params['n_days_max'] = self.n_days_max_spin.value()
+        params['range_value'] = self.range_value_edit.text()
+        params['continuous_abs_threshold'] = self.continuous_abs_threshold_edit.text()
+        params['op_days'] = self.op_days_edit.text()
+        params['inc_rate'] = self.inc_rate_edit.text()
+        params['after_gt_end_ratio'] = self.after_gt_end_edit.text()
+        params['after_gt_start_ratio'] = self.after_gt_prev_edit.text()
+        # 选股公式、数量、排序方式参数
+        params['expr'] = current_formula
+        params['select_count'] = select_count if select_count is not None else 10
+        params['sort_mode'] = sort_mode if sort_mode is not None else "最大值排序"
+        params['ops_change'] = self.ops_change_edit.text()
+        # 选股计算公式
+        params['formula_expr'] = formula_expr if formula_expr is not None else (self.formula_expr_edit.text() if hasattr(self, 'formula_expr_edit') else '')
+        # 获取end_date_start和end_date_end
+        if is_auto_analysis and hasattr(self, 'start_date_picker') and hasattr(self, 'end_date_picker'):
+            params['end_date_start'] = self.start_date_picker.date().toString("yyyy-MM-dd")
+            params['end_date_end'] = self.end_date_picker.date().toString("yyyy-MM-dd")
+        else:
+            params['end_date_start'] = end_date
+            params['end_date_end'] = end_date
+        if only_show_selected is not None:
+            params['only_show_selected'] = only_show_selected
+        result = self.base_param.on_calculate_clicked(params)
+        if result is None:
+            if show_main_output:
+                self.result_text.setText("请先上传数据文件！")
+                self.output_stack.setCurrentWidget(self.result_text)
             self.last_end_date = end_date
             self.last_formula_expr = current_formula
-            self.last_calculate_result = result
+            self.last_calculate_result = None
+            return None
+        self.last_end_date = end_date
+        self.last_formula_expr = current_formula
+        self.last_calculate_result = result
         return self.last_calculate_result
 
     def on_auto_analysis_btn_clicked(self):
