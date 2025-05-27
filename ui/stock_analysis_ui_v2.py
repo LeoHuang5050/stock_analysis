@@ -3,7 +3,7 @@ from PyQt5.QtWidgets import (
     QApplication, QWidget, QLabel, QPushButton, QComboBox, QSpinBox, QDateEdit, QCheckBox, QGridLayout, QHBoxLayout, QVBoxLayout, QSizePolicy, QTextEdit, QLineEdit, QDialog, QMessageBox, QFrame, QStackedLayout, QTableWidget, QTableWidgetItem
 )
 from PyQt5.QtCore import Qt, QDate, QItemSelectionModel
-from PyQt5.QtGui import QKeySequence, QGuiApplication
+from PyQt5.QtGui import QKeySequence, QGuiApplication, QIntValidator
 from function.init import StockAnalysisInit
 from function.base_param import BaseParamHandler
 from function.stock_functions import show_continuous_sum_table
@@ -99,6 +99,7 @@ class StockAnalysisApp(QWidget):
         # 顶部参数输入区
         top_widget = QWidget()
         top_grid = QGridLayout(top_widget)
+        top_grid.setHorizontalSpacing(20)
         top_widget.setLayout(top_grid)
         col_widths = [170, 170, 170, 170, 170, 170]
 
@@ -108,67 +109,87 @@ class StockAnalysisApp(QWidget):
         self.date_label = QLabel("请选择结束日期：")
         self.date_picker = QDateEdit(calendarPopup=True)
         self.date_picker.setDisplayFormat("yyyy-MM-dd")
-        self.width_label = QLabel("请选择日期宽度：")
+
+        # 日期宽度控件
+        width_widget = QWidget()
+        width_layout = QHBoxLayout()
+        width_layout.setContentsMargins(0, 0, 0, 0)
+        width_layout.setSpacing(5)
+        width_layout.setAlignment(Qt.AlignLeft)
+        self.width_label = QLabel("请选择日期宽度")
         self.width_spin = QSpinBox()
         self.width_spin.setMinimum(1)
         self.width_spin.setMaximum(100)
         self.width_spin.setValue(0)
+        self.width_spin.setFixedWidth(30)
+        width_layout.addWidget(self.width_label)
+        width_layout.addWidget(self.width_spin)
+        width_widget.setLayout(width_layout)
 
-        top_grid.addWidget(self.label, 0, 0)
-        top_grid.addWidget(self.upload_btn, 0, 1)
-        top_grid.addWidget(self.date_label, 0, 2)
-        top_grid.addWidget(self.date_picker, 0, 3)
-        top_grid.addWidget(self.width_label, 0, 4)
-        top_grid.addWidget(self.width_spin, 0, 5)
-
-        # 第二行
-        self.start_option_label = QLabel("开始日期值选择：")
+        # 开始日期值选择控件
+        start_option_widget = QWidget()
+        start_option_layout = QHBoxLayout()
+        start_option_layout.setContentsMargins(0, 0, 0, 0)
+        start_option_layout.setSpacing(5)
+        start_option_layout.setAlignment(Qt.AlignLeft)
+        self.start_option_label = QLabel("开始日期值选择")
         self.start_option_combo = QComboBox()
         self.start_option_combo.addItems(["开始值", "最大值", "最小值", "接近值"])
-        self.shift_label = QLabel("前移天数：")
+        self.start_option_combo.setFixedWidth(80)
+        start_option_layout.addWidget(self.start_option_label)
+        start_option_layout.addWidget(self.start_option_combo)
+        start_option_widget.setLayout(start_option_layout)
+
+        # 前移天数控件
+        shift_widget = QWidget()
+        shift_layout = QHBoxLayout()
+        shift_layout.setContentsMargins(0, 0, 0, 0)
+        shift_layout.setSpacing(5)
+        shift_layout.setAlignment(Qt.AlignLeft)
+        self.shift_label = QLabel("前移天数")
         self.shift_spin = QSpinBox()
         self.shift_spin.setMinimum(-1)
         self.shift_spin.setMaximum(1)
         self.shift_spin.setValue(0)
-        self.direction_checkbox = QCheckBox("是否计算向前")
+        self.shift_spin.setFixedWidth(60)
+        shift_layout.addWidget(self.shift_label)
+        shift_layout.addWidget(self.shift_spin)
+        shift_widget.setLayout(shift_layout)
 
+        self.direction_checkbox = QCheckBox("是否计算向前")
+        self.range_label = QLabel("开始日到结束日之间最高价/最低价小于")
+        self.range_value_edit = QLineEdit()
+        self.abs_sum_label = QLabel("开始日到结束日之间连续累加值绝对值小于")
+        self.continuous_abs_threshold_edit = QLineEdit()
+
+        # 第一行全部控件
+        top_grid.addWidget(self.label, 0, 0)
+        top_grid.addWidget(self.upload_btn, 0, 1)
+        top_grid.addWidget(self.date_label, 0, 2)
+        top_grid.addWidget(self.date_picker, 0, 3)
+        top_grid.addWidget(width_widget, 0, 4)
+        top_grid.addWidget(start_option_widget, 0, 5)
+        top_grid.addWidget(shift_widget, 0, 6)
+        top_grid.addWidget(self.direction_checkbox, 0, 7)
+        top_grid.addWidget(self.range_label, 0, 8)
+        top_grid.addWidget(self.range_value_edit, 0, 9)
+        top_grid.addWidget(self.abs_sum_label, 0, 10)
+        top_grid.addWidget(self.continuous_abs_threshold_edit, 0, 11)
+
+        # 第二行
         # 新增"前1组结束地址前N日最大值"
+        self.n_days_label1 = QLabel("前N日最大值")
+        self.n_days_spin = QSpinBox()
+        self.n_days_spin.setMinimum(0)
+        self.n_days_spin.setMaximum(100)
+        self.n_days_spin.setValue(0)
+
         self.n_days_label2 = QLabel("前1组结束地址前N日最大值")
         self.n_days_max_spin = QSpinBox()
         self.n_days_max_spin.setMinimum(0)
         self.n_days_max_spin.setMaximum(100)
         self.n_days_max_spin.setValue(0)
 
-        top_grid.addWidget(self.start_option_label, 1, 0)
-        top_grid.addWidget(self.start_option_combo, 1, 1)
-        top_grid.addWidget(self.shift_label, 1, 2)
-        top_grid.addWidget(self.shift_spin, 1, 3)
-        top_grid.addWidget(self.direction_checkbox, 1, 4)
-        # 新增控件放在第二行第五列
-        top_grid.addWidget(self.n_days_label2, 1, 5)
-        top_grid.addWidget(self.n_days_max_spin, 1, 6)
-
-        # 第三行控件
-        self.n_days_label1 = QLabel("前N日最大值")
-        self.n_days_spin = QSpinBox()
-        self.n_days_spin.setMinimum(0)
-        self.n_days_spin.setMaximum(100)
-        self.n_days_spin.setValue(0)
-        self.range_label = QLabel("开始日到结束日之间最高价/最低价小于")
-        self.range_value_edit = QLineEdit()
-        self.abs_sum_label = QLabel("开始日到结束日之间连续累加值绝对值小于")
-        self.continuous_abs_threshold_edit = QLineEdit()
-        
-
-        top_grid.addWidget(self.n_days_label1, 2, 0)
-        top_grid.addWidget(self.n_days_spin, 2, 1)
-        top_grid.addWidget(self.range_label, 2, 2)
-        top_grid.addWidget(self.range_value_edit, 2, 3)
-        top_grid.addWidget(self.abs_sum_label, 2, 4)
-        top_grid.addWidget(self.continuous_abs_threshold_edit, 2, 5)
-        
-
-        # 第四行控件
         op_days_widget = QWidget()
         op_days_layout = QHBoxLayout()
         op_days_layout.setContentsMargins(0, 0, 0, 0)
@@ -176,9 +197,12 @@ class StockAnalysisApp(QWidget):
         op_days_layout.setAlignment(Qt.AlignLeft)
         self.op_days_label = QLabel("操作天数")
         self.op_days_edit = QLineEdit()
-        self.op_days_edit.setFixedWidth(30)
+        self.op_days_edit.setMaximumWidth(30)
+        self.op_days_edit.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.op_days_edit.setValidator(QIntValidator(0, 400))
         op_days_layout.addWidget(self.op_days_label)
         op_days_layout.addWidget(self.op_days_edit)
+        op_days_widget.setMaximumWidth(90)
         op_days_widget.setLayout(op_days_layout)
 
         # 递增率
@@ -195,6 +219,7 @@ class StockAnalysisApp(QWidget):
         inc_rate_layout.addWidget(self.inc_rate_edit)
         inc_rate_layout.addWidget(QLabel("%"))
         inc_rate_widget.setLayout(inc_rate_layout)
+        inc_rate_widget.setMaximumWidth(80)
 
         # 后值大于结束值比例
         self.after_gt_end_label = QLabel("后值大于结束值比例")
@@ -210,6 +235,7 @@ class StockAnalysisApp(QWidget):
         after_gt_end_layout.addWidget(self.after_gt_end_edit)
         after_gt_end_layout.addWidget(QLabel("%"))
         after_gt_end_widget.setLayout(after_gt_end_layout)
+        after_gt_end_widget.setMaximumWidth(150)
 
         # 后值大于前值比例
         self.after_gt_start_label = QLabel("后值大于前值比例")
@@ -225,11 +251,12 @@ class StockAnalysisApp(QWidget):
         after_gt_prev_layout.addWidget(self.after_gt_prev_edit)
         after_gt_prev_layout.addWidget(QLabel("%"))
         after_gt_prev_widget.setLayout(after_gt_prev_layout)
+        after_gt_prev_widget.setMaximumWidth(130)
 
         # 操作涨幅
         self.ops_change_label = QLabel("操作涨幅")
         self.ops_change_edit = QLineEdit()
-        self.ops_change_edit.setFixedWidth(60)
+        self.ops_change_edit.setMaximumWidth(20)
         ops_change_widget = QWidget()
         ops_change_layout = QHBoxLayout()
         ops_change_layout.setContentsMargins(0, 0, 0, 0)
@@ -239,6 +266,7 @@ class StockAnalysisApp(QWidget):
         ops_change_layout.addWidget(self.ops_change_edit)
         ops_change_layout.addWidget(QLabel("%"))
         ops_change_widget.setLayout(ops_change_layout)
+        ops_change_widget.setMaximumWidth(100)
 
         # 操作值
         expr_widget = QWidget()
@@ -251,6 +279,28 @@ class StockAnalysisApp(QWidget):
         self.expr_edit.setPlaceholderText("点击输入/编辑组合表达式")
         expr_layout.addWidget(self.expr_edit)
         expr_widget.setLayout(expr_layout)
+        
+        # 控件位置布局
+        top_grid.addWidget(self.n_days_label1, 1, 0)
+        top_grid.addWidget(self.n_days_spin, 1, 1)
+
+        top_grid.addWidget(self.n_days_label2, 1, 2)
+        top_grid.addWidget(self.n_days_max_spin, 1, 3)
+
+        top_grid.addWidget(op_days_widget, 1, 4)
+        top_grid.addWidget(inc_rate_widget, 1, 5)
+        top_grid.addWidget(after_gt_end_widget, 1, 6)
+        top_grid.addWidget(after_gt_prev_widget, 1, 7)
+        top_grid.addWidget(expr_widget, 1, 8)
+        top_grid.addWidget(ops_change_widget, 1, 9)
+
+        # 第三行控件
+        
+
+        
+
+        # 第四行控件
+        
 
         # 查询区控件
         self.query_input = QLineEdit()
@@ -268,12 +318,7 @@ class StockAnalysisApp(QWidget):
         # top_grid.addWidget(query_widget, 3, 8)
 
         # 添加到第四行
-        top_grid.addWidget(op_days_widget, 3, 0)
-        top_grid.addWidget(inc_rate_widget, 3, 1)
-        top_grid.addWidget(after_gt_end_widget, 3, 2)
-        top_grid.addWidget(after_gt_prev_widget, 3, 3)
-        top_grid.addWidget(expr_widget, 3, 4)
-        top_grid.addWidget(ops_change_widget, 3, 5)
+        
 
         # 输出区：用QStackedLayout管理result_text和表格
         self.output_area = QWidget()
@@ -306,10 +351,20 @@ class StockAnalysisApp(QWidget):
         main_layout.addLayout(btn_layout)
 
         # 设置左表格所有参数列都不拉伸
-        for i in range(7):  # 假设有7列（0~6），如有更多请调整
+        for i in range(15):  # 控件列
             top_grid.setColumnStretch(i, 0)
-        # 让第8列（右侧空白）拉伸
-        top_grid.setColumnStretch(7, 1)
+        top_grid.setColumnStretch(15, 1)  # 最右侧空白列拉伸
+
+        # 设置输入控件不随窗口拉伸
+        for widget in [
+            self.range_value_edit, self.continuous_abs_threshold_edit, self.query_input,
+            self.op_days_edit, self.inc_rate_edit, self.after_gt_end_edit, self.after_gt_prev_edit, self.ops_change_edit,
+            self.expr_edit, self.n_days_spin, self.n_days_max_spin, self.width_spin, self.shift_spin, self.start_option_combo
+        ]:
+            if hasattr(widget, 'setSizePolicy'):
+                widget.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+            if hasattr(widget, 'setMaximumWidth'):
+                widget.setMaximumWidth(120)
 
     def connect_signals(self):
         self.upload_btn.clicked.connect(self.init.upload_file)
