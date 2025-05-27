@@ -47,10 +47,7 @@ class ExprLineEdit(QLineEdit):
             try:
                 compile(expr_text, '<string>', 'exec')
                 self.setText(expr_text)
-                # 同步到主界面 formula_expr_edit
-                main_window = self.window()
-                if hasattr(main_window, 'formula_expr_edit') and main_window.formula_expr_edit is not self:
-                    main_window.formula_expr_edit.setText(expr_text)
+                # 不再同步到主界面 formula_expr_edit，避免操作值公式和选股公式混淆
                 dialog.accept()
             except SyntaxError as e:
                 QMessageBox.warning(dialog, "语法错误", f"表达式存在语法错误，请检查！\n\n{e}")
