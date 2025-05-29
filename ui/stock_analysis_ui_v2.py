@@ -600,6 +600,125 @@ class StockAnalysisApp(QWidget):
         self.last_calculate_result = result
         return self.last_calculate_result
 
+    def create_analysis_table(self, valid_items, start_date, end_date):
+        row_count = len(valid_items)
+        table = CopyableTableWidget(row_count, 6, self.analysis_widget)
+        table.setHorizontalHeaderLabels([
+            "结束日期开始日", "结束日期结束日", "结束日期", "操作天数", "持有涨跌幅", "日均涨跌幅"
+        ])
+        table.setSelectionBehavior(QTableWidget.SelectItems)
+        table.setSelectionMode(QTableWidget.ExtendedSelection)
+        table.setEditTriggers(QTableWidget.NoEditTriggers)
+        def safe_val(val):
+            if val is None:
+                return ''
+            if isinstance(val, float) and math.isnan(val):
+                return ''
+            if isinstance(val, str) and val.strip().lower().startswith('nan'):
+                return ''
+            return val
+        mean_hold_days_list = []
+        mean_ops_change_list = []
+        mean_incre_rate_list = []
+        for row_idx, (date_key, stocks) in enumerate(valid_items):
+            if row_idx == 0:
+                table.setItem(row_idx, 0, QTableWidgetItem(start_date))
+                table.setItem(row_idx, 1, QTableWidgetItem(end_date))
+            else:
+                table.setItem(row_idx, 0, QTableWidgetItem(""))
+                table.setItem(row_idx, 1, QTableWidgetItem(""))
+            table.setItem(row_idx, 2, QTableWidgetItem(date_key))
+            hold_days_list = []
+            ops_change_list = []
+            ops_incre_rate_list = []
+            for stock in stocks:
+                try:
+                    v = safe_val(stock.get('hold_days', ''))
+                    if v != '':
+                        v = float(v)
+                        if not math.isnan(v):
+                            hold_days_list.append(v)
+                except Exception:
+                    pass
+                try:
+                    v = safe_val(stock.get('ops_change', ''))
+                    if v != '':
+                        v = float(v)
+                        if not math.isnan(v):
+                            ops_change_list.append(v)
+                except Exception:
+                    pass
+                try:
+                    v = safe_val(stock.get('ops_incre_rate', ''))
+                    if v != '':
+                        v = float(v)
+                        if not math.isnan(v):
+                            ops_incre_rate_list.append(v)
+                except Exception:
+                    pass
+            def safe_mean(lst):
+                return round(sum(lst) / len(lst), 2) if lst else ''
+            mean_hold_days = safe_mean(hold_days_list)
+            mean_ops_change = safe_mean(ops_change_list)
+            mean_ops_incre_rate = safe_mean(ops_incre_rate_list)
+            min_incre_rate = ''
+            if mean_hold_days and mean_hold_days != 0 and mean_ops_change != '':
+                calc1 = mean_ops_incre_rate if mean_ops_incre_rate != '' else float('inf')
+                calc2 = mean_ops_change / mean_hold_days if mean_hold_days != 0 else float('inf')
+                min_incre_rate = round(min(calc1, calc2), 2)
+            table.setItem(row_idx, 3, QTableWidgetItem(str(mean_hold_days)))
+            table.setItem(row_idx, 4, QTableWidgetItem(f"{mean_ops_change}%" if mean_ops_change != '' else ''))
+            table.setItem(row_idx, 5, QTableWidgetItem(f"{min_incre_rate}%" if min_incre_rate != '' else ''))
+            if mean_hold_days != '':
+                mean_hold_days_list.append(mean_hold_days)
+            if mean_ops_change != '':
+                mean_ops_change_list.append(mean_ops_change)
+            if min_incre_rate != '':
+                mean_incre_rate_list.append(min_incre_rate)
+        def safe_mean2(lst):
+            return round(sum(lst) / len(lst), 2) if lst else ''
+        mean_of_mean_hold_days = safe_mean2(mean_hold_days_list)
+        mean_of_mean_ops_change = safe_mean2(mean_ops_change_list)
+        mean_of_mean_incre_rate = safe_mean2(mean_incre_rate_list)
+        last_row = table.rowCount()
+        table.insertRow(last_row)
+        table.insertRow(last_row+1)
+        table.setItem(last_row+1, 3, QTableWidgetItem(str(mean_of_mean_hold_days)))
+        table.setItem(last_row+1, 4, QTableWidgetItem(f"{mean_of_mean_ops_change}%" if mean_of_mean_ops_change != '' else ''))
+        table.setItem(last_row+1, 5, QTableWidgetItem(f"{mean_of_mean_incre_rate}%" if mean_of_mean_incre_rate != '' else ''))
+        table.resizeColumnsToContents()
+        table.horizontalHeader().setFixedHeight(40)
+        table.horizontalHeader().setStyleSheet("font-size: 12px;")
+        return table
+
+    def on_generate_analysis(self):
+        from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem
+        formula = getattr(self, 'last_formula_expr', '')
+        if formula is None:
+            formula = ''
+        formula = formula.strip()
+        if not formula:
+            self.analysis_result_text.setText("请先设置选股公式")
+            return
+        start_date = self.start_date_picker.date().toString("yyyy-MM-dd")
+        end_date = self.end_date_picker.date().toString("yyyy-MM-dd")
+        result = self.get_or_calculate_result(formula_expr=formula, show_main_output=False, only_show_selected=True, is_auto_analysis=True)
+        merged_results = result.get('dates', {}) if result else {}
+        valid_items = [(date_key, stocks) for date_key, stocks in merged_results.items() if stocks]
+        # 缓存数据
+        self.analysis_table_cache_data = {
+            "valid_items": valid_items,
+            "start_date": start_date,
+            "end_date": end_date
+        }
+        # 清理旧内容并显示新表格
+        for i in reversed(range(self.analysis_result_layout.count())):
+            widget = self.analysis_result_layout.itemAt(i).widget()
+            if widget is not None:
+                widget.setParent(None)
+        table = self.create_analysis_table(valid_items, start_date, end_date)
+        self.analysis_result_layout.addWidget(table)
+
     def on_auto_analysis_btn_clicked(self):
         self.clear_result_area()
         # 创建自动分析子界面整体widget
@@ -649,6 +768,20 @@ class StockAnalysisApp(QWidget):
         self.end_date_picker.dateChanged.connect(self.on_analysis_date_changed)
         self.width_spin.valueChanged.connect(self.on_analysis_date_changed)
         self.on_analysis_date_changed()
+        # 切换到自动分析tab
+        self.output_stack.setCurrentWidget(self.analysis_widget)
+        # 清理内容区
+        for i in reversed(range(self.analysis_result_layout.count())):
+            widget = self.analysis_result_layout.itemAt(i).widget()
+            if widget is not None:
+                widget.setParent(None)
+        # 展示缓存表格
+        if hasattr(self, 'analysis_table_cache_data') and self.analysis_table_cache_data is not None:
+            data = self.analysis_table_cache_data
+            table = self.create_analysis_table(data["valid_items"], data["start_date"], data["end_date"])
+            self.analysis_result_layout.addWidget(table)
+        else:
+            self.analysis_result_layout.addWidget(self.analysis_result_text)
 
     def on_analysis_date_changed(self):
         if not hasattr(self, 'end_date_picker') or self.end_date_picker is None:
@@ -683,122 +816,6 @@ class StockAnalysisApp(QWidget):
         cur_start_date = self.start_date_picker.date().toString("yyyy-MM-dd")
         if cur_start_date not in workdays[min_start_idx:max_start_idx+1]:
             self.start_date_picker.setDate(max_start_date)
-
-    def on_generate_analysis(self):
-        from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem
-        formula = getattr(self, 'last_formula_expr', '')
-        if formula is None:
-            formula = ''
-        formula = formula.strip()
-        if not formula:
-            self.analysis_result_text.setText("请先设置选股公式")
-            return
-        start_date = self.start_date_picker.date().toString("yyyy-MM-dd")
-        end_date = self.end_date_picker.date().toString("yyyy-MM-dd")
-        result = self.get_or_calculate_result(formula_expr=formula, show_main_output=False, only_show_selected=True, is_auto_analysis=True)
-        merged_results = result.get('dates', {}) if result else {}
-        # 只统计有数据的日期
-        valid_items = [(date_key, stocks) for date_key, stocks in merged_results.items() if stocks]
-        row_count = len(valid_items)
-        table = CopyableTableWidget(row_count, 6, self.analysis_widget)
-        table.setHorizontalHeaderLabels([
-            "结束日期开始日", "结束日期结束日", "结束日期", "操作天数", "持有涨跌幅", "日均涨跌幅"
-        ])
-        table.setSelectionBehavior(QTableWidget.SelectItems)
-        table.setSelectionMode(QTableWidget.ExtendedSelection)
-        table.setEditTriggers(QTableWidget.NoEditTriggers)
-        def safe_val(val):
-            if val is None:
-                return ''
-            if isinstance(val, float) and math.isnan(val):
-                return ''
-            if isinstance(val, str) and val.strip().lower().startswith('nan'):
-                return ''
-            return val
-        mean_hold_days_list = []
-        mean_ops_change_list = []
-        mean_incre_rate_list = []
-        for row_idx, (date_key, stocks) in enumerate(valid_items):
-            # 只在第一行输出开始日和结束日
-            if row_idx == 0:
-                table.setItem(row_idx, 0, QTableWidgetItem(start_date))
-                table.setItem(row_idx, 1, QTableWidgetItem(end_date))
-            else:
-                table.setItem(row_idx, 0, QTableWidgetItem(""))
-                table.setItem(row_idx, 1, QTableWidgetItem(""))
-            # 结束日期
-            table.setItem(row_idx, 2, QTableWidgetItem(date_key))
-            # 统计均值
-            hold_days_list = []
-            ops_change_list = []
-            ops_incre_rate_list = []
-            for stock in stocks:
-                try:
-                    v = safe_val(stock.get('hold_days', ''))
-                    if v != '':
-                        v = float(v)
-                        if not math.isnan(v):
-                            hold_days_list.append(v)
-                except Exception:
-                    pass
-                try:
-                    v = safe_val(stock.get('ops_change', ''))
-                    if v != '':
-                        v = float(v)
-                        if not math.isnan(v):
-                            ops_change_list.append(v)
-                except Exception:
-                    pass
-                try:
-                    v = safe_val(stock.get('ops_incre_rate', ''))
-                    if v != '':
-                        v = float(v)
-                        if not math.isnan(v):
-                            ops_incre_rate_list.append(v)
-                except Exception:
-                    pass
-            def safe_mean(lst):
-                return round(sum(lst) / len(lst), 2) if lst else ''
-            mean_hold_days = safe_mean(hold_days_list)
-            mean_ops_change = safe_mean(ops_change_list)
-            mean_ops_incre_rate = safe_mean(ops_incre_rate_list)
-            # 计算日均涨跌幅列的值
-            min_incre_rate = ''
-            if mean_hold_days and mean_hold_days != 0 and mean_ops_change != '':
-                calc1 = mean_ops_incre_rate if mean_ops_incre_rate != '' else float('inf')
-                calc2 = mean_ops_change / mean_hold_days if mean_hold_days != 0 else float('inf')
-                min_incre_rate = round(min(calc1, calc2), 2)
-            table.setItem(row_idx, 3, QTableWidgetItem(str(mean_hold_days)))
-            table.setItem(row_idx, 4, QTableWidgetItem(f"{mean_ops_change}%" if mean_ops_change != '' else ''))
-            table.setItem(row_idx, 5, QTableWidgetItem(f"{min_incre_rate}%" if min_incre_rate != '' else ''))
-            if mean_hold_days != '':
-                mean_hold_days_list.append(mean_hold_days)
-            if mean_ops_change != '':
-                mean_ops_change_list.append(mean_ops_change)
-            if min_incre_rate != '':
-                mean_incre_rate_list.append(min_incre_rate)
-        # 均值的均值
-        def safe_mean2(lst):
-            return round(sum(lst) / len(lst), 2) if lst else ''
-        mean_of_mean_hold_days = safe_mean2(mean_hold_days_list)
-        mean_of_mean_ops_change = safe_mean2(mean_ops_change_list)
-        mean_of_mean_incre_rate = safe_mean2(mean_incre_rate_list)
-        # 插入空行和均值的均值行
-        last_row = table.rowCount()
-        table.insertRow(last_row)
-        table.insertRow(last_row+1)
-        table.setItem(last_row+1, 3, QTableWidgetItem(str(mean_of_mean_hold_days)))
-        table.setItem(last_row+1, 4, QTableWidgetItem(f"{mean_of_mean_ops_change}%" if mean_of_mean_ops_change != '' else ''))
-        table.setItem(last_row+1, 5, QTableWidgetItem(f"{mean_of_mean_incre_rate}%" if mean_of_mean_incre_rate != '' else ''))
-        table.resizeColumnsToContents()
-        table.horizontalHeader().setFixedHeight(40)
-        table.horizontalHeader().setStyleSheet("font-size: 12px;")
-        # 清理旧内容并显示新表格
-        for i in reversed(range(self.analysis_result_layout.count())):
-            widget = self.analysis_result_layout.itemAt(i).widget()
-            if widget is not None:
-                widget.setParent(None)
-        self.analysis_result_layout.addWidget(table)
 
     def on_op_stat_btn_clicked(self):
         self.clear_result_area()
@@ -836,8 +853,10 @@ class StockAnalysisApp(QWidget):
         end_dates = [d for d, stocks in merged_results.items() if stocks]
         blocks = [end_dates[i:i+group_size] for i in range(0, len(end_dates), group_size)]
         block_max_counts = [max((len(merged_results[d]) for d in block), default=0) for block in blocks]
-        total_rows = sum([n+1 for n in block_max_counts])  # 每块+1是表头
-        col_count = group_size * 3
+        # 修正：多分配一块的最大行数，彻底避免最后一块丢行
+        total_rows = sum([n+1 for n in block_max_counts]) + (max(block_max_counts) if block_max_counts else 0)
+        max_block_len = max(len(block) for block in blocks) if blocks else 0
+        col_count = max_block_len * 3
         table = CopyableTableWidget(total_rows, col_count, self.op_stat_widget)
         row_offset = 0
         for block_idx, block in enumerate(blocks):
@@ -867,7 +886,7 @@ class StockAnalysisApp(QWidget):
                     else:
                         table.setItem(row_offset+row+1, col_base+1, QTableWidgetItem(""))
                         table.setItem(row_offset+row+1, col_base+2, QTableWidgetItem(""))
-            row_offset += max_count + 2  # 原来是 max_count + 1，现在多加一行空行
+            row_offset += max_count + 2
         table.resizeColumnsToContents()
         table.horizontalHeader().setFixedHeight(40)
         table.horizontalHeader().setStyleSheet("font-size: 12px;")
