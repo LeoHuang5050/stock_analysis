@@ -3,8 +3,8 @@ import pandas as pd
 import chinese_calendar
 from datetime import datetime, timedelta
 from decimal import Decimal
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTextEdit, QLineEdit, QSpinBox, QComboBox, QPushButton, QTableWidget, QTableWidgetItem, QSizePolicy, QDialog, QTabWidget, QMessageBox, QGridLayout, QDateEdit
-from PyQt5.QtCore import QDate
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTextEdit, QLineEdit, QSpinBox, QComboBox, QPushButton, QTableWidget, QTableWidgetItem, QSizePolicy, QDialog, QTabWidget, QMessageBox, QGridLayout, QDateEdit, QInputDialog, QAbstractItemView
+from PyQt5.QtCore import QDate, QObject, QEvent, Qt
 import time
 
 import math
@@ -40,6 +40,36 @@ forward_min_param_headers = [
     "向前最小有效累加值数组第一块绝对值之和", "向前最小有效累加值数组第二块绝对值之和",
     "向前最小有效累加值数组第三块绝对值之和", "向前最小有效累加值数组第四块绝对值之和"
 ]
+
+# 表格搜索事件过滤器
+class TableSearchFilter(QObject):
+    def __init__(self, table):
+        super().__init__()
+        self.table = table
+
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.KeyPress and event.modifiers() == Qt.ControlModifier and event.key() == Qt.Key_F:
+            self.show_search_dialog()
+            return True
+        return super().eventFilter(obj, event)
+
+    def show_search_dialog(self):
+        text, ok = QInputDialog.getText(self.table, "搜索", "请输入要查找的内容：")
+        if ok and text:
+            self.search_table(text)
+
+    def search_table(self, text):
+        found = False
+        for row in range(self.table.rowCount()):
+            for col in range(self.table.columnCount()):
+                item = self.table.item(row, col)
+                if item and text in item.text():
+                    self.table.setCurrentCell(row, col)
+                    self.table.scrollToItem(item, QAbstractItemView.PositionAtCenter)
+                    found = True
+                    return
+        if not found:
+            QMessageBox.information(self.table, "提示", "未找到相关内容。")
 
 def show_continuous_sum_table(parent, all_results, price_data, as_widget=False):
     try:
@@ -90,6 +120,12 @@ def show_continuous_sum_table(parent, all_results, price_data, as_widget=False):
         table2.setHorizontalHeaderLabels(headers2)
         table3.setHorizontalHeaderLabels(headers3)
         table4.setHorizontalHeaderLabels(headers4)
+
+        # 安装Ctrl+F搜索事件过滤器并保存引用，防止被回收
+        for idx, t in enumerate([table1, table2, table3, table4]):
+            f = TableSearchFilter(t)
+            t.installEventFilter(f)
+            setattr(tab_widget, f'search_filter_{idx+1}', f)
 
         def update_tables(stocks_data):
             # 排序
@@ -483,6 +519,10 @@ def show_params_table(parent, all_results, end_date=None, n_days=0, n_days_max=0
     ]
     table = QTableWidget(len(stocks_data), len(headers))
     table.setHorizontalHeaderLabels(headers)
+
+    # 安装Ctrl+F搜索事件过滤器并保存引用，防止被回收
+    table.search_filter = TableSearchFilter(table)
+    table.installEventFilter(table.search_filter)
 
     def get_val(val):
         if isinstance(val, (list, tuple)) and len(val) > 1:
