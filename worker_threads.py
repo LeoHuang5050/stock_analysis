@@ -899,7 +899,7 @@ class CalculateThread(QThread):
         price_data_np = self.price_data.iloc[:, 2:].values.astype(np.float64)
         diff_data_np = self.diff_data.values.astype(np.float64)
         num_stocks = price_data_np.shape[0]
-        n_proc = cpu_count()
+        n_proc = 16
         # n_proc = 1
         stock_idx_arr = np.arange(num_stocks, dtype=np.int32)
         stock_idx_ranges = split_indices(num_stocks, n_proc)
@@ -957,6 +957,7 @@ class CalculateThread(QThread):
                 for end_date, stocks in process_results.items():
                     if end_date in merged_results:
                         merged_results[end_date].extend(stocks)
+        
         t1 = time.time()
         print(f"calculate_batch_{n_proc}_cores 总耗时: {t1 - t0:.4f}秒")
         if only_show_selected:
