@@ -11,6 +11,31 @@ import math
 import concurrent.futures
 from multiprocessing import cpu_count
 
+EXPR_PLACEHOLDER_TEXT = (
+    "需要严格按照python表达式规则填入。\n"
+    "规则提醒：\n"
+    "1. 每个条件、赋值、if/else等都要符合python语法缩进（建议用4个空格）。\n"
+    "2. 赋值用=，判断用==，不等于用!=。\n"
+    "3. 逻辑与用and，或用or，非用not。\n"
+    "4. 代码块必须用冒号结尾（如if/else/for/while等）。\n"
+    "5. result变量必须在表达式中赋值，作为最终输出。\n"
+    "6. 支持多行表达式，注意缩进和语法。\n"
+    "示例:\n"
+    "if INC != 0:\n    result = INC\nelse:\n    result = 0\n"
+)
+
+FORMULAR_EXPR_PLACEHOLDER_TEXT = (
+    "需要严格按照python表达式规则填入。\n"
+    "规则提醒：\n"
+    "1. 每个条件、赋值、if/else等都要符合python语法缩进（建议用4个空格）。\n"
+    "2. 赋值用=，判断用==，不等于用!=。\n"
+    "3. 逻辑与用and，或用or，非用not。\n"
+    "4. 代码块必须用冒号结尾（如if/else/for/while等）。\n"
+    "5. result变量必须在表达式中赋值，作为最终输出。\n"
+    "6. 支持多行表达式，注意缩进和语法。\n"
+    "示例:\n"
+    "if (\n    abs(CEV) < 3 and\n    abs(CEPV) < 3 and\n    abs(CEPPV) < 3000 and\n    abs(NDAYMAX) < 3000 and\n    abs(CSV) > 150 and\n    abs(CEPV) > 0 and\n    abs(CEPPV) > 0 and\n    CASFH > 3 * CASSH\n):\n    result = VNS + VPS\nelse:\n    result = 0\n"
+)
 # 连续累加值参数表头
 param_headers = [
     "连续累加值长度", "连续累加值开始值", "连续累加值开始后1位值", "连续累加值开始后2位值",
@@ -110,27 +135,24 @@ def show_continuous_sum_table(parent, all_results, price_data, as_widget=False):
         headers2 = ['代码', '名称'] + [f'有效累加值{i+1}' for i in range(max_valid_len)] + valid_param_headers
         headers3 = ['代码', '名称', '向前最大日期'] + [f'向前最大连续累加值{i+1}' for i in range(max_forward_len)] + [h for h in forward_param_headers if h != "向前最大日期"]
         headers4 = ['代码', '名称', '向前最小日期'] + [f'向前最小连续累加值{i+1}' for i in range(max_forward_min_len)] + [h for h in forward_min_param_headers if h != "向前最小日期"]
-
-        table1 = QTableWidget(len(stocks_data), len(headers1))
-        table2 = QTableWidget(len(stocks_data), len(headers2))
+        # 合并表头：连续累加值 + 空列 + 有效累加值
+        merged_headers = headers1 + [''] + headers2[2:]
+        table1 = QTableWidget(len(stocks_data), len(merged_headers))
         table3 = QTableWidget(len(stocks_data), len(headers3))
         table4 = QTableWidget(len(stocks_data), len(headers4))
 
-        table1.setHorizontalHeaderLabels(headers1)
-        table2.setHorizontalHeaderLabels(headers2)
+        table1.setHorizontalHeaderLabels(merged_headers)
         table3.setHorizontalHeaderLabels(headers3)
         table4.setHorizontalHeaderLabels(headers4)
 
         # 安装Ctrl+F搜索事件过滤器并保存引用，防止被回收
-        for idx, t in enumerate([table1, table2, table3, table4]):
+        for idx, t in enumerate([table1, table3, table4]):
             f = TableSearchFilter(t)
             t.installEventFilter(f)
             setattr(tab_widget, f'search_filter_{idx+1}', f)
 
         def update_tables(stocks_data):
-            # 排序
             stocks_data = sorted(stocks_data, key=lambda row: row.get('stock_idx', 0))
-            # table1
             table1.setRowCount(len(stocks_data))
             for row_idx, row in enumerate(stocks_data):
                 stock_idx = row.get('stock_idx', 0)
@@ -161,19 +183,13 @@ def show_continuous_sum_table(parent, all_results, price_data, as_widget=False):
                 ]
                 for i, val in enumerate(param_values):
                     table1.setItem(row_idx, 4 + max_len + i, QTableWidgetItem(str(val)))
-
-            # table2
-            table2.setRowCount(len(stocks_data))
-            for row_idx, row in enumerate(stocks_data):
-                stock_idx = row.get('stock_idx', 0)
-                code = price_data.iloc[stock_idx, 0]
-                name = price_data.iloc[stock_idx, 1]
-                table2.setItem(row_idx, 0, QTableWidgetItem(str(code)))
-                table2.setItem(row_idx, 1, QTableWidgetItem(str(name)))
+                # 空一列
+                table1.setItem(row_idx, 4 + max_len + len(param_values), QTableWidgetItem(""))
+                # 有效累加值内容
                 valid_arr = row.get('valid_sum_arr', [])
                 for col_idx in range(max_valid_len):
                     val = valid_arr[col_idx] if col_idx < len(valid_arr) else ""
-                    table2.setItem(row_idx, 2 + col_idx, QTableWidgetItem(str(val)))
+                    table1.setItem(row_idx, 4 + max_len + len(param_values) + 1 + col_idx, QTableWidgetItem(str(val)))
                 valid_param_values = [
                     row.get('valid_sum_len', ''),
                     row.get('valid_pos_sum', ''),
@@ -186,7 +202,7 @@ def show_continuous_sum_table(parent, all_results, price_data, as_widget=False):
                     row.get('valid_abs_sum_block4', ''),
                 ]
                 for i, val in enumerate(valid_param_values):
-                    table2.setItem(row_idx, 2 + max_valid_len + i, QTableWidgetItem(str(val)))
+                    table1.setItem(row_idx, 4 + max_len + len(param_values) + 1 + max_valid_len + i, QTableWidgetItem(str(val)))
 
             # table3
             table3.setRowCount(len(stocks_data))
@@ -246,12 +262,11 @@ def show_continuous_sum_table(parent, all_results, price_data, as_widget=False):
 
             # 设置表格列宽自适应
             table1.resizeColumnsToContents()
-            table2.resizeColumnsToContents()
             table3.resizeColumnsToContents()
             table4.resizeColumnsToContents()
 
             # 设置表头样式
-            for table in [table1, table2, table3, table4]:
+            for table in [table1, table3, table4]:
                 table.horizontalHeader().setFixedHeight(50)
                 table.horizontalHeader().setStyleSheet("font-size: 12px;")
 
@@ -259,7 +274,6 @@ def show_continuous_sum_table(parent, all_results, price_data, as_widget=False):
         update_tables(stocks_data)
 
         tab_widget.addTab(table1, f"连续累加值 ({end_date})")
-        tab_widget.addTab(table2, f"有效累加值 ({end_date})")
         tab_widget.addTab(table3, f"向前最大连续累加值 ({end_date})")
         tab_widget.addTab(table4, f"向前最小连续累加值 ({end_date})")
 
@@ -581,7 +595,7 @@ def show_params_table(parent, all_results, end_date=None, n_days=0, n_days_max=0
             table.setItem(row_idx, 16, QTableWidgetItem(str(get_val(row.get('increment_value', '')))))
             table.setItem(row_idx, 17, QTableWidgetItem(str(get_val(row.get('after_gt_end_value', '')))))
             table.setItem(row_idx, 18, QTableWidgetItem(str(get_val(row.get('after_gt_start_value', '')))))
-            table.setItem(row_idx, 19, QTableWidgetItem(str(row.get('ops_value', ''))))
+            table.setItem(row_idx, 19, QTableWidgetItem(str(get_val(row.get('increment_value', '')))))
             table.setItem(row_idx, 20, QTableWidgetItem(str(row.get('hold_days', ''))))
             table.setItem(row_idx, 21, QTableWidgetItem(get_percent(row.get('ops_change', ''))))
             table.setItem(row_idx, 22, QTableWidgetItem(str(get_val(row.get('adjust_days', '')))))
@@ -612,58 +626,20 @@ def show_params_table(parent, all_results, end_date=None, n_days=0, n_days_max=0
 class FormulaExprEdit(QTextEdit):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.setReadOnly(True)
-        self.setPlaceholderText("点击输入/编辑选股公式")
-        self.setFixedSize(200, 25)  # 宽200，高25
-
-    def mousePressEvent(self, event):
-        dialog = QDialog(self)
-        dialog.setWindowTitle("编辑选股公式")
-        dialog.resize(1000, 750)  # 设置弹窗大小
-        layout = QVBoxLayout(dialog)
-        tip_label = QLabel(
-            "示例:\n"
-            "if (\n"
-            "    abs(CEV) < 3 and\n"
-            "    abs(CEPV) < 3 and\n"
-            "    abs(CEPPV) < 3000 and\n"
-            "    abs(NDAYMAX) < 3000 and\n"
-            "    abs(CSV) > 150 and\n"
-            "    abs(CEPV) > 0 and\n"
-            "    abs(CEPPV) > 0 and\n"
-            "    CASFH > 3 * CASSH\n"
-            "):\n"
-            "    result = VNS + VPS\n"
-            "else:\n"
-            "    result = 0\n"
-            "\n"
-        )
-        tip_label.setStyleSheet("color:gray; background-color: #f0f0f0; border-radius: 4px;")
-        tip_label.setWordWrap(True)
-        layout.addWidget(tip_label)
-        text_edit = QTextEdit()
-        text_edit.setPlainText(self.toPlainText())
-        layout.addWidget(text_edit)
-        btn_ok = QPushButton("确定")
-        layout.addWidget(btn_ok)
-        def on_ok():
-            expr_text = text_edit.toPlainText()
-            try:
-                compile(expr_text, '<string>', 'exec')
-                self.setText(expr_text)
-                # --- 新增：同步到主界面参数 ---
-                main_window = self.parent()
-                # 递归向上找主窗口
-                while main_window and not hasattr(main_window, 'last_formula_expr'):
-                    main_window = main_window.parent()
-                if main_window and hasattr(main_window, 'last_formula_expr'):
-                    main_window.last_formula_expr = expr_text.strip()
-                dialog.accept()
-            except SyntaxError as e:
-                QMessageBox.warning(dialog, "语法错误", f"表达式存在语法错误，请检查！\n\n{e}")
-        btn_ok.clicked.connect(on_ok)
-        dialog.exec_()
-
+        self.setReadOnly(False)
+        self.setPlaceholderText(FORMULAR_EXPR_PLACEHOLDER_TEXT)
+        self.setMinimumHeight(25)
+        self.setMaximumHeight(120)
+        self.setFixedWidth(400)  # 设置宽度为400px
+        def adjust_formula_height():
+            doc = self.document()
+            line_count = doc.blockCount()
+            font_metrics = self.fontMetrics()
+            height = font_metrics.lineSpacing() * line_count + 12
+            height = max(25, min(height, 120))
+            self.setFixedHeight(height)
+        self.textChanged.connect(adjust_formula_height)
+        adjust_formula_height()
 
 def show_formula_select_table(parent, all_results=None, as_widget=True):
     widget = QWidget(parent)
@@ -676,6 +652,23 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
     formula_label.setStyleSheet("border: none;")
     top_layout.addWidget(formula_label)
     formula_input = FormulaExprEdit()
+    # 仅在内容为空时设置默认值，避免覆盖用户输入
+    if not formula_input.toPlainText().strip():
+        formula_input.setPlainText(
+            "if (\n"
+            "    abs(CEV) < 3 and\n"
+            "    abs(CEPV) < 3 and\n"
+            "    abs(CEPPV) < 3000 and\n"
+            "    abs(NDAYMAX) < 3000 and\n"
+            "    abs(CSV) > 150 and\n"
+            "    abs(CEPV) > 0 and\n"
+            "    abs(CEPPV) > 0 and\n"
+            "    CASFH > 3 * CASSH\n"
+            "):\n"
+            "    result = VNS + VPS\n"
+            "else:\n"
+            "    result = 0"
+        )
     top_layout.addWidget(formula_input, 3)
     # 公式输入变更时同步到主界面变量
     def on_formula_changed():
@@ -688,10 +681,28 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
     select_count_spin.setMinimum(1)
     select_count_spin.setMaximum(100)
     select_count_spin.setValue(10)
+    select_count_spin.setFixedWidth(80)  # 设置宽度为80px
     sort_label = QLabel("排序方式:")
     sort_label.setStyleSheet("border: none;")  # 去掉边框
     sort_combo = QComboBox()
     sort_combo.addItems(["最大值排序", "最小值排序"])
+    sort_combo.setFixedWidth(80)  # 设置宽度为80px
+
+    # === 这里加上每次都同步主界面变量 ===
+    if hasattr(parent, 'last_select_count'):
+        select_count_spin.setValue(parent.last_select_count)
+    if hasattr(parent, 'last_sort_mode'):
+        idx = sort_combo.findText(parent.last_sort_mode)
+        if idx >= 0:
+            sort_combo.setCurrentIndex(idx)
+
+    # 变更时同步到主界面变量
+    def sync_to_main():
+        parent.last_select_count = select_count_spin.value()
+        parent.last_sort_mode = sort_combo.currentText()
+    select_count_spin.valueChanged.connect(sync_to_main)
+    sort_combo.currentTextChanged.connect(sync_to_main)
+
     select_btn = QPushButton("进行选股")
     select_btn.setFixedSize(100, 50)
     select_btn.setStyleSheet("background-color: #f0f0f0; border: none;")
@@ -743,26 +754,47 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
             return
         select_count = select_count_spin.value()
         sort_mode = sort_combo.currentText()
-        # 调用主窗口的统一逻辑
-        result = parent.get_or_calculate_result(
+        # 调用主窗口的统一逻辑，拿到所有参数都在的数据
+        all_param_result = parent.get_or_calculate_result(
             formula_expr=formula_expr,
             select_count=select_count,
             sort_mode=sort_mode,
             show_main_output=False,
-            only_show_selected=True
+            only_show_selected=False
         )
-        if result is None:
+        if all_param_result is None:
             output_edit.setText("请先上传数据文件！")
             return
-        # 修正：直接用 layout 变量（show_formula_select_table 的 layout），而不是 output_edit.parent()
-        parent_layout = layout  # layout 是 show_formula_select_table 作用域内的主布局
-        for i in reversed(range(parent_layout.count())):
-            w = parent_layout.itemAt(i).widget()
-            if w is not None:
-                w.setParent(None)
-        table = show_formula_select_table_result(parent, result, getattr(parent, 'init', None) and getattr(parent.init, 'price_data', None))
+        merged_results = all_param_result.get('dates', {})
+        parent.all_param_result = all_param_result
+        # 只取第一个日期的数据
+        if not merged_results:
+            output_edit.setText("没有选股结果。")
+            return
+        first_date = list(merged_results.keys())[0]
+        stocks = merged_results[first_date]
+        import math
+        # 过滤
+        filtered = []
+        for stock in stocks:
+            score = stock.get('score')
+            end_value = stock.get('end_value', [None, None])[1] if isinstance(stock.get('end_value'), (list, tuple)) else stock.get('end_value')
+            hold_days = stock.get('hold_days', None)
+            if score is not None and score != 0 and not (isinstance(end_value, float) and math.isnan(end_value)) and hold_days != -1:
+                filtered.append(stock)
+        # 排序
+        reverse = sort_mode == "最大值排序"
+        filtered.sort(key=lambda x: x['score'], reverse=reverse)
+        selected_result = filtered[:select_count]
+        # 生成表格
+        table = show_formula_select_table_result(parent, {'dates': {first_date: selected_result}}, getattr(parent, 'init', None) and getattr(parent.init, 'price_data', None))
         if table:
             widget.current_table = table  # 保存当前表格引用
+            parent_layout = layout
+            for i in reversed(range(parent_layout.count())):
+                w = parent_layout.itemAt(i).widget()
+                if w is not None:
+                    w.setParent(None)
             parent_layout.addWidget(table)
         else:
             output_edit.setText("没有选股结果。")
@@ -860,6 +892,14 @@ def show_formula_select_table_result(parent, result, price_data=None, output_edi
     hold_days_list = []
     ops_change_list = []
     ops_incre_rate_list = []
+    def safe_val(val):
+        if val is None:
+            return ''
+        if isinstance(val, float) and math.isnan(val):
+            return ''
+        if isinstance(val, str) and val.strip().lower() == 'nan':
+            return ''
+        return val
     for row_idx, stock in enumerate(stocks):
         stock_idx = stock.get('stock_idx', None)
         if price_data is not None and stock_idx is not None:
@@ -868,10 +908,10 @@ def show_formula_select_table_result(parent, result, price_data=None, output_edi
         else:
             code = stock.get('code', stock.get('stock_idx', ''))
             name = stock.get('name', '')
-        hold_days = stock.get('hold_days', '')
-        ops_change = stock.get('ops_change', '')
-        ops_incre_rate = stock.get('ops_incre_rate', '')
-        score = stock.get('score', '')
+        hold_days = safe_val(stock.get('hold_days', ''))
+        ops_change = safe_val(stock.get('ops_change', ''))
+        ops_incre_rate = safe_val(stock.get('ops_incre_rate', ''))
+        score = safe_val(stock.get('score', ''))
         # 加%号显示
         ops_change_str = f"{ops_change}%" if ops_change != '' else ''
         ops_incre_rate_str = f"{ops_incre_rate}%" if ops_incre_rate != '' else ''
@@ -881,17 +921,26 @@ def show_formula_select_table_result(parent, result, price_data=None, output_edi
         table.setItem(row_idx, 3, QTableWidgetItem(ops_change_str))
         table.setItem(row_idx, 4, QTableWidgetItem(ops_incre_rate_str))
         table.setItem(row_idx, 5, QTableWidgetItem(str(score)))
-        # 收集用于均值计算的数据
+        # 收集用于均值计算的数据（只收集有效数值）
         try:
-            hold_days_list.append(float(hold_days))
+            if hold_days != '':
+                v = float(hold_days)
+                if not math.isnan(v):
+                    hold_days_list.append(v)
         except Exception:
             pass
         try:
-            ops_change_list.append(float(ops_change))
+            if ops_change != '':
+                v = float(ops_change)
+                if not math.isnan(v):
+                    ops_change_list.append(v)
         except Exception:
             pass
         try:
-            ops_incre_rate_list.append(float(ops_incre_rate))
+            if ops_incre_rate != '':
+                v = float(ops_incre_rate)
+                if not math.isnan(v):
+                    ops_incre_rate_list.append(v)
         except Exception:
             pass
     # 插入空行

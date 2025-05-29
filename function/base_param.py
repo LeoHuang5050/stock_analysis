@@ -30,7 +30,7 @@ class BaseParamHandler:
             "inc_rate": float(self.main_window.inc_rate_edit.text() or 0),
             "after_gt_end_ratio": float(self.main_window.after_gt_end_edit.text() or 0),
             "after_gt_start_ratio": float(self.main_window.after_gt_prev_edit.text() or 0),
-            "expr": self.main_window.expr_edit.text().strip(),
+            "expr": self.main_window.expr_edit.toPlainText().strip(),
             "ops_change": float(self.main_window.ops_change_edit.text() or 0),# 添加 only_show_selected 参数
         })
         

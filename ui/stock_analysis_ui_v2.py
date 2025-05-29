@@ -6,11 +6,14 @@ from PyQt5.QtCore import Qt, QDate, QItemSelectionModel
 from PyQt5.QtGui import QKeySequence, QGuiApplication, QIntValidator
 from function.init import StockAnalysisInit
 from function.base_param import BaseParamHandler
-from function.stock_functions import show_continuous_sum_table
+from function.stock_functions import show_continuous_sum_table, EXPR_PLACEHOLDER_TEXT
 import gc
 import numpy as np
 import pandas as pd
 from PyQt5.QtWidgets import QFileDialog
+import math
+import json
+import os
 
 class Tab4SpaceTextEdit(QTextEdit):
     def keyPressEvent(self, event):
@@ -29,11 +32,16 @@ class ExprLineEdit(QLineEdit):
         layout = QVBoxLayout(dialog)
         tip_label = QLabel(
             "INC:递增值，AGE:后值大于结束地址值，AGS:后值大于前值返回值\n"
-            "支持Python条件表达式，例如：\n"
-            "if (AGS > 10) and (AGE < 10):\n"
-            "    result = AGS\n"
-            "else:\n"
-            "    result = INC"
+            "需要严格按照python表达式规则填入。\n"
+            "规则提醒：\n"
+            "1. 每个条件、赋值、if/else等都要符合python语法缩进（建议用4个空格）。\n"
+            "2. 赋值用=，判断用==，不等于用!=。\n"
+            "3. 逻辑与用and，或用or，非用not。\n"
+            "4. 代码块必须用冒号结尾（如if/else/for/while等）。\n"
+            "5. result变量必须在表达式中赋值，作为最终输出。\n"
+            "6. 支持多行表达式，注意缩进和语法。\n"
+            "示例：\n"
+            "if INC != 0:\n    result = INC\nelse:\n    result = 0\n"
         )
         tip_label.setStyleSheet("color:gray;")
         layout.addWidget(tip_label)
@@ -75,21 +83,45 @@ class CopyableTableWidget(QTableWidget):
                 s += "\t".join(row_data) + "\n"
         QGuiApplication.clipboard().setText(s.strip())
 
+class ExprEditDialog(QDialog):
+    def __init__(self, initial_text="", parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("编辑操作值表达式")
+        layout = QVBoxLayout(self)
+        tip_label = QLabel(EXPR_PLACEHOLDER_TEXT)
+        tip_label.setWordWrap(True)
+        tip_label.setStyleSheet("color:gray;")
+        layout.addWidget(tip_label)
+        self.text_edit = QTextEdit()
+        self.text_edit.setPlainText(initial_text)
+        layout.addWidget(self.text_edit)
+        btn_ok = QPushButton("确定")
+        layout.addWidget(btn_ok)
+        btn_ok.clicked.connect(self.accept)
+    def get_text(self):
+        return self.text_edit.toPlainText()
+
 class StockAnalysisApp(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Stock Analysis")
-        self.resize(1700, 1050)
         self.init = StockAnalysisInit(self)
         self.base_param = BaseParamHandler(self)
         self.init_ui()
         self.connect_signals()
+        # 默认最大化显示
+        self.showMaximized()
         # 统一缓存变量
         self.last_end_date = None
         self.last_calculate_result = None
         self.last_formula_expr = None
+        # 加载参数
+        self.load_config()
 
     def init_ui(self):
+        # 设置窗口标题
+        self.setWindowTitle("股票分析工具")
+        # 移除固定大小设置
+        # self.setFixedSize(1200, 800)
         main_layout = QVBoxLayout(self)
         self.setLayout(main_layout)
 
@@ -105,7 +137,7 @@ class StockAnalysisApp(QWidget):
         self.upload_btn = QPushButton("上传数据文件")
         self.date_label = QLabel("请选择结束日期：")
         self.date_picker = QDateEdit(calendarPopup=True)
-        self.date_picker.setDisplayFormat("yyyy-MM-dd")
+        self.date_picker.setDisplayFormat("yyyy/M/d")
 
         # 日期宽度控件
         width_widget = QWidget()
@@ -272,8 +304,24 @@ class StockAnalysisApp(QWidget):
         expr_layout.setSpacing(0)
         expr_layout.setAlignment(Qt.AlignLeft)
         expr_layout.addWidget(QLabel("操作值"))
-        self.expr_edit = ExprLineEdit()
-        self.expr_edit.setPlaceholderText("点击输入/编辑组合表达式")
+        self.expr_edit = QTextEdit()
+        self.expr_edit.setPlainText(
+            "if INC != 0:\n"
+            "    result = INC\n"
+            "else:\n"
+            "    result = 0\n"
+        )
+        self.expr_edit.setMinimumHeight(25)
+        self.expr_edit.setMaximumHeight(120)
+        def adjust_expr_edit_height():
+            doc = self.expr_edit.document()
+            line_count = doc.blockCount()
+            font_metrics = self.expr_edit.fontMetrics()
+            height = font_metrics.lineSpacing() * line_count + 12
+            height = max(25, min(height, 120))
+            self.expr_edit.setFixedHeight(height)
+        self.expr_edit.textChanged.connect(adjust_expr_edit_height)
+        adjust_expr_edit_height()  # 初始化高度
         expr_layout.addWidget(self.expr_edit)
         expr_widget.setLayout(expr_layout)
         
@@ -291,14 +339,6 @@ class StockAnalysisApp(QWidget):
         top_grid.addWidget(expr_widget, 1, 8)
         top_grid.addWidget(ops_change_widget, 1, 9)
 
-        # 第三行控件
-        
-
-        
-
-        # 第四行控件
-        
-
         # 查询区控件
         self.query_input = QLineEdit()
         self.query_input.setPlaceholderText("根据代码/名称查询")
@@ -311,12 +351,7 @@ class StockAnalysisApp(QWidget):
         query_layout.addWidget(self.query_input)
         query_layout.addWidget(self.query_btn)
         query_widget.setLayout(query_layout)
-        # 添加到第四行右侧
-        # top_grid.addWidget(query_widget, 3, 8)
-
-        # 添加到第四行
-        
-
+     
         # 输出区：用QStackedLayout管理result_text和表格
         self.output_area = QWidget()
         self.output_stack = QStackedLayout(self.output_area)
@@ -401,13 +436,13 @@ class StockAnalysisApp(QWidget):
             self.result_text.setText("请先上传数据文件！")
             self.output_stack.setCurrentWidget(self.result_text)
             return
-        self.on_continuous_sum_clicked()
-
-    def on_continuous_sum_clicked(self):
-        result = self.get_or_calculate_result()
-        if result is None:
+        # 优先用公式选股缓存的all_param_result
+        all_param_result = getattr(self, 'all_param_result', None)
+        if all_param_result is None:
+            self.result_text.setText("请先进行选股！")
+            self.output_stack.setCurrentWidget(self.result_text)
             return
-        merged_results = result.get('dates', {})
+        merged_results = all_param_result.get('dates', {})
         if merged_results is None or not merged_results:
             self.result_text.setText("获取连续累加值失败，请检查参数设置！")
             self.output_stack.setCurrentWidget(self.result_text)
@@ -439,13 +474,13 @@ class StockAnalysisApp(QWidget):
             self.result_text.setText("请先上传数据文件！")
             self.output_stack.setCurrentWidget(self.result_text)
             return
-        self.on_param_show_clicked()
-
-    def on_param_show_clicked(self):
-        result = self.get_or_calculate_result()
-        if result is None:
+        # 优先用公式选股缓存的all_param_result
+        all_param_result = getattr(self, 'all_param_result', None)
+        if all_param_result is None:
+            self.result_text.setText("请先进行选股！")
+            self.output_stack.setCurrentWidget(self.result_text)
             return
-        merged_results = result.get('dates', {})
+        merged_results = all_param_result.get('dates', {})
         if merged_results is None or not merged_results:
             self.result_text.setText("获取参数明细失败，请检查参数设置！")
             self.output_stack.setCurrentWidget(self.result_text)
@@ -517,7 +552,9 @@ class StockAnalysisApp(QWidget):
 
     def get_or_calculate_result(self, formula_expr=None, select_count=None, sort_mode=None, show_main_output=True, only_show_selected=None, is_auto_analysis=False):
         end_date = self.date_picker.date().toString("yyyy-MM-dd")
-        current_formula = formula_expr if formula_expr is not None else self.expr_edit.text()
+        current_formula = formula_expr if formula_expr is not None else (
+            self.formula_expr_edit.toPlainText() if hasattr(self, 'formula_expr_edit') else ''
+        )
         # 每次都强制重新计算
         # 收集所有参数
         params = {}
@@ -534,12 +571,12 @@ class StockAnalysisApp(QWidget):
         params['after_gt_end_ratio'] = self.after_gt_end_edit.text()
         params['after_gt_start_ratio'] = self.after_gt_prev_edit.text()
         # 选股公式、数量、排序方式参数
-        params['expr'] = current_formula
+        params['expr'] = self.expr_edit.toPlainText()
         params['select_count'] = select_count if select_count is not None else 10
         params['sort_mode'] = sort_mode if sort_mode is not None else "最大值排序"
         params['ops_change'] = self.ops_change_edit.text()
         # 选股计算公式
-        params['formula_expr'] = formula_expr if formula_expr is not None else (self.formula_expr_edit.text() if hasattr(self, 'formula_expr_edit') else '')
+        params['formula_expr'] = current_formula
         # 获取end_date_start和end_date_end
         if is_auto_analysis and hasattr(self, 'start_date_picker') and hasattr(self, 'end_date_picker'):
             params['end_date_start'] = self.start_date_picker.date().toString("yyyy-MM-dd")
@@ -576,7 +613,6 @@ class StockAnalysisApp(QWidget):
         self.end_date_label = QLabel("结束日期结束日:")
         self.end_date_picker = QDateEdit(calendarPopup=True)
         self.end_date_picker.setDate(self.date_picker.date())
-        self.stat_checkbox = QCheckBox("是否统计操作记录")
         # 新增导出按钮
         self.export_excel_btn = QPushButton("导出Excel")
         self.export_excel_btn.clicked.connect(self.on_export_excel)
@@ -588,7 +624,6 @@ class StockAnalysisApp(QWidget):
         row_layout.addWidget(self.start_date_picker)
         row_layout.addWidget(self.end_date_label)
         row_layout.addWidget(self.end_date_picker)
-        row_layout.addWidget(self.stat_checkbox)
         row_layout.addWidget(self.generate_btn)
         row_layout.addWidget(self.export_excel_btn)
         row_layout.addWidget(self.export_csv_btn)
@@ -624,7 +659,6 @@ class StockAnalysisApp(QWidget):
         if not workdays:
             return
         width = self.width_spin.value()
-        end_date = self.end_date_picker.date().toString("yyyy-MM-dd")
         start_date = self.start_date_picker.date().toString("yyyy-MM-dd")
         # 1. 结束日结束日的可选范围：start_date ~ workdays[-1]
         if start_date in workdays:
@@ -661,7 +695,6 @@ class StockAnalysisApp(QWidget):
             return
         start_date = self.start_date_picker.date().toString("yyyy-MM-dd")
         end_date = self.end_date_picker.date().toString("yyyy-MM-dd")
-        stat_ops = self.stat_checkbox.isChecked()
         result = self.get_or_calculate_result(formula_expr=formula, show_main_output=False, only_show_selected=True, is_auto_analysis=True)
         merged_results = result.get('dates', {}) if result else {}
         # 只统计有数据的日期
@@ -674,6 +707,17 @@ class StockAnalysisApp(QWidget):
         table.setSelectionBehavior(QTableWidget.SelectItems)
         table.setSelectionMode(QTableWidget.ExtendedSelection)
         table.setEditTriggers(QTableWidget.NoEditTriggers)
+        def safe_val(val):
+            if val is None:
+                return ''
+            if isinstance(val, float) and math.isnan(val):
+                return ''
+            if isinstance(val, str) and val.strip().lower().startswith('nan'):
+                return ''
+            return val
+        mean_hold_days_list = []
+        mean_ops_change_list = []
+        mean_incre_rate_list = []
         for row_idx, (date_key, stocks) in enumerate(valid_items):
             # 只在第一行输出开始日和结束日
             if row_idx == 0:
@@ -690,15 +734,27 @@ class StockAnalysisApp(QWidget):
             ops_incre_rate_list = []
             for stock in stocks:
                 try:
-                    hold_days_list.append(float(stock.get('hold_days', '')))
+                    v = safe_val(stock.get('hold_days', ''))
+                    if v != '':
+                        v = float(v)
+                        if not math.isnan(v):
+                            hold_days_list.append(v)
                 except Exception:
                     pass
                 try:
-                    ops_change_list.append(float(stock.get('ops_change', '')))
+                    v = safe_val(stock.get('ops_change', ''))
+                    if v != '':
+                        v = float(v)
+                        if not math.isnan(v):
+                            ops_change_list.append(v)
                 except Exception:
                     pass
                 try:
-                    ops_incre_rate_list.append(float(stock.get('ops_incre_rate', '')))
+                    v = safe_val(stock.get('ops_incre_rate', ''))
+                    if v != '':
+                        v = float(v)
+                        if not math.isnan(v):
+                            ops_incre_rate_list.append(v)
                 except Exception:
                     pass
             def safe_mean(lst):
@@ -706,9 +762,34 @@ class StockAnalysisApp(QWidget):
             mean_hold_days = safe_mean(hold_days_list)
             mean_ops_change = safe_mean(ops_change_list)
             mean_ops_incre_rate = safe_mean(ops_incre_rate_list)
+            # 计算日均涨跌幅列的值
+            min_incre_rate = ''
+            if mean_hold_days and mean_hold_days != 0 and mean_ops_change != '':
+                calc1 = mean_ops_incre_rate if mean_ops_incre_rate != '' else float('inf')
+                calc2 = mean_ops_change / mean_hold_days if mean_hold_days != 0 else float('inf')
+                min_incre_rate = round(min(calc1, calc2), 2)
             table.setItem(row_idx, 3, QTableWidgetItem(str(mean_hold_days)))
-            table.setItem(row_idx, 4, QTableWidgetItem(f"{mean_ops_change}%"))
-            table.setItem(row_idx, 5, QTableWidgetItem(f"{mean_ops_incre_rate}%"))
+            table.setItem(row_idx, 4, QTableWidgetItem(f"{mean_ops_change}%" if mean_ops_change != '' else ''))
+            table.setItem(row_idx, 5, QTableWidgetItem(f"{min_incre_rate}%" if min_incre_rate != '' else ''))
+            if mean_hold_days != '':
+                mean_hold_days_list.append(mean_hold_days)
+            if mean_ops_change != '':
+                mean_ops_change_list.append(mean_ops_change)
+            if min_incre_rate != '':
+                mean_incre_rate_list.append(min_incre_rate)
+        # 均值的均值
+        def safe_mean2(lst):
+            return round(sum(lst) / len(lst), 2) if lst else ''
+        mean_of_mean_hold_days = safe_mean2(mean_hold_days_list)
+        mean_of_mean_ops_change = safe_mean2(mean_ops_change_list)
+        mean_of_mean_incre_rate = safe_mean2(mean_incre_rate_list)
+        # 插入空行和均值的均值行
+        last_row = table.rowCount()
+        table.insertRow(last_row)
+        table.insertRow(last_row+1)
+        table.setItem(last_row+1, 3, QTableWidgetItem(str(mean_of_mean_hold_days)))
+        table.setItem(last_row+1, 4, QTableWidgetItem(f"{mean_of_mean_ops_change}%" if mean_of_mean_ops_change != '' else ''))
+        table.setItem(last_row+1, 5, QTableWidgetItem(f"{mean_of_mean_incre_rate}%" if mean_of_mean_incre_rate != '' else ''))
         table.resizeColumnsToContents()
         table.horizontalHeader().setFixedHeight(40)
         table.horizontalHeader().setStyleSheet("font-size: 12px;")
@@ -750,39 +831,43 @@ class StockAnalysisApp(QWidget):
         from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem
         # 获取自动分析的result
         result = self.last_calculate_result
-        workdays = getattr(self.init, 'workdays_str', [])
-        end_date = self.end_date_picker.date().toString("yyyy-MM-dd")
-        start_date = self.start_date_picker.date().toString("yyyy-MM-dd")
         merged_results = result.get('dates', {}) if result else {}
-        row_count = sum(len(stocks) for stocks in merged_results.values())
-        table = CopyableTableWidget(row_count, 4, self.op_stat_widget)
-        table.setHorizontalHeaderLabels(["结束日期", "计算周期", "股票代码", "股票名称"])
-        # 计算周期（只算一次）
-        try:
-            idx_end = workdays.index(self.end_date_picker.date().toString("yyyy-MM-dd"))
-            idx_start = workdays.index(self.start_date_picker.date().toString("yyyy-MM-dd"))
-            period = idx_end - idx_start
-        except Exception:
-            period = ""
-        row_idx = 0
-        for end_date, stocks in merged_results.items():
-            for i, stock in enumerate(stocks):
-                stock_idx = stock.get('stock_idx')
-                if stock_idx is not None and 0 <= int(stock_idx) < len(self.init.price_data):
-                    code = str(self.init.price_data.iloc[int(stock_idx), 0])
-                    name = str(self.init.price_data.iloc[int(stock_idx), 1])
-                else:
-                    code = str(stock.get('code', '')) or str(stock.get('stock_idx', ''))
-                    name = ''
-                if i == 0:
-                    table.setItem(row_idx, 0, QTableWidgetItem(end_date))
-                    table.setItem(row_idx, 1, QTableWidgetItem(str(period)))
-                else:
-                    table.setItem(row_idx, 0, QTableWidgetItem(""))
-                    table.setItem(row_idx, 1, QTableWidgetItem(""))
-                table.setItem(row_idx, 2, QTableWidgetItem(str(code)))
-                table.setItem(row_idx, 3, QTableWidgetItem(str(name)))
-                row_idx += 1
+        group_size = 19
+        end_dates = [d for d, stocks in merged_results.items() if stocks]
+        blocks = [end_dates[i:i+group_size] for i in range(0, len(end_dates), group_size)]
+        block_max_counts = [max((len(merged_results[d]) for d in block), default=0) for block in blocks]
+        total_rows = sum([n+1 for n in block_max_counts])  # 每块+1是表头
+        col_count = group_size * 3
+        table = CopyableTableWidget(total_rows, col_count, self.op_stat_widget)
+        row_offset = 0
+        for block_idx, block in enumerate(blocks):
+            max_count = block_max_counts[block_idx]
+            # 表头
+            for i, end_date in enumerate(block):
+                col_base = i * 3
+                table.setItem(row_offset, col_base, QTableWidgetItem(str(end_date)))
+                table.setItem(row_offset, col_base+1, QTableWidgetItem("股票代码"))
+                table.setItem(row_offset, col_base+2, QTableWidgetItem("股票名称"))
+            # 股票数据
+            for row in range(max_count):
+                for i, end_date in enumerate(block):
+                    stocks = merged_results[end_date]
+                    col_base = i * 3
+                    if row < len(stocks):
+                        stock = stocks[row]
+                        stock_idx = stock.get('stock_idx')
+                        if stock_idx is not None and hasattr(self, 'init') and hasattr(self.init, 'price_data'):
+                            code = str(self.init.price_data.iloc[int(stock_idx), 0])
+                            name = str(self.init.price_data.iloc[int(stock_idx), 1])
+                        else:
+                            code = str(stock.get('code', stock.get('stock_idx', '')))
+                            name = str(stock.get('name', ''))
+                        table.setItem(row_offset+row+1, col_base+1, QTableWidgetItem(code))
+                        table.setItem(row_offset+row+1, col_base+2, QTableWidgetItem(name))
+                    else:
+                        table.setItem(row_offset+row+1, col_base+1, QTableWidgetItem(""))
+                        table.setItem(row_offset+row+1, col_base+2, QTableWidgetItem(""))
+            row_offset += max_count + 2  # 原来是 max_count + 1，现在多加一行空行
         table.resizeColumnsToContents()
         table.horizontalHeader().setFixedHeight(40)
         table.horizontalHeader().setStyleSheet("font-size: 12px;")
@@ -929,3 +1014,82 @@ class StockAnalysisApp(QWidget):
                 QMessageBox.information(self, "导出成功", f"已成功导出到 {file_path}")
             except Exception as e:
                 QMessageBox.critical(self, "导出失败", f"导出CSV失败：{e}")
+
+    def save_config(self):
+        config = {
+            'date': self.date_picker.date().toString("yyyy-MM-dd"),
+            'width': self.width_spin.value(),
+            'start_option': self.start_option_combo.currentIndex(),
+            'shift': self.shift_spin.value(),
+            'inc_rate': self.inc_rate_edit.text(),
+            'op_days': self.op_days_edit.text(),
+            'after_gt_end_ratio': self.after_gt_end_edit.text(),
+            'after_gt_start_ratio': self.after_gt_prev_edit.text(),
+            'n_days': self.n_days_spin.value(),
+            'n_days_max': self.n_days_max_spin.value(),
+            'range_value': self.range_value_edit.text(),
+            'continuous_abs_threshold': self.continuous_abs_threshold_edit.text(),
+            'ops_change': self.ops_change_edit.text(),
+            'expr': self.expr_edit.toPlainText(),
+            'last_formula_expr': getattr(self, 'last_formula_expr', ''),
+            'last_select_count': getattr(self, 'last_select_count', 10),
+            'last_sort_mode': getattr(self, 'last_sort_mode', '最大值排序'),
+            'direction': self.direction_checkbox.isChecked(),
+        }
+        try:
+            with open('config.json', 'w', encoding='utf-8') as f:
+                json.dump(config, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f"保存配置失败: {e}")
+
+    def load_config(self):
+        if not os.path.exists('config.json'):
+            return
+        try:
+            with open('config.json', 'r', encoding='utf-8') as f:
+                config = json.load(f)
+            if 'date' in config:
+                self.date_picker.blockSignals(True)
+                self.date_picker.setDate(QDate.fromString(config['date'], "yyyy-MM-dd"))
+                self.date_picker.blockSignals(False)
+                self.pending_date = config['date']  # 依然保留，等workdays加载后再做一次校验
+            if 'width' in config:
+                self.width_spin.setValue(config['width'])
+            if 'start_option' in config:
+                self.start_option_combo.setCurrentIndex(config['start_option'])
+            if 'shift' in config:
+                self.shift_spin.setValue(config['shift'])
+            if 'inc_rate' in config:
+                self.inc_rate_edit.setText(config['inc_rate'])
+            if 'op_days' in config:
+                self.op_days_edit.setText(config['op_days'])
+            if 'after_gt_end_ratio' in config:
+                self.after_gt_end_edit.setText(config['after_gt_end_ratio'])
+            if 'after_gt_start_ratio' in config:
+                self.after_gt_prev_edit.setText(config['after_gt_start_ratio'])
+            if 'n_days' in config:
+                self.n_days_spin.setValue(config['n_days'])
+            if 'n_days_max' in config:
+                self.n_days_max_spin.setValue(config['n_days_max'])
+            if 'range_value' in config:
+                self.range_value_edit.setText(config['range_value'])
+            if 'continuous_abs_threshold' in config:
+                self.continuous_abs_threshold_edit.setText(config['continuous_abs_threshold'])
+            if 'ops_change' in config:
+                self.ops_change_edit.setText(config['ops_change'])
+            if 'expr' in config:
+                self.expr_edit.setText(config['expr'])
+            if 'last_formula_expr' in config:
+                self.last_formula_expr = config['last_formula_expr']
+            if 'last_select_count' in config:
+                self.last_select_count = config['last_select_count']
+            if 'last_sort_mode' in config:
+                self.last_sort_mode = config['last_sort_mode']
+            if 'direction' in config:
+                self.direction_checkbox.setChecked(config['direction'])
+        except Exception as e:
+            print(f"加载配置失败: {e}")
+
+    def closeEvent(self, event):
+        self.save_config()
+        super().closeEvent(event)
