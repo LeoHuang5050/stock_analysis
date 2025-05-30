@@ -1,6 +1,6 @@
 {
-  "date": "2025-04-30",
-  "width": 16,
+  "date": "2025-04-01",
+  "width": 90,
   "start_option": 1,
   "shift": 1,
   "inc_rate": "1",
@@ -12,9 +12,11 @@
   "range_value": "1.1",
   "continuous_abs_threshold": "2.4",
   "ops_change": "10",
-  "expr": "if INC != 0:\n    result = INC\nelse:\n    result = 0\n",
+  "expr": "result = INC",
   "last_formula_expr": "if (\n    abs(CEV) < 3 and\n    abs(CEPV) < 3 and\n    abs(CEPPV) < 3000 and\n    abs(NDAYMAX) < 3000 and\n    abs(CSV) > 150 and\n    abs(CEPV) > 0 and\n    abs(CEPPV) > 0 and\n    CASFH > 3 * CASSH\n):\n    result = VNS + VPS\nelse:\n    result = 0",
-  "last_select_count": 10,
-  "last_sort_mode": "最大值排序",
-  "direction": true
+  "last_select_count": 6,
+  "last_sort_mode": "最小值排序",
+  "direction": true,
+  "analysis_start_date": "2023-11-17",
+  "analysis_end_date": "2025-04-24"
 }

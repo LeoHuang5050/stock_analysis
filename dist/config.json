@@ -16,5 +16,7 @@
   "last_formula_expr": "if (\n    abs(CEV) < 3 and\n    abs(CEPV) < 3 and\n    abs(CEPPV) < 3000 and\n    abs(NDAYMAX) < 3000 and\n    abs(CSV) > 150 and\n    abs(CEPV) > 0 and\n    abs(CEPPV) > 0 and\n    CASFH > 3 * CASSH\n):\n    result = VNS + VPS\nelse:\n    result = 0",
   "last_select_count": 10,
   "last_sort_mode": "最大值排序",
-  "direction": true
+  "direction": true,
+  "analysis_start_date": "2025-04-01",
+  "analysis_end_date": "2025-04-01"
 }
