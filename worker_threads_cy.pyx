@@ -839,7 +839,7 @@ def calculate_batch_cy(
                             score = round_to_2(score)
                     except Exception as e:
                         score = None
-
+                        
                 if only_show_selected:
                     if score is not None and score != 0 and not isnan(end_value) and hold_days != -1:
                         row_result = {
