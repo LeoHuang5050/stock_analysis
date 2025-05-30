@@ -1138,19 +1138,26 @@ def convert_expr_to_return_var_name(expr):
     lines = expr.split('\n')
     new_lines = []
     for line in lines:
-        if 'result =' in line:
-            var = line.split('=')[1].strip()
+        # 移除行首的空白字符
+        stripped_line = line.lstrip()
+        # 检查是否是result赋值语句
+        if stripped_line.startswith('result ='):
+            # 获取等号后面的值，并移除所有空白字符
+            var = stripped_line.split('=')[1].strip()
+            # 保持原始缩进
+            indent = line[:len(line) - len(stripped_line)]
             if var == 'INC':
-                new_lines.append("    result = 'increment_value'")
+                new_lines.append(f"{indent}result = 'increment_value'")
             elif var == 'AGE':
-                new_lines.append("    result = 'after_gt_end_value'")
+                new_lines.append(f"{indent}result = 'after_gt_end_value'")
             elif var == 'AGS':
-                new_lines.append("    result = 'after_gt_start_value'")
+                new_lines.append(f"{indent}result = 'after_gt_start_value'")
             else:
                 new_lines.append(line)
         else:
             new_lines.append(line)
-    return '\n'.join(new_lines)
+    result = '\n'.join(new_lines)
+    return result
 
 def make_user_func(expr):
     # 预处理表达式，把返回变量的表达式转换成返回变量名的表达式

@@ -702,7 +702,18 @@ class StockAnalysisApp(QWidget):
             return
         start_date = self.start_date_picker.date().toString("yyyy-MM-dd")
         end_date = self.end_date_picker.date().toString("yyyy-MM-dd")
-        result = self.get_or_calculate_result(formula_expr=formula, show_main_output=False, only_show_selected=True, is_auto_analysis=True)
+        # 获取选股数量和排序方式
+        select_count = getattr(self, 'last_select_count', 10)
+        sort_mode = getattr(self, 'last_sort_mode', '最大值排序')
+        print(f"select_count: {select_count}, sort_mode: {sort_mode}")
+        result = self.get_or_calculate_result(
+            formula_expr=formula, 
+            show_main_output=False, 
+            only_show_selected=True, 
+            is_auto_analysis=True,
+            select_count=select_count,
+            sort_mode=sort_mode
+        )
         merged_results = result.get('dates', {}) if result else {}
         valid_items = [(date_key, stocks) for date_key, stocks in merged_results.items() if stocks]
         # 缓存数据
@@ -728,10 +739,25 @@ class StockAnalysisApp(QWidget):
         row_layout = QHBoxLayout()
         self.start_date_label = QLabel("结束日期开始日:")
         self.start_date_picker = QDateEdit(calendarPopup=True)
-        self.start_date_picker.setDate(self.date_picker.date())
+        # 使用保存的日期值或默认值
+        if hasattr(self, 'last_analysis_start_date'):
+            self.start_date_picker.setDate(QDate.fromString(self.last_analysis_start_date, "yyyy-MM-dd"))
+            print(f"获取到了 last_analysis_start_date: {self.last_analysis_start_date}")
+        else:
+            print("没有获取到 last_analysis_start_date")
+            self.start_date_picker.setDate(self.date_picker.date())
         self.end_date_label = QLabel("结束日期结束日:")
         self.end_date_picker = QDateEdit(calendarPopup=True)
-        self.end_date_picker.setDate(self.date_picker.date())
+        # 使用保存的日期值或默认值
+        if hasattr(self, 'last_analysis_end_date'):
+            print(f"获取到了 last_analysis_end_date: {self.last_analysis_end_date}")
+            self.end_date_picker.setDate(QDate.fromString(self.last_analysis_end_date, "yyyy-MM-dd"))
+        else:
+            print("没有获取到 last_analysis_end_date")
+            self.end_date_picker.setDate(self.date_picker.date())
+        # 绑定信号，变更时同步变量
+        self.start_date_picker.dateChanged.connect(self._on_analysis_date_changed_save)
+        self.end_date_picker.dateChanged.connect(self._on_analysis_date_changed_save)
         # 新增导出按钮
         self.export_excel_btn = QPushButton("导出Excel")
         self.export_excel_btn.clicked.connect(self.on_export_excel)
@@ -764,8 +790,6 @@ class StockAnalysisApp(QWidget):
         self.output_stack.addWidget(self.analysis_widget)
         self.output_stack.setCurrentWidget(self.analysis_widget)
         # 绑定信号，双向限制日期选择
-        self.start_date_picker.dateChanged.connect(self.on_analysis_date_changed)
-        self.end_date_picker.dateChanged.connect(self.on_analysis_date_changed)
         self.width_spin.valueChanged.connect(self.on_analysis_date_changed)
         self.on_analysis_date_changed()
         # 切换到自动分析tab
@@ -782,6 +806,10 @@ class StockAnalysisApp(QWidget):
             self.analysis_result_layout.addWidget(table)
         else:
             self.analysis_result_layout.addWidget(self.analysis_result_text)
+
+    def _on_analysis_date_changed_save(self):
+        self.last_analysis_start_date = self.start_date_picker.date().toString("yyyy-MM-dd")
+        self.last_analysis_end_date = self.end_date_picker.date().toString("yyyy-MM-dd")
 
     def on_analysis_date_changed(self):
         if not hasattr(self, 'end_date_picker') or self.end_date_picker is None:
@@ -803,9 +831,7 @@ class StockAnalysisApp(QWidget):
         max_end_date = QDate.fromString(workdays[max_end_idx], "yyyy-MM-dd")
         self.end_date_picker.setMinimumDate(min_end_date)
         self.end_date_picker.setMaximumDate(max_end_date)
-        cur_end_date = self.end_date_picker.date().toString("yyyy-MM-dd")
-        if cur_end_date not in workdays[min_end_idx:max_end_idx+1]:
-            self.end_date_picker.setDate(min_end_date)
+        
         # 2. 结束日开始日的可选范围：max(0, end_idx-width) ~ end_idx
         min_start_idx = max(0, width)
         max_start_idx = max_end_idx
@@ -813,9 +839,6 @@ class StockAnalysisApp(QWidget):
         max_start_date = QDate.fromString(workdays[max_start_idx], "yyyy-MM-dd")
         self.start_date_picker.setMinimumDate(min_start_date)
         self.start_date_picker.setMaximumDate(max_start_date)
-        cur_start_date = self.start_date_picker.date().toString("yyyy-MM-dd")
-        if cur_start_date not in workdays[min_start_idx:max_start_idx+1]:
-            self.start_date_picker.setDate(max_start_date)
 
     def on_op_stat_btn_clicked(self):
         self.clear_result_area()
@@ -1054,6 +1077,9 @@ class StockAnalysisApp(QWidget):
             'last_select_count': getattr(self, 'last_select_count', 10),
             'last_sort_mode': getattr(self, 'last_sort_mode', '最大值排序'),
             'direction': self.direction_checkbox.isChecked(),
+            # 添加自动分析子界面的日期配置
+            'analysis_start_date': getattr(self, 'start_date_picker', self.date_picker).date().toString("yyyy-MM-dd"),
+            'analysis_end_date': getattr(self, 'end_date_picker', self.date_picker).date().toString("yyyy-MM-dd"),
         }
         try:
             with open('config.json', 'w', encoding='utf-8') as f:
@@ -1106,6 +1132,11 @@ class StockAnalysisApp(QWidget):
                 self.last_sort_mode = config['last_sort_mode']
             if 'direction' in config:
                 self.direction_checkbox.setChecked(config['direction'])
+            # 加载自动分析子界面的日期配置
+            if 'analysis_start_date' in config:
+                self.last_analysis_start_date = config['analysis_start_date']
+            if 'analysis_end_date' in config:
+                self.last_analysis_end_date = config['analysis_end_date']
         except Exception as e:
             print(f"加载配置失败: {e}")
 
