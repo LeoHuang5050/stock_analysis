@@ -158,10 +158,14 @@ def show_continuous_sum_table(parent, all_results, price_data, as_widget=False):
                 stock_idx = row.get('stock_idx', 0)
                 code = price_data.iloc[stock_idx, 0]
                 name = price_data.iloc[stock_idx, 1]
+                # 实际开始日期值
+                actual_value_val = row.get('actual_value', [None, None])[1] if row.get('actual_value') else ''
+                if isinstance(actual_value_val, float) and (np.isnan(actual_value_val) or str(actual_value_val).lower() == 'nan'):
+                    actual_value_val = ''
                 table1.setItem(row_idx, 0, QTableWidgetItem(str(code)))
                 table1.setItem(row_idx, 1, QTableWidgetItem(str(name)))
-                table1.setItem(row_idx, 2, QTableWidgetItem(str(row.get('actual_value', [None, None])[1]) if row.get('actual_value') else ''))
-                table1.setItem(row_idx, 3, QTableWidgetItem(str(row.get('start_value', [None, None])[0]) if row.get('start_value') else ''))
+                table1.setItem(row_idx, 2, QTableWidgetItem(str(actual_value_val)))
+                table1.setItem(row_idx, 3, QTableWidgetItem(str(row.get('actual_value', [None, None])[0]) if row.get('actual_value') else ''))
                 results = row.get('continuous_results', [])
                 for col_idx in range(max_len):
                     val = results[col_idx] if col_idx < len(results) else ""
@@ -502,22 +506,20 @@ def show_params_table(parent, all_results, end_date=None, n_days=0, n_days_max=0
         QMessageBox.information(parent, "提示", "没有可用的日期数据！")
         return None
 
-    # 新增：根据end_date查找
+    # 新增：直接取第一个日期数据
     last_date_data = None
     if isinstance(dates, dict):
-        # dates是dict，直接用end_date查找
-        if end_date is None:
-            end_date = sorted(dates.keys())[-1]  # 默认取最后一天
-        last_date_data = {"end_date": end_date, "stocks": dates.get(end_date, [])}
+        # dates是dict，直接取第一个key的数据
+        if dates:
+            first_key = next(iter(dates.keys()))
+            last_date_data = {"end_date": first_key, "stocks": dates.get(first_key, [])}
     else:
-        # dates是list，兼容老格式
-        if end_date is None:
-            last_date_data = dates[-1]
-        else:
-            last_date_data = next((d for d in dates if d.get("end_date") == end_date), None)
+        # dates是list，直接取第一个元素
+        if dates:
+            last_date_data = dates[0]
 
     if not last_date_data or not last_date_data.get("stocks"):
-        QMessageBox.information(parent, "提示", f"日期 {end_date} 没有股票数据！")
+        QMessageBox.information(parent, "提示", f"没有可用的股票数据！")
         return None
 
     stocks_data = last_date_data.get("stocks", [])
@@ -541,7 +543,7 @@ def show_params_table(parent, all_results, end_date=None, n_days=0, n_days_max=0
     def get_val(val):
         if isinstance(val, (list, tuple)) and len(val) > 1:
             val = val[1]
-        if val is None or val == '' or (isinstance(val, float) and math.isnan(val)):
+        if val is None or val == '' or (isinstance(val, float) and (math.isnan(val) or str(val).lower() == 'nan')):
             return ''
         return val
 

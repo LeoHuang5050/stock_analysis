@@ -1,8 +1,8 @@
 {
-  "date": "2025-04-01",
-  "width": 90,
-  "start_option": 0,
-  "shift": 0,
+  "date": "2025-04-30",
+  "width": 16,
+  "start_option": 1,
+  "shift": 1,
   "inc_rate": "1",
   "op_days": "10",
   "after_gt_end_ratio": "1",
