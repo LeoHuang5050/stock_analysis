@@ -1,5 +1,5 @@
 {
-  "date": "2025-04-01",
+  "date": "2025-04-30",
   "width": 90,
   "start_option": 0,
   "shift": 0,
@@ -7,7 +7,7 @@
   "op_days": "10",
   "after_gt_end_ratio": "1",
   "after_gt_start_ratio": "1",
-  "n_days": 20,
+  "n_days": 10,
   "n_days_max": 30,
   "range_value": "1.1",
   "continuous_abs_threshold": "2.4",
@@ -17,6 +17,6 @@
   "last_select_count": 10,
   "last_sort_mode": "最大值排序",
   "direction": true,
-  "analysis_start_date": "2025-04-01",
-  "analysis_end_date": "2025-04-01"
+  "analysis_start_date": "2025-04-30",
+  "analysis_end_date": "2025-04-30"
 }

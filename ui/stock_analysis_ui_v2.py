@@ -101,6 +101,15 @@ class ExprEditDialog(QDialog):
     def get_text(self):
         return self.text_edit.toPlainText()
 
+class ValidatedExprEdit(QTextEdit):
+    def focusOutEvent(self, event):
+        expr = self.toPlainText()
+        try:
+            compile(expr, '<string>', 'exec')
+        except SyntaxError as e:
+            QMessageBox.warning(self, "表达式语法错误", f"表达式存在语法错误，请检查！\n\n{e}")
+        super().focusOutEvent(event)
+
 class StockAnalysisApp(QWidget):
     def __init__(self):
         super().__init__()
@@ -304,7 +313,7 @@ class StockAnalysisApp(QWidget):
         expr_layout.setSpacing(0)
         expr_layout.setAlignment(Qt.AlignLeft)
         expr_layout.addWidget(QLabel("操作值"))
-        self.expr_edit = QTextEdit()
+        self.expr_edit = ValidatedExprEdit()
         self.expr_edit.setPlainText(
             "if INC != 0:\n"
             "    result = INC\n"
@@ -602,9 +611,9 @@ class StockAnalysisApp(QWidget):
 
     def create_analysis_table(self, valid_items, start_date, end_date):
         row_count = len(valid_items)
-        table = CopyableTableWidget(row_count, 6, self.analysis_widget)
+        table = CopyableTableWidget(row_count, 4, self.analysis_widget)
         table.setHorizontalHeaderLabels([
-            "结束日期开始日", "结束日期结束日", "结束日期", "操作天数", "持有涨跌幅", "日均涨跌幅"
+            "结束日期", "操作天数", "持有涨跌幅", "日均涨跌幅"
         ])
         table.setSelectionBehavior(QTableWidget.SelectItems)
         table.setSelectionMode(QTableWidget.ExtendedSelection)
@@ -621,13 +630,7 @@ class StockAnalysisApp(QWidget):
         mean_ops_change_list = []
         mean_incre_rate_list = []
         for row_idx, (date_key, stocks) in enumerate(valid_items):
-            if row_idx == 0:
-                table.setItem(row_idx, 0, QTableWidgetItem(start_date))
-                table.setItem(row_idx, 1, QTableWidgetItem(end_date))
-            else:
-                table.setItem(row_idx, 0, QTableWidgetItem(""))
-                table.setItem(row_idx, 1, QTableWidgetItem(""))
-            table.setItem(row_idx, 2, QTableWidgetItem(date_key))
+            table.setItem(row_idx, 0, QTableWidgetItem(date_key))
             hold_days_list = []
             ops_change_list = []
             ops_incre_rate_list = []
@@ -666,9 +669,9 @@ class StockAnalysisApp(QWidget):
                 calc1 = mean_ops_incre_rate if mean_ops_incre_rate != '' else float('inf')
                 calc2 = mean_ops_change / mean_hold_days if mean_hold_days != 0 else float('inf')
                 min_incre_rate = round(min(calc1, calc2), 2)
-            table.setItem(row_idx, 3, QTableWidgetItem(str(mean_hold_days)))
-            table.setItem(row_idx, 4, QTableWidgetItem(f"{mean_ops_change}%" if mean_ops_change != '' else ''))
-            table.setItem(row_idx, 5, QTableWidgetItem(f"{min_incre_rate}%" if min_incre_rate != '' else ''))
+            table.setItem(row_idx, 1, QTableWidgetItem(str(mean_hold_days)))
+            table.setItem(row_idx, 2, QTableWidgetItem(f"{mean_ops_change}%" if mean_ops_change != '' else ''))
+            table.setItem(row_idx, 3, QTableWidgetItem(f"{min_incre_rate}%" if min_incre_rate != '' else ''))
             if mean_hold_days != '':
                 mean_hold_days_list.append(mean_hold_days)
             if mean_ops_change != '':
@@ -683,16 +686,16 @@ class StockAnalysisApp(QWidget):
         last_row = table.rowCount()
         table.insertRow(last_row)
         table.insertRow(last_row+1)
-        table.setItem(last_row+1, 3, QTableWidgetItem(str(mean_of_mean_hold_days)))
-        table.setItem(last_row+1, 4, QTableWidgetItem(f"{mean_of_mean_ops_change}%" if mean_of_mean_ops_change != '' else ''))
-        table.setItem(last_row+1, 5, QTableWidgetItem(f"{mean_of_mean_incre_rate}%" if mean_of_mean_incre_rate != '' else ''))
+        table.setItem(last_row+1, 1, QTableWidgetItem(str(mean_of_mean_hold_days)))
+        table.setItem(last_row+1, 2, QTableWidgetItem(f"{mean_of_mean_ops_change}%" if mean_of_mean_ops_change != '' else ''))
+        table.setItem(last_row+1, 3, QTableWidgetItem(f"{mean_of_mean_incre_rate}%" if mean_of_mean_incre_rate != '' else ''))
         table.resizeColumnsToContents()
         table.horizontalHeader().setFixedHeight(40)
         table.horizontalHeader().setStyleSheet("font-size: 12px;")
         return table
 
     def on_generate_analysis(self):
-        from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem
+        from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QMessageBox
         formula = getattr(self, 'last_formula_expr', '')
         if formula is None:
             formula = ''
@@ -702,6 +705,17 @@ class StockAnalysisApp(QWidget):
             return
         start_date = self.start_date_picker.date().toString("yyyy-MM-dd")
         end_date = self.end_date_picker.date().toString("yyyy-MM-dd")
+        # 校验日期是否在范围内
+        workdays = getattr(self.init, 'workdays_str', None)
+        if not workdays:
+            QMessageBox.warning(self, "日期错误", "没有可用的日期范围，请先上传数据文件！")
+            return
+        if start_date not in workdays:
+            QMessageBox.warning(self, "日期错误", "结束日期开始日不在可用日期范围，请重新选择！")
+            return
+        if end_date not in workdays:
+            QMessageBox.warning(self, "日期错误", "结束日期结束日不在可用日期范围，请重新选择！")
+            return
         # 获取选股数量和排序方式
         select_count = getattr(self, 'last_select_count', 10)
         sort_mode = getattr(self, 'last_sort_mode', '最大值排序')
@@ -876,8 +890,8 @@ class StockAnalysisApp(QWidget):
         end_dates = [d for d, stocks in merged_results.items() if stocks]
         blocks = [end_dates[i:i+group_size] for i in range(0, len(end_dates), group_size)]
         block_max_counts = [max((len(merged_results[d]) for d in block), default=0) for block in blocks]
-        # 修正：多分配一块的最大行数，彻底避免最后一块丢行
-        total_rows = sum([n+1 for n in block_max_counts]) + (max(block_max_counts) if block_max_counts else 0)
+        # 每组多分配一行空行
+        total_rows = sum([max_count + 2 for max_count in block_max_counts])  # +1表头，+1空行
         max_block_len = max(len(block) for block in blocks) if blocks else 0
         col_count = max_block_len * 3
         table = CopyableTableWidget(total_rows, col_count, self.op_stat_widget)
@@ -909,7 +923,13 @@ class StockAnalysisApp(QWidget):
                     else:
                         table.setItem(row_offset+row+1, col_base+1, QTableWidgetItem(""))
                         table.setItem(row_offset+row+1, col_base+2, QTableWidgetItem(""))
-            row_offset += max_count + 2
+            # 添加一行空行
+            for i in range(len(block)):
+                col_base = i * 3
+                table.setItem(row_offset+max_count+1, col_base, QTableWidgetItem(""))
+                table.setItem(row_offset+max_count+1, col_base+1, QTableWidgetItem(""))
+                table.setItem(row_offset+max_count+1, col_base+2, QTableWidgetItem(""))
+            row_offset += max_count + 2  # 表头+数据行+空行
         table.resizeColumnsToContents()
         table.horizontalHeader().setFixedHeight(40)
         table.horizontalHeader().setStyleSheet("font-size: 12px;")

@@ -7,6 +7,7 @@ import numpy as np
 cimport numpy as np
 from libc.math cimport isnan, fabs, round
 from libcpp.vector cimport vector
+from libc.stdio cimport printf
 
 ctypedef np.float64_t DTYPE_t
 cdef double NAN = float('nan')
@@ -60,16 +61,17 @@ cdef void calc_valid_sum_and_pos_neg(
         return
     for i in range(n):
         v = arr[i]
-        if isnan(v):  # 跳过 NaN 值
+        if isnan(v):
             continue
         abs_v = fabs(v)
         next_abs = fabs(arr[i+1]) if i < n-1 else 0
+        sign_v = 1.0 if v > 0 else (-1.0 if v < 0 else 0.0)
         if i < n-1 and next_abs > abs_v:
             valid_sum.push_back(v)
         elif i < n-1:
-            valid_sum.push_back(arr[i+1] if arr[i+1] >= 0 else -fabs(arr[i+1]))
+            valid_sum.push_back(sign_v * fabs(arr[i+1]))
         else:
-            valid_sum.push_back(v)
+            valid_sum.push_back(0)
         if valid_sum[valid_idx] > 0:
             pos_sum[0] += valid_sum[valid_idx]
         elif valid_sum[valid_idx] < 0:
@@ -188,6 +190,9 @@ def calculate_batch_cy(
     cdef double forward_min_valid_abs_sum_block3
     cdef double forward_min_valid_abs_sum_block4
 
+    cdef double forward_max_price, forward_min_price
+    cdef int forward_max_idx_in_window, forward_min_idx_in_window
+
     
     # 初始化结果字典
     for idx in range(end_date_start_idx, end_date_end_idx-1, -1):
@@ -245,6 +250,7 @@ def calculate_batch_cy(
                     
                     actual_idx = base_idx - shift_days if base_idx >= 0 else -1
                     actual_value = price_data_view[stock_idx, actual_idx] if actual_idx >= 0 and actual_idx < num_dates else NAN
+
                     
                     # 计算连续累加值
                     if actual_idx >= 0 and actual_idx >= end_date_idx:
@@ -253,22 +259,44 @@ def calculate_batch_cy(
                         cont_sum.clear()
 
                     # 计算向前最大连续累加值
-                    if is_forward and max_idx_in_window >= 0 and end_date_idx + max_idx_in_window >= end_date_idx:
-                        calc_continuous_sum(
-                            diff_data_view[stock_idx, end_date_idx:end_date_idx + max_idx_in_window + 1][::-1],
-                            forward_max_result_c
-                        )
+                    if is_forward and actual_idx > 0:
+                        forward_max_price = -1e308
+                        forward_min_price = 1e308
+                        forward_max_idx_in_window = -1
+                        forward_min_idx_in_window = -1
+                        window = price_data_view[stock_idx, end_date_idx:actual_idx]
+                        for j in range(window.shape[0]):
+                            v = window[j]
+                            if not isnan(v):
+                                if v > forward_max_price:
+                                    forward_max_price = v
+                                    forward_max_idx_in_window = j
+                                if v < forward_min_price:
+                                    forward_min_price = v
+                                    forward_min_idx_in_window = j
+                        forward_max_date_idx = end_date_idx + forward_max_idx_in_window if forward_max_idx_in_window >= 0 else -1
+                        forward_min_date_idx = end_date_idx + forward_min_idx_in_window if forward_min_idx_in_window >= 0 else -1
+
+                        # 2. 计算向前最大连续累加值
+                        if forward_max_idx_in_window >= 0:
+                            calc_continuous_sum(
+                                diff_data_view[stock_idx, end_date_idx:forward_max_date_idx][::-1],
+                                forward_max_result_c
+                            )
+                        else:
+                            forward_max_result_c.clear()
+
+                        # 3. 计算向前最小连续累加值
+                        if forward_min_idx_in_window >= 0:
+                            calc_continuous_sum(
+                                diff_data_view[stock_idx, end_date_idx:forward_min_date_idx][::-1],
+                                forward_min_result_c
+                            )
+                        else:
+                            forward_min_result_c.clear()
                     else:
                         forward_max_result_c.clear()
-
-                    # 计算向前最小连续累加值
-                    if is_forward and min_idx_in_window >= 0 and end_date_idx + min_idx_in_window >= end_date_idx:
-                        calc_continuous_sum(
-                            diff_data_view[stock_idx, end_date_idx:end_date_idx + min_idx_in_window + 1][::-1],
-                            forward_min_result_c
-                        )
-                    else:
-                        forward_min_result_c.clear() 
+                        forward_min_result_c.clear()
 
                     # 递增值计算逻辑
                     increment_value = NAN
@@ -669,8 +697,6 @@ def calculate_batch_cy(
                     range_ratio_is_less = (max_price / min_price) < user_range_ratio
 
                 # 计算日期索引和n_max_is_max
-                forward_max_date_idx = end_date_idx + max_idx_in_window if max_idx_in_window >= 0 else -1
-                forward_min_date_idx = end_date_idx + min_idx_in_window if min_idx_in_window >= 0 else -1
                 n_max_is_max_result = max_idx_in_window < n_days if n_days > 0 else False
 
                 # 计算所有日期和值的组合
@@ -693,12 +719,30 @@ def calculate_batch_cy(
                 forward_min_valid_abs_sum_block4 = round_to_2(forward_min_valid_abs_sum_block4)
 
                 # 先定义所有表达式可能用到的参数变量
+                # 连续累加值基本参数
                 continuous_start_value = cont_sum[0] if cont_sum.size() > 0 else None
                 continuous_start_next_value = cont_sum[1] if cont_sum.size() > 1 else None
                 continuous_start_next_next_value = cont_sum[2] if cont_sum.size() > 2 else None
                 continuous_end_value = cont_sum[cont_sum.size()-1] if cont_sum.size() > 0 else None
                 continuous_end_prev_value = cont_sum[cont_sum.size()-2] if cont_sum.size() > 1 else None
                 continuous_end_prev_prev_value = cont_sum[cont_sum.size()-3] if cont_sum.size() > 2 else None
+
+
+                # 向前最大连续累加值相关参数
+                forward_max_continuous_start_value = forward_max_result_c[0] if forward_max_result_c.size() > 0 else None
+                forward_max_continuous_start_next_value = forward_max_result_c[1] if forward_max_result_c.size() > 1 else None
+                forward_max_continuous_start_next_next_value = forward_max_result_c[2] if forward_max_result_c.size() > 2 else None
+                forward_max_continuous_end_value = forward_max_result_c[forward_max_result_c.size()-1] if forward_max_result_c.size() > 0 else None
+                forward_max_continuous_end_prev_value = forward_max_result_c[forward_max_result_c.size()-2] if forward_max_result_c.size() > 1 else None
+                forward_max_continuous_end_prev_prev_value = forward_max_result_c[forward_max_result_c.size()-3] if forward_max_result_c.size() > 2 else None
+
+                # 向前最小连续累加值相关参数
+                forward_min_continuous_start_value = forward_min_result_c[0] if forward_min_result_c.size() > 0 else None
+                forward_min_continuous_start_next_value = forward_min_result_c[1] if forward_min_result_c.size() > 1 else None
+                forward_min_continuous_start_next_next_value = forward_min_result_c[2] if forward_min_result_c.size() > 2 else None
+                forward_min_continuous_end_value = forward_min_result_c[forward_min_result_c.size()-1] if forward_min_result_c.size() > 0 else None
+                forward_min_continuous_end_prev_value = forward_min_result_c[forward_min_result_c.size()-2] if forward_min_result_c.size() > 1 else None
+                forward_min_continuous_end_prev_prev_value = forward_min_result_c[forward_min_result_c.size()-3] if forward_min_result_c.size() > 2 else None
 
                 # 最后只在返回时转为Python对象
                 py_cont_sum = list(cont_sum)
@@ -762,11 +806,17 @@ def calculate_batch_cy(
                     # 预先计算所有需要的变量
                     formula_vars = {
                         'max_value': max_price,
+                        'max_value_date': max_value_date,
                         'min_value': min_price,
+                        'min_value_date': min_value_date,
                         'end_value': end_value,
+                        'end_value_date': end_value_date,
                         'start_value': start_value,
+                        'start_value_date': start_value_date,
                         'actual_value': actual_value,
+                        'actual_value_date': actual_value_date,
                         'closest_value': closest_value,
+                        'closest_value_date': closest_value_date,
                         'n_days_max_value': n_days_max_value,
                         'n_max_is_max': n_max_is_max_result,
                         'range_ratio_is_less': range_ratio_is_less,
@@ -800,6 +850,12 @@ def calculate_batch_cy(
                         'valid_abs_sum_block4': valid_abs_sum_block4,
                         'forward_max_date': forward_max_date_str,
                         'forward_max_result': forward_max_result,
+                        'forward_max_continuous_start_value': forward_max_continuous_start_value,
+                        'forward_max_continuous_start_next_value': forward_max_continuous_start_next_value,
+                        'forward_max_continuous_start_next_next_value': forward_max_continuous_start_next_next_value,
+                        'forward_max_continuous_end_value': forward_max_continuous_end_value,
+                        'forward_max_continuous_end_prev_value': forward_max_continuous_end_prev_value,
+                        'forward_max_continuous_end_prev_prev_value': forward_max_continuous_end_prev_prev_value,
                         'forward_max_valid_sum_len': forward_max_valid_sum_len,
                         'forward_max_valid_sum_arr': forward_max_valid_sum_arr,
                         'forward_max_valid_pos_sum': forward_max_valid_pos_sum,
@@ -810,18 +866,51 @@ def calculate_batch_cy(
                         'forward_max_valid_abs_sum_block2': forward_max_valid_abs_sum_block2,
                         'forward_max_valid_abs_sum_block3': forward_max_valid_abs_sum_block3,
                         'forward_max_valid_abs_sum_block4': forward_max_valid_abs_sum_block4,
+                        'forward_max_abs_sum_first_half': forward_max_abs_sum_first_half,
+                        'forward_max_abs_sum_second_half': forward_max_abs_sum_second_half,
+                        'forward_max_abs_sum_block1': forward_max_abs_sum_block1,
+                        'forward_max_abs_sum_block2': forward_max_abs_sum_block2,
+                        'forward_max_abs_sum_block3': forward_max_abs_sum_block3,
+                        'forward_max_abs_sum_block4': forward_max_abs_sum_block4,
                         'forward_min_date': forward_min_date_str,
                         'forward_min_result': forward_min_result,
+                        'forward_min_continuous_start_value': forward_min_continuous_start_value,
+                        'forward_min_continuous_start_next_value': forward_min_continuous_start_next_value,
+                        'forward_min_continuous_start_next_next_value': forward_min_continuous_start_next_next_value,
+                        'forward_min_continuous_end_value': forward_min_continuous_end_value,
+                        'forward_min_continuous_end_prev_value': forward_min_continuous_end_prev_value,
+                        'forward_min_continuous_end_prev_prev_value': forward_min_continuous_end_prev_prev_value,
                         'forward_min_valid_sum_len': forward_min_valid_sum_len,
                         'forward_min_valid_sum_arr': forward_min_valid_sum_arr,
                         'forward_min_valid_pos_sum': forward_min_valid_pos_sum,
                         'forward_min_valid_neg_sum': forward_min_valid_neg_sum,
+                        'valid_abs_sum_first_half': valid_abs_sum_first_half,
+                        'valid_abs_sum_second_half': valid_abs_sum_second_half,
+                        'valid_abs_sum_block1': valid_abs_sum_block1,
+                        'valid_abs_sum_block2': valid_abs_sum_block2,
+                        'valid_abs_sum_block3': valid_abs_sum_block3,
+                        'valid_abs_sum_block4': valid_abs_sum_block4,
+                        'forward_max_valid_abs_sum_first_half': forward_max_valid_abs_sum_first_half,
+                        'forward_max_valid_abs_sum_second_half': forward_max_valid_abs_sum_second_half,
+                        'forward_max_valid_abs_sum_block1': forward_max_valid_abs_sum_block1,
+                        'forward_max_valid_abs_sum_block2': forward_max_valid_abs_sum_block2,
+                        'forward_max_valid_abs_sum_block3': forward_max_valid_abs_sum_block3,
+                        'forward_max_valid_abs_sum_block4': forward_max_valid_abs_sum_block4,
                         'forward_min_valid_abs_sum_first_half': forward_min_valid_abs_sum_first_half,
                         'forward_min_valid_abs_sum_second_half': forward_min_valid_abs_sum_second_half,
                         'forward_min_valid_abs_sum_block1': forward_min_valid_abs_sum_block1,
                         'forward_min_valid_abs_sum_block2': forward_min_valid_abs_sum_block2,
                         'forward_min_valid_abs_sum_block3': forward_min_valid_abs_sum_block3,
                         'forward_min_valid_abs_sum_block4': forward_min_valid_abs_sum_block4,
+                        'forward_max_date': forward_max_date_str,
+                        'forward_min_date': forward_min_date_str,
+                        'n_max_is_max': n_max_is_max_result,
+                        'range_ratio_is_less': range_ratio_is_less,
+                        'continuous_abs_is_less': continuous_abs_is_less,
+                        'n_days_max_value': n_days_max_value,
+                        'prev_day_change': prev_day_change,
+                        'end_day_change': end_day_change,
+                        'diff_end_value': diff_data_view[stock_idx, end_date_idx],
                         'increment_value': increment_value,
                         'after_gt_end_value': after_gt_end_value,
                         'after_gt_start_value': after_gt_start_value,
@@ -829,7 +918,21 @@ def calculate_batch_cy(
                         'hold_days': hold_days,
                         'ops_change': ops_change,
                         'adjust_days': adjust_days,
-                        'ops_incre_rate': ops_incre_rate
+                        'ops_incre_rate': ops_incre_rate,
+                        'forward_max_continuous_start_value': forward_max_continuous_start_value,
+                        'forward_max_continuous_start_next_value': forward_max_continuous_start_next_value,
+                        'forward_max_continuous_start_next_next_value': forward_max_continuous_start_next_next_value,
+                        'forward_max_continuous_end_value': forward_max_continuous_end_value,
+                        'forward_max_continuous_end_prev_value': forward_max_continuous_end_prev_value,
+                        'forward_max_continuous_end_prev_prev_value': forward_max_continuous_end_prev_prev_value,
+                        'forward_min_continuous_start_value': forward_min_continuous_start_value,
+                        'forward_min_continuous_start_next_value': forward_min_continuous_start_next_value,
+                        'forward_min_continuous_start_next_next_value': forward_min_continuous_start_next_next_value,
+                        'forward_min_continuous_end_value': forward_min_continuous_end_value,
+                        'forward_min_continuous_end_prev_value': forward_min_continuous_end_prev_value,
+                        'forward_min_continuous_end_prev_prev_value': forward_min_continuous_end_prev_prev_value,
+                        'forward_max_result_len': forward_max_result_len,
+                        'forward_min_result_len': forward_min_result_len,
                     }
                     
                     try:
@@ -839,17 +942,23 @@ def calculate_batch_cy(
                             score = round_to_2(score)
                     except Exception as e:
                         score = None
-                        
+
                 if only_show_selected:
                     if score is not None and score != 0 and not isnan(end_value) and hold_days != -1:
                         row_result = {
                             'stock_idx': stock_idx,
-                            'max_value': [max_value_date, max_price],
-                            'min_value': [min_value_date, min_price],
-                            'end_value': [end_value_date, end_value],
-                            'start_value': [start_value_date, start_value],
-                            'actual_value': [actual_value_date, actual_value],
-                            'closest_value': [closest_value_date, closest_value],
+                            'max_value': max_price,
+                            'max_value_date': max_value_date,
+                            'min_value': min_price,
+                            'min_value_date': min_value_date,
+                            'end_value': end_value,
+                            'end_value_date': end_value_date,
+                            'start_value': start_value,
+                            'start_value_date': start_value_date,
+                            'actual_value': actual_value,
+                            'actual_value_date': actual_value_date,
+                            'closest_value': closest_value,
+                            'closest_value_date': closest_value_date,
                             'continuous_results': py_cont_sum,
                             'continuous_len': continuous_len,
                             'continuous_start_value': continuous_start_value,
@@ -865,7 +974,31 @@ def calculate_batch_cy(
                             'continuous_abs_sum_block3': continuous_abs_sum_block3,
                             'continuous_abs_sum_block4': continuous_abs_sum_block4,
                             'forward_max_result': forward_max_result,
+                            'forward_max_continuous_start_value': forward_max_continuous_start_value,
+                            'forward_max_continuous_start_next_value': forward_max_continuous_start_next_value,
+                            'forward_max_continuous_start_next_next_value': forward_max_continuous_start_next_next_value,
+                            'forward_max_continuous_end_value': forward_max_continuous_end_value,
+                            'forward_max_continuous_end_prev_value': forward_max_continuous_end_prev_value,
+                            'forward_max_continuous_end_prev_prev_value': forward_max_continuous_end_prev_prev_value,
+                            'forward_max_abs_sum_first_half': forward_max_abs_sum_first_half,
+                            'forward_max_abs_sum_second_half': forward_max_abs_sum_second_half,
+                            'forward_max_abs_sum_block1': forward_max_abs_sum_block1,
+                            'forward_max_abs_sum_block2': forward_max_abs_sum_block2,
+                            'forward_max_abs_sum_block3': forward_max_abs_sum_block3,
+                            'forward_max_abs_sum_block4': forward_max_abs_sum_block4,
                             'forward_min_result': forward_min_result,
+                            'forward_min_continuous_start_value': forward_min_continuous_start_value,
+                            'forward_min_continuous_start_next_value': forward_min_continuous_start_next_value,
+                            'forward_min_continuous_start_next_next_value': forward_min_continuous_start_next_next_value,
+                            'forward_min_continuous_end_value': forward_min_continuous_end_value,
+                            'forward_min_continuous_end_prev_value': forward_min_continuous_end_prev_value,
+                            'forward_min_continuous_end_prev_prev_value': forward_min_continuous_end_prev_prev_value,
+                            'forward_min_abs_sum_first_half': forward_min_abs_sum_first_half,
+                            'forward_min_abs_sum_second_half': forward_min_abs_sum_second_half,
+                            'forward_min_abs_sum_block1': forward_min_abs_sum_block1,
+                            'forward_min_abs_sum_block2': forward_min_abs_sum_block2,
+                            'forward_min_abs_sum_block3': forward_min_abs_sum_block3,
+                            'forward_min_abs_sum_block4': forward_min_abs_sum_block4,
                             'valid_sum_arr': py_valid_sum_arr,
                             'valid_sum_len': valid_sum_len,
                             'valid_pos_sum': valid_pos_sum,
@@ -914,6 +1047,8 @@ def calculate_batch_cy(
                             'adjust_days': adjust_days,
                             'ops_incre_rate': ops_incre_rate,
                             'score': score,
+                            'forward_max_result_len': forward_max_result_len,
+                            'forward_min_result_len': forward_min_result_len,
                         }
                         current_stocks = all_results.get(date_columns[end_date_idx], [])
                         current_stocks.append(row_result)
@@ -927,12 +1062,18 @@ def calculate_batch_cy(
                 else:
                     row_result = {
                             'stock_idx': stock_idx,
-                            'max_value': [max_value_date, max_price],
-                            'min_value': [min_value_date, min_price],
-                            'end_value': [end_value_date, end_value],
-                            'start_value': [start_value_date, start_value],
-                            'actual_value': [actual_value_date, actual_value],
-                            'closest_value': [closest_value_date, closest_value],
+                            'max_value': max_price,
+                            'max_value_date': max_value_date,
+                            'min_value': min_price,
+                            'min_value_date': min_value_date,
+                            'end_value': end_value,
+                            'end_value_date': end_value_date,
+                            'start_value': start_value,
+                            'start_value_date': start_value_date,
+                            'actual_value': actual_value,
+                            'actual_value_date': actual_value_date,
+                            'closest_value': closest_value,
+                            'closest_value_date': closest_value_date,
                             'continuous_results': py_cont_sum,
                             'continuous_len': continuous_len,
                             'continuous_start_value': continuous_start_value,
@@ -948,7 +1089,31 @@ def calculate_batch_cy(
                             'continuous_abs_sum_block3': continuous_abs_sum_block3,
                             'continuous_abs_sum_block4': continuous_abs_sum_block4,
                             'forward_max_result': forward_max_result,
+                            'forward_max_continuous_start_value': forward_max_continuous_start_value,
+                            'forward_max_continuous_start_next_value': forward_max_continuous_start_next_value,
+                            'forward_max_continuous_start_next_next_value': forward_max_continuous_start_next_next_value,
+                            'forward_max_continuous_end_value': forward_max_continuous_end_value,
+                            'forward_max_continuous_end_prev_value': forward_max_continuous_end_prev_value,
+                            'forward_max_continuous_end_prev_prev_value': forward_max_continuous_end_prev_prev_value,
+                            'forward_max_abs_sum_first_half': forward_max_abs_sum_first_half,
+                            'forward_max_abs_sum_second_half': forward_max_abs_sum_second_half,
+                            'forward_max_abs_sum_block1': forward_max_abs_sum_block1,
+                            'forward_max_abs_sum_block2': forward_max_abs_sum_block2,
+                            'forward_max_abs_sum_block3': forward_max_abs_sum_block3,
+                            'forward_max_abs_sum_block4': forward_max_abs_sum_block4,
                             'forward_min_result': forward_min_result,
+                            'forward_min_continuous_start_value': forward_min_continuous_start_value,
+                            'forward_min_continuous_start_next_value': forward_min_continuous_start_next_value,
+                            'forward_min_continuous_start_next_next_value': forward_min_continuous_start_next_next_value,
+                            'forward_min_continuous_end_value': forward_min_continuous_end_value,
+                            'forward_min_continuous_end_prev_value': forward_min_continuous_end_prev_value,
+                            'forward_min_continuous_end_prev_prev_value': forward_min_continuous_end_prev_prev_value,
+                            'forward_min_abs_sum_first_half': forward_min_abs_sum_first_half,
+                            'forward_min_abs_sum_second_half': forward_min_abs_sum_second_half,
+                            'forward_min_abs_sum_block1': forward_min_abs_sum_block1,
+                            'forward_min_abs_sum_block2': forward_min_abs_sum_block2,
+                            'forward_min_abs_sum_block3': forward_min_abs_sum_block3,
+                            'forward_min_abs_sum_block4': forward_min_abs_sum_block4,
                             'valid_sum_arr': py_valid_sum_arr,
                             'valid_sum_len': valid_sum_len,
                             'valid_pos_sum': valid_pos_sum,
@@ -997,6 +1162,8 @@ def calculate_batch_cy(
                             'adjust_days': adjust_days,
                             'ops_incre_rate': ops_incre_rate,
                             'score': score,
+                            'forward_max_result_len': forward_max_result_len,
+                            'forward_min_result_len': forward_min_result_len,
                         }
                     all_results[date_columns[end_date_idx]].append(row_result)
             except Exception as e:
