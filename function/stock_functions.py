@@ -48,22 +48,36 @@ param_headers = [
 valid_param_headers = [
     "有效累加值数组长度", "有效累加值正加值和", "有效累加值负加值和",
     "有效累加值前一半绝对值之和", "有效累加值后一半绝对值之和",
-    "有效累加值第一块绝对值之和", "有效累加值第二块绝对值之和",
-    "有效累加值第三块绝对值之和", "有效累加值第四块绝对值之和"
+    "有效累加值前四分之1绝对值之和", "有效累加值前四分之1-2绝对值之和",
+    "有效累加值前四分之2-3绝对值之和", "有效累加值后四分之1绝对值之和"
 ]
 # 向前最大相关参数表头
 forward_param_headers = [
-    "向前最大日期", "向前最大有效累加值数组长度", "向前最大有效累加值", "向前最大有效累加值正加值和", "向前最大有效累加值负加值和",
+    "向前最大日期",
+    "向前最大连续累加值长度",
+    "向前最大有效累加值数组长度", "向前最大有效累加值", "向前最大有效累加值正加值和", "向前最大有效累加值负加值和",
+    "向前最大连续累加值开始值", "向前最大连续累加值开始后1位值", "向前最大连续累加值开始后2位值",
+    "向前最大连续累加值结束值", "向前最大连续累加值结束前1位值", "向前最大连续累加值结束前2位值",
+    "向前最大连续累加值前一半绝对值之和", "向前最大连续累加值后一半绝对值之和",
+    "向前最大连续累加值前四分之1绝对值之和", "向前最大连续累加值前四分之1-2绝对值之和",
+    "向前最大连续累加值前四分之2-3绝对值之和", "向前最大连续累加值后四分之1绝对值之和",
     "向前最大有效累加值数组前一半绝对值之和", "向前最大有效累加值数组后一半绝对值之和",
-    "向前最大有效累加值数组第一块绝对值之和", "向前最大有效累加值数组第二块绝对值之和",
-    "向前最大有效累加值数组第三块绝对值之和", "向前最大有效累加值数组第四块绝对值之和"
+    "向前最大有效累加值数组前四分之1绝对值之和", "向前最大有效累加值数组前四分之1-2绝对值之和",
+    "向前最大有效累加值数组前四分之2-3绝对值之和", "向前最大有效累加值数组后四分之1绝对值之和"
 ]
 # 向前最小相关参数表头
 forward_min_param_headers = [
-    "向前最小日期", "向前最小有效累加值数组长度", "向前最小有效累加值", "向前最小有效累加值正加值和", "向前最小有效累加值负加值和",
+    "向前最小日期",
+    "向前最小连续累加值长度",
+    "向前最小有效累加值数组长度", "向前最小有效累加值", "向前最小有效累加值正加值和", "向前最小有效累加值负加值和",
+    "向前最小连续累加值开始值", "向前最小连续累加值开始后1位值", "向前最小连续累加值开始后2位值",
+    "向前最小连续累加值结束值", "向前最小连续累加值结束前1位值", "向前最小连续累加值结束前2位值",
+    "向前最小连续累加值前一半绝对值之和", "向前最小连续累加值后一半绝对值之和",
+    "向前最小连续累加值前四分之1绝对值之和", "向前最小连续累加值前四分之1-2绝对值之和",
+    "向前最小连续累加值前四分之2-3绝对值之和", "向前最小连续累加值后四分之1绝对值之和",
     "向前最小有效累加值数组前一半绝对值之和", "向前最小有效累加值数组后一半绝对值之和",
-    "向前最小有效累加值数组第一块绝对值之和", "向前最小有效累加值数组第二块绝对值之和",
-    "向前最小有效累加值数组第三块绝对值之和", "向前最小有效累加值数组第四块绝对值之和"
+    "向前最小有效累加值数组前四分之1绝对值之和", "向前最小有效累加值数组前四分之1-2绝对值之和",
+    "向前最小有效累加值数组前四分之2-3绝对值之和", "向前最小有效累加值数组后四分之1绝对值之和"
 ]
 
 # 表格搜索事件过滤器
@@ -159,13 +173,11 @@ def show_continuous_sum_table(parent, all_results, price_data, as_widget=False):
                 code = price_data.iloc[stock_idx, 0]
                 name = price_data.iloc[stock_idx, 1]
                 # 实际开始日期值
-                actual_value_val = row.get('actual_value', [None, None])[1] if row.get('actual_value') else ''
-                if isinstance(actual_value_val, float) and (np.isnan(actual_value_val) or str(actual_value_val).lower() == 'nan'):
-                    actual_value_val = ''
+                actual_value_val = row.get('actual_value', '')
                 table1.setItem(row_idx, 0, QTableWidgetItem(str(code)))
                 table1.setItem(row_idx, 1, QTableWidgetItem(str(name)))
                 table1.setItem(row_idx, 2, QTableWidgetItem(str(actual_value_val)))
-                table1.setItem(row_idx, 3, QTableWidgetItem(str(row.get('actual_value', [None, None])[0]) if row.get('actual_value') else ''))
+                table1.setItem(row_idx, 3, QTableWidgetItem(str(row.get('actual_value_date', ''))))
                 results = row.get('continuous_results', [])
                 for col_idx in range(max_len):
                     val = results[col_idx] if col_idx < len(results) else ""
@@ -221,11 +233,26 @@ def show_continuous_sum_table(parent, all_results, price_data, as_widget=False):
                 for col_idx in range(max_forward_len):
                     val = forward_arr[col_idx] if col_idx < len(forward_arr) else ""
                     table3.setItem(row_idx, 3 + col_idx, QTableWidgetItem(str(val)))
+                # 新增：向前最大连续累加值长度，放在连续累加值打印完之后
+                table3.setItem(row_idx, 3 + max_forward_len, QTableWidgetItem(str(row.get('forward_max_result_len', ''))))
+                # 合并后的参数列表，顺序与表头一致
                 forward_param_values = [
                     row.get('forward_max_valid_sum_len', ''),
                     row.get('forward_max_valid_sum_arr', ''),
                     row.get('forward_max_valid_pos_sum', ''),
                     row.get('forward_max_valid_neg_sum', ''),
+                    row.get('forward_max_continuous_start_value', ''),
+                    row.get('forward_max_continuous_start_next_value', ''),
+                    row.get('forward_max_continuous_start_next_next_value', ''),
+                    row.get('forward_max_continuous_end_value', ''),
+                    row.get('forward_max_continuous_end_prev_value', ''),
+                    row.get('forward_max_continuous_end_prev_prev_value', ''),
+                    row.get('forward_max_abs_sum_first_half', ''),
+                    row.get('forward_max_abs_sum_second_half', ''),
+                    row.get('forward_max_abs_sum_block1', ''),
+                    row.get('forward_max_abs_sum_block2', ''),
+                    row.get('forward_max_abs_sum_block3', ''),
+                    row.get('forward_max_abs_sum_block4', ''),
                     row.get('forward_max_valid_abs_sum_first_half', ''),
                     row.get('forward_max_valid_abs_sum_second_half', ''),
                     row.get('forward_max_valid_abs_sum_block1', ''),
@@ -234,7 +261,7 @@ def show_continuous_sum_table(parent, all_results, price_data, as_widget=False):
                     row.get('forward_max_valid_abs_sum_block4', ''),
                 ]
                 for i, val in enumerate(forward_param_values):
-                    table3.setItem(row_idx, 3 + max_forward_len + i, QTableWidgetItem(str(val)))
+                    table3.setItem(row_idx, 4 + max_forward_len + i, QTableWidgetItem(str(val)))
 
             # table4
             table4.setRowCount(len(stocks_data))
@@ -249,11 +276,26 @@ def show_continuous_sum_table(parent, all_results, price_data, as_widget=False):
                 for col_idx in range(max_forward_min_len):
                     val = forward_min_arr[col_idx] if col_idx < len(forward_min_arr) else ""
                     table4.setItem(row_idx, 3 + col_idx, QTableWidgetItem(str(val)))
+                # 新增：向前最小连续累加值长度，放在连续累加值打印完之后
+                table4.setItem(row_idx, 3 + max_forward_min_len, QTableWidgetItem(str(row.get('forward_min_result_len', ''))))
+                # 合并后的参数列表，顺序与表头一致
                 forward_min_param_values = [
                     row.get('forward_min_valid_sum_len', ''),
                     row.get('forward_min_valid_sum_arr', ''),
                     row.get('forward_min_valid_pos_sum', ''),
                     row.get('forward_min_valid_neg_sum', ''),
+                    row.get('forward_min_continuous_start_value', ''),
+                    row.get('forward_min_continuous_start_next_value', ''),
+                    row.get('forward_min_continuous_start_next_next_value', ''),
+                    row.get('forward_min_continuous_end_value', ''),
+                    row.get('forward_min_continuous_end_prev_value', ''),
+                    row.get('forward_min_continuous_end_prev_prev_value', ''),
+                    row.get('forward_min_abs_sum_first_half', ''),
+                    row.get('forward_min_abs_sum_second_half', ''),
+                    row.get('forward_min_abs_sum_block1', ''),
+                    row.get('forward_min_abs_sum_block2', ''),
+                    row.get('forward_min_abs_sum_block3', ''),
+                    row.get('forward_min_abs_sum_block4', ''),
                     row.get('forward_min_valid_abs_sum_first_half', ''),
                     row.get('forward_min_valid_abs_sum_second_half', ''),
                     row.get('forward_min_valid_abs_sum_block1', ''),
@@ -262,7 +304,7 @@ def show_continuous_sum_table(parent, all_results, price_data, as_widget=False):
                     row.get('forward_min_valid_abs_sum_block4', ''),
                 ]
                 for i, val in enumerate(forward_min_param_values):
-                    table4.setItem(row_idx, 3 + max_forward_min_len + i, QTableWidgetItem(str(val)))
+                    table4.setItem(row_idx, 4 + max_forward_min_len + i, QTableWidgetItem(str(val)))
 
             # 设置表格列宽自适应
             table1.resizeColumnsToContents()
@@ -414,13 +456,13 @@ def query_row_result(rows, keyword, n_days=0):
         if (is_code and keyword_num == code_num) or (not is_code and keyword == str(row['name'])):
             info = (
                 f"代码={row['code']}，名称={row['name']}，"
-                f"最大值=({row['max_value'][0]}, {row['max_value'][1]})，"
-                f"最小值=({row['min_value'][0]}, {row['min_value'][1]})，"
-                f"结束值=({row['end_value'][0]}, {row['end_value'][1]})，"
-                f"开始值=({row['start_value'][0]}, {row['start_value'][1]})，"
-                f"实际开始日期值=({row['actual_value'][0]}, {row['actual_value'][1]})，"
-                f"最接近值=({row['closest_value'][0]}, {row['closest_value'][1]})，"
-                f"前1组结束地址前{n_days}日的最高值：{row.get('n_max_value', '无')}，"
+                f"最大值={row.get('max_value', '无')}，"
+                f"最小值={row.get('min_value', '无')}，"
+                f"结束值={row.get('end_value', '无')}，"
+                f"开始值={row.get('start_value', '无')}，"
+                f"实际开始值={row.get('actual_value', '无')}，"
+                f"最接近值={row.get('closest_value', '无')}，"
+                f"前1组结束地址前N日的最高值：{row.get('n_max_value', '无')}，"
                 f"前N最大值：{row.get('n_max_is_max', '无')}，"
                 f"开始日到结束日之间最高价/最低价小于M：{row.get('range_ratio_is_less', '无')}，"
                 f"开始日到结束日之间连续累加值绝对值小于：{row.get('continuous_abs_is_less', '无')}，"
@@ -451,10 +493,10 @@ def query_row_result(rows, keyword, n_days=0):
                 f"有效累加值负加值和：{row.get('valid_neg_sum', '无')}, "
                 f"有效累加值前一半绝对值之和：{row.get('valid_abs_sum_first_half', '无')}, "
                 f"有效累加值后一半绝对值之和：{row.get('valid_abs_sum_second_half', '无')}, "
-                f"有效累加值第一块绝对值之和：{row.get('valid_abs_sum_block1', '无')}, "
-                f"有效累加值第二块绝对值之和：{row.get('valid_abs_sum_block2', '无')}, "
-                f"有效累加值第三块绝对值之和：{row.get('valid_abs_sum_block3', '无')}, "
-                f"有效累加值第四块绝对值之和：{row.get('valid_abs_sum_block4', '无')}, "
+                f"有效累加值前四分之1绝对值之和：{row.get('valid_abs_sum_block1', '无')}, "
+                f"有效累加值前四分之1-2绝对值之和：{row.get('valid_abs_sum_block2', '无')}, "
+                f"有效累加值前四分之2-3绝对值之和：{row.get('valid_abs_sum_block3', '无')}, "
+                f"有效累加值后四分之1绝对值之和：{row.get('valid_abs_sum_block4', '无')}, "
                 f"\n"
                 f"\n"
                 f"向前最大日期={row['forward_max_date']}，向前最大连续累加值={row['forward_max_result']}，"
@@ -464,10 +506,10 @@ def query_row_result(rows, keyword, n_days=0):
                 f"向前最大有效累加值负加值和：{row.get('forward_max_valid_neg_sum', '无')}, "
                 f"向前最大有效累加值数组前一半绝对值之和：{row.get('forward_max_valid_abs_sum_first_half', '无')}, "
                 f"向前最大有效累加值数组后一半绝对值之和：{row.get('forward_max_valid_abs_sum_second_half', '无')}, "
-                f"向前最大有效累加值数组第一块绝对值之和：{row.get('forward_max_valid_abs_sum_block1', '无')}, "
-                f"向前最大有效累加值数组第二块绝对值之和：{row.get('forward_max_valid_abs_sum_block2', '无')}, "
-                f"向前最大有效累加值数组第三块绝对值之和：{row.get('forward_max_valid_abs_sum_block3', '无')}, "
-                f"向前最大有效累加值数组第四块绝对值之和：{row.get('forward_max_valid_abs_sum_block4', '无')}, "
+                f"向前最大有效累加值数组前四分之1绝对值之和：{row.get('forward_max_valid_abs_sum_block1', '无')}, "
+                f"向前最大有效累加值数组前四分之1-2绝对值之和：{row.get('forward_max_valid_abs_sum_block2', '无')}, "
+                f"向前最大有效累加值数组前四分之2-3绝对值之和：{row.get('forward_max_valid_abs_sum_block3', '无')}, "
+                f"向前最大有效累加值数组后四分之1绝对值之和：{row.get('forward_max_valid_abs_sum_block4', '无')}, "
                 f"\n"
                 f"\n"
                 f"向前最小日期={row['forward_min_date']}，向前最小连续累加值={row['forward_min_result']}，"
@@ -477,10 +519,10 @@ def query_row_result(rows, keyword, n_days=0):
                 f"向前最小有效累加值负加值和：{row.get('forward_min_valid_neg_sum', '无')}, "
                 f"向前最小有效累加值数组前一半绝对值之和：{row.get('forward_min_valid_abs_sum_first_half', '无')}, "
                 f"向前最小有效累加值数组后一半绝对值之和：{row.get('forward_min_valid_abs_sum_second_half', '无')}, "
-                f"向前最小有效累加值数组第一块绝对值之和：{row.get('forward_min_valid_abs_sum_block1', '无')}, "
-                f"向前最小有效累加值数组第二块绝对值之和：{row.get('forward_min_valid_abs_sum_block2', '无')}, "
-                f"向前最小有效累加值数组第三块绝对值之和：{row.get('forward_min_valid_abs_sum_block3', '无')}, "
-                f"向前最小有效累加值数组第四块绝对值之和：{row.get('forward_min_valid_abs_sum_block4', '无')}, "
+                f"向前最小有效累加值数组前四分之1绝对值之和：{row.get('forward_min_valid_abs_sum_block1', '无')}, "
+                f"向前最小有效累加值数组前四分之1-2绝对值之和：{row.get('forward_min_valid_abs_sum_block2', '无')}, "
+                f"向前最小有效累加值数组前四分之2-3绝对值之和：{row.get('forward_min_valid_abs_sum_block3', '无')}, "
+                f"向前最小有效累加值数组后四分之1绝对值之和：{row.get('forward_min_valid_abs_sum_block4', '无')}, "
                 f"\n"
                 f"\n"
                 f"递增值：{row.get('increment_value', '无')}, "
@@ -526,9 +568,9 @@ def show_params_table(parent, all_results, end_date=None, n_days=0, n_days_max=0
 
     headers = [
         '代码', '名称', '最大值', '最小值', '结束值', '开始值', '实际开始日期值', '最接近值',
-        f'前1组结束地址前{n_days_max}日最大值', '前N最大值', 
-        f'开始日到结束日之间最高价/最低价小于{range_value}',
-        f'开始日到结束日之间连续累加值绝对值小于{continuous_abs_threshold}',
+        f'前1组结束地址前N日最大值', '前N最大值', 
+        f'开始日到结束日之间最高价/最低价小于M',
+        f'开始日到结束日之间连续累加值绝对值小于M',
         '前1组结束日地址值',
         '前1组结束地址前1日涨跌幅', '前1组结束日涨跌幅', '后1组结束地址值',
         '递增值', '后值大于结束地址值', '后值大于前值返回值', '操作值', '持有天数', '操作涨幅', '调整天数', '日均涨幅'
@@ -576,8 +618,8 @@ def show_params_table(parent, all_results, end_date=None, n_days=0, n_days_max=0
         table.setRowCount(len(stocks_data))
         for row_idx, row in enumerate(stocks_data):
             stock_idx = row.get('stock_idx', 0)
-            code = price_data.iloc[stock_idx, 0] if price_data is not None else row.get('code', '')
-            name = price_data.iloc[stock_idx, 1] if price_data is not None else row.get('name', '')
+            code = price_data.iloc[stock_idx, 0]
+            name = price_data.iloc[stock_idx, 1]
             table.setItem(row_idx, 0, QTableWidgetItem(str(code)))
             table.setItem(row_idx, 1, QTableWidgetItem(str(name)))
             table.setItem(row_idx, 2, QTableWidgetItem(str(get_val(row.get('max_value', '')))))
@@ -597,7 +639,7 @@ def show_params_table(parent, all_results, end_date=None, n_days=0, n_days_max=0
             table.setItem(row_idx, 16, QTableWidgetItem(str(get_val(row.get('increment_value', '')))))
             table.setItem(row_idx, 17, QTableWidgetItem(str(get_val(row.get('after_gt_end_value', '')))))
             table.setItem(row_idx, 18, QTableWidgetItem(str(get_val(row.get('after_gt_start_value', '')))))
-            table.setItem(row_idx, 19, QTableWidgetItem(str(get_val(row.get('increment_value', '')))))
+            table.setItem(row_idx, 19, QTableWidgetItem(str(get_val(row.get('ops_value', '')))))
             table.setItem(row_idx, 20, QTableWidgetItem(str(row.get('hold_days', ''))))
             table.setItem(row_idx, 21, QTableWidgetItem(get_percent(row.get('ops_change', ''))))
             table.setItem(row_idx, 22, QTableWidgetItem(str(get_val(row.get('adjust_days', '')))))
@@ -628,8 +670,6 @@ def show_params_table(parent, all_results, end_date=None, n_days=0, n_days_max=0
 class FormulaExprEdit(QTextEdit):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.setReadOnly(False)
-        self.setPlaceholderText(FORMULAR_EXPR_PLACEHOLDER_TEXT)
         self.setMinimumHeight(25)
         self.setMaximumHeight(120)
         self.setFixedWidth(400)  # 设置宽度为400px
@@ -641,9 +681,19 @@ class FormulaExprEdit(QTextEdit):
             height = max(25, min(height, 120))
             self.setFixedHeight(height)
         self.textChanged.connect(adjust_formula_height)
-        adjust_formula_height()
+        adjust_formula_height()  # 初始化高度
+
+    def focusOutEvent(self, event):
+        expr = self.toPlainText()
+        if expr.strip():  # 只在有内容时校验
+            try:
+                compile(expr, '<string>', 'exec')
+            except SyntaxError as e:
+                QMessageBox.warning(self, "选股公式语法错误", f"选股公式存在语法错误，请检查！\n\n{e}")
+        super().focusOutEvent(event)
 
 def show_formula_select_table(parent, all_results=None, as_widget=True):
+    from PyQt5.QtWidgets import QMessageBox
     widget = QWidget(parent)
     widget.setStyleSheet("background-color: white; border: 1px solid #d0d0d0;")  # 设置白色背景和浅灰边框
     layout = QVBoxLayout(widget)
@@ -714,15 +764,45 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
 
     # 缩写说明区（表格排列，每行5列）
     abbrs = [
-        ("前N最大值", "NMAX"), ("前一组结束地址前N日的最高值", "NDAYMAX"), ("前N最大值是否区间最大", "NMAXISMAX"), ("前1组结束日涨跌幅", "EDC"), ("后一组结束地址值", "DEV"), ("区间比值", "RRL"),
-        ("绝对值", "ASL"), ("连续累加值开始值", "CSV"), ("连续累加值开始后1位值", "CSNV"), ("连续累加值结束值", "CEV"), ("连续累加值结束前1位值", "CEPV"),
-        ("连续累加值结束前2位值", "CEPPV"), ("连续累加值长度", "CL"), ("连续累加值前一半绝对值之和", "CASFH"), ("连续累加值后一半绝对值之和", "CASSH"), ("连续累加值前四分之一绝对值之和", "CASB1"),
-        ("连续累加值前四分之二绝对值之和", "CASB2"), ("连续累加值前四分之三绝对值之和", "CASB3"), ("连续累加值后四分之一绝对值之和", "CASB4"), ("有效累加值正加值和", "VPS"), ("有效累加值负加值和", "VNS"),
-        ("有效累加值数组长度", "VSL"), ("有效累加值前一半绝对值之和", "VASFH"), ("有效累加值后一半绝对值之和", "VASSH"), ("有效累加值第一块绝对值之和", "VASB1"), ("有效累加值第二块绝对值之和", "VASB2"),
-        ("有效累加值第三块绝对值之和", "VASB3"), ("有效累加值第四块绝对值之和", "VASB4"), ("向前最大日期", "FMD"), ("向前最大连续累加值", "FMR"), ("向前最大有效累加值数组长度", "FMVSL"),
-        ("向前最大有效累加值正加值和", "FMVPS"), ("向前最大有效累加值负加值和", "FMVNS"), ("向前最大有效累加值数组前一半绝对值之和", "FMVASFH"), ("向前最大有效累加值数组后一半绝对值之和", "FMVASSH"), ("向前最大有效累加值数组第一块绝对值之和", "FMVASB1"),
-        ("向前最大有效累加值数组第二块绝对值之和", "FMVASB2"), ("向前最大有效累加值数组第三块绝对值之和", "FMVASB3"), ("向前最大有效累加值数组第四块绝对值之和", "FMVASB4"), ("递增值", "INC"), ("后值大于结束地址值", "AGE"),
-        ("后值大于前值", "AGS"), ("操作值", "OPS"), ("持有天数", "HD"), ("操作涨幅", "OPC"), ("调整天数", "ADJ"), ("日均涨幅", "OIR")
+        ("最大值", "MAX"), ("最小值", "MIN"), ("结束值", "END"), ("开始值", "START"),
+        ("前1组结束日地址值", "EDV"),
+        ("实际开始值", "ACT"), ("最接近值", "CLS"), ("前1组结束地址前N日的最高值", "NDAYMAX"), ("前N最大值", "NMAXISMAX"),
+        ("开始日到结束日之间最高价/最低价小于M", "RRL"), ("开始日到结束日之间连续累加值绝对值小于M", "CAL"), ("前1组结束地址前1日涨跌幅", "PDC"), ("前1组结束日涨跌幅", "EDC"), ("后一组结束地址值", "DEV"),
+        ("连续累加值", "CR"), ("连续累加值数组非空数据长度", "CL"), ("连续累加值开始值", "CSV"), ("连续累加值开始后1位值", "CSNV"),
+        ("连续累加值开始后2位值", "CSNNV"), ("连续累加值结束值", "CEV"), ("连续累加值结束前1位值", "CEPV"), ("连续累加值结束前2位值", "CEPPV"),
+        ("连续累加值数组前一半绝对值之和", "CASFH"), ("连续累加值数组后一半绝对值之和", "CASSH"),
+        ("连续累加值数组前四分之一绝对值之和", "CASB1"), ("连续累加值数组前四分之1-2绝对值之和", "CASB2"),
+        ("连续累加值数组前四分之2-3绝对值之和", "CASB3"), ("连续累加值数组后四分之一绝对值之和", "CASB4"),
+        ("有效累加值数组", "VSA"), ("有效累加值数组非空数据长度", "VSL"), ("有效累加值正加值和", "VPS"), ("有效累加值负加值和", "VNS"),
+        ("有效累加值数组前一半绝对值之和", "VASFH"), ("有效累加值数组后一半绝对值之和", "VASSH"),
+        ("有效累加值数组前四分之1绝对值之和", "VASB1"), ("有效累加值数组前四分之1-2绝对值之和", "VASB2"),
+        ("有效累加值数组前四分之2-3绝对值之和", "VASB3"), ("有效累加值数组后四分之1绝对值之和", "VASB4"),
+        ("向前最大日期", "FMD"), ("向前最大连续累加值", "FMR"),
+        ("向前最大有效累加值数组非空数据长度", "FMVSL"), ("向前最大有效累加值数组", "FMVSA"),
+        ("向前最大有效累加值正加值和", "FMVPS"), ("向前最大有效累加值负加值和", "FMVNS"),
+        ("向前最大有效累加值数组前一半绝对值之和", "FMVASFH"), ("向前最大有效累加值数组后一半绝对值之和", "FMVASSH"),
+        ("向前最大有效累加值数组前四分之1绝对值之和", "FMVASB1"), ("向前最大有效累加值数组前四分之1-2绝对值之和", "FMVASB2"),
+        ("向前最大有效累加值数组前四分之2-3绝对值之和", "FMVASB3"), ("向前最大有效累加值数组后四分之1绝对值之和", "FMVASB4"),
+        ("向前最小日期", "FMinD"), ("向前最小连续累加值", "FMinR"),
+        ("向前最小有效累加值数组非空数据长度", "FMinVSL"), ("向前最小有效累加值数组", "FMinVSA"),
+        ("向前最小有效累加值正加值和", "FMinVPS"), ("向前最小有效累加值负加值和", "FMinVNS"),
+        ("向前最小有效累加值数组前一半绝对值之和", "FMinVASFH"), ("向前最小有效累加值数组后一半绝对值之和", "FMinVASSH"),
+        ("向前最小有效累加值数组前四分之1绝对值之和", "FMinVASB1"), ("向前最小有效累加值数组前四分之1-2绝对值之和", "FMinVASB2"),
+        ("向前最小有效累加值数组前四分之2-3绝对值之和", "FMinVASB3"), ("向前最小有效累加值数组后四分之1绝对值之和", "FMinVASB4"),
+        ("递增值", "INC"), ("后值大于结束地址值涨跌幅", "AGE"), ("后值大于前值涨跌幅", "AGS"),
+        ("操作值", "OPS"), ("持有天数", "HD"), ("操作涨幅", "OPC"), ("调整天数", "ADJ"), ("日均涨幅", "OIR"),
+        ("向前最大连续累加值开始值", "FMaxCV"), ("向前最大连续累加值开始后1位值", "FMaxCNV"), ("向前最大连续累加值开始后2位值", "FMaxCNNV"),
+        ("向前最大连续累加值结束值", "FMaxCEV"), ("向前最大连续累加值结束前1位值", "FMaxCEPV"), ("向前最大连续累加值结束前2位值", "FMaxCEPPV"),
+        ("向前最小连续累加值开始值", "FMinCV"), ("向前最小连续累加值开始后1位值", "FMinCNV"), ("向前最小连续累加值开始后2位值", "FMinCNNV"),
+        ("向前最小连续累加值结束值", "FMinCEV"), ("向前最小连续累加值结束前1位值", "FMinCEPV"), ("向前最小连续累加值结束前2位值", "FMinCEPPV"),
+        ("向前最大连续累加值前一半绝对值之和", "FMaxCASFH"), ("向前最大连续累加值后一半绝对值之和", "FMaxCASSH"),
+        ("向前最大连续累加值前四分之1绝对值之和", "FMaxCASB1"), ("向前最大连续累加值前四分之1-2绝对值之和", "FMaxCASB2"),
+        ("向前最大连续累加值前四分之2-3绝对值之和", "FMaxCASB3"), ("向前最大连续累加值后四分之1绝对值之和", "FMaxCASB4"),
+        ("向前最小连续累加值前一半绝对值之和", "FMinCASFH"), ("向前最小连续累加值后一半绝对值之和", "FMinCASSH"),
+        ("向前最小连续累加值前四分之1绝对值之和", "FMinCASB1"), ("向前最小连续累加值前四分之1-2绝对值之和", "FMinCASB2"),
+        ("向前最小连续累加值前四分之2-3绝对值之和", "FMinCASB3"), ("向前最小连续累加值后四分之1绝对值之和", "FMinCASB4"),
+        ("向前最大连续累加值数组非空数据长度", "FMaxLen"),
+        ("向前最小连续累加值数组非空数据长度", "FMinLen")
     ]
     abbr_grid = QGridLayout()
     abbr_grid.setSpacing(8)
@@ -770,7 +850,7 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
         merged_results = all_param_result.get('dates', {})
         parent.all_param_result = all_param_result
         # 只取第一个日期的数据
-        if not merged_results:
+        if not merged_results or not any(merged_results.values()):
             output_edit.setText("没有选股结果。")
             return
         first_date = list(merged_results.keys())[0]
@@ -872,13 +952,9 @@ def format_stock_table(result):
 def show_formula_select_table_result(parent, result, price_data=None, output_edit=None):
     merged_results = result.get('dates', {})
     headers = ["股票代码", "股票名称", "持有天数", "操作涨幅", "日均涨跌幅", "得分"]
-    if not merged_results:
-        table = QTableWidget(0, len(headers), parent)
-        table.setHorizontalHeaderLabels(headers)
-        table.resizeColumnsToContents()
-        table.horizontalHeader().setFixedHeight(50)
-        table.horizontalHeader().setStyleSheet("font-size: 12px;")
-        return table
+    if not merged_results or not any(merged_results.values()):
+        QMessageBox.information(parent, "提示", "无匹配结果")
+        return None
     # 只展示第一个日期的数据
     first_date = list(merged_results.keys())[0]
     stocks = merged_results[first_date]
