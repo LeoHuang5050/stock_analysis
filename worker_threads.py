@@ -38,7 +38,22 @@ abbr_map = {
     'FMinVASB1': 'forward_min_valid_abs_sum_block1', 'FMinVASB2': 'forward_min_valid_abs_sum_block2',
     'FMinVASB3': 'forward_min_valid_abs_sum_block3', 'FMinVASB4': 'forward_min_valid_abs_sum_block4',
     'INC': 'increment_value', 'AGE': 'after_gt_end_value', 'AGS': 'after_gt_start_value',
-    'OPS': 'ops_value', 'HD': 'hold_days', 'OPC': 'ops_change', 'ADJ': 'adjust_days', 'OIR': 'ops_incre_rate'
+    'OPS': 'ops_value', 'HD': 'hold_days', 'OPC': 'ops_change', 'ADJ': 'adjust_days', 'OIR': 'ops_incre_rate',
+    'FMaxCV': 'forward_max_continuous_start_value', 'FMaxCNV': 'forward_max_continuous_start_next_value',
+    'FMaxCNNV': 'forward_max_continuous_start_next_next_value', 'FMaxCEV': 'forward_max_continuous_end_value',
+    'FMaxCEPV': 'forward_max_continuous_end_prev_value', 'FMaxCEPPV': 'forward_max_continuous_end_prev_prev_value',
+    'FMinCV': 'forward_min_continuous_start_value', 'FMinCNV': 'forward_min_continuous_start_next_value',
+    'FMinCNNV': 'forward_min_continuous_start_next_next_value', 'FMinCEV': 'forward_min_continuous_end_value',
+    'FMinCEPV': 'forward_min_continuous_end_prev_value', 'FMinCEPPV': 'forward_min_continuous_end_prev_prev_value',
+    'FMaxCASFH': 'forward_max_continuous_abs_sum_first_half', 'FMaxCASSH': 'forward_max_continuous_abs_sum_second_half',
+    'FMaxCASB1': 'forward_max_continuous_abs_sum_block1', 'FMaxCASB2': 'forward_max_continuous_abs_sum_block2',
+    'FMaxCASB3': 'forward_max_continuous_abs_sum_block3', 'FMaxCASB4': 'forward_max_continuous_abs_sum_block4',
+    'FMinCASFH': 'forward_min_continuous_abs_sum_first_half', 'FMinCASSH': 'forward_min_continuous_abs_sum_second_half',
+    'FMinCASB1': 'forward_min_continuous_abs_sum_block1', 'FMinCASB2': 'forward_min_continuous_abs_sum_block2',
+    'FMinCASB3': 'forward_min_continuous_abs_sum_block3', 'FMinCASB4': 'forward_min_continuous_abs_sum_block4',
+    'EDV': 'end_value',
+    'FMaxLen': 'forward_max_result_len',
+    'FMinLen': 'forward_min_result_len'
 }
 
 def split_indices(total, n_parts):
@@ -899,10 +914,8 @@ class CalculateThread(QThread):
         price_data_np = self.price_data.iloc[:, 2:].values.astype(np.float64)
         diff_data_np = self.diff_data.values.astype(np.float64)
         num_stocks = price_data_np.shape[0]
-        n_proc = 16
-        # n_proc = 1
+
         stock_idx_arr = np.arange(num_stocks, dtype=np.int32)
-        stock_idx_ranges = split_indices(num_stocks, n_proc)
         n_days_max = params.get("n_days_max", 0)
         op_days = int(params.get('op_days', 0))
         inc_rate = float(params.get('inc_rate', 0)) * 0.01
@@ -916,6 +929,13 @@ class CalculateThread(QThread):
         select_count = int(params.get('select_count', 10))
         sort_mode = params.get('sort_mode', '最大值排序')
         only_show_selected = params.get('only_show_selected', False)
+        if only_show_selected:
+            n_proc = 16
+        else:
+            n_proc = 1
+
+        stock_idx_ranges = split_indices(num_stocks, n_proc)
+        # n_proc = 1
         args_list = [
             (
                 price_data_np,
@@ -953,11 +973,13 @@ class CalculateThread(QThread):
         with concurrent.futures.ProcessPoolExecutor(max_workers=n_proc) as executor:
             futures = [executor.submit(cy_batch_worker, args) for args in args_list]
             for fut in concurrent.futures.as_completed(futures):
-                process_results = fut.result()
-                for end_date, stocks in process_results.items():
-                    if end_date in merged_results:
-                        merged_results[end_date].extend(stocks)
-        
+                try:
+                    process_results = fut.result()
+                    for end_date, stocks in process_results.items():
+                        if end_date in merged_results:
+                            merged_results[end_date].extend(stocks)
+                except Exception as e:
+                    print(f"子进程异常: {e}")
         t1 = time.time()
         print(f"calculate_batch_{n_proc}_cores 总耗时: {t1 - t0:.4f}秒")
         if only_show_selected:
