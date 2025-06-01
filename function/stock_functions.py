@@ -817,10 +817,15 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
     layout.addWidget(abbr_widget)
 
     # 输出区（用于提示和结果展示）
+    output_area = QWidget()
+    output_layout = QVBoxLayout(output_area)
+    output_area.setLayout(output_layout)
+    layout.addWidget(output_area)
+
     output_edit = QTextEdit()
     output_edit.setReadOnly(True)
     output_edit.setMinimumHeight(180)
-    layout.addWidget(output_edit)
+    output_layout.addWidget(output_edit)
 
     # 选股结果缓存
     widget.selected_results = []
@@ -868,18 +873,20 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
         reverse = sort_mode == "最大值排序"
         filtered.sort(key=lambda x: x['score'], reverse=reverse)
         selected_result = filtered[:select_count]
+        # 缓存选股结果数据到parent
+        parent.last_formula_select_result_data = {'dates': {first_date: selected_result}}
         # 生成表格
-        table = show_formula_select_table_result(parent, {'dates': {first_date: selected_result}}, getattr(parent, 'init', None) and getattr(parent.init, 'price_data', None))
+        table = show_formula_select_table_result(parent, parent.last_formula_select_result_data, getattr(parent, 'init', None) and getattr(parent.init, 'price_data', None))
+        # 清理output_layout
+        for i in reversed(range(output_layout.count())):
+            w = output_layout.itemAt(i).widget()
+            if w is not None:
+                w.setParent(None)
         if table:
             widget.current_table = table  # 保存当前表格引用
-            parent_layout = layout
-            for i in reversed(range(parent_layout.count())):
-                w = parent_layout.itemAt(i).widget()
-                if w is not None:
-                    w.setParent(None)
-            parent_layout.addWidget(table)
+            output_layout.addWidget(table)
         else:
-            output_edit.setText("没有选股结果。")
+            output_layout.addWidget(output_edit)
 
     # 排序方式变化时的处理函数
     def on_sort_mode_changed():
@@ -889,6 +896,20 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
 
     select_btn.clicked.connect(do_select)
     sort_combo.currentTextChanged.connect(on_sort_mode_changed)  # 添加排序方式变化的监听
+
+    # 自动恢复选股结果表格（如果有缓存，且有数据）
+    if hasattr(parent, 'last_formula_select_result_data') and parent.last_formula_select_result_data:
+        # 清理output_layout
+        for i in reversed(range(output_layout.count())):
+            w = output_layout.itemAt(i).widget()
+            if w is not None:
+                w.setParent(None)
+        table = show_formula_select_table_result(parent, parent.last_formula_select_result_data, getattr(parent, 'init', None) and getattr(parent.init, 'price_data', None))
+        if table:
+            widget.current_table = table
+            output_layout.addWidget(table)
+        else:
+            output_layout.addWidget(output_edit)
 
     return widget
 
@@ -953,8 +974,14 @@ def show_formula_select_table_result(parent, result, price_data=None, output_edi
     merged_results = result.get('dates', {})
     headers = ["股票代码", "股票名称", "持有天数", "操作涨幅", "日均涨跌幅", "得分"]
     if not merged_results or not any(merged_results.values()):
+        # 返回一个只有表头的空表格
+        table = QTableWidget(0, len(headers), parent)
+        table.setHorizontalHeaderLabels(headers)
+        table.resizeColumnsToContents()
+        table.horizontalHeader().setFixedHeight(50)
+        table.horizontalHeader().setStyleSheet("font-size: 12px;")
         QMessageBox.information(parent, "提示", "无匹配结果")
-        return None
+        return table
     # 只展示第一个日期的数据
     first_date = list(merged_results.keys())[0]
     stocks = merged_results[first_date]
