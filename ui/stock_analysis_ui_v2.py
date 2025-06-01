@@ -14,6 +14,7 @@ from PyQt5.QtWidgets import QFileDialog
 import math
 import json
 import os
+from decimal import Decimal, ROUND_HALF_UP
 
 class Tab4SpaceTextEdit(QTextEdit):
     def keyPressEvent(self, event):
@@ -611,9 +612,9 @@ class StockAnalysisApp(QWidget):
 
     def create_analysis_table(self, valid_items, start_date, end_date):
         row_count = len(valid_items)
-        table = CopyableTableWidget(row_count, 4, self.analysis_widget)
+        table = CopyableTableWidget(row_count + 2, 9, self.analysis_widget)  # 9列
         table.setHorizontalHeaderLabels([
-            "结束日期", "操作天数", "持有涨跌幅", "日均涨跌幅"
+            "结束日期", "操作天数", "持有涨跌幅", "日均涨跌幅", "从下往上非空均值", "从下往上含空均值", "含空值均值", "最大值", "最小值"
         ])
         table.setSelectionBehavior(QTableWidget.SelectItems)
         table.setSelectionMode(QTableWidget.ExtendedSelection)
@@ -629,10 +630,11 @@ class StockAnalysisApp(QWidget):
         mean_hold_days_list = []
         mean_ops_change_list = []
         mean_incre_rate_list = []
+        mean_incre_rate_list_with_nan_list = []
         for row_idx, (date_key, stocks) in enumerate(valid_items):
-            table.setItem(row_idx, 0, QTableWidgetItem(date_key))
             hold_days_list = []
             ops_change_list = []
+            ops_change_list_with_nan = []
             ops_incre_rate_list = []
             for stock in stocks:
                 try:
@@ -660,7 +662,10 @@ class StockAnalysisApp(QWidget):
                 except Exception:
                     pass
             def safe_mean(lst):
-                return round(sum(lst) / len(lst), 2) if lst else ''
+                if not lst:
+                    return ''
+                val = sum(lst) / len(lst)
+                return float(Decimal(str(val)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
             mean_hold_days = safe_mean(hold_days_list)
             mean_ops_change = safe_mean(ops_change_list)
             mean_ops_incre_rate = safe_mean(ops_incre_rate_list)
@@ -669,29 +674,68 @@ class StockAnalysisApp(QWidget):
                 calc1 = mean_ops_incre_rate if mean_ops_incre_rate != '' else float('inf')
                 calc2 = mean_ops_change / mean_hold_days if mean_hold_days != 0 else float('inf')
                 min_incre_rate = round(min(calc1, calc2), 2)
-            table.setItem(row_idx, 1, QTableWidgetItem(str(mean_hold_days)))
-            table.setItem(row_idx, 2, QTableWidgetItem(f"{mean_ops_change}%" if mean_ops_change != '' else ''))
-            table.setItem(row_idx, 3, QTableWidgetItem(f"{min_incre_rate}%" if min_incre_rate != '' else ''))
+            table.setItem(row_idx + 2, 0, QTableWidgetItem(date_key))
+            table.setItem(row_idx + 2, 1, QTableWidgetItem(str(mean_hold_days)))
+            table.setItem(row_idx + 2, 2, QTableWidgetItem(f"{mean_ops_change}%" if mean_ops_change != '' else ''))
+            table.setItem(row_idx + 2, 3, QTableWidgetItem(f"{min_incre_rate}%" if min_incre_rate != '' else ''))
+            # 第五、第六列用非空均值占位
+            table.setItem(row_idx + 2, 4, QTableWidgetItem(str(mean_ops_change)))
+            table.setItem(row_idx + 2, 5, QTableWidgetItem(str(mean_ops_incre_rate)))
+            # 第七列为包含空值的均值
+            
             if mean_hold_days != '':
                 mean_hold_days_list.append(mean_hold_days)
             if mean_ops_change != '':
                 mean_ops_change_list.append(mean_ops_change)
             if min_incre_rate != '':
                 mean_incre_rate_list.append(min_incre_rate)
-        def safe_mean2(lst):
-            return round(sum(lst) / len(lst), 2) if lst else ''
-        mean_of_mean_hold_days = safe_mean2(mean_hold_days_list)
-        mean_of_mean_ops_change = safe_mean2(mean_ops_change_list)
-        mean_of_mean_incre_rate = safe_mean2(mean_incre_rate_list)
-        last_row = table.rowCount()
-        table.insertRow(last_row)
-        table.insertRow(last_row+1)
-        table.setItem(last_row+1, 1, QTableWidgetItem(str(mean_of_mean_hold_days)))
-        table.setItem(last_row+1, 2, QTableWidgetItem(f"{mean_of_mean_ops_change}%" if mean_of_mean_ops_change != '' else ''))
-        table.setItem(last_row+1, 3, QTableWidgetItem(f"{mean_of_mean_incre_rate}%" if mean_of_mean_incre_rate != '' else ''))
+                mean_incre_rate_list_with_nan_list.append(min_incre_rate)
+            else:
+                mean_incre_rate_list_with_nan_list.append(0)
+            
+        mean_of_mean_hold_days = safe_mean(mean_hold_days_list)
+        mean_of_mean_ops_change = safe_mean(mean_ops_change_list)
+        mean_of_mean_incre_rate = safe_mean(mean_incre_rate_list)
+        mean_of_mean_incre_rate_with_nan = safe_mean(mean_incre_rate_list_with_nan_list)
+        # 计算最大值和最小值
+        max_incre_rate = max(mean_incre_rate_list) if mean_incre_rate_list else ''
+        min_incre_rate = min(mean_incre_rate_list) if mean_incre_rate_list else ''
+        # 在第一行插入均值行
+        table.setItem(0, 1, QTableWidgetItem(str(mean_of_mean_hold_days)))
+        table.setItem(0, 2, QTableWidgetItem(f"{mean_of_mean_ops_change}%" if mean_of_mean_ops_change != '' else ''))
+        table.setItem(0, 3, QTableWidgetItem(f"{mean_of_mean_incre_rate}%" if mean_of_mean_incre_rate != '' else ''))
+        table.setItem(0, 6, QTableWidgetItem(f"{mean_of_mean_incre_rate_with_nan}%" if mean_of_mean_incre_rate_with_nan != '' else ''))
+        table.setItem(0, 7, QTableWidgetItem(f"{max_incre_rate}%" if max_incre_rate != '' else ''))
+        table.setItem(0, 8, QTableWidgetItem(f"{min_incre_rate}%" if min_incre_rate != '' else ''))
         table.resizeColumnsToContents()
         table.horizontalHeader().setFixedHeight(40)
         table.horizontalHeader().setStyleSheet("font-size: 12px;")
+
+        # 统计所有行的从下往上非空均值和含空均值
+        non_nan_mean_list = []
+        with_nan_mean_list = []
+        n = len(mean_incre_rate_list)
+        for i in range(n):
+            non_nan_vals = [v for v in mean_incre_rate_list[i:] if v != '' and v is not None]
+            non_nan_mean = safe_mean(non_nan_vals)
+            vals_with_nan = mean_incre_rate_list_with_nan_list[i:]
+            with_nan_mean = safe_mean(vals_with_nan)
+            table.setItem(i + 2, 4, QTableWidgetItem(f"{non_nan_mean}%" if non_nan_mean != '' else ''))
+            table.setItem(i + 2, 5, QTableWidgetItem(f"{with_nan_mean}%" if with_nan_mean != '' else ''))
+            if non_nan_mean != '':
+                non_nan_mean_list.append(non_nan_mean)
+            if with_nan_mean != '':
+                with_nan_mean_list.append(with_nan_mean)
+        print(f"non_nan_mean_list: {non_nan_mean_list}")
+        print(f"with_nan_mean_list: {with_nan_mean_list}")
+        def safe_mean(lst):
+            if not lst:
+                return ''
+            val = sum(lst) / len(lst)
+            return float(Decimal(str(val)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
+        table.setItem(0, 4, QTableWidgetItem(f"{safe_mean(non_nan_mean_list)}%" if non_nan_mean_list else ''))
+        table.setItem(0, 5, QTableWidgetItem(f"{safe_mean(with_nan_mean_list)}%" if with_nan_mean_list else ''))
+
         return table
 
     def on_generate_analysis(self):
@@ -730,7 +774,7 @@ class StockAnalysisApp(QWidget):
         )
         self.last_auto_analysis_result = result  # 新增：只给自动分析用
         merged_results = result.get('dates', {}) if result else {}
-        valid_items = [(date_key, stocks) for date_key, stocks in merged_results.items() if stocks]
+        valid_items = [(date_key, stocks) for date_key, stocks in merged_results.items()]
         # 缓存数据
         self.analysis_table_cache_data = {
             "valid_items": valid_items,
