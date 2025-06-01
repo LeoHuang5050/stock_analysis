@@ -728,6 +728,7 @@ class StockAnalysisApp(QWidget):
             select_count=select_count,
             sort_mode=sort_mode
         )
+        self.last_auto_analysis_result = result  # 新增：只给自动分析用
         merged_results = result.get('dates', {}) if result else {}
         valid_items = [(date_key, stocks) for date_key, stocks in merged_results.items() if stocks]
         # 缓存数据
@@ -856,13 +857,6 @@ class StockAnalysisApp(QWidget):
 
     def on_op_stat_btn_clicked(self):
         self.clear_result_area()
-        try:
-            end_date = self.end_date_picker.date().toString("yyyy-MM-dd")
-            start_date = self.start_date_picker.date().toString("yyyy-MM-dd")
-        except (AttributeError, RuntimeError):
-            self.result_text.setText("请先在自动分析子界面设置结束日期开始日和结束日期结束日")
-            self.output_stack.setCurrentWidget(self.result_text)
-            return
         # 创建操作统计子界面整体widget
         self.op_stat_widget = QWidget()
         layout = QVBoxLayout(self.op_stat_widget)
@@ -883,9 +877,12 @@ class StockAnalysisApp(QWidget):
         self.op_stat_result_layout.setSpacing(0)
         # 生成表格
         from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem
-        # 获取自动分析的result
-        result = self.last_calculate_result
+        result = getattr(self, 'last_auto_analysis_result', None)
         merged_results = result.get('dates', {}) if result else {}
+        if not merged_results or not any(merged_results.values()):
+            self.result_text.setText("请先进行自动分析")
+            self.output_stack.setCurrentWidget(self.result_text)
+            return
         group_size = 19
         end_dates = [d for d, stocks in merged_results.items() if stocks]
         blocks = [end_dates[i:i+group_size] for i in range(0, len(end_dates), group_size)]

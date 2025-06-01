@@ -5,7 +5,7 @@
 
 import numpy as np
 cimport numpy as np
-from libc.math cimport isnan, fabs, round
+from libc.math cimport isnan, fabs, round, ceil
 from libcpp.vector cimport vector
 from libc.stdio cimport printf
 
@@ -71,7 +71,8 @@ cdef void calc_valid_sum_and_pos_neg(
         elif i < n-1:
             valid_sum.push_back(sign_v * fabs(arr[i+1]))
         else:
-            valid_sum.push_back(0)
+            # 最后一个元素不做处理，不添加进valid_sum
+            continue
         if valid_sum[valid_idx] > 0:
             pos_sum[0] += valid_sum[valid_idx]
         elif valid_sum[valid_idx] < 0:
@@ -383,27 +384,31 @@ def calculate_batch_cy(
                     
                     n = cont_sum.size()
                     half = int(round(n / 2.0))
-                    q1 = int(round(n / 4.0))
-                    q2 = int(round(n / 2.0))
-                    q3 = int(round(3 * n / 4.0))
+                    q1 = <int>ceil(n / 4.0)
                     continuous_abs_sum_first_half = 0
                     continuous_abs_sum_second_half = 0
                     continuous_abs_sum_block1 = 0
                     continuous_abs_sum_block2 = 0
                     continuous_abs_sum_block3 = 0
                     continuous_abs_sum_block4 = 0
+                    # 前一半
                     for j in range(half):
                         continuous_abs_sum_first_half += fabs(cont_sum[j])
-                    for j in range(half, n):
+                    # 后一半
+                    for j in range(n - half, n):
                         continuous_abs_sum_second_half += fabs(cont_sum[j])
-                    for j in range(q1):
+                    # block1: 前q1
+                    for j in range(min(q1, n)):
                         continuous_abs_sum_block1 += fabs(cont_sum[j])
-                    for j in range(q1, q2):
+                    # block2: q1~2q1
+                    for j in range(q1, min(2*q1, n)):
                         continuous_abs_sum_block2 += fabs(cont_sum[j])
-                    for j in range(q2, q3):
-                        continuous_abs_sum_block3 += fabs(cont_sum[j])
-                    for j in range(q3, n):
+                    # block4: 从后往前q1
+                    for j in range(n-1, max(n-1-q1, -1), -1):
                         continuous_abs_sum_block4 += fabs(cont_sum[j])
+                    # block3: 再往前q1
+                    for j in range(n-1-q1, max(n-1-2*q1, -1), -1):
+                        continuous_abs_sum_block3 += fabs(cont_sum[j])
                     continuous_abs_sum_first_half = round_to_2(continuous_abs_sum_first_half)
                     continuous_abs_sum_second_half = round_to_2(continuous_abs_sum_second_half)
                     continuous_abs_sum_block1 = round_to_2(continuous_abs_sum_block1)
@@ -418,32 +423,31 @@ def calculate_batch_cy(
                         if forward_max_result_len > 0:
                             n = forward_max_result_len
                             half = int(round(n / 2.0))
-                            q1 = int(round(n / 4.0))
-                            q2 = int(round(n / 2.0))
-                            q3 = int(round(3 * n / 4.0))
-                            
+                            q1 = <int>ceil(n / 4.0)
                             forward_max_abs_sum_first_half = 0
                             forward_max_abs_sum_second_half = 0
                             forward_max_abs_sum_block1 = 0
                             forward_max_abs_sum_block2 = 0
                             forward_max_abs_sum_block3 = 0
                             forward_max_abs_sum_block4 = 0
-                            
-                            for j in range(n):
-                                abs_v = fabs(forward_max_result_c[j])
-                                if j < half:
-                                    forward_max_abs_sum_first_half += abs_v
-                                else:
-                                    forward_max_abs_sum_second_half += abs_v
-                                if j < q1:
-                                    forward_max_abs_sum_block1 += abs_v
-                                elif j < q2:
-                                    forward_max_abs_sum_block2 += abs_v
-                                elif j < q3:
-                                    forward_max_abs_sum_block3 += abs_v
-                                else:
-                                    forward_max_abs_sum_block4 += abs_v
-                            
+                            # 前一半
+                            for j in range(half):
+                                forward_max_abs_sum_first_half += fabs(forward_max_result_c[j])
+                            # 后一半
+                            for j in range(n - half, n):
+                                forward_max_abs_sum_second_half += fabs(forward_max_result_c[j])
+                            # block1: 前q1
+                            for j in range(min(q1, n)):
+                                forward_max_abs_sum_block1 += fabs(forward_max_result_c[j])
+                            # block2: q1~2q1
+                            for j in range(q1, min(2*q1, n)):
+                                forward_max_abs_sum_block2 += fabs(forward_max_result_c[j])
+                            # block4: 从后往前q1
+                            for j in range(n-1, max(n-1-q1, -1), -1):
+                                forward_max_abs_sum_block4 += fabs(forward_max_result_c[j])
+                            # block3: 再往前q1
+                            for j in range(n-1-q1, max(n-1-2*q1, -1), -1):
+                                forward_max_abs_sum_block3 += fabs(forward_max_result_c[j])
                             forward_max_abs_sum_first_half = round_to_2(forward_max_abs_sum_first_half)
                             forward_max_abs_sum_second_half = round_to_2(forward_max_abs_sum_second_half)
                             forward_max_abs_sum_block1 = round_to_2(forward_max_abs_sum_block1)
@@ -463,32 +467,31 @@ def calculate_batch_cy(
                         if forward_min_result_len > 0:
                             n = forward_min_result_len
                             half = int(round(n / 2.0))
-                            q1 = int(round(n / 4.0))
-                            q2 = int(round(n / 2.0))
-                            q3 = int(round(3 * n / 4.0))
-                            
+                            q1 = <int>ceil(n / 4.0)
                             forward_min_abs_sum_first_half = 0
                             forward_min_abs_sum_second_half = 0
                             forward_min_abs_sum_block1 = 0
                             forward_min_abs_sum_block2 = 0
                             forward_min_abs_sum_block3 = 0
                             forward_min_abs_sum_block4 = 0
-                            
-                            for j in range(n):
-                                abs_v = fabs(forward_min_result_c[j])
-                                if j < half:
-                                    forward_min_abs_sum_first_half += abs_v
-                                else:
-                                    forward_min_abs_sum_second_half += abs_v
-                                if j < q1:
-                                    forward_min_abs_sum_block1 += abs_v
-                                elif j < q2:
-                                    forward_min_abs_sum_block2 += abs_v
-                                elif j < q3:
-                                    forward_min_abs_sum_block3 += abs_v
-                                else:
-                                    forward_min_abs_sum_block4 += abs_v
-                            
+                            # 前一半
+                            for j in range(half):
+                                forward_min_abs_sum_first_half += fabs(forward_min_result_c[j])
+                            # 后一半
+                            for j in range(n - half, n):
+                                forward_min_abs_sum_second_half += fabs(forward_min_result_c[j])
+                            # block1: 前q1
+                            for j in range(min(q1, n)):
+                                forward_min_abs_sum_block1 += fabs(forward_min_result_c[j])
+                            # block2: q1~2q1
+                            for j in range(q1, min(2*q1, n)):
+                                forward_min_abs_sum_block2 += fabs(forward_min_result_c[j])
+                            # block4: 从后往前q1
+                            for j in range(n-1, max(n-1-q1, -1), -1):
+                                forward_min_abs_sum_block4 += fabs(forward_min_result_c[j])
+                            # block3: 再往前q1
+                            for j in range(n-1-q1, max(n-1-2*q1, -1), -1):
+                                forward_min_abs_sum_block3 += fabs(forward_min_result_c[j])
                             forward_min_abs_sum_first_half = round_to_2(forward_min_abs_sum_first_half)
                             forward_min_abs_sum_second_half = round_to_2(forward_min_abs_sum_second_half)
                             forward_min_abs_sum_block1 = round_to_2(forward_min_abs_sum_block1)
@@ -595,21 +598,25 @@ def calculate_batch_cy(
                     valid_abs_sum_block4 = 0
                     n_valid = valid_sum_len
                     half_valid = int(round(n_valid / 2.0))
-                    q1_valid = int(round(n_valid / 4.0))
-                    q2_valid = int(round(n_valid / 2.0))
-                    q3_valid = int(round(3 * n_valid / 4.0))
+                    q1 = <int>ceil(n_valid / 4.0)
+                    # 前一半
                     for j in range(half_valid):
                         valid_abs_sum_first_half += fabs(valid_sum_vec[j])
-                    for j in range(half_valid, n_valid):
+                    # 后一半
+                    for j in range(n_valid - half_valid, n_valid):
                         valid_abs_sum_second_half += fabs(valid_sum_vec[j])
-                    for j in range(q1_valid):
+                    # block1: 前q1
+                    for j in range(min(q1, n_valid)):
                         valid_abs_sum_block1 += fabs(valid_sum_vec[j])
-                    for j in range(q1_valid, q2_valid):
+                    # block2: q1~2q1
+                    for j in range(q1, min(2*q1, n_valid)):
                         valid_abs_sum_block2 += fabs(valid_sum_vec[j])
-                    for j in range(q2_valid, q3_valid):
-                        valid_abs_sum_block3 += fabs(valid_sum_vec[j])
-                    for j in range(q3_valid, n_valid):
+                    # block4: 从后往前q1
+                    for j in range(n_valid-1, max(n_valid-1-q1, -1), -1):
                         valid_abs_sum_block4 += fabs(valid_sum_vec[j])
+                    # block3: 再往前q1
+                    for j in range(n_valid-1-q1, max(n_valid-1-2*q1, -1), -1):
+                        valid_abs_sum_block3 += fabs(valid_sum_vec[j])
                     valid_abs_sum_first_half = round_to_2(valid_abs_sum_first_half)
                     valid_abs_sum_second_half = round_to_2(valid_abs_sum_second_half)
                     valid_abs_sum_block1 = round_to_2(valid_abs_sum_block1)
@@ -624,26 +631,28 @@ def calculate_batch_cy(
                     forward_max_valid_abs_sum_block2 = 0
                     forward_max_valid_abs_sum_block3 = 0
                     forward_max_valid_abs_sum_block4 = 0
-                    if is_forward and forward_max_result_len > 0:
-                        n = forward_max_result_len
+                    if is_forward and forward_max_valid_sum_len > 0:
+                        n = forward_max_valid_sum_len
                         half = int(round(n / 2.0))
-                        q1 = int(round(n / 4.0))
-                        q2 = int(round(n / 2.0))
-                        q3 = int(round(3 * n / 4.0))
-                        for j in range(n):
-                            v = fabs(forward_max_valid_sum_vec[j])
-                            if j < half:
-                                forward_max_valid_abs_sum_first_half += v
-                            else:
-                                forward_max_valid_abs_sum_second_half += v
-                            if j < q1:
-                                forward_max_valid_abs_sum_block1 += v
-                            elif j < q2:
-                                forward_max_valid_abs_sum_block2 += v
-                            elif j < q3:
-                                forward_max_valid_abs_sum_block3 += v
-                            else:
-                                forward_max_valid_abs_sum_block4 += v
+                        q1 = <int>ceil(n / 4.0)
+                        # 前一半
+                        for j in range(half):
+                            forward_max_valid_abs_sum_first_half += fabs(forward_max_valid_sum_vec[j])
+                        # 后一半
+                        for j in range(n - half, n):
+                            forward_max_valid_abs_sum_second_half += fabs(forward_max_valid_sum_vec[j])
+                        # block1: 前q1
+                        for j in range(min(q1, n)):
+                            forward_max_valid_abs_sum_block1 += fabs(forward_max_valid_sum_vec[j])
+                        # block2: q1~2q1
+                        for j in range(q1, min(2*q1, n)):
+                            forward_max_valid_abs_sum_block2 += fabs(forward_max_valid_sum_vec[j])
+                        # block4: 从后往前q1
+                        for j in range(n-1, max(n-1-q1, -1), -1):
+                            forward_max_valid_abs_sum_block4 += fabs(forward_max_valid_sum_vec[j])
+                        # block3: 再往前q1
+                        for j in range(n-1-q1, max(n-1-2*q1, -1), -1):
+                            forward_max_valid_abs_sum_block3 += fabs(forward_max_valid_sum_vec[j])
                         forward_max_valid_abs_sum_first_half = round_to_2(forward_max_valid_abs_sum_first_half)
                         forward_max_valid_abs_sum_second_half = round_to_2(forward_max_valid_abs_sum_second_half)
                         forward_max_valid_abs_sum_block1 = round_to_2(forward_max_valid_abs_sum_block1)
@@ -659,26 +668,40 @@ def calculate_batch_cy(
                         forward_max_valid_abs_sum_block4 = 0
 
                     # 计算向前最小有效连续累加值的分块和绝对值之和（全部在Cython区完成）
-                    if is_forward and forward_min_result_len > 0:
-                        n = forward_min_result_len
-                        half = <int>(round(n / 2.0))
-                        q1 = <int>(round(n / 4.0))
-                        q2 = <int>(round(n / 2.0))
-                        q3 = <int>(round(3 * n / 4.0))
-                        for j in range(n):
-                            v = fabs(forward_min_valid_sum_vec[j])
-                            if j < half:
-                                forward_min_valid_abs_sum_first_half += v
-                            else:
-                                forward_min_valid_abs_sum_second_half += v
-                            if j < q1:
-                                forward_min_valid_abs_sum_block1 += v
-                            elif j < q2:
-                                forward_min_valid_abs_sum_block2 += v
-                            elif j < q3:
-                                forward_min_valid_abs_sum_block3 += v
-                            else:
-                                forward_min_valid_abs_sum_block4 += v
+                    forward_min_valid_abs_sum_first_half = 0
+                    forward_min_valid_abs_sum_second_half = 0
+                    forward_min_valid_abs_sum_block1 = 0
+                    forward_min_valid_abs_sum_block2 = 0
+                    forward_min_valid_abs_sum_block3 = 0
+                    forward_min_valid_abs_sum_block4 = 0
+                    if is_forward and forward_min_valid_sum_len > 0:
+                        n = forward_min_valid_sum_len
+                        half = int(round(n / 2.0))
+                        q1 = <int>ceil(n / 4.0)
+                        # 前一半
+                        for j in range(half):
+                            forward_min_valid_abs_sum_first_half += fabs(forward_min_valid_sum_vec[j])
+                        # 后一半
+                        for j in range(n - half, n):
+                            forward_min_valid_abs_sum_second_half += fabs(forward_min_valid_sum_vec[j])
+                        # block1: 前q1
+                        for j in range(min(q1, n)):
+                            forward_min_valid_abs_sum_block1 += fabs(forward_min_valid_sum_vec[j])
+                        # block2: q1~2q1
+                        for j in range(q1, min(2*q1, n)):
+                            forward_min_valid_abs_sum_block2 += fabs(forward_min_valid_sum_vec[j])
+                        # block4: 从后往前q1
+                        for j in range(n-1, max(n-1-q1, -1), -1):
+                            forward_min_valid_abs_sum_block4 += fabs(forward_min_valid_sum_vec[j])
+                        # block3: 再往前q1
+                        for j in range(n-1-q1, max(n-1-2*q1, -1), -1):
+                            forward_min_valid_abs_sum_block3 += fabs(forward_min_valid_sum_vec[j])
+                        forward_min_valid_abs_sum_first_half = round_to_2(forward_min_valid_abs_sum_first_half)
+                        forward_min_valid_abs_sum_second_half = round_to_2(forward_min_valid_abs_sum_second_half)
+                        forward_min_valid_abs_sum_block1 = round_to_2(forward_min_valid_abs_sum_block1)
+                        forward_min_valid_abs_sum_block2 = round_to_2(forward_min_valid_abs_sum_block2)
+                        forward_min_valid_abs_sum_block3 = round_to_2(forward_min_valid_abs_sum_block3)
+                        forward_min_valid_abs_sum_block4 = round_to_2(forward_min_valid_abs_sum_block4)
                     else:
                         forward_min_valid_abs_sum_first_half = 0
                         forward_min_valid_abs_sum_second_half = 0
