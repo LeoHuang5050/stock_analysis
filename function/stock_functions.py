@@ -876,7 +876,7 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
         # 缓存选股结果数据到parent
         parent.last_formula_select_result_data = {'dates': {first_date: selected_result}}
         # 生成表格
-        table = show_formula_select_table_result(parent, parent.last_formula_select_result_data, getattr(parent, 'init', None) and getattr(parent.init, 'price_data', None))
+        table = show_formula_select_table_result(parent, parent.last_formula_select_result_data, getattr(parent, 'init', None) and getattr(parent.init, 'price_data', None), is_select_action=True)
         # 清理output_layout
         for i in reversed(range(output_layout.count())):
             w = output_layout.itemAt(i).widget()
@@ -970,7 +970,7 @@ def format_stock_table(result):
             lines.append(f"{code}\t{name}\t{hold_days}\t{ops_change}\t{ops_incre_rate}")
     return "\n".join(lines)
 
-def show_formula_select_table_result(parent, result, price_data=None, output_edit=None):
+def show_formula_select_table_result(parent, result, price_data=None, output_edit=None, is_select_action=False):
     merged_results = result.get('dates', {})
     headers = ["股票代码", "股票名称", "持有天数", "操作涨幅", "日均涨跌幅", "得分"]
     if not merged_results or not any(merged_results.values()):
@@ -980,7 +980,8 @@ def show_formula_select_table_result(parent, result, price_data=None, output_edi
         table.resizeColumnsToContents()
         table.horizontalHeader().setFixedHeight(50)
         table.horizontalHeader().setStyleSheet("font-size: 12px;")
-        QMessageBox.information(parent, "提示", "无匹配结果")
+        if is_select_action:
+            QMessageBox.information(parent, "提示", "无匹配结果")
         return table
     # 只展示第一个日期的数据
     first_date = list(merged_results.keys())[0]
