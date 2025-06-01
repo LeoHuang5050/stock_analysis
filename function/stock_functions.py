@@ -463,7 +463,7 @@ def query_row_result(rows, keyword, n_days=0):
                 f"实际开始值={row.get('actual_value', '无')}，"
                 f"最接近值={row.get('closest_value', '无')}，"
                 f"前1组结束地址前N日的最高值：{row.get('n_max_value', '无')}，"
-                f"前N最大值：{row.get('n_max_is_max', '无')}，"
+                f"第1组后N最大值逻辑：{row.get('n_max_is_max', '无')}，"
                 f"开始日到结束日之间最高价/最低价小于M：{row.get('range_ratio_is_less', '无')}，"
                 f"开始日到结束日之间连续累加值绝对值小于：{row.get('continuous_abs_is_less', '无')}，"
                 f"前1组结束地址前1日涨跌幅：{row.get('prev_day_change', '无')}%，"
@@ -568,7 +568,7 @@ def show_params_table(parent, all_results, end_date=None, n_days=0, n_days_max=0
 
     headers = [
         '代码', '名称', '最大值', '最小值', '结束值', '开始值', '实际开始日期值', '最接近值',
-        f'前1组结束地址前N日最大值', '前N最大值', 
+        f'前1组结束地址后N日的最大值', '第1组后N最大值逻辑', 
         f'开始日到结束日之间最高价/最低价小于M',
         f'开始日到结束日之间连续累加值绝对值小于M',
         '前1组结束日地址值',
@@ -766,7 +766,7 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
     abbrs = [
         ("最大值", "MAX"), ("最小值", "MIN"), ("结束值", "END"), ("开始值", "START"),
         ("前1组结束日地址值", "EDV"),
-        ("实际开始值", "ACT"), ("最接近值", "CLS"), ("前1组结束地址前N日的最高值", "NDAYMAX"), ("前N最大值", "NMAXISMAX"),
+        ("实际开始值", "ACT"), ("最接近值", "CLS"), ("前1组结束地址前N日的最高值", "NDAYMAX"), ("第1组后N最大值逻辑", "NMAXISMAX"),
         ("开始日到结束日之间最高价/最低价小于M", "RRL"), ("开始日到结束日之间连续累加值绝对值小于M", "CAL"), ("前1组结束地址前1日涨跌幅", "PDC"), ("前1组结束日涨跌幅", "EDC"), ("后一组结束地址值", "DEV"),
         ("连续累加值", "CR"), ("连续累加值数组非空数据长度", "CL"), ("连续累加值开始值", "CSV"), ("连续累加值开始后1位值", "CSNV"),
         ("连续累加值开始后2位值", "CSNNV"), ("连续累加值结束值", "CEV"), ("连续累加值结束前1位值", "CEPV"), ("连续累加值结束前2位值", "CEPPV"),
