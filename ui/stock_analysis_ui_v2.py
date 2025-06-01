@@ -216,14 +216,14 @@ class StockAnalysisApp(QWidget):
         top_grid.addWidget(self.continuous_abs_threshold_edit, 0, 11)
 
         # 第二行
-        # 新增"前1组结束地址前N日最大值"
-        self.n_days_label1 = QLabel("前N日最大值")
+        # 新增"前1组结束地址后N日的最大值"
+        self.n_days_label1 = QLabel("第1组后N最大值逻辑")
         self.n_days_spin = QSpinBox()
         self.n_days_spin.setMinimum(0)
         self.n_days_spin.setMaximum(100)
         self.n_days_spin.setValue(0)
 
-        self.n_days_label2 = QLabel("前1组结束地址前N日最大值")
+        self.n_days_label2 = QLabel("前1组结束地址后N日的最大值")
         self.n_days_max_spin = QSpinBox()
         self.n_days_max_spin.setMinimum(0)
         self.n_days_max_spin.setMaximum(100)
