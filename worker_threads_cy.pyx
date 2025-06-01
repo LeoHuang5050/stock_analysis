@@ -798,25 +798,49 @@ def calculate_batch_cy(
                 except Exception as e:
                     ops_value = None
                     hold_days = None
-                
+
                 # 新增：计算操作涨幅、调整天数、日均涨幅
                 ops_change = None
                 adjust_days = None
                 ops_incre_rate = None
                 end_value_for_ops = end_value if not isnan(end_value) else None
-                if ops_value is not None and end_value_for_ops not in (None, 0):
+
+                # 操作涨幅
+                if ops_value is not None and not isnan(ops_value) and hold_days is not None and hold_days != -1 and not isnan(hold_days) and end_value_for_ops not in (None, 0):
                     try:
                         ops_change = round_to_2((ops_value - end_value_for_ops) / end_value_for_ops * 100)
                     except Exception:
-                        ops_change = None
+                        ops_change = None  
+                # 当操作值为空值的情况
+                else:
+                    hold_days = op_days
+                    op_days_when_ops_value_nan = min(hold_days, end_date_idx)
+                    if end_date_idx - hold_days >= 0:
+                        op_idx_when_ops_value_nan = end_date_idx - hold_days
+                    else:
+                        op_idx_when_ops_value_nan = 0
+                    try:
+                        ops_change = round_to_2((price_data_view[stock_idx, op_idx_when_ops_value_nan] - end_value_for_ops) / end_value_for_ops * 100)
+                    except Exception:
+                        ops_change = None  
+                    if stock_idx == 0:
+                        print("操作值为空")
+                        print(f"end_date_idx: {end_date_idx}")
+                        print(f"ops_value: {ops_value}")
+                        print(f"ops_change: {ops_change}")
+                        print(f"hold_days: {hold_days}")
+
+                # 调整天数
                 if ops_change is not None and ops_change_input is not None and hold_days is not None:
                     try:
                         if ops_change > ops_change_input and hold_days == 1:
-                            adjust_days = round_to_2(op_days / 3.0)
+                            adjust_days = 2
                         else:
-                            adjust_days = hold_days + 1
+                            adjust_days = hold_days
                     except Exception:
                         adjust_days = None
+
+                # 日均涨幅
                 if ops_change is not None and adjust_days not in (None, 0):
                     try:
                         ops_incre_rate = round_to_2(ops_change / adjust_days)
