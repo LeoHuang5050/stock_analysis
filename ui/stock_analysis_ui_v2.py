@@ -156,7 +156,7 @@ class StockAnalysisApp(QWidget):
         cpu_layout.setContentsMargins(0, 0, 0, 0)
         cpu_layout.setSpacing(5)
         cpu_layout.setAlignment(Qt.AlignLeft)
-        self.cpu_label = QLabel("允许CPU最大核心数")
+        self.cpu_label = QLabel("允许CPU运行核心数")
         self.cpu_spin = QSpinBox()
         self.cpu_spin.setMinimum(1)
         # 获取实际CPU核心数
@@ -780,8 +780,8 @@ class StockAnalysisApp(QWidget):
             return float(Decimal(str(val)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
         table.setItem(0, 4, QTableWidgetItem(f"{safe_mean(non_nan_mean_list)}%" if non_nan_mean_list else ''))
         table.setItem(0, 5, QTableWidgetItem(f"{safe_mean(with_nan_mean_list)}%" if with_nan_mean_list else ''))
-        print(f"non_nan_mean_list: {non_nan_mean_list}, len: {len(non_nan_mean_list)}")
-        print(f"with_nan_mean_list: {with_nan_mean_list}, len: {len(with_nan_mean_list)}")
+        # print(f"non_nan_mean_list: {non_nan_mean_list}, len: {len(non_nan_mean_list)}")
+        # print(f"with_nan_mean_list: {with_nan_mean_list}, len: {len(with_nan_mean_list)}")
         return table
 
     def on_generate_analysis(self):
@@ -802,7 +802,7 @@ class StockAnalysisApp(QWidget):
             return
         # 自动调整日期：如果start_date不是交易日，则往日期增大的方向找到第一个可用交易日
         if start_date not in workdays:
-            print(f"start_date not in workdays: {start_date}")
+            # print(f"start_date not in workdays: {start_date}")
             for d in workdays:
                 if d >= start_date:
                     start_date = d
@@ -814,8 +814,8 @@ class StockAnalysisApp(QWidget):
                 # 如果小于0，则使用workdays[width]作为开始日期
                 if width < len(workdays):
                     start_date = workdays[width]
-                    print(f"由于开始日期索引减去width小于0，调整开始日期为: {start_date}")
-        print(f"自动调整后的start_date: {start_date}")
+                    # print(f"由于开始日期索引减去width小于0，调整开始日期为: {start_date}")
+        # print(f"自动调整后的start_date: {start_date}")
         # 自动调整日期：如果end_date不是交易日，则往日期减小的方向找到第一个可用交易日
         if end_date not in workdays:
             print(f"end_date not in workdays: {end_date}")
@@ -823,11 +823,10 @@ class StockAnalysisApp(QWidget):
                 if d <= end_date:
                     end_date = d
                     break
-        print(f"自动调整后的end_date: {end_date}")
+        # print(f"自动调整后的end_date: {end_date}")
         # 获取选股数量和排序方式
         select_count = getattr(self, 'last_select_count', 10)
         sort_mode = getattr(self, 'last_sort_mode', '最大值排序')
-        print(f"select_count: {select_count}, sort_mode: {sort_mode}")
         result = self.get_or_calculate_result(
             formula_expr=formula, 
             show_main_output=False, 
