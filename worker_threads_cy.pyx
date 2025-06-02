@@ -823,12 +823,6 @@ def calculate_batch_cy(
                         ops_change = round_to_2((price_data_view[stock_idx, op_idx_when_ops_value_nan] - end_value_for_ops) / end_value_for_ops * 100)
                     except Exception:
                         ops_change = None  
-                    if stock_idx == 0:
-                        print("操作值为空")
-                        print(f"end_date_idx: {end_date_idx}")
-                        print(f"ops_value: {ops_value}")
-                        print(f"ops_change: {ops_change}")
-                        print(f"hold_days: {hold_days}")
 
                 # 调整天数
                 if ops_change is not None and ops_change_input is not None and hold_days is not None:
@@ -989,7 +983,8 @@ def calculate_batch_cy(
                             score = round_to_2(score)
                     except Exception as e:
                         score = None
-
+                if score is not None and score != 0:
+                    print(f"score: {score}")
                 if only_show_selected:
                     if score is not None and score != 0 and not isnan(end_value) and hold_days != -1:
                         row_result = {

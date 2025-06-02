@@ -1,5 +1,5 @@
 {
-  "date": "2025-04-28",
+  "date": "2024-10-10",
   "width": 90,
   "start_option": 1,
   "shift": 1,
@@ -17,6 +17,7 @@
   "last_select_count": 6,
   "last_sort_mode": "最小值排序",
   "direction": true,
-  "analysis_start_date": "2025-04-28",
-  "analysis_end_date": "2025-04-28"
+  "analysis_start_date": "2024-10-10",
+  "analysis_end_date": "2024-10-10",
+  "cpu_cores": 10
 }
