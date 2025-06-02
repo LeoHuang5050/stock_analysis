@@ -31,7 +31,10 @@ cdef void calc_continuous_sum(
         v = diff_slice[i]
         if isnan(v):
             continue
-        sign = 1.0 if v > 0 else (-1.0 if v < 0 else 0.0)
+        if v == 0:
+            sign = last_sign  # 0继承前一个数的符号
+        else:
+            sign = 1.0 if v > 0 else -1.0
         if i == 0 or sign == last_sign or last_sign == 0:
             cur_sum += v
         else:
@@ -324,10 +327,8 @@ def calculate_batch_cy(
                                     found = True
                                     break
                             if not found:
-                                fallback_idx = end_date_idx - op_days
-                                if fallback_idx >= 0:
-                                    increment_value = round_to_2(price_data_view[stock_idx, fallback_idx])
-                                    increment_days = op_days
+                                increment_value = NAN
+                                increment_days = -1
                         # after_gt_end_value 计算（方向：end_date_idx-1 向 end_date_idx-op_days）
                         if not isnan(end_value):
                             found = False
@@ -344,10 +345,8 @@ def calculate_batch_cy(
                                     found = True
                                     break
                             if not found:
-                                fallback_idx = end_date_idx - op_days
-                                if fallback_idx >= 0:
-                                    after_gt_end_value = round_to_2(price_data_view[stock_idx, fallback_idx])
-                                    after_gt_end_days = op_days
+                                after_gt_end_value = NAN
+                                after_gt_end_days = -1
                         # after_gt_start_value 计算（方向：end_date_idx 向 end_date_idx-op_days，判断k和k-1）
                         found = False
                         for n, k in enumerate(range(end_date_idx, end_date_idx - op_days, -1), 1):
@@ -364,10 +363,9 @@ def calculate_batch_cy(
                                 found = True
                                 break
                         if not found:
-                            fallback_idx = end_date_idx - op_days
-                            if fallback_idx >= 0:
-                                after_gt_start_value = round_to_2(price_data_view[stock_idx, fallback_idx])
-                                after_gt_start_days = op_days
+                            after_gt_start_value = NAN
+                            after_gt_start_days = -1
+
 
                     # 处理NAN值
                     if isnan(increment_value):
