@@ -1,12 +1,12 @@
 {
-  "date": "2024-10-10",
-  "width": 90,
-  "start_option": 1,
+  "date": "2025-04-09",
+  "width": 10,
+  "start_option": 0,
   "shift": 1,
-  "inc_rate": "1",
+  "inc_rate": "5",
   "op_days": "10",
-  "after_gt_end_ratio": "1",
-  "after_gt_start_ratio": "1",
+  "after_gt_end_ratio": "5",
+  "after_gt_start_ratio": "5",
   "n_days": 10,
   "n_days_max": 10,
   "range_value": "1.1",
@@ -17,7 +17,7 @@
   "last_select_count": 6,
   "last_sort_mode": "最小值排序",
   "direction": true,
-  "analysis_start_date": "2023-11-17",
-  "analysis_end_date": "2024-10-10",
+  "analysis_start_date": "2025-04-09",
+  "analysis_end_date": "2025-04-09",
   "cpu_cores": 10
 }
