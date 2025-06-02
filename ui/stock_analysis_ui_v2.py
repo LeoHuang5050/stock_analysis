@@ -953,16 +953,16 @@ class StockAnalysisApp(QWidget):
         max_end_idx = len(workdays) - 1
         min_end_date = QDate.fromString(workdays[min_end_idx], "yyyy-MM-dd")
         max_end_date = QDate.fromString(workdays[max_end_idx], "yyyy-MM-dd")
-        self.end_date_picker.setMinimumDate(min_end_date)
-        self.end_date_picker.setMaximumDate(max_end_date)
+        # self.end_date_picker.setMinimumDate(min_end_date)
+        # self.end_date_picker.setMaximumDate(max_end_date)
         
         # 2. 结束日开始日的可选范围：max(0, end_idx-width) ~ end_idx
         min_start_idx = max(0, width)
         max_start_idx = max_end_idx
         min_start_date = QDate.fromString(workdays[min_start_idx], "yyyy-MM-dd")
         max_start_date = QDate.fromString(workdays[max_start_idx], "yyyy-MM-dd")
-        self.start_date_picker.setMinimumDate(min_start_date)
-        self.start_date_picker.setMaximumDate(max_start_date)
+        # self.start_date_picker.setMinimumDate(min_start_date)
+        # self.start_date_picker.setMaximumDate(max_start_date)
 
     def on_op_stat_btn_clicked(self):
         self.clear_result_area()
@@ -1203,10 +1203,9 @@ class StockAnalysisApp(QWidget):
             'last_select_count': getattr(self, 'last_select_count', 10),
             'last_sort_mode': getattr(self, 'last_sort_mode', '最大值排序'),
             'direction': self.direction_checkbox.isChecked(),
-            # 添加自动分析子界面的日期配置
-            'analysis_start_date': getattr(self, 'start_date_picker', self.date_picker).date().toString("yyyy-MM-dd"),
-            'analysis_end_date': getattr(self, 'end_date_picker', self.date_picker).date().toString("yyyy-MM-dd"),
-            'cpu_cores': self.cpu_spin.value(),  # 新增保存CPU核心数
+            'analysis_start_date': getattr(self, 'last_analysis_start_date', ''),
+            'analysis_end_date': getattr(self, 'last_analysis_end_date', ''),
+            'cpu_cores': self.cpu_spin.value(),
         }
         try:
             with open('config.json', 'w', encoding='utf-8') as f:
@@ -1269,7 +1268,6 @@ class StockAnalysisApp(QWidget):
                 self.cpu_spin.setValue(config['cpu_cores'])
         except Exception as e:
             print(f"加载配置失败: {e}")
-
     def closeEvent(self, event):
         self.save_config()
         super().closeEvent(event)
