@@ -3,7 +3,7 @@ from PyQt5.QtWidgets import (
     QApplication, QWidget, QLabel, QPushButton, QComboBox, QSpinBox, QDateEdit, QCheckBox, QGridLayout, QHBoxLayout, QVBoxLayout, QSizePolicy, QTextEdit, QLineEdit, QDialog, QMessageBox, QFrame, QStackedLayout, QTableWidget, QTableWidgetItem
 )
 from PyQt5.QtCore import Qt, QDate, QItemSelectionModel
-from PyQt5.QtGui import QKeySequence, QGuiApplication, QIntValidator
+from PyQt5.QtGui import QKeySequence, QGuiApplication, QIntValidator, QPixmap
 from function.init import StockAnalysisInit
 from function.base_param import BaseParamHandler
 from function.stock_functions import show_continuous_sum_table, EXPR_PLACEHOLDER_TEXT
@@ -15,6 +15,7 @@ import math
 import json
 import os
 from decimal import Decimal, ROUND_HALF_UP
+from multiprocessing import cpu_count
 
 class Tab4SpaceTextEdit(QTextEdit):
     def keyPressEvent(self, event):
@@ -140,7 +141,7 @@ class StockAnalysisApp(QWidget):
         top_grid = QGridLayout(top_widget)
         top_grid.setHorizontalSpacing(20)
         top_widget.setLayout(top_grid)
-        col_widths = [170, 170, 170, 170, 170, 170]
+        col_widths = [170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170]
 
         # 第一行控件
         self.label = QLabel("请上传数据文件：")
@@ -148,6 +149,37 @@ class StockAnalysisApp(QWidget):
         self.date_label = QLabel("请选择结束日期：")
         self.date_picker = QDateEdit(calendarPopup=True)
         self.date_picker.setDisplayFormat("yyyy/M/d")
+
+        # CPU核心数控件
+        cpu_widget = QWidget()
+        cpu_layout = QHBoxLayout()
+        cpu_layout.setContentsMargins(0, 0, 0, 0)
+        cpu_layout.setSpacing(5)
+        cpu_layout.setAlignment(Qt.AlignLeft)
+        self.cpu_label = QLabel("允许CPU最大核心数")
+        self.cpu_spin = QSpinBox()
+        self.cpu_spin.setMinimum(1)
+        # 获取实际CPU核心数
+        max_cores = cpu_count()
+        self.cpu_spin.setMaximum(max_cores)  # 设置为实际CPU核心数
+        self.cpu_spin.setValue(min(16, max_cores))  # 默认值设为4或实际核心数（取较小值）
+        self.cpu_spin.setFixedWidth(60)
+        self.cpu_max_label = QLabel(f"当前CPU配置最大可设置: {max_cores}")
+        self.cpu_max_label.setStyleSheet("font-weight: bold;")
+
+        # 问号图标及提示
+        self.cpu_help_label = QLabel()
+        self.cpu_help_label.setText("❓")
+        self.cpu_help_label.setStyleSheet("color: #0078d7; font-size: 16px;")
+        self.cpu_help_label.setToolTip("设置到最大会让CPU利用率达到100%，自动分析计算速度会达到最快，但是可能会导致CPU温度升高并触发自动重启机制")
+        self.cpu_help_label.setEnabled(True)
+        self.cpu_help_label.setAttribute(Qt.WA_TransparentForMouseEvents, False)
+
+        cpu_layout.addWidget(self.cpu_label)
+        cpu_layout.addWidget(self.cpu_spin)
+        cpu_layout.addWidget(self.cpu_max_label)
+        cpu_layout.addWidget(self.cpu_help_label)
+        cpu_widget.setLayout(cpu_layout)
 
         # 日期宽度控件
         width_widget = QWidget()
@@ -214,6 +246,7 @@ class StockAnalysisApp(QWidget):
         top_grid.addWidget(self.range_value_edit, 0, 9)
         top_grid.addWidget(self.abs_sum_label, 0, 10)
         top_grid.addWidget(self.continuous_abs_threshold_edit, 0, 11)
+        top_grid.addWidget(cpu_widget, 0, 12)  # 添加CPU核心数控件
 
         # 第二行
         # 新增"前1组结束地址后N日的最大值"
@@ -560,7 +593,7 @@ class StockAnalysisApp(QWidget):
         self.result_text.setText(text)
         self.output_stack.setCurrentWidget(self.result_text)
 
-    def get_or_calculate_result(self, formula_expr=None, select_count=None, sort_mode=None, show_main_output=True, only_show_selected=None, is_auto_analysis=False):
+    def get_or_calculate_result(self, formula_expr=None, select_count=None, sort_mode=None, show_main_output=True, only_show_selected=None, is_auto_analysis=False, end_date_start=None, end_date_end=None):
         end_date = self.date_picker.date().toString("yyyy-MM-dd")
         current_formula = formula_expr if formula_expr is not None else (
             self.formula_expr_edit.toPlainText() if hasattr(self, 'formula_expr_edit') else ''
@@ -588,14 +621,16 @@ class StockAnalysisApp(QWidget):
         # 选股计算公式
         params['formula_expr'] = current_formula
         # 获取end_date_start和end_date_end
-        if is_auto_analysis and hasattr(self, 'start_date_picker') and hasattr(self, 'end_date_picker'):
-            params['end_date_start'] = self.start_date_picker.date().toString("yyyy-MM-dd")
-            params['end_date_end'] = self.end_date_picker.date().toString("yyyy-MM-dd")
+        if is_auto_analysis and end_date_start is not None and end_date_end is not None:
+            params['end_date_start'] = end_date_start
+            params['end_date_end'] = end_date_end
         else:
             params['end_date_start'] = end_date
             params['end_date_end'] = end_date
         if only_show_selected is not None:
             params['only_show_selected'] = only_show_selected
+        # 添加CPU核心数参数
+        params['max_cores'] = self.cpu_spin.value()
         result = self.base_param.on_calculate_clicked(params)
         if result is None:
             if show_main_output:
@@ -662,9 +697,10 @@ class StockAnalysisApp(QWidget):
                 except Exception:
                     pass
             def safe_mean(lst):
-                if not lst:
+                vals = [v for v in lst if not (isinstance(v, float) and math.isnan(v))]
+                if not vals:
                     return ''
-                val = sum(lst) / len(lst)
+                val = sum(vals) / len(vals)
                 return float(Decimal(str(val)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
             mean_hold_days = safe_mean(hold_days_list)
             mean_ops_change = safe_mean(ops_change_list)
@@ -691,7 +727,7 @@ class StockAnalysisApp(QWidget):
                 mean_incre_rate_list.append(min_incre_rate)
                 mean_incre_rate_list_with_nan_list.append(min_incre_rate)
             else:
-                mean_incre_rate_list_with_nan_list.append(0)
+                mean_incre_rate_list_with_nan_list.append(float('nan'))
             
         mean_of_mean_hold_days = safe_mean(mean_hold_days_list)
         mean_of_mean_ops_change = safe_mean(mean_ops_change_list)
@@ -714,28 +750,38 @@ class StockAnalysisApp(QWidget):
         # 统计所有行的从下往上非空均值和含空均值
         non_nan_mean_list = []
         with_nan_mean_list = []
-        n = len(mean_incre_rate_list)
+        n = len(mean_incre_rate_list_with_nan_list)
         for i in range(n):
-            non_nan_vals = [v for v in mean_incre_rate_list[i:] if v != '' and v is not None]
-            non_nan_mean = safe_mean(non_nan_vals)
-            vals_with_nan = mean_incre_rate_list_with_nan_list[i:]
-            with_nan_mean = safe_mean(vals_with_nan)
-            table.setItem(i + 2, 4, QTableWidgetItem(f"{non_nan_mean}%" if non_nan_mean != '' else ''))
-            table.setItem(i + 2, 5, QTableWidgetItem(f"{with_nan_mean}%" if with_nan_mean != '' else ''))
-            if non_nan_mean != '':
-                non_nan_mean_list.append(non_nan_mean)
-            if with_nan_mean != '':
-                with_nan_mean_list.append(with_nan_mean)
-        print(f"non_nan_mean_list: {non_nan_mean_list}")
-        print(f"with_nan_mean_list: {with_nan_mean_list}")
+            sub_list = mean_incre_rate_list_with_nan_list[i:]
+            # 非空均值：只统计非nan
+            non_nan_sum = 0
+            non_nan_len = 0
+            for v in sub_list:
+                if isinstance(v, float) and math.isnan(v):
+                    continue
+                non_nan_sum += v
+                non_nan_len += 1
+            if non_nan_len > 0:
+                non_nan_mean = float(Decimal(str(non_nan_sum / non_nan_len)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
+            else:
+                non_nan_mean = float('nan')
+            # 含空均值：nan算0，分母为总数
+            with_nan_vals = [0 if (isinstance(v, float) and math.isnan(v)) else v for v in sub_list]
+            with_nan_mean = sum(with_nan_vals) / len(sub_list) if sub_list else float('nan')
+            non_nan_mean_list.append(non_nan_mean)
+            with_nan_mean_list.append(with_nan_mean)
+            table.setItem(i + 2, 4, QTableWidgetItem(f"{round(non_nan_mean,2)}%" if not math.isnan(non_nan_mean) else ''))
+            table.setItem(i + 2, 5, QTableWidgetItem(f"{round(with_nan_mean,2)}%" if not math.isnan(with_nan_mean) else ''))
         def safe_mean(lst):
-            if not lst:
+            vals = [v for v in lst if not (isinstance(v, float) and math.isnan(v))]
+            if not vals:
                 return ''
-            val = sum(lst) / len(lst)
+            val = sum(vals) / len(vals)
             return float(Decimal(str(val)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
         table.setItem(0, 4, QTableWidgetItem(f"{safe_mean(non_nan_mean_list)}%" if non_nan_mean_list else ''))
         table.setItem(0, 5, QTableWidgetItem(f"{safe_mean(with_nan_mean_list)}%" if with_nan_mean_list else ''))
-
+        print(f"non_nan_mean_list: {non_nan_mean_list}, len: {len(non_nan_mean_list)}")
+        print(f"with_nan_mean_list: {with_nan_mean_list}, len: {len(with_nan_mean_list)}")
         return table
 
     def on_generate_analysis(self):
@@ -754,12 +800,30 @@ class StockAnalysisApp(QWidget):
         if not workdays:
             QMessageBox.warning(self, "日期错误", "没有可用的日期范围，请先上传数据文件！")
             return
+        # 自动调整日期：如果start_date不是交易日，则往日期增大的方向找到第一个可用交易日
         if start_date not in workdays:
-            QMessageBox.warning(self, "日期错误", "结束日期开始日不在可用日期范围，请重新选择！")
-            return
+            print(f"start_date not in workdays: {start_date}")
+            for d in workdays:
+                if d >= start_date:
+                    start_date = d
+                    break
+            # 检查调整后的开始日期索引减去width是否小于0
+            start_date_idx = workdays.index(start_date)
+            width = self.width_spin.value()
+            if start_date_idx - width < 0:
+                # 如果小于0，则使用workdays[width]作为开始日期
+                if width < len(workdays):
+                    start_date = workdays[width]
+                    print(f"由于开始日期索引减去width小于0，调整开始日期为: {start_date}")
+        print(f"自动调整后的start_date: {start_date}")
+        # 自动调整日期：如果end_date不是交易日，则往日期减小的方向找到第一个可用交易日
         if end_date not in workdays:
-            QMessageBox.warning(self, "日期错误", "结束日期结束日不在可用日期范围，请重新选择！")
-            return
+            print(f"end_date not in workdays: {end_date}")
+            for d in reversed(workdays):
+                if d <= end_date:
+                    end_date = d
+                    break
+        print(f"自动调整后的end_date: {end_date}")
         # 获取选股数量和排序方式
         select_count = getattr(self, 'last_select_count', 10)
         sort_mode = getattr(self, 'last_sort_mode', '最大值排序')
@@ -770,7 +834,9 @@ class StockAnalysisApp(QWidget):
             only_show_selected=True, 
             is_auto_analysis=True,
             select_count=select_count,
-            sort_mode=sort_mode
+            sort_mode=sort_mode,
+            end_date_start=start_date,
+            end_date_end=end_date
         )
         self.last_auto_analysis_result = result  # 新增：只给自动分析用
         merged_results = result.get('dates', {}) if result else {}
@@ -1141,6 +1207,7 @@ class StockAnalysisApp(QWidget):
             # 添加自动分析子界面的日期配置
             'analysis_start_date': getattr(self, 'start_date_picker', self.date_picker).date().toString("yyyy-MM-dd"),
             'analysis_end_date': getattr(self, 'end_date_picker', self.date_picker).date().toString("yyyy-MM-dd"),
+            'cpu_cores': self.cpu_spin.value(),  # 新增保存CPU核心数
         }
         try:
             with open('config.json', 'w', encoding='utf-8') as f:
@@ -1198,6 +1265,9 @@ class StockAnalysisApp(QWidget):
                 self.last_analysis_start_date = config['analysis_start_date']
             if 'analysis_end_date' in config:
                 self.last_analysis_end_date = config['analysis_end_date']
+            # 恢复CPU核心数
+            if 'cpu_cores' in config:
+                self.cpu_spin.setValue(config['cpu_cores'])
         except Exception as e:
             print(f"加载配置失败: {e}")
 
