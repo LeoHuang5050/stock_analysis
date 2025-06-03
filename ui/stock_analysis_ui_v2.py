@@ -585,6 +585,16 @@ class StockAnalysisApp(QWidget):
             self.table_widget = table
             self.output_stack.addWidget(table)
             self.output_stack.setCurrentWidget(table)
+            # 恢复公式选股控件状态
+            if hasattr(self, 'formula_widget') and self.formula_widget is not None:
+                try:
+                    if os.path.exists('config.json'):
+                        with open('config.json', 'r', encoding='utf-8') as f:
+                            config = json.load(f)
+                        if 'formula_select_state' in config:
+                            self.formula_widget.set_state(config['formula_select_state'])
+                except Exception as e:
+                    print(f'恢复公式选股控件状态失败: {e}')
         else:
             self.result_text.setText("没有可展示的公式选股结果。")
             self.output_stack.setCurrentWidget(self.result_text)
@@ -1207,6 +1217,12 @@ class StockAnalysisApp(QWidget):
             'analysis_end_date': getattr(self, 'last_analysis_end_date', ''),
             'cpu_cores': self.cpu_spin.value(),
         }
+        # 保存公式选股控件状态
+        if hasattr(self, 'formula_widget') and self.formula_widget is not None:
+            try:
+                config['formula_select_state'] = self.formula_widget.get_state()
+            except Exception as e:
+                print(f"保存公式选股控件状态失败: {e}")
         try:
             with open('config.json', 'w', encoding='utf-8') as f:
                 json.dump(config, f, ensure_ascii=False, indent=2)
@@ -1266,6 +1282,12 @@ class StockAnalysisApp(QWidget):
             # 恢复CPU核心数
             if 'cpu_cores' in config:
                 self.cpu_spin.setValue(config['cpu_cores'])
+            # 恢复公式选股控件状态
+            if 'formula_select_state' in config and hasattr(self, 'formula_widget') and self.formula_widget is not None:
+                try:
+                    self.formula_widget.set_state(config['formula_select_state'])
+                except Exception as e:
+                    print(f"恢复公式选股控件状态失败: {e}")
         except Exception as e:
             print(f"加载配置失败: {e}")
     def closeEvent(self, event):

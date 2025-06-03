@@ -3,7 +3,7 @@ import pandas as pd
 import chinese_calendar
 from datetime import datetime, timedelta
 from decimal import Decimal
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTextEdit, QLineEdit, QSpinBox, QComboBox, QPushButton, QTableWidget, QTableWidgetItem, QSizePolicy, QDialog, QTabWidget, QMessageBox, QGridLayout, QDateEdit, QInputDialog, QAbstractItemView
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTextEdit, QLineEdit, QSpinBox, QComboBox, QPushButton, QTableWidget, QTableWidgetItem, QSizePolicy, QDialog, QTabWidget, QMessageBox, QGridLayout, QDateEdit, QInputDialog, QAbstractItemView, QGroupBox, QCheckBox, QHeaderView, QScrollArea
 from PyQt5.QtCore import QDate, QObject, QEvent, Qt
 import time
 
@@ -693,16 +693,19 @@ class FormulaExprEdit(QTextEdit):
         super().focusOutEvent(event)
 
 def show_formula_select_table(parent, all_results=None, as_widget=True):
-    from PyQt5.QtWidgets import QMessageBox
-    widget = QWidget(parent)
-    widget.setStyleSheet("background-color: white; border: 1px solid #d0d0d0;")  # 设置白色背景和浅灰边框
-    layout = QVBoxLayout(widget)
+    from PyQt5.QtWidgets import QMessageBox, QScrollArea
+    # 创建滚动区域
+    scroll = QScrollArea(parent)
+    scroll.setWidgetResizable(True)
+    scroll.setStyleSheet("background-color: white; border: 1px solid #d0d0d0;")
+    
+    # 创建内容widget
+    content_widget = QWidget()
+    content_widget.setStyleSheet("background-color: white; border: 1px solid #d0d0d0;")
+    layout = QVBoxLayout(content_widget)
 
     # 顶部公式输入区
     top_layout = QHBoxLayout()
-    formula_label = QLabel("选股公式:")
-    formula_label.setStyleSheet("border: none;")
-    top_layout.addWidget(formula_label)
     formula_input = FormulaExprEdit()
     # 仅在内容为空时设置默认值，避免覆盖用户输入
     if not formula_input.toPlainText().strip():
@@ -721,24 +724,46 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
             "else:\n"
             "    result = 0"
         )
+    formula_input.hide()
     top_layout.addWidget(formula_input, 3)
+    top_layout.setAlignment(Qt.AlignLeft)
     # 公式输入变更时同步到主界面变量
     def on_formula_changed():
         parent.last_formula_expr = formula_input.toPlainText().strip()
     formula_input.textChanged.connect(on_formula_changed)
 
+    # 选股数量label和输入框紧挨着
     select_count_label = QLabel("选股数量:")
-    select_count_label.setStyleSheet("border: none;")  # 去掉边框
+    select_count_label.setStyleSheet("border: none;")
     select_count_spin = QSpinBox()
-    select_count_spin.setMinimum(1)
-    select_count_spin.setMaximum(100)
-    select_count_spin.setValue(10)
-    select_count_spin.setFixedWidth(80)  # 设置宽度为80px
+    select_count_spin.setFixedWidth(80)
+    select_count_spin.setStyleSheet("border: 1px solid #d0d0d0;")
+    select_count_label.setFixedWidth(80)
+    select_count_layout = QHBoxLayout()
+    select_count_layout.setSpacing(4)
+    select_count_layout.setContentsMargins(10, 10, 10, 10)
+    select_count_layout.addWidget(select_count_label)
+    select_count_layout.addWidget(select_count_spin)
+    select_count_widget = QWidget()
+    select_count_widget.setLayout(select_count_layout)
+    select_count_widget.setStyleSheet("border: none;")
+    select_count_widget.setFixedWidth(200)
+    select_count_layout.setAlignment(Qt.AlignLeft)
+
     sort_label = QLabel("排序方式:")
-    sort_label.setStyleSheet("border: none;")  # 去掉边框
+    sort_label.setFixedWidth(80)
+    sort_label.setStyleSheet("border: none;")
     sort_combo = QComboBox()
     sort_combo.addItems(["最大值排序", "最小值排序"])
-    sort_combo.setFixedWidth(80)  # 设置宽度为80px
+    sort_combo.setFixedWidth(80)
+    sort_layout = QHBoxLayout()
+    sort_layout.setSpacing(4)
+    sort_layout.setContentsMargins(0, 0, 0, 0)
+    sort_layout.addWidget(sort_label)
+    sort_layout.addWidget(sort_combo)
+    sort_layout.setAlignment(Qt.AlignLeft)
+    sort_widget = QWidget()
+    sort_widget.setLayout(sort_layout)
 
     # === 这里加上每次都同步主界面变量 ===
     if hasattr(parent, 'last_select_count'):
@@ -758,90 +783,41 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
     select_btn = QPushButton("进行选股")
     select_btn.setFixedSize(100, 50)
     select_btn.setStyleSheet("background-color: #f0f0f0; border: none;")
-    for w in [select_count_label, select_count_spin, sort_label, sort_combo, select_btn]:
+    for w in [select_count_widget, sort_label, sort_combo, select_btn]:
         top_layout.addWidget(w)
     layout.addLayout(top_layout)
 
-    # 缩写说明区（表格排列，每行5列）
-    abbrs = [
-        ("最大值", "MAX"), ("最小值", "MIN"), ("结束值", "END"), ("开始值", "START"),
-        ("前1组结束日地址值", "EDV"),
-        ("实际开始值", "ACT"), ("最接近值", "CLS"), ("前1组结束地址前N日的最高值", "NDAYMAX"), ("第1组后N最大值逻辑", "NMAXISMAX"),
-        ("开始日到结束日之间最高价/最低价小于M", "RRL"), ("开始日到结束日之间连续累加值绝对值小于M", "CAL"), ("前1组结束地址前1日涨跌幅", "PDC"), ("前1组结束日涨跌幅", "EDC"), ("后一组结束地址值", "DEV"),
-        ("连续累加值", "CR"), ("连续累加值数组非空数据长度", "CL"), ("连续累加值开始值", "CSV"), ("连续累加值开始后1位值", "CSNV"),
-        ("连续累加值开始后2位值", "CSNNV"), ("连续累加值结束值", "CEV"), ("连续累加值结束前1位值", "CEPV"), ("连续累加值结束前2位值", "CEPPV"),
-        ("连续累加值数组前一半绝对值之和", "CASFH"), ("连续累加值数组后一半绝对值之和", "CASSH"),
-        ("连续累加值数组前四分之一绝对值之和", "CASB1"), ("连续累加值数组前四分之1-2绝对值之和", "CASB2"),
-        ("连续累加值数组前四分之2-3绝对值之和", "CASB3"), ("连续累加值数组后四分之一绝对值之和", "CASB4"),
-        ("有效累加值数组", "VSA"), ("有效累加值数组非空数据长度", "VSL"), ("有效累加值正加值和", "VPS"), ("有效累加值负加值和", "VNS"),
-        ("有效累加值数组前一半绝对值之和", "VASFH"), ("有效累加值数组后一半绝对值之和", "VASSH"),
-        ("有效累加值数组前四分之1绝对值之和", "VASB1"), ("有效累加值数组前四分之1-2绝对值之和", "VASB2"),
-        ("有效累加值数组前四分之2-3绝对值之和", "VASB3"), ("有效累加值数组后四分之1绝对值之和", "VASB4"),
-        ("向前最大日期", "FMD"), ("向前最大连续累加值", "FMR"),
-        ("向前最大有效累加值数组非空数据长度", "FMVSL"), ("向前最大有效累加值数组", "FMVSA"),
-        ("向前最大有效累加值正加值和", "FMVPS"), ("向前最大有效累加值负加值和", "FMVNS"),
-        ("向前最大有效累加值数组前一半绝对值之和", "FMVASFH"), ("向前最大有效累加值数组后一半绝对值之和", "FMVASSH"),
-        ("向前最大有效累加值数组前四分之1绝对值之和", "FMVASB1"), ("向前最大有效累加值数组前四分之1-2绝对值之和", "FMVASB2"),
-        ("向前最大有效累加值数组前四分之2-3绝对值之和", "FMVASB3"), ("向前最大有效累加值数组后四分之1绝对值之和", "FMVASB4"),
-        ("向前最小日期", "FMinD"), ("向前最小连续累加值", "FMinR"),
-        ("向前最小有效累加值数组非空数据长度", "FMinVSL"), ("向前最小有效累加值数组", "FMinVSA"),
-        ("向前最小有效累加值正加值和", "FMinVPS"), ("向前最小有效累加值负加值和", "FMinVNS"),
-        ("向前最小有效累加值数组前一半绝对值之和", "FMinVASFH"), ("向前最小有效累加值数组后一半绝对值之和", "FMinVASSH"),
-        ("向前最小有效累加值数组前四分之1绝对值之和", "FMinVASB1"), ("向前最小有效累加值数组前四分之1-2绝对值之和", "FMinVASB2"),
-        ("向前最小有效累加值数组前四分之2-3绝对值之和", "FMinVASB3"), ("向前最小有效累加值数组后四分之1绝对值之和", "FMinVASB4"),
-        ("递增值", "INC"), ("后值大于结束地址值涨跌幅", "AGE"), ("后值大于前值涨跌幅", "AGS"),
-        ("操作值", "OPS"), ("持有天数", "HD"), ("操作涨幅", "OPC"), ("调整天数", "ADJ"), ("日均涨幅", "OIR"),
-        ("向前最大连续累加值开始值", "FMaxCV"), ("向前最大连续累加值开始后1位值", "FMaxCNV"), ("向前最大连续累加值开始后2位值", "FMaxCNNV"),
-        ("向前最大连续累加值结束值", "FMaxCEV"), ("向前最大连续累加值结束前1位值", "FMaxCEPV"), ("向前最大连续累加值结束前2位值", "FMaxCEPPV"),
-        ("向前最小连续累加值开始值", "FMinCV"), ("向前最小连续累加值开始后1位值", "FMinCNV"), ("向前最小连续累加值开始后2位值", "FMinCNNV"),
-        ("向前最小连续累加值结束值", "FMinCEV"), ("向前最小连续累加值结束前1位值", "FMinCEPV"), ("向前最小连续累加值结束前2位值", "FMinCEPPV"),
-        ("向前最大连续累加值前一半绝对值之和", "FMaxCASFH"), ("向前最大连续累加值后一半绝对值之和", "FMaxCASSH"),
-        ("向前最大连续累加值前四分之1绝对值之和", "FMaxCASB1"), ("向前最大连续累加值前四分之1-2绝对值之和", "FMaxCASB2"),
-        ("向前最大连续累加值前四分之2-3绝对值之和", "FMaxCASB3"), ("向前最大连续累加值后四分之1绝对值之和", "FMaxCASB4"),
-        ("向前最小连续累加值前一半绝对值之和", "FMinCASFH"), ("向前最小连续累加值后一半绝对值之和", "FMinCASSH"),
-        ("向前最小连续累加值前四分之1绝对值之和", "FMinCASB1"), ("向前最小连续累加值前四分之1-2绝对值之和", "FMinCASB2"),
-        ("向前最小连续累加值前四分之2-3绝对值之和", "FMinCASB3"), ("向前最小连续累加值后四分之1绝对值之和", "FMinCASB4"),
-        ("向前最大连续累加值数组非空数据长度", "FMaxLen"),
-        ("向前最小连续累加值数组非空数据长度", "FMinLen")
-    ]
-    abbr_grid = QGridLayout()
-    abbr_grid.setSpacing(8)
-    for idx, (zh, en) in enumerate(abbrs):
-        row = idx // 5
-        col = idx % 5
-        label = QLabel(f"{zh} ({en})")
-        label.setStyleSheet('color:gray;')
-        abbr_grid.addWidget(label, row, col)
-    abbr_widget = QWidget()
-    abbr_widget.setLayout(abbr_grid)
-    layout.addWidget(abbr_widget)
-
+    # 获取变量缩写映射
+    abbr_map = get_abbr_map()
+    logic_map = get_abbr_logic_map()
+    formula_widget = FormulaSelectWidget(abbr_map, logic_map)
+    layout.addWidget(formula_widget)
+    parent.formula_widget = formula_widget  # 便于主界面访问
     # 输出区（用于提示和结果展示）
-    output_area = QWidget()
-    output_layout = QVBoxLayout(output_area)
-    output_area.setLayout(output_layout)
-    layout.addWidget(output_area)
-
-    output_edit = QTextEdit()
-    output_edit.setReadOnly(True)
-    output_edit.setMinimumHeight(180)
-    output_layout.addWidget(output_edit)
-
+    output_edit = QLabel()
+    output_edit.setWordWrap(True)
+    output_edit.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.TextSelectableByKeyboard)
+    layout.addWidget(output_edit)
     # 选股结果缓存
-    widget.selected_results = []
-    widget.select_thread = None
-    widget.current_table = None  # 用于存储当前表格
+    content_widget.selected_results = []
+    content_widget.select_thread = None
+    content_widget.current_table = None
 
     # 选股逻辑
     def do_select():
         # 读取控件值
-        formula_expr = formula_input.toPlainText().strip()
+        formula_expr = formula_widget.generate_formula()
+        print(f"选股公式: {formula_expr}")
         if not formula_expr:
             output_edit.setText("请先填写选股公式")
+            output_edit.show()
+            # 移除旧表格
+            if content_widget.current_table is not None:
+                content_widget.current_table.setParent(None)
+                content_widget.current_table = None
             return
         select_count = select_count_spin.value()
         sort_mode = sort_combo.currentText()
-        # 调用主窗口的统一逻辑，拿到所有参数都在的数据
         all_param_result = parent.get_or_calculate_result(
             formula_expr=formula_expr,
             select_count=select_count,
@@ -851,17 +827,23 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
         )
         if all_param_result is None:
             output_edit.setText("请先上传数据文件！")
+            output_edit.show()
+            if content_widget.current_table is not None:
+                content_widget.current_table.setParent(None)
+                content_widget.current_table = None
             return
         merged_results = all_param_result.get('dates', {})
         parent.all_param_result = all_param_result
-        # 只取第一个日期的数据
         if not merged_results or not any(merged_results.values()):
             output_edit.setText("没有选股结果。")
+            output_edit.show()
+            if content_widget.current_table is not None:
+                content_widget.current_table.setParent(None)
+                content_widget.current_table = None
             return
         first_date = list(merged_results.keys())[0]
         stocks = merged_results[first_date]
         import math
-        # 过滤
         filtered = []
         for stock in stocks:
             score = stock.get('score')
@@ -869,49 +851,49 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
             hold_days = stock.get('hold_days', None)
             if score is not None and score != 0 and not (isinstance(end_value, float) and math.isnan(end_value)) and hold_days != -1:
                 filtered.append(stock)
-        # 排序
         reverse = sort_mode == "最大值排序"
         filtered.sort(key=lambda x: x['score'], reverse=reverse)
         selected_result = filtered[:select_count]
-        # 缓存选股结果数据到parent
         parent.last_formula_select_result_data = {'dates': {first_date: selected_result}}
-        # 生成表格
         table = show_formula_select_table_result(parent, parent.last_formula_select_result_data, getattr(parent, 'init', None) and getattr(parent.init, 'price_data', None), is_select_action=True)
-        # 清理output_layout
-        for i in reversed(range(output_layout.count())):
-            w = output_layout.itemAt(i).widget()
-            if w is not None:
-                w.setParent(None)
+        # 移除旧表格
+        if content_widget.current_table is not None:
+            content_widget.current_table.setParent(None)
+            content_widget.current_table = None
         if table:
-            widget.current_table = table  # 保存当前表格引用
-            output_layout.addWidget(table)
+            content_widget.current_table = table
+            layout.addWidget(table)
+            output_edit.hide()
         else:
-            output_layout.addWidget(output_edit)
+            output_edit.setText("没有选股结果。")
+            output_edit.show()
 
     # 排序方式变化时的处理函数
     def on_sort_mode_changed():
-        if widget.current_table is not None:
-            # 重新计算并刷新表格
+        if content_widget.current_table is not None:
             do_select()
 
     select_btn.clicked.connect(do_select)
-    sort_combo.currentTextChanged.connect(on_sort_mode_changed)  # 添加排序方式变化的监听
+    sort_combo.currentTextChanged.connect(on_sort_mode_changed)
 
     # 自动恢复选股结果表格（如果有缓存，且有数据）
     if hasattr(parent, 'last_formula_select_result_data') and parent.last_formula_select_result_data:
-        # 清理output_layout
-        for i in reversed(range(output_layout.count())):
-            w = output_layout.itemAt(i).widget()
-            if w is not None:
-                w.setParent(None)
+        # 移除旧表格
+        if content_widget.current_table is not None:
+            content_widget.current_table.setParent(None)
+            content_widget.current_table = None
         table = show_formula_select_table_result(parent, parent.last_formula_select_result_data, getattr(parent, 'init', None) and getattr(parent.init, 'price_data', None))
         if table:
-            widget.current_table = table
-            output_layout.addWidget(table)
+            content_widget.current_table = table
+            layout.addWidget(table)
+            output_edit.hide()
         else:
-            output_layout.addWidget(output_edit)
+            output_edit.setText("没有选股结果。")
+            output_edit.show()
 
-    return widget
+    # 设置滚动区域的内容
+    scroll.setWidget(content_widget)
+    return scroll
 
 def calc_valid_sum(arr):
     arr = np.array([v for v in arr if v is not None], dtype=float)
@@ -1077,3 +1059,249 @@ def show_formula_select_table_result(parent, result, price_data=None, output_edi
     table.horizontalHeader().setFixedHeight(50)
     table.horizontalHeader().setStyleSheet("font-size: 12px;")
     return table
+
+class FormulaSelectWidget(QWidget):
+    def __init__(self, abbr_map, abbr_logic_map):
+        super().__init__()
+        layout = QVBoxLayout(self)
+        conditions_group = QGroupBox("选股条件")
+        grid_layout = QGridLayout()
+        grid_layout.setSpacing(10)
+        self.var_widgets = {}
+
+        # 1. 先放逻辑变量控件在第一行
+        logic_keys = list(abbr_logic_map.items())
+        for col, (zh, en) in enumerate(logic_keys):
+            var_widget = QWidget()
+            var_layout = QHBoxLayout(var_widget)
+            var_layout.setContentsMargins(10, 10, 10, 10)
+            var_layout.setSpacing(8)
+            var_layout.setAlignment(Qt.AlignLeft)
+            checkbox = QCheckBox()
+            checkbox.setFixedWidth(15)
+            var_layout.addWidget(checkbox)
+            name_label = QLabel(zh)
+            name_label.setFixedWidth(273)
+            name_label.setStyleSheet("border: none;")
+            name_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+            var_layout.addWidget(name_label)
+            logic_combo = QComboBox()
+            logic_combo.addItems(["AND", "OR"])
+            logic_combo.setFixedWidth(45)
+            var_layout.addWidget(logic_combo)
+            self.var_widgets[en] = {
+                'checkbox': checkbox,
+                'logic': logic_combo
+            }
+            grid_layout.addWidget(var_widget, 0, col)
+
+        # 2. 数值变量控件从第二行开始，每行5个
+        cols_per_row = 5
+        value_keys = list(abbr_map.items())
+        for idx, (zh, en) in enumerate(value_keys):
+            row = idx // cols_per_row + 1  # +1是因为第一行被逻辑变量占用
+            col = idx % cols_per_row
+            var_widget = QWidget()
+            var_layout = QHBoxLayout(var_widget)
+            var_layout.setContentsMargins(10, 10, 10, 10)
+            var_layout.setSpacing(8)
+            var_layout.setAlignment(Qt.AlignLeft)
+            checkbox = QCheckBox()
+            checkbox.setFixedWidth(15)
+            var_layout.addWidget(checkbox)
+            round_checkbox = QCheckBox()
+            round_checkbox.setFixedWidth(15)  # 稍微大于indicator，避免被裁剪
+            round_checkbox.setStyleSheet("""
+                QCheckBox {
+                    spacing: 0px;
+                    padding: 0px;
+                    border: none;
+                    background: transparent;
+                }
+                QCheckBox::indicator {
+                    width: 10px; height: 10px;
+                    border-radius: 5px;
+                    border: 1.2px solid #666;
+                    background: white;
+                    margin: 0px;
+                    padding: 0px;
+                }
+                QCheckBox::indicator:checked {
+                    background: #409EFF;
+                    border: 1.2px solid #409EFF;
+                }
+            """)
+            var_layout.addWidget(round_checkbox)
+            name_label = QLabel(zh)
+            name_label.setFixedWidth(250)
+            name_label.setStyleSheet("border: none;")
+            name_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)  
+            var_layout.addWidget(name_label)
+            lower_input = QLineEdit()
+            lower_input.setPlaceholderText("下限")
+            lower_input.setFixedWidth(50)
+            # lower_input.setStyleSheet("border: none;")
+            var_layout.addWidget(lower_input)
+            upper_input = QLineEdit()
+            upper_input.setPlaceholderText("上限")
+            upper_input.setFixedWidth(50)
+            # upper_input.setStyleSheet("border: none;")
+            var_layout.addWidget(upper_input)
+            logic_combo = QComboBox()
+            logic_combo.addItems(["AND", "OR"])
+            logic_combo.setFixedWidth(45)
+            # logic_combo.setStyleSheet("border: none;")
+            var_layout.addWidget(logic_combo)
+            
+            self.var_widgets[en] = {
+                'checkbox': checkbox,
+                'round_checkbox': round_checkbox,
+                'lower': lower_input,
+                'upper': upper_input,
+                'logic': logic_combo
+            }
+            grid_layout.addWidget(var_widget, row, col)
+
+        conditions_group.setLayout(grid_layout)
+        layout.addWidget(conditions_group)
+
+    def generate_formula(self):
+        # 1. 收集所有条件
+        conditions = []
+        for en, widgets in self.var_widgets.items():
+            # 只处理有下限/上限的数值变量
+            if 'lower' in widgets and 'upper' in widgets:
+                if widgets['checkbox'].isChecked():
+                    conds = []
+                    lower = widgets['lower'].text().strip()
+                    upper = widgets['upper'].text().strip()
+                    if lower:
+                        conds.append(f"{en} >= {lower}")
+                    if upper:
+                        conds.append(f"{en} <= {upper}")
+                    if conds:
+                        # 该变量的条件用and连接
+                        conditions.append(' and '.join(conds))
+            # 逻辑变量
+            elif 'checkbox' in widgets and 'lower' not in widgets:
+                if widgets['checkbox'].isChecked():
+                    conditions.append(f"{en}")
+
+        # 2. 连接条件
+        if conditions:
+            # 收集每个条件对应的逻辑控件
+            logic_list = []
+            for en, widgets in self.var_widgets.items():
+                if widgets.get('checkbox') and widgets['checkbox'].isChecked():
+                    logic_list.append(widgets['logic'].currentText().lower())
+            # 拼接条件
+            cond_str = "if True"
+            for logic, cond in zip(logic_list, conditions):
+                cond_str += f" {logic} {cond}"
+            cond_str += ":"
+        else:
+            cond_str = "if True:"
+
+        # 3. 收集所有被圆框勾选的变量
+        result_vars = []
+        for en, widgets in self.var_widgets.items():
+            if 'round_checkbox' in widgets and widgets['round_checkbox'].isChecked():
+                result_vars.append(en)
+        if result_vars:
+            result_expr = "result = " + " + ".join(result_vars)
+        else:
+            result_expr = "result = 0"
+
+        # 4. 生成完整公式
+        formula = f"{cond_str}\n    {result_expr}\nelse:\n    result = 0"
+        return formula
+
+    def get_state(self):
+        """导出所有控件的状态"""
+        state = {}
+        for en, widgets in self.var_widgets.items():
+            item = {}
+            if 'checkbox' in widgets:
+                item['checked'] = widgets['checkbox'].isChecked()
+            if 'round_checkbox' in widgets:
+                item['round_checked'] = widgets['round_checkbox'].isChecked()
+            if 'lower' in widgets:
+                item['lower'] = widgets['lower'].text()
+            if 'upper' in widgets:
+                item['upper'] = widgets['upper'].text()
+            if 'logic' in widgets:
+                item['logic'] = widgets['logic'].currentText()
+            state[en] = item
+        return state
+
+    def set_state(self, state):
+        """恢复所有控件的状态"""
+        for en, item in state.items():
+            widgets = self.var_widgets.get(en)
+            if not widgets:
+                continue
+            if 'checkbox' in widgets and 'checked' in item:
+                widgets['checkbox'].setChecked(item['checked'])
+            if 'round_checkbox' in widgets and 'round_checked' in item:
+                widgets['round_checkbox'].setChecked(item['round_checked'])
+            if 'lower' in widgets and 'lower' in item:
+                widgets['lower'].setText(item['lower'])
+            if 'upper' in widgets and 'upper' in item:
+                widgets['upper'].setText(item['upper'])
+            if 'logic' in widgets and 'logic' in item:
+                idx = widgets['logic'].findText(item['logic'])
+                if idx >= 0:
+                    widgets['logic'].setCurrentIndex(idx)
+
+def get_abbr_map():
+    """获取变量缩写映射字典"""
+    abbrs = [
+        ("最大值", "max_value"), ("最小值", "min_value"), ("结束值", "end_value"), ("开始值", "start_value"),
+        ("前1组结束日地址值", "end_value"),
+        ("实际开始值", "actual_value"), ("最接近值", "closest_value"), ("前1组结束地址前N日的最高值", "n_days_max_value"), 
+        ("前1组结束地址前1日涨跌幅", "prev_day_change"), ("前1组结束日涨跌幅", "end_day_change"), ("后一组结束地址值", "diff_end_value"),
+        ("连续累加值数组非空数据长度", "continuous_len"), ("连续累加值开始值", "continuous_start_value"), ("连续累加值开始后1位值", "continuous_start_next_value"),
+        ("连续累加值开始后2位值", "continuous_start_next_next_value"), ("连续累加值结束值", "continuous_end_value"), ("连续累加值结束前1位值", "continuous_end_prev_value"), ("连续累加值结束前2位值", "continuous_end_prev_prev_value"),
+        ("连续累加值数组前一半绝对值之和", "continuous_abs_sum_first_half"), ("连续累加值数组后一半绝对值之和", "continuous_abs_sum_second_half"),
+        ("连续累加值数组前四分之一绝对值之和", "continuous_abs_sum_block1"), ("连续累加值数组前四分之1-2绝对值之和", "continuous_abs_sum_block2"),
+        ("连续累加值数组前四分之2-3绝对值之和", "continuous_abs_sum_block3"), ("连续累加值数组后四分之一绝对值之和", "continuous_abs_sum_block4"),
+        ("有效累加值数组非空数据长度", "valid_sum_len"), ("有效累加值正加值和", "valid_pos_sum"), ("有效累加值负加值和", "valid_neg_sum"),
+        ("有效累加值数组前一半绝对值之和", "valid_abs_sum_first_half"), ("有效累加值数组后一半绝对值之和", "valid_abs_sum_second_half"),
+        ("有效累加值数组前四分之1绝对值之和", "valid_abs_sum_block1"), ("有效累加值数组前四分之1-2绝对值之和", "valid_abs_sum_block2"),
+        ("有效累加值数组前四分之2-3绝对值之和", "valid_abs_sum_block3"), ("有效累加值数组后四分之1绝对值之和", "valid_abs_sum_block4"),
+        ("向前最大有效累加值数组非空数据长度", "forward_max_valid_sum_len"), 
+        ("向前最大有效累加值正加值和", "forward_max_valid_pos_sum"), ("向前最大有效累加值负加值和", "forward_max_valid_neg_sum"),
+        ("向前最大有效累加值数组前一半绝对值之和", "forward_max_valid_abs_sum_first_half"), ("向前最大有效累加值数组后一半绝对值之和", "forward_max_valid_abs_sum_second_half"),
+        ("向前最大有效累加值数组前四分之1绝对值之和", "forward_max_valid_abs_sum_block1"), ("向前最大有效累加值数组前四分之1-2绝对值之和", "forward_max_valid_abs_sum_block2"),
+        ("向前最大有效累加值数组前四分之2-3绝对值之和", "forward_max_valid_abs_sum_block3"), ("向前最大有效累加值数组后四分之1绝对值之和", "forward_max_valid_abs_sum_block4"),
+        ("向前最大连续累加值前一半绝对值之和", "forward_max_continuous_abs_sum_first_half"), ("向前最大连续累加值后一半绝对值之和", "forward_max_continuous_abs_sum_second_half"),
+        ("向前最大连续累加值前四分之1绝对值之和", "forward_max_continuous_abs_sum_block1"), ("向前最大连续累加值前四分之1-2绝对值之和", "forward_max_continuous_abs_sum_block2"),
+        ("向前最大连续累加值前四分之2-3绝对值之和", "forward_max_continuous_abs_sum_block3"), ("向前最大连续累加值后四分之1绝对值之和", "forward_max_continuous_abs_sum_block4"),
+        ("向前最小有效累加值数组非空数据长度", "forward_min_valid_sum_len"), 
+        ("向前最小有效累加值正加值和", "forward_min_valid_pos_sum"), ("向前最小有效累加值负加值和", "forward_min_valid_neg_sum"),
+        ("向前最小有效累加值数组前一半绝对值之和", "forward_min_valid_abs_sum_first_half"), ("向前最小有效累加值数组后一半绝对值之和", "forward_min_valid_abs_sum_second_half"),
+        ("向前最小有效累加值数组前四分之1绝对值之和", "forward_min_valid_abs_sum_block1"), ("向前最小有效累加值数组前四分之1-2绝对值之和", "forward_min_valid_abs_sum_block2"),
+        ("向前最小有效累加值数组前四分之2-3绝对值之和", "forward_min_valid_abs_sum_block3"), ("向前最小有效累加值数组后四分之1绝对值之和", "forward_min_valid_abs_sum_block4"),
+        ("向前最大连续累加值开始值", "forward_max_continuous_start_value"), ("向前最大连续累加值开始后1位值", "forward_max_continuous_start_next_value"), ("向前最大连续累加值开始后2位值", "forward_max_continuous_start_next_next_value"),
+        ("向前最大连续累加值结束值", "forward_max_continuous_end_value"), ("向前最大连续累加值结束前1位值", "forward_max_continuous_end_prev_value"), ("向前最大连续累加值结束前2位值", "forward_max_continuous_end_prev_prev_value"),
+        ("向前最小连续累加值开始值", "forward_min_continuous_start_value"), ("向前最小连续累加值开始后1位值", "forward_min_continuous_start_next_value"), ("向前最小连续累加值开始后2位值", "forward_min_continuous_start_next_next_value"),
+        ("向前最小连续累加值结束值", "forward_min_continuous_end_value"), ("向前最小连续累加值结束前1位值", "forward_min_continuous_end_prev_value"), ("向前最小连续累加值结束前2位值", "forward_min_continuous_end_prev_prev_value"),
+        ("向前最小连续累加值前一半绝对值之和", "forward_min_continuous_abs_sum_first_half"), ("向前最小连续累加值后一半绝对值之和", "forward_min_continuous_abs_sum_second_half"),
+        ("向前最小连续累加值前四分之1绝对值之和", "forward_min_continuous_abs_sum_block1"), ("向前最小连续累加值前四分之1-2绝对值之和", "forward_min_continuous_abs_sum_block2"),
+        ("向前最小连续累加值前四分之2-3绝对值之和", "forward_min_continuous_abs_sum_block3"), ("向前最小连续累加值后四分之1绝对值之和", "forward_min_continuous_abs_sum_block4"),
+        ("向前最大连续累加值数组非空数据长度", "forward_max_result_len"),
+        ("向前最小连续累加值数组非空数据长度", "forward_min_result_len"),
+        ("递增值", "increment_value"), ("后值大于结束地址值涨跌幅", "after_gt_end_value"), ("后值大于前值涨跌幅", "after_gt_start_value"),
+        ("操作值", "ops_value"), ("持有天数", "hold_days"), ("操作涨幅", "ops_change"), ("调整天数", "adjust_days"), ("日均涨幅", "ops_incre_rate")
+    ]
+    return {zh: en for zh, en in abbrs}
+
+
+def get_abbr_logic_map():
+    """获取变量缩写映射字典"""
+    abbrs = [
+        ("第1组后N最大值逻辑", "n_max_is_max"),
+        ("开始日到结束日之间最高价/最低价小于M", "range_ratio_is_less"), 
+        ("开始日到结束日之间连续累加值绝对值小于M", "continuous_abs_is_less")
+    ]
+    return {zh: en for zh, en in abbrs}
