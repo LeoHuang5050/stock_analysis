@@ -924,7 +924,7 @@ class CalculateThread(QThread):
         expr = params.get('expr', '') or ''
         expr = convert_expr_to_return_var_name(expr)
         formula_expr = params.get('formula_expr', '') or ''
-        formula_expr = replace_abbr(formula_expr, abbr_map)
+        # formula_expr = replace_abbr(formula_expr, abbr_map)
         ops_change_input = params.get("ops_change", 0)
         select_count = int(params.get('select_count', 10))
         sort_mode = params.get('sort_mode', '最大值排序')

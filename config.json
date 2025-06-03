@@ -13,11 +13,613 @@
   "continuous_abs_threshold": "2.4",
   "ops_change": "10",
   "expr": "result = INC",
-  "last_formula_expr": "if (\n    abs(CEV) < 3 and\n    abs(CEPV) < 3\n):\n    result = VNS + VPS\nelse:\n    result = 0",
-  "last_select_count": 6,
+  "last_formula_expr": "if True and n_max_is_max and continuous_end_value <= 3 and continuous_end_prev_value <= 3:\n    result = valid_pos_sum + valid_neg_sum\nelse:\n    result = 0",
+  "last_select_count": 10,
   "last_sort_mode": "最小值排序",
   "direction": true,
   "analysis_start_date": "2025-04-08",
   "analysis_end_date": "2025-04-09",
-  "cpu_cores": 10
+  "cpu_cores": 10,
+  "formula_select_state": {
+    "n_max_is_max": {
+      "checked": true,
+      "logic": "AND"
+    },
+    "range_ratio_is_less": {
+      "checked": false,
+      "logic": "AND"
+    },
+    "continuous_abs_is_less": {
+      "checked": false,
+      "logic": "AND"
+    },
+    "max_value": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "min_value": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "end_value": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "start_value": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "actual_value": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "closest_value": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "n_days_max_value": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "prev_day_change": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "end_day_change": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "diff_end_value": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "continuous_len": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "continuous_start_value": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "continuous_start_next_value": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "continuous_start_next_next_value": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "continuous_end_value": {
+      "checked": true,
+      "round_checked": false,
+      "lower": "",
+      "upper": "3",
+      "logic": "AND"
+    },
+    "continuous_end_prev_value": {
+      "checked": true,
+      "round_checked": false,
+      "lower": "",
+      "upper": "3",
+      "logic": "AND"
+    },
+    "continuous_end_prev_prev_value": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "continuous_abs_sum_first_half": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "continuous_abs_sum_second_half": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "continuous_abs_sum_block1": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "continuous_abs_sum_block2": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "continuous_abs_sum_block3": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "continuous_abs_sum_block4": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "valid_sum_len": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "valid_pos_sum": {
+      "checked": false,
+      "round_checked": true,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "valid_neg_sum": {
+      "checked": false,
+      "round_checked": true,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "valid_abs_sum_first_half": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "valid_abs_sum_second_half": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "valid_abs_sum_block1": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "valid_abs_sum_block2": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "valid_abs_sum_block3": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "valid_abs_sum_block4": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "forward_max_valid_sum_len": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "forward_max_valid_pos_sum": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "forward_max_valid_neg_sum": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "forward_max_valid_abs_sum_first_half": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "forward_max_valid_abs_sum_second_half": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "forward_max_valid_abs_sum_block1": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "forward_max_valid_abs_sum_block2": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "forward_max_valid_abs_sum_block3": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "forward_max_valid_abs_sum_block4": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "forward_max_continuous_abs_sum_first_half": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "forward_max_continuous_abs_sum_second_half": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "forward_max_continuous_abs_sum_block1": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "forward_max_continuous_abs_sum_block2": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "forward_max_continuous_abs_sum_block3": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "forward_max_continuous_abs_sum_block4": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "forward_min_valid_sum_len": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "forward_min_valid_pos_sum": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "forward_min_valid_neg_sum": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "forward_min_valid_abs_sum_first_half": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "forward_min_valid_abs_sum_second_half": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "forward_min_valid_abs_sum_block1": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "forward_min_valid_abs_sum_block2": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "forward_min_valid_abs_sum_block3": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "forward_min_valid_abs_sum_block4": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "forward_max_continuous_start_value": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "forward_max_continuous_start_next_value": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "forward_max_continuous_start_next_next_value": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "forward_max_continuous_end_value": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "forward_max_continuous_end_prev_value": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "forward_max_continuous_end_prev_prev_value": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "forward_min_continuous_start_value": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "forward_min_continuous_start_next_value": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "forward_min_continuous_start_next_next_value": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "forward_min_continuous_end_value": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "forward_min_continuous_end_prev_value": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "forward_min_continuous_end_prev_prev_value": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "forward_min_continuous_abs_sum_first_half": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "forward_min_continuous_abs_sum_second_half": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "forward_min_continuous_abs_sum_block1": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "forward_min_continuous_abs_sum_block2": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "forward_min_continuous_abs_sum_block3": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "forward_min_continuous_abs_sum_block4": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "forward_max_result_len": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "forward_min_result_len": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "increment_value": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "after_gt_end_value": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "after_gt_start_value": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "ops_value": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "hold_days": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "ops_change": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "adjust_days": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    },
+    "ops_incre_rate": {
+      "checked": false,
+      "round_checked": false,
+      "lower": "",
+      "upper": "",
+      "logic": "AND"
+    }
+  }
 }
