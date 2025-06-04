@@ -3,7 +3,7 @@ import pandas as pd
 import chinese_calendar
 from datetime import datetime, timedelta
 from decimal import Decimal
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTextEdit, QLineEdit, QSpinBox, QComboBox, QPushButton, QTableWidget, QTableWidgetItem, QSizePolicy, QDialog, QTabWidget, QMessageBox, QGridLayout, QDateEdit, QInputDialog, QAbstractItemView, QGroupBox, QCheckBox, QHeaderView, QScrollArea, QToolButton
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTextEdit, QLineEdit, QSpinBox, QComboBox, QPushButton, QTableWidget, QTableWidgetItem, QSizePolicy, QDialog, QTabWidget, QMessageBox, QGridLayout, QDateEdit, QInputDialog, QAbstractItemView, QGroupBox, QCheckBox, QHeaderView, QScrollArea, QToolButton, QApplication
 from PyQt5.QtCore import QDate, QObject, QEvent, Qt
 from PyQt5.QtGui import QDoubleValidator
 import time
@@ -695,6 +695,9 @@ class FormulaExprEdit(QTextEdit):
 
 def show_formula_select_table(parent, all_results=None, as_widget=True):
     from PyQt5.QtWidgets import QMessageBox, QScrollArea
+    # print("打开公式选股界面")
+    # print(f"当前 last_formula_select_state: {getattr(parent, 'last_formula_select_state', {})}")
+    
     # 创建滚动区域
     scroll = QScrollArea(parent)
     scroll.setWidgetResizable(True)
@@ -808,7 +811,13 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
     abbr_map = get_abbr_map()
     logic_map = get_abbr_logic_map()
     round_map = get_abbr_round_map()
-    formula_widget = FormulaSelectWidget(abbr_map, logic_map, round_map)
+    formula_widget = FormulaSelectWidget(abbr_map, logic_map, round_map, parent)
+    # 恢复状态
+    if hasattr(parent, 'last_formula_select_state'):
+        # print(f"恢复状态: {parent.last_formula_select_state}")
+        formula_widget.set_state(parent.last_formula_select_state)
+    else:
+        print("没有恢复状态")
     layout.addWidget(formula_widget)
     parent.formula_widget = formula_widget  # 便于主界面访问
     # 输出区（用于提示和结果展示）
@@ -1079,14 +1088,223 @@ def show_formula_select_table_result(parent, result, price_data=None, output_edi
     return table
 
 class FormulaSelectWidget(QWidget):
-    def __init__(self, abbr_map, abbr_logic_map, abbr_round_map):
+    def __init__(self, abbr_map, abbr_logic_map, abbr_round_map, main_window):
         super().__init__()
         self.abbr_map = abbr_map
         self.abbr_logic_map = abbr_logic_map
         self.abbr_round_map = abbr_round_map
         self.var_widgets = {}
         self.comparison_widgets = []  # 存储所有比较控件
+        self.main_window = main_window  # 保存主窗口引用
         self.init_ui()
+        # 先恢复状态
+        if hasattr(self.main_window, 'last_formula_select_state'):
+            # print(f"恢复状态: {self.main_window.last_formula_select_state}")
+            self.set_state(self.main_window.last_formula_select_state)
+        # 再设置状态同步
+        self._setup_state_sync()
+
+    def _sync_to_main(self):
+        """同步状态到主界面变量"""
+        state = {}
+        # 保存变量控件状态
+        for en, widgets in self.var_widgets.items():
+            item = {}
+            if 'checkbox' in widgets:
+                item['checked'] = widgets['checkbox'].isChecked()
+            if 'round_checkbox' in widgets:
+                item['round_checked'] = widgets['round_checkbox'].isChecked()
+            if 'lower' in widgets:
+                item['lower'] = widgets['lower'].text()
+            if 'upper' in widgets:
+                item['upper'] = widgets['upper'].text()
+            state[en] = item
+        # 保存比较控件状态
+        comparison_state = []
+        for comp in self.comparison_widgets:
+            comparison_state.append({
+                'var1': comp['var1'].currentText(),
+                'lower': comp['lower'].text(),
+                'upper': comp['upper'].text(),
+                'var2': comp['var2'].currentText()
+            })
+        state['comparison_widgets'] = comparison_state
+        # print(f"保存状态: {state}")  # 添加打印语句
+        self.main_window.last_formula_select_state = state
+        # print(f"保存后的状态: {self.main_window.last_formula_select_state}")  # 添加打印语句
+
+    def get_state(self):
+        """导出所有控件的状态"""
+        return getattr(self.main_window, 'last_formula_select_state', {})
+
+    def set_state(self, state):
+        """恢复控件状态"""
+        if not state:
+            return
+        # 恢复变量控件状态
+        for en, widgets in self.var_widgets.items():
+            if en in state:
+                data = state[en]
+                if 'checkbox' in widgets and 'checked' in data:
+                    widgets['checkbox'].setChecked(data['checked'])
+                if 'round_checkbox' in widgets and 'round_checked' in data:
+                    widgets['round_checkbox'].setChecked(data['round_checked'])
+                if 'lower' in widgets and 'lower' in data:
+                    widgets['lower'].setText(data['lower'])
+                if 'upper' in widgets and 'upper' in data:
+                    widgets['upper'].setText(data['upper'])
+        # 恢复比较控件状态
+        # 先清除现有的比较控件
+        for comp in self.comparison_widgets[:]:
+            self.delete_comparison_widget(comp['widget'])
+        # 然后根据保存的状态重新创建
+        for comp_data in state.get('comparison_widgets', []):
+            comp = self.add_comparison_widget()
+            if comp:  # 确保 comp 不是 None
+                # 等待下拉框选项加载完成
+                QApplication.processEvents()
+                # 设置下拉框的值
+                var1_text = comp_data.get('var1', '')
+                var2_text = comp_data.get('var2', '')
+                if var1_text:
+                    idx = comp['var1'].findText(var1_text)
+                    if idx >= 0:
+                        comp['var1'].setCurrentIndex(idx)
+                if var2_text:
+                    idx = comp['var2'].findText(var2_text)
+                    if idx >= 0:
+                        comp['var2'].setCurrentIndex(idx)
+                # 设置输入框的值
+                comp['lower'].setText(comp_data.get('lower', ''))
+                comp['upper'].setText(comp_data.get('upper', ''))
+
+    def add_comparison_widget(self):
+        # 创建比较控件容器
+        comparison_widget = QWidget()
+        comparison_widget.setFixedWidth(503)
+        comparison_layout = QHBoxLayout(comparison_widget)
+        comparison_layout.setContentsMargins(10, 10, 10, 10)
+        comparison_layout.setSpacing(8)
+        # 第一个变量下拉框
+        var1_combo = QComboBox()
+        var1_combo.addItems([zh for zh, _ in self.abbr_map.items()])
+        var1_combo.setFixedWidth(150)
+        var1_combo.view().setMinimumWidth(270)
+        comparison_layout.addWidget(var1_combo)
+        # 下限输入框
+        lower_input = QLineEdit()
+        lower_input.setPlaceholderText("下限")
+        lower_input.setFixedWidth(50)
+        comparison_layout.addWidget(lower_input)
+        # 上限输入框
+        upper_input = QLineEdit()
+        upper_input.setPlaceholderText("上限")
+        upper_input.setFixedWidth(50)
+        comparison_layout.addWidget(upper_input)
+        # 第二个变量下拉框
+        var2_combo = QComboBox()
+        var2_combo.addItems([zh for zh, _ in self.abbr_map.items()])
+        var2_combo.setFixedWidth(150)
+        var2_combo.view().setMinimumWidth(270)
+        comparison_layout.addWidget(var2_combo)
+        # 信号连接，确保任意内容变更都能同步状态
+        var1_combo.currentTextChanged.connect(self._sync_to_main)
+        var2_combo.currentTextChanged.connect(self._sync_to_main)
+        lower_input.textChanged.connect(self._sync_to_main)
+        upper_input.textChanged.connect(self._sync_to_main)
+        # 删除按钮（右上角小x）
+        delete_btn = QToolButton(comparison_widget)
+        delete_btn.setText('×')
+        delete_btn.setStyleSheet('QToolButton {color: #FF4D4F; font-weight: bold; font-size: 16px; border: none; background: transparent;} QToolButton:hover {color: #D9363E;}')
+        delete_btn.setFixedSize(18, 18)
+        delete_btn.clicked.connect(lambda: self.delete_comparison_widget(comparison_widget))
+        # 用绝对定位放右上角
+        comparison_widget.setLayout(comparison_layout)
+        delete_btn.raise_()
+        delete_btn.move(comparison_widget.width() - 22, 2)
+        comparison_widget.resizeEvent = lambda event: delete_btn.move(comparison_widget.width() - 22, 2)
+        # 添加到列表
+        comp_dict = {
+            'widget': comparison_widget,
+            'var1': var1_combo,
+            'lower': lower_input,
+            'upper': upper_input,
+            'var2': var2_combo
+        }
+        self.comparison_widgets.append(comp_dict)
+        # 刷新比较控件和按钮位置
+        parent_layout = self.layout().itemAt(0).widget().layout()  # grid_layout
+        self._refresh_comparison_row(parent_layout)
+        # 在末尾添加
+        self._sync_to_main()
+        return comp_dict
+
+    def delete_comparison_widget(self, widget):
+        # 从列表中移除
+        for i, comp in enumerate(self.comparison_widgets):
+            if comp['widget'] == widget:
+                self.comparison_widgets.pop(i)
+                break
+        widget.setParent(None)
+        widget.deleteLater()
+        parent_layout = self.layout().itemAt(0).widget().layout()  # grid_layout
+        self._refresh_comparison_row(parent_layout)
+        # 在末尾添加
+        self._sync_to_main()
+
+    def generate_formula(self):
+        # 1. 收集所有条件
+        conditions = []
+        for en, widgets in self.var_widgets.items():
+            # 只处理有下限/上限的数值变量
+            if 'lower' in widgets and 'upper' in widgets:
+                if widgets['checkbox'].isChecked():
+                    conds = []
+                    lower = widgets['lower'].text().strip()
+                    upper = widgets['upper'].text().strip()
+                    if lower:
+                        conds.append(f"{en} >= {lower}")
+                    if upper:
+                        conds.append(f"{en} <= {upper}")
+                    if conds:
+                        # 该变量的条件用and连接
+                        conditions.append(' and '.join(conds))
+            # 逻辑变量
+            elif 'checkbox' in widgets and 'lower' not in widgets:
+                if widgets['checkbox'].isChecked():
+                    conditions.append(f"{en}")
+        # 2. 收集比较控件的条件
+        for comp in self.comparison_widgets:
+            var1 = comp['var1'].currentText()
+            lower = comp['lower'].text().strip()
+            upper = comp['upper'].text().strip()
+            var2 = comp['var2'].currentText()
+            var1_en = next((en for zh, en in self.abbr_map.items() if zh == var1), None)
+            var2_en = next((en for zh, en in self.abbr_map.items() if zh == var2), None)
+            comp_conds = []
+            if lower and var1_en and var2_en:
+                comp_conds.append(f"{var1_en} >= {lower} * {var2_en}")
+            if upper and var1_en and var2_en:
+                comp_conds.append(f"{var1_en} <= {upper} * {var2_en}")
+            if comp_conds:
+                conditions.append(' and '.join(comp_conds))
+        # 3. 连接条件，全部用and拼接
+        if conditions:
+            cond_str = "if " + " and ".join(conditions) + ":"
+        else:
+            cond_str = "if True:"
+        # 4. 收集所有被圆框勾选的变量
+        result_vars = []
+        for en, widgets in self.var_widgets.items():
+            if 'round_checkbox' in widgets and widgets['round_checkbox'].isChecked():
+                result_vars.append(en)
+        if result_vars:
+            result_expr = "result = " + " + ".join(result_vars)
+        else:
+            result_expr = "result = 0"
+        # 5. 生成完整公式
+        formula = f"{cond_str}\n    {result_expr}\nelse:\n    result = 0"
+        return formula
 
     def init_ui(self):
         layout = QVBoxLayout(self)
@@ -1254,6 +1472,8 @@ class FormulaSelectWidget(QWidget):
         conditions_group.setLayout(grid_layout)
         layout.addWidget(conditions_group)
         self.setLayout(layout)
+        # 在末尾添加
+        self._setup_state_sync()
 
     def _refresh_comparison_row(self, grid_layout=None):
         last_var_row = (len(self.value_keys) - 1) // self.cols_per_row + 1
@@ -1278,179 +1498,23 @@ class FormulaSelectWidget(QWidget):
                 col = 0
         grid_layout.addWidget(self.add_comparison_btn, row, col)
 
-    def add_comparison_widget(self):
-        # 创建比较控件容器
-        comparison_widget = QWidget()
-        comparison_widget.setFixedWidth(503)
-        comparison_layout = QHBoxLayout(comparison_widget)
-        comparison_layout.setContentsMargins(10, 10, 10, 10)
-        comparison_layout.setSpacing(8)
-        # 第一个变量下拉框
-        var1_combo = QComboBox()
-        var1_combo.addItems([zh for zh, _ in self.abbr_map.items()])
-        var1_combo.setFixedWidth(150)
-        var1_combo.view().setMinimumWidth(270)
-        comparison_layout.addWidget(var1_combo)
-        # 下限输入框
-        lower_input = QLineEdit()
-        lower_input.setPlaceholderText("下限")
-        lower_input.setFixedWidth(50)
-        comparison_layout.addWidget(lower_input)
-        # 上限输入框
-        upper_input = QLineEdit()
-        upper_input.setPlaceholderText("上限")
-        upper_input.setFixedWidth(50)
-        comparison_layout.addWidget(upper_input)
-        # 第二个变量下拉框
-        var2_combo = QComboBox()
-        var2_combo.addItems([zh for zh, _ in self.abbr_map.items()])
-        var2_combo.setFixedWidth(150)
-        var2_combo.view().setMinimumWidth(270)
-        comparison_layout.addWidget(var2_combo)
-        # 删除按钮（右上角小x）
-        delete_btn = QToolButton(comparison_widget)
-        delete_btn.setText('×')
-        delete_btn.setStyleSheet('QToolButton {color: #FF4D4F; font-weight: bold; font-size: 16px; border: none; background: transparent;} QToolButton:hover {color: #D9363E;}')
-        delete_btn.setFixedSize(18, 18)
-        delete_btn.clicked.connect(lambda: self.delete_comparison_widget(comparison_widget))
-        # 用绝对定位放右上角
-        comparison_widget.setLayout(comparison_layout)
-        delete_btn.raise_()
-        delete_btn.move(comparison_widget.width() - 22, 2)
-        comparison_widget.resizeEvent = lambda event: delete_btn.move(comparison_widget.width() - 22, 2)
-        # 添加到列表
-        self.comparison_widgets.append({
-            'widget': comparison_widget,
-            'var1': var1_combo,
-            'lower': lower_input,
-            'upper': upper_input,
-            'var2': var2_combo
-        })
-        # 刷新比较控件和按钮位置
-        parent_layout = self.layout().itemAt(0).widget().layout()  # grid_layout
-        self._refresh_comparison_row(parent_layout)
-
-    def delete_comparison_widget(self, widget):
-        # 从列表中移除
-        for i, comp in enumerate(self.comparison_widgets):
-            if comp['widget'] == widget:
-                self.comparison_widgets.pop(i)
-                break
-        widget.setParent(None)
-        widget.deleteLater()
-        parent_layout = self.layout().itemAt(0).widget().layout()  # grid_layout
-        self._refresh_comparison_row(parent_layout)
-
-    def generate_formula(self):
-        # 1. 收集所有条件
-        conditions = []
+    def _setup_state_sync(self):
+        """设置所有控件的状态同步"""
+        # 变量控件状态同步
         for en, widgets in self.var_widgets.items():
-            # 只处理有下限/上限的数值变量
-            if 'lower' in widgets and 'upper' in widgets:
-                if widgets['checkbox'].isChecked():
-                    conds = []
-                    lower = widgets['lower'].text().strip()
-                    upper = widgets['upper'].text().strip()
-                    if lower:
-                        conds.append(f"{en} >= {lower}")
-                    if upper:
-                        conds.append(f"{en} <= {upper}")
-                    if conds:
-                        # 该变量的条件用and连接
-                        conditions.append(' and '.join(conds))
-            # 逻辑变量
-            elif 'checkbox' in widgets and 'lower' not in widgets:
-                if widgets['checkbox'].isChecked():
-                    conditions.append(f"{en}")
-        # 2. 收集比较控件的条件
-        for comp in self.comparison_widgets:
-            var1 = comp['var1'].currentText()
-            lower = comp['lower'].text().strip()
-            upper = comp['upper'].text().strip()
-            var2 = comp['var2'].currentText()
-            var1_en = next((en for zh, en in self.abbr_map.items() if zh == var1), None)
-            var2_en = next((en for zh, en in self.abbr_map.items() if zh == var2), None)
-            comp_conds = []
-            if lower and var1_en and var2_en:
-                comp_conds.append(f"{var1_en} > {lower} * {var2_en}")
-            if upper and var1_en and var2_en:
-                comp_conds.append(f"{var1_en} < {upper} * {var2_en}")
-            if comp_conds:
-                conditions.append(' and '.join(comp_conds))
-        # 3. 连接条件，全部用and拼接
-        if conditions:
-            cond_str = "if " + " and ".join(conditions) + ":"
-        else:
-            cond_str = "if True:"
-        # 4. 收集所有被圆框勾选的变量
-        result_vars = []
-        for en, widgets in self.var_widgets.items():
-            if 'round_checkbox' in widgets and widgets['round_checkbox'].isChecked():
-                result_vars.append(en)
-        if result_vars:
-            result_expr = "result = " + " + ".join(result_vars)
-        else:
-            result_expr = "result = 0"
-        # 5. 生成完整公式
-        formula = f"{cond_str}\n    {result_expr}\nelse:\n    result = 0"
-        return formula
-
-    def get_state(self):
-        """导出所有控件的状态"""
-        state = {}
-        for en, widgets in self.var_widgets.items():
-            item = {}
             if 'checkbox' in widgets:
-                item['checked'] = widgets['checkbox'].isChecked()
+                widgets['checkbox'].stateChanged.connect(self._sync_to_main)
             if 'round_checkbox' in widgets:
-                item['round_checked'] = widgets['round_checkbox'].isChecked()
+                widgets['round_checkbox'].stateChanged.connect(self._sync_to_main)
             if 'lower' in widgets:
-                item['lower'] = widgets['lower'].text()
+                widgets['lower'].textChanged.connect(self._sync_to_main)
             if 'upper' in widgets:
-                item['upper'] = widgets['upper'].text()
-            state[en] = item
-        # 保存比较控件
-        comparison_state = []
-        for comp in self.comparison_widgets:
-            comparison_state.append({
-                'var1': comp['var1'].currentText(),
-                'lower': comp['lower'].text(),
-                'upper': comp['upper'].text(),
-                'var2': comp['var2'].currentText()
-            })
-        state['comparison_widgets'] = comparison_state
-        return state
-
-    def set_state(self, state):
-        """恢复所有控件的状态"""
-        for en, item in state.items():
-            widgets = self.var_widgets.get(en)
-            if not widgets:
-                continue
-            if 'checkbox' in widgets and 'checked' in item:
-                widgets['checkbox'].setChecked(item['checked'])
-            if 'round_checkbox' in widgets and 'round_checked' in item:
-                widgets['round_checkbox'].setChecked(item['round_checked'])
-            if 'lower' in widgets and 'lower' in item:
-                widgets['lower'].setText(item['lower'])
-            if 'upper' in widgets and 'upper' in item:
-                widgets['upper'].setText(item['upper'])
-        # 恢复比较控件
-        comparison_state = state.get('comparison_widgets', [])
-        # 先清空现有比较控件
-        for comp in list(self.comparison_widgets):
-            self.delete_comparison_widget(comp['widget'])
-        for comp_data in comparison_state:
-            self.add_comparison_widget()
-            comp = self.comparison_widgets[-1]
-            comp['var1'].setCurrentText(comp_data.get('var1', ''))
-            comp['lower'].setText(comp_data.get('lower', ''))
-            comp['upper'].setText(comp_data.get('upper', ''))
-            comp['var2'].setCurrentText(comp_data.get('var2', ''))
+                widgets['upper'].textChanged.connect(self._sync_to_main)
 
 def get_abbr_map():
     """获取变量缩写映射字典"""
     abbrs = [
+        ("最大值", "max_value"), ("最小值", "min_value"),
         ("前1组结束日地址值", "end_value"), ("日均涨幅", "ops_incre_rate"),
         ("前1组结束地址前N日的最高值", "n_days_max_value"), 
         ("前1组结束地址前1日涨跌幅", "prev_day_change"), ("前1组结束日涨跌幅", "end_day_change"), ("后一组结束地址值", "diff_end_value"),
@@ -1485,7 +1549,7 @@ def get_abbr_map():
         ("向前最小连续累加值前四分之2-3绝对值之和", "forward_min_continuous_abs_sum_block3"), ("向前最小连续累加值后四分之1绝对值之和", "forward_min_continuous_abs_sum_block4"),
         ("向前最大连续累加值数组非空数据长度", "forward_max_result_len"),
         ("向前最小连续累加值数组非空数据长度", "forward_min_result_len"),
-        ("递增值", "increment_value"), ("后值大于结束地址值涨跌幅", "after_gt_end_value"), ("后值大于前值涨跌幅", "after_gt_start_value"),
+        ("后值大于结束地址值涨跌幅", "after_gt_end_value"), ("后值大于前值涨跌幅", "after_gt_start_value"),
         ("持有天数", "hold_days"),  
     ]
     return {zh: en for zh, en in abbrs}
