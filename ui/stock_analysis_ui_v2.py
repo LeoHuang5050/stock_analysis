@@ -818,20 +818,16 @@ class StockAnalysisApp(QWidget):
             return
         # 自动调整日期：如果start_date不是交易日，则往日期增大的方向找到第一个可用交易日
         if start_date not in workdays:
-            # print(f"start_date not in workdays: {start_date}")
+            print(f"start_date not in workdays: {start_date}")
             for d in workdays:
                 if d >= start_date:
                     start_date = d
                     break
-            # 检查调整后的开始日期索引减去width是否小于0
-            start_date_idx = workdays.index(start_date)
-            width = self.width_spin.value()
-            if start_date_idx - width < 0:
-                # 如果小于0，则使用workdays[width]作为开始日期
-                if width < len(workdays):
-                    start_date = workdays[width]
-                    # print(f"由于开始日期索引减去width小于0，调整开始日期为: {start_date}")
-        # print(f"自动调整后的start_date: {start_date}")
+        start_date_idx = workdays.index(start_date)
+        width = self.width_spin.value()
+        if start_date_idx - width < 0 and width < len(workdays):
+            print(f"start_date_idx - width < 0 and width < len(workdays): {start_date}")
+            start_date = workdays[width]
         # 自动调整日期：如果end_date不是交易日，则往日期减小的方向找到第一个可用交易日
         if end_date not in workdays:
             print(f"end_date not in workdays: {end_date}")

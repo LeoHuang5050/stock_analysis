@@ -3,7 +3,7 @@ import pandas as pd
 import chinese_calendar
 from datetime import datetime, timedelta
 from decimal import Decimal
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTextEdit, QLineEdit, QSpinBox, QComboBox, QPushButton, QTableWidget, QTableWidgetItem, QSizePolicy, QDialog, QTabWidget, QMessageBox, QGridLayout, QDateEdit, QInputDialog, QAbstractItemView, QGroupBox, QCheckBox, QHeaderView, QScrollArea, QToolButton, QApplication
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTextEdit, QLineEdit, QSpinBox, QComboBox, QPushButton, QTableWidget, QTableWidgetItem, QSizePolicy, QDialog, QTabWidget, QMessageBox, QGridLayout, QDateEdit, QInputDialog, QAbstractItemView, QGroupBox, QCheckBox, QHeaderView, QScrollArea, QToolButton, QApplication, QMainWindow
 from PyQt5.QtCore import QDate, QObject, QEvent, Qt
 from PyQt5.QtGui import QDoubleValidator
 import time
@@ -803,7 +803,11 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
             padding-left: 2px;
         }
     """)
-    for w in [select_count_widget, sort_label, sort_combo, select_btn]:
+    # 新增：查看结果按钮
+    view_result_btn = QPushButton("查看结果")
+    view_result_btn.setFixedSize(100, 50)
+    view_result_btn.setStyleSheet(select_btn.styleSheet())
+    for w in [select_count_widget, sort_label, sort_combo, select_btn, view_result_btn]:
         top_layout.addWidget(w)
     layout.addLayout(top_layout)
 
@@ -820,15 +824,12 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
         print("没有恢复状态")
     layout.addWidget(formula_widget)
     parent.formula_widget = formula_widget  # 便于主界面访问
-    # 输出区（用于提示和结果展示）
-    output_edit = QLabel()
-    output_edit.setWordWrap(True)
-    output_edit.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.TextSelectableByKeyboard)
-    layout.addWidget(output_edit)
     # 选股结果缓存
     content_widget.selected_results = []
     content_widget.select_thread = None
     content_widget.current_table = None
+    content_widget.result_window = None  # 新增：结果弹窗
+    content_widget.result_table = None   # 新增：结果表格
 
     # 选股逻辑
     def do_select():
@@ -836,12 +837,7 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
         formula_expr = formula_widget.generate_formula()
         print(f"选股公式: {formula_expr}")
         if not formula_expr:
-            output_edit.setText("请先填写选股公式")
-            output_edit.show()
-            # 移除旧表格
-            if content_widget.current_table is not None:
-                content_widget.current_table.setParent(None)
-                content_widget.current_table = None
+            QMessageBox.information(parent, "提示", "请先填写选股公式")
             return
         select_count = select_count_spin.value()
         sort_mode = sort_combo.currentText()
@@ -853,20 +849,12 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
             only_show_selected=False
         )
         if all_param_result is None:
-            output_edit.setText("请先上传数据文件！")
-            output_edit.show()
-            if content_widget.current_table is not None:
-                content_widget.current_table.setParent(None)
-                content_widget.current_table = None
+            # QMessageBox.information(parent, "提示", "请先上传数据文件！")
             return
         merged_results = all_param_result.get('dates', {})
         parent.all_param_result = all_param_result
         if not merged_results or not any(merged_results.values()):
-            output_edit.setText("没有选股结果。")
-            output_edit.show()
-            if content_widget.current_table is not None:
-                content_widget.current_table.setParent(None)
-                content_widget.current_table = None
+            QMessageBox.information(parent, "提示", "没有选股结果。")
             return
         first_date = list(merged_results.keys())[0]
         stocks = merged_results[first_date]
@@ -883,40 +871,86 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
         selected_result = filtered[:select_count]
         parent.last_formula_select_result_data = {'dates': {first_date: selected_result}}
         table = show_formula_select_table_result(parent, parent.last_formula_select_result_data, getattr(parent, 'init', None) and getattr(parent.init, 'price_data', None), is_select_action=True)
-        # 移除旧表格
-        if content_widget.current_table is not None:
-            content_widget.current_table.setParent(None)
-            content_widget.current_table = None
-        if table:
-            content_widget.current_table = table
-            layout.addWidget(table)
-            output_edit.hide()
-        else:
-            output_edit.setText("没有选股结果。")
-            output_edit.show()
+        # 弹窗展示
+        if hasattr(content_widget, 'result_window') and content_widget.result_window is not None:
+            content_widget.result_window.close()
+        result_window = QMainWindow()
+        result_window.setWindowTitle("选股结果")
+        flags = result_window.windowFlags()
+        flags &= ~Qt.WindowStaysOnTopHint  # 移除置顶标志
+        flags &= ~Qt.WindowContextHelpButtonHint  # 移除问号按钮
+        result_window.setWindowFlags(flags)
+        central_widget = QWidget()
+        layout_ = QVBoxLayout(central_widget)
+        layout_.addWidget(table)
+        result_window.setCentralWidget(central_widget)
+        result_window.resize(1200, 600)
+        result_window.show()
+        content_widget.result_window = result_window
+        content_widget.result_table = table
+        # 新增：点击得分表头切换排序
+        score_col = 5
+        content_widget.score_sort_desc = True  # 默认降序
+        def on_header_clicked(idx):
+            if idx == score_col:
+                content_widget.score_sort_desc = not getattr(content_widget, 'score_sort_desc', True)
+                # 重新排序
+                result_data = parent.last_formula_select_result_data
+                merged_results = result_data.get('dates', {})
+                if not merged_results or not any(merged_results.values()):
+                    return
+                first_date = list(merged_results.keys())[0]
+                stocks = merged_results[first_date]
+                reverse = content_widget.score_sort_desc
+                stocks.sort(key=lambda x: x.get('score', 0), reverse=reverse)
+                # 重新生成表格
+                table2 = show_formula_select_table_result(parent, result_data, getattr(parent, 'init', None) and getattr(parent.init, 'price_data', None), is_select_action=True)
+                # 替换弹窗内容
+                win = content_widget.result_window
+                if win:
+                    for i in reversed(range(win.layout().count())):
+                        widget = win.layout().itemAt(i).widget()
+                        if widget is not None:
+                            widget.setParent(None)
+                    win.layout().addWidget(table2)
+                    content_widget.result_table = table2
+                    table2.horizontalHeader().sectionClicked.connect(on_header_clicked)
+        table.horizontalHeader().sectionClicked.connect(on_header_clicked)
 
-    # 排序方式变化时的处理函数
-    def on_sort_mode_changed():
-        if content_widget.current_table is not None:
-            do_select()
+    # 查看结果按钮逻辑
+    def on_view_result():
+        if not hasattr(parent, 'last_formula_select_result_data') or not parent.last_formula_select_result_data:
+            QMessageBox.information(parent, "提示", "请先进行选股！")
+            return
+            
+        if hasattr(content_widget, 'result_window') and content_widget.result_window is not None:
+            if content_widget.result_window.isVisible():
+                content_widget.result_window.raise_()
+                content_widget.result_window.activateWindow()
+                return
+            else:
+                content_widget.result_window.close()
+                
+        # 重新弹窗
+        result_window = QMainWindow()
+        result_window.setWindowTitle("选股结果")
+        flags = result_window.windowFlags()
+        flags &= ~Qt.WindowStaysOnTopHint  # 移除置顶标志
+        flags &= ~Qt.WindowContextHelpButtonHint  # 移除问号按钮
+        result_window.setWindowFlags(flags)
+        central_widget = QWidget()
+        layout_ = QVBoxLayout(central_widget)
+        table = show_formula_select_table_result(parent, parent.last_formula_select_result_data, getattr(parent, 'init', None) and getattr(parent.init, 'price_data', None), is_select_action=True)
+        layout_.addWidget(table)
+        result_window.setCentralWidget(central_widget)
+        result_window.resize(1200, 600)
+        result_window.show()
+        content_widget.result_window = result_window
+        content_widget.result_table = table
 
     select_btn.clicked.connect(do_select)
-    sort_combo.currentTextChanged.connect(on_sort_mode_changed)
+    view_result_btn.clicked.connect(on_view_result)
 
-    # 自动恢复选股结果表格（如果有缓存，且有数据）
-    if hasattr(parent, 'last_formula_select_result_data') and parent.last_formula_select_result_data:
-        # 移除旧表格
-        if content_widget.current_table is not None:
-            content_widget.current_table.setParent(None)
-            content_widget.current_table = None
-        table = show_formula_select_table_result(parent, parent.last_formula_select_result_data, getattr(parent, 'init', None) and getattr(parent.init, 'price_data', None))
-        if table:
-            content_widget.current_table = table
-            layout.addWidget(table)
-            output_edit.hide()
-        else:
-            output_edit.setText("没有选股结果。")
-            output_edit.show()
 
     # 设置滚动区域的内容
     scroll.setWidget(content_widget)
@@ -1310,6 +1344,7 @@ class FormulaSelectWidget(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
+        layout.setAlignment(Qt.AlignTop)
 
         # 创建滚动区域
         scroll = QScrollArea()
@@ -1339,9 +1374,11 @@ class FormulaSelectWidget(QWidget):
         # 创建内容容器
         content_widget = QWidget()
         content_widget.setStyleSheet("background-color: white;")
+        content_widget.setContentsMargins(0, 0, 0, 0)
         grid_layout = QGridLayout(content_widget)
         grid_layout.setContentsMargins(0, 0, 0, 0)
         grid_layout.setSpacing(0)
+        grid_layout.setAlignment(Qt.AlignTop)
 
         # 创建条件组
         conditions_group = QGroupBox()
@@ -1364,6 +1401,7 @@ class FormulaSelectWidget(QWidget):
         logic_keys = list(self.abbr_logic_map.items())
         for col, (zh, en) in enumerate(logic_keys):
             var_widget = QWidget()
+            var_widget.setFixedHeight(35)
             var_layout = QHBoxLayout(var_widget)
             var_layout.setContentsMargins(10, 10, 10, 10)
             var_layout.setSpacing(8)
@@ -1390,6 +1428,7 @@ class FormulaSelectWidget(QWidget):
             row = idx // self.cols_per_row + 1  # 从第1行开始，因为第0行是逻辑变量
             col = idx % self.cols_per_row
             var_widget = QWidget()
+            var_widget.setFixedHeight(35)
             var_layout = QHBoxLayout(var_widget)
             var_layout.setContentsMargins(10, 10, 10, 10)
             var_layout.setSpacing(8)
@@ -1426,7 +1465,7 @@ class FormulaSelectWidget(QWidget):
             name_label = QLabel(zh)
             name_label.setFixedWidth(250)
             name_label.setStyleSheet("border: none;")
-            name_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+            name_label.setAlignment(Qt.AlignLeft)
             var_layout.addWidget(name_label)
             lower_input = QLineEdit()
             lower_input.setPlaceholderText("下限")
@@ -1514,8 +1553,7 @@ class FormulaSelectWidget(QWidget):
 def get_abbr_map():
     """获取变量缩写映射字典"""
     abbrs = [
-        ("最大值", "max_value"), ("最小值", "min_value"),
-        ("前1组结束日地址值", "end_value"), ("日均涨幅", "ops_incre_rate"),
+        ("前1组结束日地址值", "end_value"), 
         ("前1组结束地址前N日的最高值", "n_days_max_value"), 
         ("前1组结束地址前1日涨跌幅", "prev_day_change"), ("前1组结束日涨跌幅", "end_day_change"), ("后一组结束地址值", "diff_end_value"),
         ("连续累加值数组非空数据长度", "continuous_len"), ("连续累加值开始值", "continuous_start_value"), ("连续累加值开始后1位值", "continuous_start_next_value"),
@@ -1523,7 +1561,7 @@ def get_abbr_map():
         ("连续累加值数组前一半绝对值之和", "continuous_abs_sum_first_half"), ("连续累加值数组后一半绝对值之和", "continuous_abs_sum_second_half"),
         ("连续累加值数组前四分之一绝对值之和", "continuous_abs_sum_block1"), ("连续累加值数组前四分之1-2绝对值之和", "continuous_abs_sum_block2"),
         ("连续累加值数组前四分之2-3绝对值之和", "continuous_abs_sum_block3"), ("连续累加值数组后四分之一绝对值之和", "continuous_abs_sum_block4"),
-        ("有效累加值数组非空数据长度", "valid_sum_len"), ("有效累加值正加值和", "valid_pos_sum"), ("有效累加值负加值和", "valid_neg_sum"),
+        ("有效累加值正加值和", "valid_pos_sum"), ("有效累加值负加值和", "valid_neg_sum"), ("有效累加值数组非空数据长度", "valid_sum_len"),
         ("有效累加值数组前一半绝对值之和", "valid_abs_sum_first_half"), ("有效累加值数组后一半绝对值之和", "valid_abs_sum_second_half"),
         ("有效累加值数组前四分之1绝对值之和", "valid_abs_sum_block1"), ("有效累加值数组前四分之1-2绝对值之和", "valid_abs_sum_block2"),
         ("有效累加值数组前四分之2-3绝对值之和", "valid_abs_sum_block3"), ("有效累加值数组后四分之1绝对值之和", "valid_abs_sum_block4"),
@@ -1548,9 +1586,7 @@ def get_abbr_map():
         ("向前最小连续累加值前四分之1绝对值之和", "forward_min_continuous_abs_sum_block1"), ("向前最小连续累加值前四分之1-2绝对值之和", "forward_min_continuous_abs_sum_block2"),
         ("向前最小连续累加值前四分之2-3绝对值之和", "forward_min_continuous_abs_sum_block3"), ("向前最小连续累加值后四分之1绝对值之和", "forward_min_continuous_abs_sum_block4"),
         ("向前最大连续累加值数组非空数据长度", "forward_max_result_len"),
-        ("向前最小连续累加值数组非空数据长度", "forward_min_result_len"),
-        ("后值大于结束地址值涨跌幅", "after_gt_end_value"), ("后值大于前值涨跌幅", "after_gt_start_value"),
-        ("持有天数", "hold_days"),  
+        ("向前最小连续累加值数组非空数据长度", "forward_min_result_len")
     ]
     return {zh: en for zh, en in abbrs}
 
