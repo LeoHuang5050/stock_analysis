@@ -3,7 +3,7 @@ import pandas as pd
 import chinese_calendar
 from datetime import datetime, timedelta
 from decimal import Decimal
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTextEdit, QLineEdit, QSpinBox, QComboBox, QPushButton, QTableWidget, QTableWidgetItem, QSizePolicy, QDialog, QTabWidget, QMessageBox, QGridLayout, QDateEdit, QInputDialog, QAbstractItemView, QGroupBox, QCheckBox, QHeaderView, QScrollArea
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTextEdit, QLineEdit, QSpinBox, QComboBox, QPushButton, QTableWidget, QTableWidgetItem, QSizePolicy, QDialog, QTabWidget, QMessageBox, QGridLayout, QDateEdit, QInputDialog, QAbstractItemView, QGroupBox, QCheckBox, QHeaderView, QScrollArea, QToolButton
 from PyQt5.QtCore import QDate, QObject, QEvent, Qt
 from PyQt5.QtGui import QDoubleValidator
 import time
@@ -826,7 +826,6 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
         # 读取控件值
         formula_expr = formula_widget.generate_formula()
         print(f"选股公式: {formula_expr}")
-        return
         if not formula_expr:
             output_edit.setText("请先填写选股公式")
             output_edit.show()
@@ -1292,48 +1291,39 @@ class FormulaSelectWidget(QWidget):
         var1_combo.setFixedWidth(150)
         var1_combo.view().setMinimumWidth(270)
         comparison_layout.addWidget(var1_combo)
-        # 运算符下拉框
-        op_combo = QComboBox()
-        op_combo.addItems([">", "<", "==", ">=", "<="])
-        op_combo.setFixedWidth(50)
-        comparison_layout.addWidget(op_combo)
-        # 系数输入框
-        coef_input = QLineEdit()
-        coef_input.setPlaceholderText("系数")
-        coef_input.setFixedWidth(50)
-        coef_input.setValidator(QDoubleValidator(0.0, 999.99, 2))
-        comparison_layout.addWidget(coef_input)
+        # 下限输入框
+        lower_input = QLineEdit()
+        lower_input.setPlaceholderText("下限")
+        lower_input.setFixedWidth(50)
+        comparison_layout.addWidget(lower_input)
+        # 上限输入框
+        upper_input = QLineEdit()
+        upper_input.setPlaceholderText("上限")
+        upper_input.setFixedWidth(50)
+        comparison_layout.addWidget(upper_input)
         # 第二个变量下拉框
         var2_combo = QComboBox()
         var2_combo.addItems([zh for zh, _ in self.abbr_map.items()])
         var2_combo.setFixedWidth(150)
         var2_combo.view().setMinimumWidth(270)
         comparison_layout.addWidget(var2_combo)
-        # 删除按钮
-        delete_btn = QPushButton("删除")
-        delete_btn.setFixedSize(60, 25)
-        delete_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #FF4D4F;
-                color: white;
-                border: none;
-                border-radius: 4px;
-            }
-            QPushButton:hover {
-                background-color: #FF7875;
-            }
-            QPushButton:pressed {
-                background-color: #D9363E;
-            }
-        """)
+        # 删除按钮（右上角小x）
+        delete_btn = QToolButton(comparison_widget)
+        delete_btn.setText('×')
+        delete_btn.setStyleSheet('QToolButton {color: #FF4D4F; font-weight: bold; font-size: 16px; border: none; background: transparent;} QToolButton:hover {color: #D9363E;}')
+        delete_btn.setFixedSize(18, 18)
         delete_btn.clicked.connect(lambda: self.delete_comparison_widget(comparison_widget))
-        comparison_layout.addWidget(delete_btn)
+        # 用绝对定位放右上角
+        comparison_widget.setLayout(comparison_layout)
+        delete_btn.raise_()
+        delete_btn.move(comparison_widget.width() - 22, 2)
+        comparison_widget.resizeEvent = lambda event: delete_btn.move(comparison_widget.width() - 22, 2)
         # 添加到列表
         self.comparison_widgets.append({
             'widget': comparison_widget,
             'var1': var1_combo,
-            'op': op_combo,
-            'coef': coef_input,
+            'lower': lower_input,
+            'upper': upper_input,
             'var2': var2_combo
         })
         # 刷新比较控件和按钮位置
@@ -1372,27 +1362,26 @@ class FormulaSelectWidget(QWidget):
             elif 'checkbox' in widgets and 'lower' not in widgets:
                 if widgets['checkbox'].isChecked():
                     conditions.append(f"{en}")
-
         # 2. 收集比较控件的条件
         for comp in self.comparison_widgets:
             var1 = comp['var1'].currentText()
-            op = comp['op'].currentText()
-            coef = comp['coef'].text().strip()
+            lower = comp['lower'].text().strip()
+            upper = comp['upper'].text().strip()
             var2 = comp['var2'].currentText()
-            if not coef:
-                coef = '1'
-            # 只要有变量名就添加条件
             var1_en = next((en for zh, en in self.abbr_map.items() if zh == var1), None)
             var2_en = next((en for zh, en in self.abbr_map.items() if zh == var2), None)
-            if var1_en and var2_en:
-                conditions.append(f"{var1_en} {op} {coef} * {var2_en}")
-
+            comp_conds = []
+            if lower and var1_en and var2_en:
+                comp_conds.append(f"{var1_en} > {lower} * {var2_en}")
+            if upper and var1_en and var2_en:
+                comp_conds.append(f"{var1_en} < {upper} * {var2_en}")
+            if comp_conds:
+                conditions.append(' and '.join(comp_conds))
         # 3. 连接条件，全部用and拼接
         if conditions:
             cond_str = "if " + " and ".join(conditions) + ":"
         else:
             cond_str = "if True:"
-        
         # 4. 收集所有被圆框勾选的变量
         result_vars = []
         for en, widgets in self.var_widgets.items():
@@ -1402,7 +1391,6 @@ class FormulaSelectWidget(QWidget):
             result_expr = "result = " + " + ".join(result_vars)
         else:
             result_expr = "result = 0"
-        
         # 5. 生成完整公式
         formula = f"{cond_str}\n    {result_expr}\nelse:\n    result = 0"
         return formula
@@ -1426,8 +1414,8 @@ class FormulaSelectWidget(QWidget):
         for comp in self.comparison_widgets:
             comparison_state.append({
                 'var1': comp['var1'].currentText(),
-                'op': comp['op'].currentText(),
-                'coef': comp['coef'].text(),
+                'lower': comp['lower'].text(),
+                'upper': comp['upper'].text(),
                 'var2': comp['var2'].currentText()
             })
         state['comparison_widgets'] = comparison_state
@@ -1456,8 +1444,8 @@ class FormulaSelectWidget(QWidget):
             self.add_comparison_widget()
             comp = self.comparison_widgets[-1]
             comp['var1'].setCurrentText(comp_data.get('var1', ''))
-            comp['op'].setCurrentText(comp_data.get('op', ''))
-            comp['coef'].setText(comp_data.get('coef', ''))
+            comp['lower'].setText(comp_data.get('lower', ''))
+            comp['upper'].setText(comp_data.get('upper', ''))
             comp['var2'].setCurrentText(comp_data.get('var2', ''))
 
 def get_abbr_map():

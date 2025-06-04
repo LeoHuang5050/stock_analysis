@@ -13,7 +13,7 @@
   "continuous_abs_threshold": "2.4",
   "ops_change": "10",
   "expr": "result = INC",
-  "last_formula_expr": "if True:\n    result = 0\nelse:\n    result = 0",
+  "last_formula_expr": "if continuous_start_next_value > 1 * continuous_start_next_next_value and continuous_start_next_value < 3 * continuous_start_next_next_value:\n    result = 0\nelse:\n    result = 0",
   "last_select_count": 10,
   "last_sort_mode": "最小值排序",
   "direction": true,
@@ -22,7 +22,7 @@
   "cpu_cores": 10,
   "formula_select_state": {
     "n_max_is_max": {
-      "checked": true
+      "checked": false
     },
     "range_ratio_is_less": {
       "checked": false
@@ -81,14 +81,14 @@
       "upper": ""
     },
     "continuous_end_value": {
-      "checked": true,
+      "checked": false,
       "lower": "",
-      "upper": "3"
+      "upper": ""
     },
     "continuous_end_prev_value": {
-      "checked": true,
+      "checked": false,
       "lower": "",
-      "upper": "3"
+      "upper": ""
     },
     "continuous_end_prev_prev_value": {
       "checked": false,
@@ -132,13 +132,13 @@
     },
     "valid_pos_sum": {
       "checked": false,
-      "round_checked": true,
+      "round_checked": false,
       "lower": "",
       "upper": ""
     },
     "valid_neg_sum": {
       "checked": false,
-      "round_checked": true,
+      "round_checked": false,
       "lower": "",
       "upper": ""
     },
@@ -415,8 +415,8 @@
     "comparison_widgets": [
       {
         "var1": "连续累加值开始后1位值",
-        "op": ">",
-        "coef": "",
+        "lower": "1",
+        "upper": "3",
         "var2": "连续累加值开始后2位值"
       }
     ]
