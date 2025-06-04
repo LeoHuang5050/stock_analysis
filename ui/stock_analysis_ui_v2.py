@@ -117,6 +117,13 @@ class StockAnalysisApp(QWidget):
         super().__init__()
         self.init = StockAnalysisInit(self)
         self.base_param = BaseParamHandler(self)
+        # 初始化变量
+        self.last_formula_expr = ''
+        self.last_select_count = 10
+        self.last_sort_mode = '最大值排序'
+        self.last_formula_select_state = {}  # 初始化公式选股状态
+        self.last_analysis_start_date = ''
+        self.last_analysis_end_date = ''
         self.init_ui()
         self.connect_signals()
         # 默认最大化显示
@@ -124,7 +131,6 @@ class StockAnalysisApp(QWidget):
         # 统一缓存变量
         self.last_end_date = None
         self.last_calculate_result = None
-        self.last_formula_expr = None
         # 加载参数
         self.load_config()
 
@@ -402,6 +408,8 @@ class StockAnalysisApp(QWidget):
         self.result_text.setReadOnly(True)
         self.output_stack.addWidget(self.result_text)  # index 0: 文字提示
         self.table_widget = None  # 先不加表格
+        # 添加标签页切换事件处理
+        self.output_stack.currentChanged.connect(self.on_output_stack_changed)
         main_layout.addWidget(top_widget)
         main_layout.addWidget(self.output_area, stretch=1)
 
@@ -585,16 +593,6 @@ class StockAnalysisApp(QWidget):
             self.table_widget = table
             self.output_stack.addWidget(table)
             self.output_stack.setCurrentWidget(table)
-            # 恢复公式选股控件状态
-            if hasattr(self, 'formula_widget') and self.formula_widget is not None:
-                try:
-                    if os.path.exists('config.json'):
-                        with open('config.json', 'r', encoding='utf-8') as f:
-                            config = json.load(f)
-                        if 'formula_select_state' in config:
-                            self.formula_widget.set_state(config['formula_select_state'])
-                except Exception as e:
-                    print(f'恢复公式选股控件状态失败: {e}')
         else:
             self.result_text.setText("没有可展示的公式选股结果。")
             self.output_stack.setCurrentWidget(self.result_text)
@@ -602,6 +600,14 @@ class StockAnalysisApp(QWidget):
     def show_text_output(self, text):
         self.result_text.setText(text)
         self.output_stack.setCurrentWidget(self.result_text)
+
+    def on_output_stack_changed(self, index):
+        """标签页切换事件处理"""
+        # 如果当前是公式选股界面，保存状态
+        if hasattr(self, 'formula_widget') and self.formula_widget is not None:
+            state = self.formula_widget.get_state()
+            self.last_formula_select_state = state
+            # print(f"保存状态: {state}")
 
     def get_or_calculate_result(self, formula_expr=None, select_count=None, sort_mode=None, show_main_output=True, only_show_selected=None, is_auto_analysis=False, end_date_start=None, end_date_end=None):
         end_date = self.date_picker.date().toString("yyyy-MM-dd")
@@ -1216,6 +1222,7 @@ class StockAnalysisApp(QWidget):
             'analysis_start_date': getattr(self, 'last_analysis_start_date', ''),
             'analysis_end_date': getattr(self, 'last_analysis_end_date', ''),
             'cpu_cores': self.cpu_spin.value(),
+            'last_formula_select_state': getattr(self, 'last_formula_select_state', {}),
         }
         # 保存公式选股控件状态
         if hasattr(self, 'formula_widget') and self.formula_widget is not None:
@@ -1288,6 +1295,9 @@ class StockAnalysisApp(QWidget):
                     self.formula_widget.set_state(config['formula_select_state'])
                 except Exception as e:
                     print(f"恢复公式选股控件状态失败: {e}")
+            # 恢复 last_formula_select_state
+            if 'last_formula_select_state' in config:
+                self.last_formula_select_state = config['last_formula_select_state']
         except Exception as e:
             print(f"加载配置失败: {e}")
     def closeEvent(self, event):
