@@ -1,24 +1,24 @@
 {
-  "date": "2025-04-09",
-  "width": 10,
-  "start_option": 0,
-  "shift": 0,
+  "date": "2025-04-21",
+  "width": 90,
+  "start_option": 1,
+  "shift": 1,
   "inc_rate": "1",
-  "op_days": "10",
-  "after_gt_end_ratio": "1",
+  "op_days": "3",
+  "after_gt_end_ratio": "5",
   "after_gt_start_ratio": "5",
   "n_days": 10,
-  "n_days_max": 10,
-  "range_value": "1.1",
-  "continuous_abs_threshold": "2.4",
-  "ops_change": "10",
-  "expr": "if INC != 0:\n    result = INC\nelse:\n    result = 0\n",
-  "last_formula_expr": "if continuous_end_value <= 3 and continuous_end_prev_value <= 3 and continuous_end_prev_value >= 1 * continuous_end_prev_value and continuous_end_prev_value <= 1 * continuous_end_prev_value:\n    result = valid_pos_sum + valid_neg_sum\nelse:\n    result = 0",
-  "last_select_count": 6,
+  "n_days_max": 5,
+  "range_value": "1.2",
+  "continuous_abs_threshold": "10",
+  "ops_change": "9",
+  "expr": "result = AGS",
+  "last_formula_expr": "if continuous_end_prev_value >= -3 and continuous_end_prev_value <= 0 and continuous_end_prev_prev_value >= 0 and continuous_end_prev_prev_value <= 3:\n    result = valid_pos_sum + valid_neg_sum\nelse:\n    result = 0",
+  "last_select_count": 10,
   "last_sort_mode": "最小值排序",
   "direction": true,
-  "analysis_start_date": "2025-04-08",
-  "analysis_end_date": "2025-04-09",
+  "analysis_start_date": "2023-10-12",
+  "analysis_end_date": "2025-04-30",
   "cpu_cores": 10,
   "last_formula_select_state": {
     "n_max_is_max": {
@@ -30,22 +30,7 @@
     "continuous_abs_is_less": {
       "checked": false
     },
-    "max_value": {
-      "checked": false,
-      "lower": "",
-      "upper": ""
-    },
-    "min_value": {
-      "checked": false,
-      "lower": "",
-      "upper": ""
-    },
     "end_value": {
-      "checked": false,
-      "lower": "",
-      "upper": ""
-    },
-    "ops_incre_rate": {
       "checked": false,
       "lower": "",
       "upper": ""
@@ -91,19 +76,19 @@
       "upper": ""
     },
     "continuous_end_value": {
-      "checked": true,
-      "lower": "",
-      "upper": "3"
-    },
-    "continuous_end_prev_value": {
-      "checked": true,
-      "lower": "",
-      "upper": "3"
-    },
-    "continuous_end_prev_prev_value": {
       "checked": false,
       "lower": "",
       "upper": ""
+    },
+    "continuous_end_prev_value": {
+      "checked": true,
+      "lower": "-3",
+      "upper": "0"
+    },
+    "continuous_end_prev_prev_value": {
+      "checked": true,
+      "lower": "0",
+      "upper": "3"
     },
     "continuous_abs_sum_first_half": {
       "checked": false,
@@ -135,11 +120,6 @@
       "lower": "",
       "upper": ""
     },
-    "valid_sum_len": {
-      "checked": false,
-      "lower": "",
-      "upper": ""
-    },
     "valid_pos_sum": {
       "checked": false,
       "round_checked": true,
@@ -149,6 +129,11 @@
     "valid_neg_sum": {
       "checked": false,
       "round_checked": true,
+      "lower": "",
+      "upper": ""
+    },
+    "valid_sum_len": {
+      "checked": false,
       "lower": "",
       "upper": ""
     },
@@ -402,29 +387,7 @@
       "lower": "",
       "upper": ""
     },
-    "after_gt_end_value": {
-      "checked": false,
-      "lower": "",
-      "upper": ""
-    },
-    "after_gt_start_value": {
-      "checked": false,
-      "lower": "",
-      "upper": ""
-    },
-    "hold_days": {
-      "checked": false,
-      "lower": "",
-      "upper": ""
-    },
-    "comparison_widgets": [
-      {
-        "var1": "连续累加值结束前1位值",
-        "lower": "1",
-        "upper": "1",
-        "var2": "连续累加值结束前1位值"
-      }
-    ]
+    "comparison_widgets": []
   },
   "formula_select_state": {
     "n_max_is_max": {
@@ -436,22 +399,7 @@
     "continuous_abs_is_less": {
       "checked": false
     },
-    "max_value": {
-      "checked": false,
-      "lower": "",
-      "upper": ""
-    },
-    "min_value": {
-      "checked": false,
-      "lower": "",
-      "upper": ""
-    },
     "end_value": {
-      "checked": false,
-      "lower": "",
-      "upper": ""
-    },
-    "ops_incre_rate": {
       "checked": false,
       "lower": "",
       "upper": ""
@@ -497,19 +445,19 @@
       "upper": ""
     },
     "continuous_end_value": {
-      "checked": true,
-      "lower": "",
-      "upper": "3"
-    },
-    "continuous_end_prev_value": {
-      "checked": true,
-      "lower": "",
-      "upper": "3"
-    },
-    "continuous_end_prev_prev_value": {
       "checked": false,
       "lower": "",
       "upper": ""
+    },
+    "continuous_end_prev_value": {
+      "checked": true,
+      "lower": "-3",
+      "upper": "0"
+    },
+    "continuous_end_prev_prev_value": {
+      "checked": true,
+      "lower": "0",
+      "upper": "3"
     },
     "continuous_abs_sum_first_half": {
       "checked": false,
@@ -541,11 +489,6 @@
       "lower": "",
       "upper": ""
     },
-    "valid_sum_len": {
-      "checked": false,
-      "lower": "",
-      "upper": ""
-    },
     "valid_pos_sum": {
       "checked": false,
       "round_checked": true,
@@ -555,6 +498,11 @@
     "valid_neg_sum": {
       "checked": false,
       "round_checked": true,
+      "lower": "",
+      "upper": ""
+    },
+    "valid_sum_len": {
+      "checked": false,
       "lower": "",
       "upper": ""
     },
@@ -808,28 +756,6 @@
       "lower": "",
       "upper": ""
     },
-    "after_gt_end_value": {
-      "checked": false,
-      "lower": "",
-      "upper": ""
-    },
-    "after_gt_start_value": {
-      "checked": false,
-      "lower": "",
-      "upper": ""
-    },
-    "hold_days": {
-      "checked": false,
-      "lower": "",
-      "upper": ""
-    },
-    "comparison_widgets": [
-      {
-        "var1": "连续累加值结束前1位值",
-        "lower": "1",
-        "upper": "1",
-        "var2": "连续累加值结束前1位值"
-      }
-    ]
+    "comparison_widgets": []
   }
 }
