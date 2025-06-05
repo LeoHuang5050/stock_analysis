@@ -1136,6 +1136,7 @@ class FormulaSelectWidget(QWidget):
         comparison_state = []
         for comp in self.comparison_widgets:
             comparison_state.append({
+                'checked': comp['checkbox'].isChecked(),  # 添加勾选框状态
                 'var1': comp['var1'].currentText(),
                 'lower': comp['lower'].text(),
                 'upper': comp['upper'].text(),
@@ -1176,7 +1177,6 @@ class FormulaSelectWidget(QWidget):
                     widgets['lower'].setText(data['lower'])
                 if 'upper' in widgets and 'upper' in data:
                     widgets['upper'].setText(data['upper'])
-        # 恢复比较控件状态
         # 先清除现有的比较控件
         for comp in self.comparison_widgets[:]:
             self.delete_comparison_widget(comp['widget'])
@@ -1186,6 +1186,8 @@ class FormulaSelectWidget(QWidget):
             if comp:  # 确保 comp 不是 None
                 # 等待下拉框选项加载完成
                 QApplication.processEvents()
+                # 设置勾选框状态
+                comp['checkbox'].setChecked(comp_data.get('checked', True))  # 默认True保持向后兼容
                 # 设置下拉框的值
                 var1_text = comp_data.get('var1', '')
                 var2_text = comp_data.get('var2', '')
@@ -1204,60 +1206,80 @@ class FormulaSelectWidget(QWidget):
     def add_comparison_widget(self):
         # 创建比较控件容器
         comparison_widget = QWidget()
-        comparison_widget.setFixedWidth(503)
+        comparison_widget.setFixedWidth(504)
+        comparison_widget.setFixedHeight(35)  # 设置固定高度为35像素
         comparison_layout = QHBoxLayout(comparison_widget)
         comparison_layout.setContentsMargins(10, 10, 10, 10)
         comparison_layout.setSpacing(8)
+        
+        # 添加方框勾选框
+        checkbox = QCheckBox()
+        checkbox.setChecked(True)  # 默认勾选
+        checkbox.setFixedWidth(15)
+        # checkbox.setStyleSheet("border: none;")
+        comparison_layout.addWidget(checkbox)
+        
         # 第一个变量下拉框
         var1_combo = QComboBox()
         var1_combo.addItems([zh for zh, _ in self.abbr_map.items()])
         var1_combo.setFixedWidth(150)
         var1_combo.view().setMinimumWidth(270)
         comparison_layout.addWidget(var1_combo)
+        
         # 下限输入框
         lower_input = QLineEdit()
         lower_input.setPlaceholderText("下限")
         lower_input.setFixedWidth(50)
         comparison_layout.addWidget(lower_input)
+        
         # 上限输入框
         upper_input = QLineEdit()
         upper_input.setPlaceholderText("上限")
         upper_input.setFixedWidth(50)
         comparison_layout.addWidget(upper_input)
+        
         # 第二个变量下拉框
         var2_combo = QComboBox()
         var2_combo.addItems([zh for zh, _ in self.abbr_map.items()])
         var2_combo.setFixedWidth(150)
         var2_combo.view().setMinimumWidth(270)
         comparison_layout.addWidget(var2_combo)
+        
         # 信号连接，确保任意内容变更都能同步状态
+        checkbox.stateChanged.connect(self._sync_to_main)
         var1_combo.currentTextChanged.connect(self._sync_to_main)
         var2_combo.currentTextChanged.connect(self._sync_to_main)
         lower_input.textChanged.connect(self._sync_to_main)
         upper_input.textChanged.connect(self._sync_to_main)
+        
         # 删除按钮（右上角小x）
         delete_btn = QToolButton(comparison_widget)
         delete_btn.setText('×')
         delete_btn.setStyleSheet('QToolButton {color: #FF4D4F; font-weight: bold; font-size: 16px; border: none; background: transparent;} QToolButton:hover {color: #D9363E;}')
         delete_btn.setFixedSize(18, 18)
         delete_btn.clicked.connect(lambda: self.delete_comparison_widget(comparison_widget))
+        
         # 用绝对定位放右上角
         comparison_widget.setLayout(comparison_layout)
         delete_btn.raise_()
         delete_btn.move(comparison_widget.width() - 22, 2)
         comparison_widget.resizeEvent = lambda event: delete_btn.move(comparison_widget.width() - 22, 2)
+        
         # 添加到列表
         comp_dict = {
             'widget': comparison_widget,
+            'checkbox': checkbox,  # 添加checkbox到字典
             'var1': var1_combo,
             'lower': lower_input,
             'upper': upper_input,
             'var2': var2_combo
         }
         self.comparison_widgets.append(comp_dict)
+        
         # 刷新比较控件和按钮位置
         parent_layout = self.layout().itemAt(0).widget().layout()  # grid_layout
         self._refresh_comparison_row(parent_layout)
+        
         # 在末尾添加
         self._sync_to_main()
         return comp_dict
@@ -1298,19 +1320,21 @@ class FormulaSelectWidget(QWidget):
                     conditions.append(f"{en}")
         # 2. 收集比较控件的条件
         for comp in self.comparison_widgets:
-            var1 = comp['var1'].currentText()
-            lower = comp['lower'].text().strip()
-            upper = comp['upper'].text().strip()
-            var2 = comp['var2'].currentText()
-            var1_en = next((en for zh, en in self.abbr_map.items() if zh == var1), None)
-            var2_en = next((en for zh, en in self.abbr_map.items() if zh == var2), None)
-            comp_conds = []
-            if lower and var1_en and var2_en:
-                comp_conds.append(f"{var1_en} >= {lower} * {var2_en}")
-            if upper and var1_en and var2_en:
-                comp_conds.append(f"{var1_en} <= {upper} * {var2_en}")
-            if comp_conds:
-                conditions.append(' and '.join(comp_conds))
+            # 只处理勾选的比较控件
+            if comp['checkbox'].isChecked():
+                var1 = comp['var1'].currentText()
+                lower = comp['lower'].text().strip()
+                upper = comp['upper'].text().strip()
+                var2 = comp['var2'].currentText()
+                var1_en = next((en for zh, en in self.abbr_map.items() if zh == var1), None)
+                var2_en = next((en for zh, en in self.abbr_map.items() if zh == var2), None)
+                comp_conds = []
+                if lower and var1_en and var2_en:
+                    comp_conds.append(f"{var1_en} >= {lower} * {var2_en}")
+                if upper and var1_en and var2_en:
+                    comp_conds.append(f"{var1_en} <= {upper} * {var2_en}")
+                if comp_conds:
+                    conditions.append(' and '.join(comp_conds))
         # 3. 连接条件，全部用and拼接
         if conditions:
             cond_str = "if " + " and ".join(conditions) + ":"
