@@ -11,6 +11,7 @@ import time
 import math
 import concurrent.futures
 from multiprocessing import cpu_count
+import re
 
 EXPR_PLACEHOLDER_TEXT = (
     "需要严格按照python表达式规则填入。\n"
@@ -710,31 +711,8 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
 
     # 顶部公式输入区
     top_layout = QHBoxLayout()
-    formula_input = FormulaExprEdit()
-    # 仅在内容为空时设置默认值，避免覆盖用户输入
-    if not formula_input.toPlainText().strip():
-        formula_input.setPlainText(
-            "if (\n"
-            "    abs(CEV) < 3 and\n"
-            "    abs(CEPV) < 3 and\n"
-            "    abs(CEPPV) < 3000 and\n"
-            "    abs(NDAYMAX) < 3000 and\n"
-            "    abs(CSV) > 150 and\n"
-            "    abs(CEPV) > 0 and\n"
-            "    abs(CEPPV) > 0 and\n"
-            "    CASFH > 3 * CASSH\n"
-            "):\n"
-            "    result = VNS + VPS\n"
-            "else:\n"
-            "    result = 0"
-        )
-    formula_input.hide()
-    top_layout.addWidget(formula_input, 3)
     top_layout.setAlignment(Qt.AlignLeft)
     # 公式输入变更时同步到主界面变量
-    def on_formula_changed():
-        parent.last_formula_expr = formula_input.toPlainText().strip()
-    formula_input.textChanged.connect(on_formula_changed)
 
     # 选股数量label和输入框紧挨着
     select_count_label = QLabel("选股数量:")
@@ -835,6 +813,7 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
     def do_select():
         # 读取控件值
         formula_expr = formula_widget.generate_formula()
+        parent.last_formula_expr = formula_expr  # 保存公式到主界面变量
         print(f"选股公式: {formula_expr}")
         if not formula_expr:
             QMessageBox.information(parent, "提示", "请先填写选股公式")
@@ -884,7 +863,7 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
         layout_ = QVBoxLayout(central_widget)
         layout_.addWidget(table)
         result_window.setCentralWidget(central_widget)
-        result_window.resize(1200, 600)
+        result_window.resize(410, 450)
         result_window.show()
         content_widget.result_window = result_window
         content_widget.result_table = table
@@ -943,7 +922,7 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
         table = show_formula_select_table_result(parent, parent.last_formula_select_result_data, getattr(parent, 'init', None) and getattr(parent.init, 'price_data', None), is_select_action=True)
         layout_.addWidget(table)
         result_window.setCentralWidget(central_widget)
-        result_window.resize(1200, 600)
+        result_window.resize(410, 450)
         result_window.show()
         content_widget.result_window = result_window
         content_widget.result_table = table
@@ -1607,3 +1586,47 @@ def get_abbr_round_map():
         ("有效累加值负加值和", "valid_neg_sum"),
     ]
     return {zh: en for zh, en in abbrs}
+
+def parse_formula_to_config(formula, abbr_map=None):
+    """
+    解析公式字符串，反推为控件配置字典。
+    支持xxx >= a、xxx <= b、result = xxx + yyy、逻辑变量等。
+    abbr_map: 可选，变量中文到英文映射（用于比较控件）
+    """
+    config = {}
+    # 1. 匹配 xxx >= a
+    for m in re.finditer(r'([a-zA-Z0-9_]+)\s*>=\s*([\-\d\.]+)', formula):
+        var, lower = m.group(1), m.group(2)
+        config.setdefault(var, {})['lower'] = lower
+        config[var]['checked'] = True
+    # 2. 匹配 xxx <= b
+    for m in re.finditer(r'([a-zA-Z0-9_]+)\s*<=\s*([\-\d\.]+)', formula):
+        var, upper = m.group(1), m.group(2)
+        config.setdefault(var, {})['upper'] = upper
+        config[var]['checked'] = True
+    # 3. 匹配逻辑变量（if ... and VAR ...）
+    # 先找出所有在if条件中的变量
+    if_match = re.search(r'if\s*(.*?):', formula)
+    if if_match:
+        condition_text = if_match.group(1)
+        logic_vars = re.findall(r'\b([a-zA-Z_][a-zA-Z0-9_]*)\b', condition_text)
+        for var in logic_vars:
+            # 排除常见关键字和已处理变量
+            if var not in config and var not in {'if', 'else', 'result', 'and', 'or', 'not'}:
+                config.setdefault(var, {})['checked'] = True
+    # 4. 匹配 result = xxx + yyy
+    m = re.search(r'result\s*=\s*([a-zA-Z0-9_]+(?:\s*\+\s*[a-zA-Z0-9_]+)*)', formula)
+    if m:
+        for var in re.findall(r'[a-zA-Z0-9_]+', m.group(1)):
+            # 只勾选圆框，不勾选方框
+            config.setdefault(var, {})['round_checked'] = True
+    # 5. 匹配比较控件（如A >= 2 * B）
+    for m in re.finditer(r'([a-zA-Z0-9_]+)\s*>=\s*([\-\d\.]+)\s*\*\s*([a-zA-Z0-9_]+)', formula):
+        var1, lower, var2 = m.group(1), m.group(2), m.group(3)
+        comp = {'var1': var1, 'lower': lower, 'upper': '', 'var2': var2}
+        config.setdefault('comparison_widgets', []).append(comp)
+    for m in re.finditer(r'([a-zA-Z0-9_]+)\s*<=\s*([\-\d\.]+)\s*\*\s*([a-zA-Z0-9_]+)', formula):
+        var1, upper, var2 = m.group(1), m.group(2), m.group(3)
+        comp = {'var1': var1, 'lower': '', 'upper': upper, 'var2': var2}
+        config.setdefault('comparison_widgets', []).append(comp)
+    return config

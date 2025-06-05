@@ -1,5 +1,5 @@
 {
-  "date": "2025-04-09",
+  "date": "2025-04-16",
   "width": 90,
   "start_option": 0,
   "shift": 1,
@@ -30,22 +30,7 @@
     "continuous_abs_is_less": {
       "checked": false
     },
-    "max_value": {
-      "checked": false,
-      "lower": "",
-      "upper": ""
-    },
-    "min_value": {
-      "checked": false,
-      "lower": "",
-      "upper": ""
-    },
     "end_value": {
-      "checked": false,
-      "lower": "",
-      "upper": ""
-    },
-    "ops_incre_rate": {
       "checked": false,
       "lower": "",
       "upper": ""
@@ -135,11 +120,6 @@
       "lower": "",
       "upper": ""
     },
-    "valid_sum_len": {
-      "checked": false,
-      "lower": "",
-      "upper": ""
-    },
     "valid_pos_sum": {
       "checked": false,
       "round_checked": true,
@@ -149,6 +129,11 @@
     "valid_neg_sum": {
       "checked": false,
       "round_checked": true,
+      "lower": "",
+      "upper": ""
+    },
+    "valid_sum_len": {
+      "checked": false,
       "lower": "",
       "upper": ""
     },
@@ -398,21 +383,6 @@
       "upper": ""
     },
     "forward_min_result_len": {
-      "checked": false,
-      "lower": "",
-      "upper": ""
-    },
-    "after_gt_end_value": {
-      "checked": false,
-      "lower": "",
-      "upper": ""
-    },
-    "after_gt_start_value": {
-      "checked": false,
-      "lower": "",
-      "upper": ""
-    },
-    "hold_days": {
       "checked": false,
       "lower": "",
       "upper": ""
@@ -429,22 +399,7 @@
     "continuous_abs_is_less": {
       "checked": false
     },
-    "max_value": {
-      "checked": false,
-      "lower": "",
-      "upper": ""
-    },
-    "min_value": {
-      "checked": false,
-      "lower": "",
-      "upper": ""
-    },
     "end_value": {
-      "checked": false,
-      "lower": "",
-      "upper": ""
-    },
-    "ops_incre_rate": {
       "checked": false,
       "lower": "",
       "upper": ""
@@ -534,11 +489,6 @@
       "lower": "",
       "upper": ""
     },
-    "valid_sum_len": {
-      "checked": false,
-      "lower": "",
-      "upper": ""
-    },
     "valid_pos_sum": {
       "checked": false,
       "round_checked": true,
@@ -548,6 +498,11 @@
     "valid_neg_sum": {
       "checked": false,
       "round_checked": true,
+      "lower": "",
+      "upper": ""
+    },
+    "valid_sum_len": {
+      "checked": false,
       "lower": "",
       "upper": ""
     },
@@ -797,21 +752,6 @@
       "upper": ""
     },
     "forward_min_result_len": {
-      "checked": false,
-      "lower": "",
-      "upper": ""
-    },
-    "after_gt_end_value": {
-      "checked": false,
-      "lower": "",
-      "upper": ""
-    },
-    "after_gt_start_value": {
-      "checked": false,
-      "lower": "",
-      "upper": ""
-    },
-    "hold_days": {
       "checked": false,
       "lower": "",
       "upper": ""

@@ -1,7 +1,7 @@
 {
-  "date": "2025-04-21",
-  "width": 90,
-  "start_option": 1,
+  "date": "2025-04-10",
+  "width": 45,
+  "start_option": 0,
   "shift": 1,
   "inc_rate": "1",
   "op_days": "3",
@@ -17,7 +17,7 @@
   "last_select_count": 10,
   "last_sort_mode": "最小值排序",
   "direction": true,
-  "analysis_start_date": "2023-10-12",
+  "analysis_start_date": "2025-04-01",
   "analysis_end_date": "2025-04-30",
   "cpu_cores": 10,
   "last_formula_select_state": {
@@ -388,6 +388,88 @@
       "upper": ""
     },
     "comparison_widgets": []
+  },
+  "analysis_table_cache_data": {
+    "valid_items": [
+      [
+        "2023-09-07",
+        [
+          {
+            "结束日期": "2023-09-07",
+            "操作天数": 2.8,
+            "持有涨跌幅": "0.45%",
+            "日均涨跌幅": "0.16%",
+            "从下往上非空均值": "0.16%",
+            "从下往上含空均值": "0.16%",
+            "含空值均值": NaN,
+            "最大值": NaN,
+            "最小值": NaN
+          }
+        ]
+      ]
+    ],
+    "start_date": "2023-09-07",
+    "end_date": "2023-09-07"
+  },
+  "cached_table_data": {
+    "headers": [
+      "结束日期",
+      "操作天数",
+      "持有涨跌幅",
+      "日均涨跌幅",
+      "从下往上非空均值",
+      "从下往上含空均值",
+      "含空值均值",
+      "最大值",
+      "最小值"
+    ],
+    "data": [
+      [
+        "",
+        "2.8",
+        "0.45%",
+        "0.16%",
+        "0.16%",
+        "0.16%",
+        "0.16%",
+        "0.16%",
+        "0.16%"
+      ],
+      [
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      [
+        "2023-09-07",
+        "2.8",
+        "0.45%",
+        "0.16%",
+        "0.16%",
+        "0.16%",
+        "",
+        "",
+        ""
+      ],
+      [
+        "选股公式:\nif continuous_end_prev_value >= -3 and continuous_end_prev_value <= 0 and continuous_end_prev_prev_value >= 0 and continuous_end_prev_prev_value <= 3:\n    result = valid_pos_sum + valid_neg_sum\nelse:\n    result = 0",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ]
+    ],
+    "formula": "if continuous_end_prev_value >= -3 and continuous_end_prev_value <= 0 and continuous_end_prev_prev_value >= 0 and continuous_end_prev_prev_value <= 3:\n    result = valid_pos_sum + valid_neg_sum\nelse:\n    result = 0"
   },
   "formula_select_state": {
     "n_max_is_max": {
