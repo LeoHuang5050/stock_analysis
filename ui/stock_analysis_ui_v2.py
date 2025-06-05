@@ -710,12 +710,21 @@ class StockAnalysisApp(QWidget):
                             ops_incre_rate_list.append(v)
                 except Exception:
                     pass
-            def safe_mean(lst):
-                vals = [v for v in lst if not (isinstance(v, float) and math.isnan(v))]
-                if not vals:
-                    return ''
-                val = sum(vals) / len(vals)
+            def safe_mean(lst, treat_nan_as_zero=False):
+                if treat_nan_as_zero:
+                    # 将nan值视为0，计算所有值的平均
+                    vals = [0 if (isinstance(v, float) and math.isnan(v)) else v for v in lst]
+                    if not vals:
+                        return ''
+                    val = sum(vals) / len(vals)
+                else:
+                    # 只计算非nan值的平均
+                    vals = [v for v in lst if not (isinstance(v, float) and math.isnan(v))]
+                    if not vals:
+                        return ''
+                    val = sum(vals) / len(vals)
                 return float(Decimal(str(val)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
+
             mean_hold_days = safe_mean(hold_days_list)
             mean_ops_change = safe_mean(ops_change_list)
             mean_ops_incre_rate = safe_mean(ops_incre_rate_list)
@@ -741,12 +750,13 @@ class StockAnalysisApp(QWidget):
                 mean_incre_rate_list.append(min_incre_rate)
                 mean_incre_rate_list_with_nan_list.append(min_incre_rate)
             else:
+                print(f"含空值了: mean_incre_rate_list_with_nan_list: {mean_incre_rate_list_with_nan_list}, min_incre_rate: {min_incre_rate}")
                 mean_incre_rate_list_with_nan_list.append(float('nan'))
             
         mean_of_mean_hold_days = safe_mean(mean_hold_days_list)
         mean_of_mean_ops_change = safe_mean(mean_ops_change_list)
         mean_of_mean_incre_rate = safe_mean(mean_incre_rate_list)
-        mean_of_mean_incre_rate_with_nan = safe_mean(mean_incre_rate_list_with_nan_list)
+        mean_of_mean_incre_rate_with_nan = safe_mean(mean_incre_rate_list_with_nan_list, treat_nan_as_zero=True)
         # 计算最大值和最小值
         max_incre_rate = max(mean_incre_rate_list) if mean_incre_rate_list else ''
         min_incre_rate = min(mean_incre_rate_list) if mean_incre_rate_list else ''
@@ -787,12 +797,21 @@ class StockAnalysisApp(QWidget):
             table.setItem(i + 2, 4, QTableWidgetItem(f"{round(non_nan_mean,2)}%" if not math.isnan(non_nan_mean) else ''))
             table.setItem(i + 2, 5, QTableWidgetItem(f"{round(with_nan_mean,2)}%" if not math.isnan(with_nan_mean) else ''))
 
-        def safe_mean(lst):
-            vals = [v for v in lst if not (isinstance(v, float) and math.isnan(v))]
-            if not vals:
-                return ''
-            val = sum(vals) / len(vals)
+        def safe_mean(lst, treat_nan_as_zero=False):
+            if treat_nan_as_zero:
+                # 将nan值视为0，计算所有值的平均
+                vals = [0 if (isinstance(v, float) and math.isnan(v)) else v for v in lst]
+                if not vals:
+                    return ''
+                val = sum(vals) / len(vals)
+            else:
+                # 只计算非nan值的平均
+                vals = [v for v in lst if not (isinstance(v, float) and math.isnan(v))]
+                if not vals:
+                    return ''
+                val = sum(vals) / len(vals)
             return float(Decimal(str(val)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
+
         table.setItem(0, 4, QTableWidgetItem(f"{safe_mean(non_nan_mean_list)}%" if non_nan_mean_list else ''))
         table.setItem(0, 5, QTableWidgetItem(f"{safe_mean(with_nan_mean_list)}%" if with_nan_mean_list else ''))
         # print(f"non_nan_mean_list: {non_nan_mean_list}, len: {len(non_nan_mean_list)}")
