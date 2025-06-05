@@ -16,6 +16,7 @@ import json
 import os
 from decimal import Decimal, ROUND_HALF_UP
 from multiprocessing import cpu_count
+from datetime import datetime
 
 class Tab4SpaceTextEdit(QTextEdit):
     def keyPressEvent(self, event):
@@ -582,13 +583,6 @@ class StockAnalysisApp(QWidget):
             # 查找公式输入框（FormulaExprEdit）并设置内容
             for child in table.findChildren(type(table)):
                 pass  # 占位，防止findChildren报错
-            formula_input = None
-            for child in table.findChildren((QWidget,)):
-                if child.__class__.__name__ == 'FormulaExprEdit':
-                    formula_input = child
-                    break
-            if formula_input and hasattr(self, 'last_formula_expr') and self.last_formula_expr:
-                formula_input.setText(self.last_formula_expr)
             table.setMinimumSize(1200, 600)
             self.table_widget = table
             self.output_stack.addWidget(table)
@@ -662,6 +656,10 @@ class StockAnalysisApp(QWidget):
         return self.last_calculate_result
 
     def create_analysis_table(self, valid_items, start_date, end_date):
+        formula = getattr(self, 'last_formula_expr', '')
+        if formula is None:
+            formula = ''
+        formula = formula.strip()
         row_count = len(valid_items)
         table = CopyableTableWidget(row_count + 2, 9, self.analysis_widget)  # 9列
         table.setHorizontalHeaderLabels([
@@ -788,6 +786,7 @@ class StockAnalysisApp(QWidget):
             with_nan_mean_list.append(with_nan_mean)
             table.setItem(i + 2, 4, QTableWidgetItem(f"{round(non_nan_mean,2)}%" if not math.isnan(non_nan_mean) else ''))
             table.setItem(i + 2, 5, QTableWidgetItem(f"{round(with_nan_mean,2)}%" if not math.isnan(with_nan_mean) else ''))
+
         def safe_mean(lst):
             vals = [v for v in lst if not (isinstance(v, float) and math.isnan(v))]
             if not vals:
@@ -798,10 +797,32 @@ class StockAnalysisApp(QWidget):
         table.setItem(0, 5, QTableWidgetItem(f"{safe_mean(with_nan_mean_list)}%" if with_nan_mean_list else ''))
         # print(f"non_nan_mean_list: {non_nan_mean_list}, len: {len(non_nan_mean_list)}")
         # print(f"with_nan_mean_list: {with_nan_mean_list}, len: {len(with_nan_mean_list)}")
+        # 在表格最后一行插入公式，跨所有列
+        if formula:
+            row = table.rowCount()
+            table.insertRow(row)
+            item = QTableWidgetItem(f"选股公式:\n{formula}")
+            item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+            item.setTextAlignment(Qt.AlignLeft | Qt.AlignTop)
+            item.setToolTip(item.text())
+            table.setItem(row, 0, item)
+            table.setSpan(row, 0, 1, table.columnCount())
+            table.setWordWrap(True)
+            table.resizeRowToContents(row)
         return table
 
+    def show_cached_analysis_table(self):
+        """所见即所得，展示上一次缓存的QTableWidget表格"""
+        # 清理旧内容
+        for i in reversed(range(self.analysis_result_layout.count())):
+            widget = self.analysis_result_layout.itemAt(i).widget()
+            if widget is not None:
+                widget.setParent(None)
+        if hasattr(self, 'cached_analysis_table') and self.cached_analysis_table is not None:
+            self.analysis_result_layout.addWidget(self.cached_analysis_table)
+
     def on_generate_analysis(self):
-        from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QMessageBox
+        from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QMessageBox, QLabel
         formula = getattr(self, 'last_formula_expr', '')
         if formula is None:
             formula = ''
@@ -816,25 +837,40 @@ class StockAnalysisApp(QWidget):
         if not workdays:
             QMessageBox.warning(self, "日期错误", "没有可用的日期范围，请先上传数据文件！")
             return
+
+        start_dt = datetime.strptime(start_date, "%Y-%m-%d").date()
+        end_dt = datetime.strptime(end_date, "%Y-%m-%d").date()
+        workday_first = datetime.strptime(workdays[0], "%Y-%m-%d").date()
+        workday_last = datetime.strptime(workdays[-1], "%Y-%m-%d").date()
+        if start_dt >= end_dt:
+            QMessageBox.information(self, "提示", "结束日要大于开始日")
+            return
         # 自动调整日期：如果start_date不是交易日，则往日期增大的方向找到第一个可用交易日
         if start_date not in workdays:
             print(f"start_date not in workdays: {start_date}")
-            for d in workdays:
-                if d >= start_date:
-                    start_date = d
-                    break
-        start_date_idx = workdays.index(start_date)
+            if start_dt > workday_last:
+                start_date = workdays[-1]
+            else:
+                for d in workdays:
+                    if d >= start_date:
+                        start_date = d
+                        break
+            
         width = self.width_spin.value()
+        start_date_idx = workdays.index(start_date)
         if start_date_idx - width < 0 and width < len(workdays):
             print(f"start_date_idx - width < 0 and width < len(workdays): {start_date}")
             start_date = workdays[width]
         # 自动调整日期：如果end_date不是交易日，则往日期减小的方向找到第一个可用交易日
         if end_date not in workdays:
             print(f"end_date not in workdays: {end_date}")
-            for d in reversed(workdays):
-                if d <= end_date:
-                    end_date = d
-                    break
+            if end_dt < workday_first:
+                end_date = start_date
+            else:
+                for d in reversed(workdays):
+                    if d <= end_date:
+                        end_date = d
+                        break
         # print(f"自动调整后的end_date: {end_date}")
         # 获取选股数量和排序方式
         select_count = getattr(self, 'last_select_count', 10)
@@ -858,13 +894,20 @@ class StockAnalysisApp(QWidget):
             "start_date": start_date,
             "end_date": end_date
         }
-        # 清理旧内容并显示新表格
+        # 清理旧内容
         for i in reversed(range(self.analysis_result_layout.count())):
             widget = self.analysis_result_layout.itemAt(i).widget()
             if widget is not None:
                 widget.setParent(None)
+        # 创建新表格
         table = self.create_analysis_table(valid_items, start_date, end_date)
         self.analysis_result_layout.addWidget(table)
+        # 保存表格数据
+        self.cached_table_data = {
+            "headers": [table.horizontalHeaderItem(i).text() for i in range(table.columnCount())],
+            "data": [[table.item(i, j).text() if table.item(i, j) else "" for j in range(table.columnCount())] for i in range(table.rowCount())],
+            "formula": formula
+        }
 
     def on_auto_analysis_btn_clicked(self):
         self.clear_result_area()
@@ -899,6 +942,11 @@ class StockAnalysisApp(QWidget):
         self.export_excel_btn.clicked.connect(self.on_export_excel)
         self.export_csv_btn = QPushButton("导出CSV")
         self.export_csv_btn.clicked.connect(self.on_export_csv)
+        # 新增导入按钮
+        self.import_excel_btn = QPushButton("导入Excel")
+        self.import_excel_btn.clicked.connect(self.on_import_excel)
+        self.import_csv_btn = QPushButton("导入CSV")
+        self.import_csv_btn.clicked.connect(self.on_import_csv)
         self.generate_btn = QPushButton("点击生成")
         self.generate_btn.clicked.connect(self.on_generate_analysis)
         row_layout.addWidget(self.start_date_label)
@@ -908,6 +956,8 @@ class StockAnalysisApp(QWidget):
         row_layout.addWidget(self.generate_btn)
         row_layout.addWidget(self.export_excel_btn)
         row_layout.addWidget(self.export_csv_btn)
+        row_layout.addWidget(self.import_excel_btn)
+        row_layout.addWidget(self.import_csv_btn)
     
         row_layout.addStretch()
         layout.addLayout(row_layout)
@@ -925,9 +975,6 @@ class StockAnalysisApp(QWidget):
         self.table_widget = self.analysis_widget
         self.output_stack.addWidget(self.analysis_widget)
         self.output_stack.setCurrentWidget(self.analysis_widget)
-        # 绑定信号，双向限制日期选择
-        self.width_spin.valueChanged.connect(self.on_analysis_date_changed)
-        self.on_analysis_date_changed()
         # 切换到自动分析tab
         self.output_stack.setCurrentWidget(self.analysis_widget)
         # 清理内容区
@@ -936,9 +983,36 @@ class StockAnalysisApp(QWidget):
             if widget is not None:
                 widget.setParent(None)
         # 展示缓存表格
-        if hasattr(self, 'analysis_table_cache_data') and self.analysis_table_cache_data is not None:
-            data = self.analysis_table_cache_data
-            table = self.create_analysis_table(data["valid_items"], data["start_date"], data["end_date"])
+        if hasattr(self, 'cached_table_data') and self.cached_table_data is not None:
+            # 创建新表格
+            data = self.cached_table_data["data"]
+            formula = self.cached_table_data["formula"]
+            # 移除最后一行（公式行）
+            if data and data[-1][0].startswith("选股公式"):
+                data = data[:-1]
+            table = QTableWidget(len(data), len(self.cached_table_data["headers"]), self.analysis_widget)
+            table.setHorizontalHeaderLabels(self.cached_table_data["headers"])
+            # 填充数据
+            for i, row in enumerate(data):
+                for j, cell in enumerate(row):
+                    table.setItem(i, j, QTableWidgetItem(cell))
+            # 设置表格属性
+            table.resizeColumnsToContents()
+            table.horizontalHeader().setFixedHeight(40)
+            table.horizontalHeader().setStyleSheet("font-size: 12px;")
+            # 添加公式行
+            if formula:
+                from PyQt5.QtCore import Qt
+                row = table.rowCount()
+                table.insertRow(row)
+                item = QTableWidgetItem(f"选股公式:\n{formula}")
+                item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+                item.setTextAlignment(Qt.AlignLeft | Qt.AlignTop)
+                item.setToolTip(item.text())
+                table.setItem(row, 0, item)
+                table.setSpan(row, 0, 1, table.columnCount())
+                table.setWordWrap(True)
+                table.resizeRowToContents(row)
             self.analysis_result_layout.addWidget(table)
         else:
             self.analysis_result_layout.addWidget(self.analysis_result_text)
@@ -946,35 +1020,6 @@ class StockAnalysisApp(QWidget):
     def _on_analysis_date_changed_save(self):
         self.last_analysis_start_date = self.start_date_picker.date().toString("yyyy-MM-dd")
         self.last_analysis_end_date = self.end_date_picker.date().toString("yyyy-MM-dd")
-
-    def on_analysis_date_changed(self):
-        if not hasattr(self, 'end_date_picker') or self.end_date_picker is None:
-            return
-        if not hasattr(self, 'start_date_picker') or self.start_date_picker is None:
-            return
-        workdays = getattr(self.init, 'workdays_str', None)
-        if not workdays:
-            return
-        width = self.width_spin.value()
-        start_date = self.start_date_picker.date().toString("yyyy-MM-dd")
-        # 1. 结束日结束日的可选范围：start_date ~ workdays[-1]
-        if start_date in workdays:
-            min_end_idx = workdays.index(start_date)
-        else:
-            min_end_idx = 0
-        max_end_idx = len(workdays) - 1
-        min_end_date = QDate.fromString(workdays[min_end_idx], "yyyy-MM-dd")
-        max_end_date = QDate.fromString(workdays[max_end_idx], "yyyy-MM-dd")
-        # self.end_date_picker.setMinimumDate(min_end_date)
-        # self.end_date_picker.setMaximumDate(max_end_date)
-        
-        # 2. 结束日开始日的可选范围：max(0, end_idx-width) ~ end_idx
-        min_start_idx = max(0, width)
-        max_start_idx = max_end_idx
-        min_start_date = QDate.fromString(workdays[min_start_idx], "yyyy-MM-dd")
-        max_start_date = QDate.fromString(workdays[max_start_idx], "yyyy-MM-dd")
-        # self.start_date_picker.setMinimumDate(min_start_date)
-        # self.start_date_picker.setMaximumDate(max_start_date)
 
     def on_op_stat_btn_clicked(self):
         self.clear_result_area()
@@ -1195,6 +1240,89 @@ class StockAnalysisApp(QWidget):
             except Exception as e:
                 QMessageBox.critical(self, "导出失败", f"导出CSV失败：{e}")
 
+    def on_import_excel(self):
+        file_path, _ = QFileDialog.getOpenFileName(self, "导入Excel文件", "", "Excel Files (*.xlsx *.xls)")
+        if not file_path:
+            return
+        df = pd.read_excel(file_path)
+        self._show_imported_analysis(df)
+
+    def on_import_csv(self):
+        file_path, _ = QFileDialog.getOpenFileName(self, "导入CSV文件", "", "CSV Files (*.csv)")
+        if not file_path:
+            return
+        df = pd.read_csv(file_path)
+        self._show_imported_analysis(df)
+
+    def _show_imported_analysis(self, df):
+        # 假设最后一行是公式行，且在第一列
+        formula = ''
+        if '选股公式' in df.columns:
+            formula = df['选股公式'].iloc[-1]
+            df = df.iloc[:-1]
+        elif df.shape[0] > 0 and str(df.iloc[-1, 0]).startswith('选股公式'):
+            formula = str(df.iloc[-1, 0]).replace('选股公式:', '').strip()
+            df = df.iloc[:-1]
+        # 只保留"结束日期"非NaN的有效数据行
+        valid_items = []
+        columns = [str(col) for col in df.columns]
+        for i in range(df.shape[0]):
+            date_key = str(df.iloc[i, 0])
+            if pd.isna(df.iloc[i, 0]) or str(df.iloc[i, 0]).lower() == 'nan':
+                continue
+            stock = {}
+            for j, col in enumerate(columns):
+                stock[col] = df.iloc[i, j]
+            valid_items.append((date_key, [stock]))
+        # start_date和end_date取有效数据行
+        dates = [k for k, v in valid_items]
+        self.analysis_table_cache_data = {
+            "valid_items": valid_items,
+            "start_date": dates[0] if dates else '',
+            "end_date": dates[-1] if dates else ''
+        }
+        # 更新公式和控件状态
+        if formula:
+            self.last_formula_expr = formula
+            from function.stock_functions import parse_formula_to_config
+            config = parse_formula_to_config(formula)
+            self.last_formula_select_state = config
+        # 刷新表格展示（直接打印df内容，nan值置空，公式跨行）
+        for i in reversed(range(self.analysis_result_layout.count())):
+            widget = self.analysis_result_layout.itemAt(i).widget()
+            if widget is not None:
+                widget.setParent(None)
+        row_count = df.shape[0]
+        col_count = df.shape[1]
+        extra_row = 1 if formula else 0
+        table = QTableWidget(row_count + extra_row, col_count, self.analysis_widget)
+        table.setHorizontalHeaderLabels([str(col) for col in df.columns])
+        for i in range(row_count):
+            for j in range(col_count):
+                val = df.iat[i, j]
+                # nan值置空
+                if pd.isna(val) or str(val).lower() == 'nan':
+                    val = ''
+                table.setItem(i, j, QTableWidgetItem(str(val)))
+        # 公式行
+        if formula:
+            from PyQt5.QtCore import Qt
+            item = QTableWidgetItem(f"选股公式:\n{formula}")
+            item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+            item.setTextAlignment(Qt.AlignLeft | Qt.AlignTop)
+            item.setToolTip(item.text())
+            table.setItem(row_count, 0, item)
+            table.setSpan(row_count, 0, 1, col_count)
+            table.setWordWrap(True)
+            table.resizeRowToContents(row_count)
+        self.analysis_result_layout.addWidget(table)
+        # 保存表格数据
+        self.cached_table_data = {
+            "headers": [table.horizontalHeaderItem(i).text() for i in range(table.columnCount())],
+            "data": [[table.item(i, j).text() if table.item(i, j) else "" for j in range(table.columnCount())] for i in range(table.rowCount())],
+            "formula": formula
+        }
+
     def save_config(self):
         config = {
             'date': self.date_picker.date().toString("yyyy-MM-dd"),
@@ -1219,6 +1347,8 @@ class StockAnalysisApp(QWidget):
             'analysis_end_date': getattr(self, 'last_analysis_end_date', ''),
             'cpu_cores': self.cpu_spin.value(),
             'last_formula_select_state': getattr(self, 'last_formula_select_state', {}),
+            'analysis_table_cache_data': getattr(self, 'analysis_table_cache_data', None),
+            'cached_table_data': getattr(self, 'cached_table_data', None),
         }
         # 保存公式选股控件状态
         if hasattr(self, 'formula_widget') and self.formula_widget is not None:
@@ -1294,6 +1424,12 @@ class StockAnalysisApp(QWidget):
             # 恢复 last_formula_select_state
             if 'last_formula_select_state' in config:
                 self.last_formula_select_state = config['last_formula_select_state']
+            # 恢复自动分析缓存
+            if 'analysis_table_cache_data' in config:
+                self.analysis_table_cache_data = config['analysis_table_cache_data']
+            # 恢复表格数据
+            if 'cached_table_data' in config:
+                self.cached_table_data = config['cached_table_data']
         except Exception as e:
             print(f"加载配置失败: {e}")
     def closeEvent(self, event):
