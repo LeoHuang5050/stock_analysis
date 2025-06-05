@@ -1145,6 +1145,16 @@ class FormulaSelectWidget(QWidget):
         # print(f"保存状态: {state}")  # 添加打印语句
         self.main_window.last_formula_select_state = state
         # print(f"保存后的状态: {self.main_window.last_formula_select_state}")  # 添加打印语句
+        """同步状态到主界面"""
+        if not hasattr(self, 'main_window'):
+            return
+        # 生成公式
+        formula = self.generate_formula()
+        # 更新主界面的公式
+        if hasattr(self.main_window, 'formula_expr_edit'):
+            self.main_window.formula_expr_edit.setPlainText(formula)
+        # 更新last_formula_expr
+        self.main_window.last_formula_expr = formula
 
     def get_state(self):
         """导出所有控件的状态"""

@@ -842,7 +842,7 @@ class StockAnalysisApp(QWidget):
         end_dt = datetime.strptime(end_date, "%Y-%m-%d").date()
         workday_first = datetime.strptime(workdays[0], "%Y-%m-%d").date()
         workday_last = datetime.strptime(workdays[-1], "%Y-%m-%d").date()
-        if start_dt >= end_dt:
+        if start_dt > end_dt:
             QMessageBox.information(self, "提示", "结束日要大于开始日")
             return
         # 自动调整日期：如果start_date不是交易日，则往日期增大的方向找到第一个可用交易日
