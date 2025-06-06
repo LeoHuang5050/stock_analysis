@@ -387,7 +387,15 @@
       "lower": "",
       "upper": ""
     },
-    "comparison_widgets": []
+    "comparison_widgets": [
+      {
+        "checked": false,
+        "var1": "前1组结束日地址值",
+        "lower": "",
+        "upper": "",
+        "var2": "前1组结束日地址值"
+      }
+    ]
   },
   "analysis_table_cache_data": {
     "valid_items": [
@@ -838,6 +846,14 @@
       "lower": "",
       "upper": ""
     },
-    "comparison_widgets": []
+    "comparison_widgets": [
+      {
+        "checked": false,
+        "var1": "前1组结束日地址值",
+        "lower": "",
+        "upper": "",
+        "var2": "前1组结束日地址值"
+      }
+    ]
   }
 }

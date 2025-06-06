@@ -84,6 +84,7 @@ forward_min_param_headers = [
 
 # 表格搜索事件过滤器
 class TableSearchFilter(QObject):
+
     def __init__(self, table):
         super().__init__()
         self.table = table
@@ -325,6 +326,17 @@ def show_continuous_sum_table(parent, all_results, price_data, as_widget=False):
         tab_widget.addTab(table3, f"向前最大连续累加值 ({end_date})")
         tab_widget.addTab(table4, f"向前最小连续累加值 ({end_date})")
 
+        # --- 新增：恢复选中行 ---
+        if hasattr(parent, 'last_selected_row_continuous') and parent.last_selected_row_continuous is not None:
+            try:
+                table1.selectRow(parent.last_selected_row_continuous)
+            except Exception:
+                pass
+        # --- 新增：保存选中行 ---
+        def save_selected_row():
+            parent.last_selected_row_continuous = table1.currentRow()
+        table1.itemSelectionChanged.connect(save_selected_row)
+
         # 主布局（去除顶部日期选择器）
         main_layout = QVBoxLayout()
         main_layout.addWidget(tab_widget)
@@ -344,6 +356,34 @@ def show_continuous_sum_table(parent, all_results, price_data, as_widget=False):
     except Exception as e:
         print("show_continuous_sum_table 异常:", e)
         return None
+    
+def show_formula_select_table_result_window(table, content_widget):
+    # 只创建一次窗口，后续只替换内容
+    if not hasattr(content_widget, 'result_window') or content_widget.result_window is None:
+        result_window = QMainWindow()
+        result_window.setWindowTitle("选股结果")
+        flags = result_window.windowFlags()
+        flags &= ~Qt.WindowStaysOnTopHint  # 移除置顶标志
+        flags &= ~Qt.WindowContextHelpButtonHint  # 移除问号按钮
+        result_window.setWindowFlags(flags)
+        content_widget.result_window = result_window
+    else:
+        result_window = content_widget.result_window
+        # 如果窗口最小化，则恢复显示
+        if result_window.isMinimized():
+            result_window.showNormal()
+        # 确保窗口在最前面
+        result_window.raise_()
+        result_window.activateWindow()
+    
+    # 替换内容
+    central_widget = QWidget()
+    layout_ = QVBoxLayout(central_widget)
+    layout_.addWidget(table)
+    result_window.setCentralWidget(central_widget)
+    result_window.resize(450, 450)
+    result_window.show()
+    content_widget.result_table = table
 
 def unify_date_columns(df):
     new_columns = []
@@ -652,6 +692,17 @@ def show_params_table(parent, all_results, end_date=None, n_days=0, n_days_max=0
 
     update_table(stocks_data)
 
+    # --- 新增：恢复选中行 ---
+    if hasattr(parent, 'last_selected_row_params') and parent.last_selected_row_params is not None:
+        try:
+            table.selectRow(parent.last_selected_row_params)
+        except Exception:
+            pass
+    # --- 新增：保存选中行 ---
+    def save_selected_row():
+        parent.last_selected_row_params = table.currentRow()
+    table.itemSelectionChanged.connect(save_selected_row)
+
     main_layout = QVBoxLayout()
     main_layout.addWidget(table)
 
@@ -668,7 +719,7 @@ def show_params_table(parent, all_results, end_date=None, n_days=0, n_days_max=0
         dialog.resize(1800, 500)
         dialog.show()
         return dialog
-    
+
 class FormulaExprEdit(QTextEdit):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -825,12 +876,33 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
             select_count=select_count,
             sort_mode=sort_mode,
             show_main_output=False,
-            only_show_selected=False
+            only_show_selected=False  # 保持False以获取完整数据
         )
         if all_param_result is None:
             # QMessageBox.information(parent, "提示", "请先上传数据文件！")
             return
         merged_results = all_param_result.get('dates', {})
+        
+        # 根据排序模式过滤结果
+        filtered_results = {}
+        for date, results in merged_results.items():
+            # 根据排序模式过滤score
+            if sort_mode == "最大值排序":
+                filtered_results[date] = [r for r in results if r.get('score', 0) > 0]
+            else:  # 最小值排序
+                filtered_results[date] = [r for r in results if r.get('score', 0) < 0]
+            
+            # 按score排序
+            if sort_mode == "最大值排序":
+                filtered_results[date].sort(key=lambda x: x['score'], reverse=True)
+            else:  # 最小值排序
+                filtered_results[date].sort(key=lambda x: x['score'])
+            
+            # 只保留指定数量的结果
+            filtered_results[date] = filtered_results[date][:select_count]
+        
+        # 使用过滤后的结果
+        merged_results = filtered_results
         parent.all_param_result = all_param_result
         if not merged_results or not any(merged_results.values()):
             QMessageBox.information(parent, "提示", "没有选股结果。")
@@ -863,7 +935,7 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
         layout_ = QVBoxLayout(central_widget)
         layout_.addWidget(table)
         result_window.setCentralWidget(central_widget)
-        result_window.resize(410, 450)
+        result_window.resize(450, 450)
         result_window.show()
         content_widget.result_window = result_window
         content_widget.result_table = table
@@ -901,31 +973,9 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
         if not hasattr(parent, 'last_formula_select_result_data') or not parent.last_formula_select_result_data:
             QMessageBox.information(parent, "提示", "请先进行选股！")
             return
-            
-        if hasattr(content_widget, 'result_window') and content_widget.result_window is not None:
-            if content_widget.result_window.isVisible():
-                content_widget.result_window.raise_()
-                content_widget.result_window.activateWindow()
-                return
-            else:
-                content_widget.result_window.close()
-                
-        # 重新弹窗
-        result_window = QMainWindow()
-        result_window.setWindowTitle("选股结果")
-        flags = result_window.windowFlags()
-        flags &= ~Qt.WindowStaysOnTopHint  # 移除置顶标志
-        flags &= ~Qt.WindowContextHelpButtonHint  # 移除问号按钮
-        result_window.setWindowFlags(flags)
-        central_widget = QWidget()
-        layout_ = QVBoxLayout(central_widget)
+        # 只创建一个窗口，替换内容
         table = show_formula_select_table_result(parent, parent.last_formula_select_result_data, getattr(parent, 'init', None) and getattr(parent.init, 'price_data', None), is_select_action=True)
-        layout_.addWidget(table)
-        result_window.setCentralWidget(central_widget)
-        result_window.resize(410, 450)
-        result_window.show()
-        content_widget.result_window = result_window
-        content_widget.result_table = table
+        show_formula_select_table_result_window(table, content_widget)
 
     select_btn.clicked.connect(do_select)
     view_result_btn.clicked.connect(on_view_result)
@@ -994,7 +1044,7 @@ def format_stock_table(result):
 
 def show_formula_select_table_result(parent, result, price_data=None, output_edit=None, is_select_action=False):
     merged_results = result.get('dates', {})
-    headers = ["股票代码", "股票名称", "持有天数", "操作涨幅", "日均涨跌幅", "得分"]
+    headers = ["股票代码", "股票名称", "持有天数", "操作涨幅", "日均涨跌幅", "选股公式输出值"]
     if not merged_results or not any(merged_results.values()):
         # 返回一个只有表头的空表格
         table = QTableWidget(0, len(headers), parent)
@@ -1206,7 +1256,7 @@ class FormulaSelectWidget(QWidget):
     def add_comparison_widget(self):
         # 创建比较控件容器
         comparison_widget = QWidget()
-        comparison_widget.setFixedWidth(504)
+        comparison_widget.setFixedWidth(1008)
         comparison_widget.setFixedHeight(35)  # 设置固定高度为35像素
         comparison_layout = QHBoxLayout(comparison_widget)
         comparison_layout.setContentsMargins(10, 10, 10, 10)
@@ -1214,7 +1264,7 @@ class FormulaSelectWidget(QWidget):
         
         # 添加方框勾选框
         checkbox = QCheckBox()
-        checkbox.setChecked(True)  # 默认勾选
+        checkbox.setChecked(False)  # 默认不勾选
         checkbox.setFixedWidth(15)
         # checkbox.setStyleSheet("border: none;")
         comparison_layout.addWidget(checkbox)
@@ -1222,7 +1272,7 @@ class FormulaSelectWidget(QWidget):
         # 第一个变量下拉框
         var1_combo = QComboBox()
         var1_combo.addItems([zh for zh, _ in self.abbr_map.items()])
-        var1_combo.setFixedWidth(150)
+        var1_combo.setFixedWidth(270)
         var1_combo.view().setMinimumWidth(270)
         comparison_layout.addWidget(var1_combo)
         
@@ -1241,7 +1291,7 @@ class FormulaSelectWidget(QWidget):
         # 第二个变量下拉框
         var2_combo = QComboBox()
         var2_combo.addItems([zh for zh, _ in self.abbr_map.items()])
-        var2_combo.setFixedWidth(150)
+        var2_combo.setFixedWidth(270)
         var2_combo.view().setMinimumWidth(270)
         comparison_layout.addWidget(var2_combo)
         
@@ -1535,20 +1585,20 @@ class FormulaSelectWidget(QWidget):
                 comp['widget'].setParent(None)
         if hasattr(self, 'add_comparison_btn'):
             self.add_comparison_btn.setParent(None)
-        # 修正：如果最后一行变量控件已满，比较控件和按钮应从下一行第0列开始
+        # 判断变量控件最后一行是否有内容
         start_col = last_var_col + 1
         row = last_var_row
-        if start_col >= self.cols_per_row:
+        if start_col > 0:
             row += 1
-            start_col = 0
-        col = start_col
+        col = 0
         for i, comp in enumerate(self.comparison_widgets):
-            grid_layout.addWidget(comp['widget'], row, col)
-            col += 1
-            if col >= self.cols_per_row:
+            grid_layout.addWidget(comp['widget'], row, col, 1, 2)  # 每个比较控件跨2列
+            col += 2
+            if col >= 4:  # 每行最多2个比较控件
                 row += 1
                 col = 0
-        grid_layout.addWidget(self.add_comparison_btn, row, col)
+        # 添加比较按钮
+        grid_layout.addWidget(self.add_comparison_btn, row, col, 1, 2)
 
     def _setup_state_sync(self):
         """设置所有控件的状态同步"""
