@@ -136,8 +136,9 @@ class StockAnalysisApp(QWidget):
         self.load_config()
 
     def init_ui(self):
-        # 设置窗口标题
-        self.setWindowTitle("股票分析工具")
+        # 设置窗口标题为当前exe文件名（不带扩展名）
+        exe_name = os.path.splitext(os.path.basename(sys.argv[0]))[0]
+        self.setWindowTitle(exe_name)
         # 移除固定大小设置
         # self.setFixedSize(1200, 800)
         main_layout = QVBoxLayout(self)
