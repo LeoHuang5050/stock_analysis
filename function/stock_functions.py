@@ -888,9 +888,9 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
         for date, results in merged_results.items():
             # 根据排序模式过滤score
             if sort_mode == "最大值排序":
-                filtered_results[date] = [r for r in results if r.get('score', 0) > 0]
+                filtered_results[date] = [r for r in results if r.get('score') is not None and r.get('score', 0) > 0]
             else:  # 最小值排序
-                filtered_results[date] = [r for r in results if r.get('score', 0) < 0]
+                filtered_results[date] = [r for r in results if r.get('score') is not None and r.get('score', 0) < 0]
             
             # 按score排序
             if sort_mode == "最大值排序":
@@ -1257,7 +1257,7 @@ class FormulaSelectWidget(QWidget):
         # 创建比较控件容器
         comparison_widget = QWidget()
         comparison_widget.setFixedWidth(1008)
-        comparison_widget.setFixedHeight(35)  # 设置固定高度为35像素
+        comparison_widget.setFixedHeight(45)  # 设置固定高度为35像素
         comparison_layout = QHBoxLayout(comparison_widget)
         comparison_layout.setContentsMargins(10, 10, 10, 10)
         comparison_layout.setSpacing(8)
@@ -1273,6 +1273,7 @@ class FormulaSelectWidget(QWidget):
         var1_combo = QComboBox()
         var1_combo.addItems([zh for zh, _ in self.abbr_map.items()])
         var1_combo.setFixedWidth(270)
+        var1_combo.setFixedHeight(20)
         var1_combo.view().setMinimumWidth(270)
         comparison_layout.addWidget(var1_combo)
         
