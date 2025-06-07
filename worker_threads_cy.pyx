@@ -83,6 +83,24 @@ cdef void calc_valid_sum_and_pos_neg(
         valid_idx += 1
     valid_len[0] = valid_idx
 
+cdef void calc_pos_neg_sum(vector[double]& arr, double* pos_sum, double* neg_sum) nogil:
+    cdef int n = arr.size()
+    cdef int i
+    cdef double v
+    pos_sum[0] = 0
+    neg_sum[0] = 0
+    for i in range(n):
+        v = arr[i]
+        if isnan(v):
+            continue
+        if v > 0:
+            pos_sum[0] += v
+        elif v < 0:
+            neg_sum[0] += v
+    # 保留两位小数
+    pos_sum[0] = round(pos_sum[0] * 100) / 100.0
+    neg_sum[0] = round(neg_sum[0] * 100) / 100.0
+
 def calculate_batch_cy(
     np.ndarray[DTYPE_t, ndim=2] price_data,
     list date_columns,
@@ -97,6 +115,7 @@ def calculate_batch_cy(
     int n_days,
     double user_range_ratio,
     double continuous_abs_threshold,
+    double valid_abs_sum_threshold,
     int n_days_max,
     int op_days,
     double inc_rate,
@@ -107,7 +126,15 @@ def calculate_batch_cy(
     str formula_expr=None,
     int select_count=10,
     str sort_mode="最大值排序",
-    bint only_show_selected=False
+    bint only_show_selected=False,
+    int new_high_start=0,
+    int new_high_range=0,
+    int new_high_span=0,
+    int new_low_start=0,
+    int new_low_range=0,
+    int new_low_span=0,
+    bint start_with_new_high_flag=False,
+    bint start_with_new_low_flag=False
 ):
     cdef int num_stocks = price_data.shape[0]
     cdef int num_dates = price_data.shape[1]
@@ -157,6 +184,12 @@ def calculate_batch_cy(
     cdef double max_abs_val
     cdef double abs_v
     cdef bint continuous_abs_is_less
+    cdef bint valid_abs_is_less
+    cdef int new_high_start_idx, found_new_high, span_offset, check_idx
+    cdef double cur_val, max_val, min_val
+    cdef bint start_with_new_high, start_with_new_low
+    cdef int new_low_start_idx, found_new_low
+    cdef double cont_sum_pos_sum, cont_sum_neg_sum  # 连续累加值正加和、负加和
 
     # 计算向前最大最小连续累加值的分块和绝对值之和（只针对 forward_max_result_c 和 forward_min_result_c，不涉及有效累加值）
     cdef int forward_max_result_len
@@ -209,13 +242,65 @@ def calculate_batch_cy(
         for idx in range(end_date_start_idx, end_date_end_idx-1, -1):
             try:
                 with nogil:
+                    # --- 创新高起始条件判断 ---
+                    new_high_start_idx = idx + new_high_start
+                    found_new_high = 0
+                    for span_offset in range(new_high_span):
+                        check_idx = new_high_start_idx + span_offset
+                        cur_val = price_data_view[stock_idx, check_idx]
+                        max_val = -1e308
+                        for k in range(check_idx + 1, check_idx + new_high_range + 1):
+                            v = price_data_view[stock_idx, k]
+                            if not isnan(v) and v > max_val:
+                                max_val = v
+                        #if stock_idx == 0:
+                            # printf(b"New High Check: stock_idx=%d, span_offset=%d, new_high_span=%d, check_idx=%d, range: %d ~ %d\n", stock_idx, span_offset, new_high_span, check_idx, check_idx + new_high_range + 1, check_idx + 1)
+                        if not isnan(cur_val) and cur_val > max_val:
+                            found_new_high = 1
+                            break
+                    start_with_new_high = found_new_high == 1
+
+                    # --- 创新低起始条件判断 ---
+                    new_low_start_idx = idx + new_low_start + new_low_range + 1
+                    found_new_low = 0
+                    for span_offset in range(new_low_span):
+                        check_idx = new_low_start_idx + span_offset + 1
+                        if check_idx >= price_data_view.shape[1] or check_idx + new_low_range >= price_data_view.shape[1]:
+                            continue
+                        cur_val = price_data_view[stock_idx, check_idx]
+                        min_val = 1e308
+                        for k in range(check_idx - 1, check_idx - new_low_range - 1, -1):
+                            v = price_data_view[stock_idx, k]
+                            if not isnan(v) and v < min_val:
+                                min_val = v
+                            #if stock_idx == 0:
+                                #printf(b"cur_val is min value: cur_val=%f, min_val=%f\n", cur_val, min_val)
+                        #if stock_idx == 0:
+                            #printf(b"New Low Check: stock_idx=%d, span_offset=%d, check_idx=%d, range: %d ~ %d\n", stock_idx, span_offset, check_idx, check_idx - new_low_range - 1, check_idx - 1)
+                        if not isnan(cur_val) and cur_val < min_val:
+                            found_new_low = 1
+                            break
+                    start_with_new_low = found_new_low == 1
+                    
+                    if stock_idx == 0:
+                        printf(b"stock_idx=%d, start_with_new_high=%d, start_with_new_low=%d\n", stock_idx, start_with_new_high, start_with_new_low)
+
+                    if start_with_new_high_flag and not start_with_new_high:
+                        printf(b"stock_idx=%d, no new high, skip calculate login", stock_idx)
+                        continue
+
+                    if start_with_new_low_flag and not start_with_new_low:
+                        printf(b"stock_idx=%d, no new low, skip calculate login", stock_idx)
+                        continue
+
+                    # 原有的with nogil内容
                     end_date_idx = idx
                     start_date_idx = end_date_idx + width
                     max_price = -1e308
                     min_price = 1e308
                     max_idx_in_window = -1
                     min_idx_in_window = -1
-                    window_len = width + 1
+                    window_len = width + 1 
                     
                     for j in range(window_len):
                         if not isnan(price_data_view[stock_idx, end_date_idx + j]):
@@ -261,6 +346,8 @@ def calculate_batch_cy(
                         calc_continuous_sum(diff_data_view[stock_idx, end_date_idx:actual_idx+1][::-1], cont_sum)
                     else:
                         cont_sum.clear()
+                    # 计算连续累加值正加和与负加和
+                    calc_pos_neg_sum(cont_sum, &cont_sum_pos_sum, &cont_sum_neg_sum)
 
                     # 计算向前最大连续累加值
                     if is_forward and actual_idx > 0:
@@ -553,6 +640,17 @@ def calculate_batch_cy(
                         continuous_abs_is_less = max_abs_val < continuous_abs_threshold
                     else:
                         continuous_abs_is_less = False
+
+                    # 有效累加值绝对值最大值判断
+                    valid_max_abs_val = 0
+                    if valid_abs_sum_threshold == valid_abs_sum_threshold and valid_sum_len > 0:
+                        for j in range(valid_sum_len):
+                            abs_v = fabs(valid_sum_vec[j])
+                            if abs_v > valid_max_abs_val:
+                                valid_max_abs_val = abs_v
+                        valid_abs_is_less = valid_max_abs_val < valid_abs_sum_threshold
+                    else:
+                        valid_abs_is_less = False
                 
                     
                     # 计算continuous_len
@@ -712,6 +810,9 @@ def calculate_batch_cy(
 
                     
                 # with gil
+                start_with_new_high_py = bool(start_with_new_high)
+                start_with_new_low_py = bool(start_with_new_low)
+
                 # 计算range_ratio_is_less
                 range_ratio_is_less = False
                 if min_price is not None and min_price != 0 and not isnan(user_range_ratio):
@@ -816,6 +917,7 @@ def calculate_batch_cy(
                     if end_date_idx - hold_days >= 0:
                         op_idx_when_ops_value_nan = end_date_idx - hold_days
                     else:
+                        hold_days = end_date_idx
                         op_idx_when_ops_value_nan = 0
                     try:
                         ops_change = round_to_2((price_data_view[stock_idx, op_idx_when_ops_value_nan] - end_value_for_ops) / end_value_for_ops * 100)
@@ -972,6 +1074,11 @@ def calculate_batch_cy(
                         'forward_min_continuous_end_prev_prev_value': forward_min_continuous_end_prev_prev_value,
                         'forward_max_result_len': forward_max_result_len,
                         'forward_min_result_len': forward_min_result_len,
+                        'cont_sum_pos_sum': cont_sum_pos_sum,
+                        'cont_sum_neg_sum': cont_sum_neg_sum,
+                        'start_with_new_high': start_with_new_high_py,
+                        'start_with_new_low': start_with_new_low_py,
+                        'valid_abs_is_less': valid_abs_is_less,
                     }
                     
                     try:
@@ -1089,6 +1196,11 @@ def calculate_batch_cy(
                                 'score': score,
                                 'forward_max_result_len': forward_max_result_len,
                                 'forward_min_result_len': forward_min_result_len,
+                                'cont_sum_pos_sum': cont_sum_pos_sum,
+                                'cont_sum_neg_sum': cont_sum_neg_sum,
+                                'start_with_new_high': start_with_new_high_py,
+                                'start_with_new_low': start_with_new_low_py,
+                                'valid_abs_is_less': valid_abs_is_less,
                             }
                             current_stocks = all_results.get(date_columns[end_date_idx], [])
                             current_stocks.append(row_result)
@@ -1204,6 +1316,11 @@ def calculate_batch_cy(
                             'score': score,
                             'forward_max_result_len': forward_max_result_len,
                             'forward_min_result_len': forward_min_result_len,
+                            'cont_sum_pos_sum': cont_sum_pos_sum,
+                            'cont_sum_neg_sum': cont_sum_neg_sum,
+                            'start_with_new_high': start_with_new_high_py,
+                            'start_with_new_low': start_with_new_low_py,
+                            'valid_abs_is_less': valid_abs_is_less,
                         }
                     all_results[date_columns[end_date_idx]].append(row_result)
             except Exception as e:

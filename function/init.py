@@ -45,8 +45,8 @@ class StockAnalysisInit:
         # 设置日期选择器范围
         min_date = QDate.fromString(self.workdays_str[0], "yyyy-MM-dd")
         max_date = QDate.fromString(self.workdays_str[-1], "yyyy-MM-dd")
-        self.main_window.date_picker.setMinimumDate(min_date)
-        self.main_window.date_picker.setMaximumDate(max_date)
+        # self.main_window.date_picker.setMinimumDate(min_date)
+        # self.main_window.date_picker.setMaximumDate(max_date)
 
         # 获取今天
         today = QDate.currentDate()
@@ -68,7 +68,8 @@ class StockAnalysisInit:
 
         self.main_window.width_label.setText(f"请选择日期宽度（最大宽度为 {max_width}）：")
         self.main_window.width_spin.setMaximum(max_width)
-        self.main_window.result_text.setText("文件上传成功，请选择参数后点击计算。")
+        self.main_window.result_text.setText("文件上传成功，请选择参数后进行选股计算。")
+        QMessageBox.information(self.main_window, "提示", "文件上传成功，请选择参数后进行选股计算")
 
         # 恢复config日期
         if hasattr(self.main_window, 'pending_date'):
@@ -81,24 +82,17 @@ class StockAnalysisInit:
             del self.main_window.pending_date
 
     def on_date_changed(self, qdate):
-        # 只判断是否为工作日（周一到周五）
-        if qdate.dayOfWeek() > 5:  # 6=周六, 7=周日
-            QMessageBox.warning(self.main_window, "提示", "只能选择工作日！")
-            if self.last_valid_date:
-                self.main_window.date_picker.blockSignals(True)
-                self.main_window.date_picker.setDate(self.last_valid_date)
-                self.main_window.date_picker.blockSignals(False)
-        else:
-            self.last_valid_date = qdate
-            # 动态调整日期宽度最大值
-            if hasattr(self, 'workdays_str') and self.workdays_str:
-                date_str = qdate.toString("yyyy-MM-dd")
-                end_idx = self.workdays_str.index(date_str) if date_str in self.workdays_str else len(self.workdays_str) - 1
-                max_width = end_idx
-                self.main_window.width_spin.setMaximum(max_width)
-                self.main_window.width_label.setText(f"请选择日期宽度（最大宽度为 {max_width}）：")
-                if self.main_window.width_spin.value() > max_width:
-                    self.main_window.width_spin.setValue(max_width)
+        # 只保存日期，不做验证
+        self.last_valid_date = qdate
+        # 动态调整日期宽度最大值
+        if hasattr(self, 'workdays_str') and self.workdays_str:
+            date_str = qdate.toString("yyyy-MM-dd")
+            end_idx = self.workdays_str.index(date_str) if date_str in self.workdays_str else len(self.workdays_str) - 1
+            max_width = end_idx
+            self.main_window.width_spin.setMaximum(max_width)
+            self.main_window.width_label.setText(f"请选择日期宽度（最大宽度为 {max_width}）：")
+            if self.main_window.width_spin.value() > max_width:
+                self.main_window.width_spin.setValue(max_width)
 
     def on_start_option_changed(self, idx):
         pass  # 不再做隐藏/显示 
