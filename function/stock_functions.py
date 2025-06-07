@@ -40,7 +40,7 @@ FORMULAR_EXPR_PLACEHOLDER_TEXT = (
 )
 # 连续累加值参数表头
 param_headers = [
-    "连续累加值长度", "连续累加值开始值", "连续累加值开始后1位值", "连续累加值开始后2位值",
+    "连续累加值长度", "连续累加值正加和", "连续累加值负加和", "连续累加值开始值", "连续累加值开始后1位值", "连续累加值开始后2位值",
     "连续累加值结束值", "连续累加值结束前1位值", "连续累加值结束前2位值",
     "连续累加值前一半绝对值之和", "连续累加值后一半绝对值之和",
     "连续累加值前四分之一绝对值之和", "连续累加值前四分之二绝对值之和",
@@ -187,6 +187,8 @@ def show_continuous_sum_table(parent, all_results, price_data, as_widget=False):
                     table1.setItem(row_idx, 4 + col_idx, QTableWidgetItem(str(val)))
                 param_values = [
                     len(results),
+                    row.get('cont_sum_pos_sum', ''),
+                    row.get('cont_sum_neg_sum', ''),
                     row.get('continuous_start_value', ''),
                     row.get('continuous_start_next_value', ''),
                     row.get('continuous_start_next_next_value', ''),
@@ -508,6 +510,7 @@ def query_row_result(rows, keyword, n_days=0):
                 f"第1组后N最大值逻辑：{row.get('n_max_is_max', '无')}，"
                 f"开始日到结束日之间最高价/最低价小于M：{row.get('range_ratio_is_less', '无')}，"
                 f"开始日到结束日之间连续累加值绝对值小于：{row.get('continuous_abs_is_less', '无')}，"
+                f"开始日到结束日之间有效累加值绝对值小于：{row.get('valid_abs_is_less', '无')}，"
                 f"前1组结束地址前1日涨跌幅：{row.get('prev_day_change', '无')}%，"
                 f"前1组结束日涨跌幅：{row.get('end_day_change', '无')}%，"
                 f"后一组结束地址值：{row.get('diff_end_value', '无')}, "
@@ -613,9 +616,11 @@ def show_params_table(parent, all_results, end_date=None, n_days=0, n_days_max=0
         f'前1组结束地址后N日的最大值', '第1组后N最大值逻辑', 
         f'开始日到结束日之间最高价/最低价小于M',
         f'开始日到结束日之间连续累加值绝对值小于M',
+        f'开始日到结束日之间有效累加值绝对值小于M',
         '前1组结束日地址值',
         '前1组结束地址前1日涨跌幅', '前1组结束日涨跌幅', '后1组结束地址值',
-        '递增值', '后值大于结束地址值', '后值大于前值返回值', '操作值', '持有天数', '操作涨幅', '调整天数', '日均涨幅'
+        '递增值', '后值大于结束地址值', '后值大于前值返回值', '操作值', '持有天数', '操作涨幅', '调整天数', '日均涨幅',
+        '创新高', '创新低'  # 新增两列
     ]
     table = QTableWidget(len(stocks_data), len(headers))
     table.setHorizontalHeaderLabels(headers)
@@ -674,18 +679,22 @@ def show_params_table(parent, all_results, end_date=None, n_days=0, n_days_max=0
             table.setItem(row_idx, 9, QTableWidgetItem(str(get_val(row.get('n_max_is_max', '')))))
             table.setItem(row_idx, 10, QTableWidgetItem(get_bool(row.get('range_ratio_is_less', ''))))
             table.setItem(row_idx, 11, QTableWidgetItem(get_bool(row.get('continuous_abs_is_less', ''))))
-            table.setItem(row_idx, 12, QTableWidgetItem(str(get_val(row.get('end_value', '')))))
-            table.setItem(row_idx, 13, QTableWidgetItem(get_percent(row.get('prev_day_change', ''))))
-            table.setItem(row_idx, 14, QTableWidgetItem(get_percent(row.get('end_day_change', ''))))
-            table.setItem(row_idx, 15, QTableWidgetItem(str(get_val(row.get('diff_end_value', '')))))
-            table.setItem(row_idx, 16, QTableWidgetItem(str(get_val(row.get('increment_value', '')))))
-            table.setItem(row_idx, 17, QTableWidgetItem(str(get_val(row.get('after_gt_end_value', '')))))
-            table.setItem(row_idx, 18, QTableWidgetItem(str(get_val(row.get('after_gt_start_value', '')))))
-            table.setItem(row_idx, 19, QTableWidgetItem(str(get_val(row.get('ops_value', '')))))
-            table.setItem(row_idx, 20, QTableWidgetItem(str(row.get('hold_days', ''))))
-            table.setItem(row_idx, 21, QTableWidgetItem(get_percent(row.get('ops_change', ''))))
-            table.setItem(row_idx, 22, QTableWidgetItem(str(get_val(row.get('adjust_days', '')))))
-            table.setItem(row_idx, 23, QTableWidgetItem(get_percent(row.get('ops_incre_rate', ''))))
+            table.setItem(row_idx, 12, QTableWidgetItem(get_bool(row.get('valid_abs_is_less', ''))))
+            table.setItem(row_idx, 13, QTableWidgetItem(str(get_val(row.get('end_value', '')))))
+            table.setItem(row_idx, 14, QTableWidgetItem(get_percent(row.get('prev_day_change', ''))))
+            table.setItem(row_idx, 15, QTableWidgetItem(get_percent(row.get('end_day_change', ''))))
+            table.setItem(row_idx, 16, QTableWidgetItem(str(get_val(row.get('diff_end_value', '')))))
+            table.setItem(row_idx, 17, QTableWidgetItem(str(get_val(row.get('increment_value', '')))))
+            table.setItem(row_idx, 18, QTableWidgetItem(str(get_val(row.get('after_gt_end_value', '')))))
+            table.setItem(row_idx, 19, QTableWidgetItem(str(get_val(row.get('after_gt_start_value', '')))))
+            table.setItem(row_idx, 20, QTableWidgetItem(str(get_val(row.get('ops_value', '')))))
+            table.setItem(row_idx, 21, QTableWidgetItem(str(row.get('hold_days', ''))))
+            table.setItem(row_idx, 22, QTableWidgetItem(get_percent(row.get('ops_change', ''))))
+            table.setItem(row_idx, 23, QTableWidgetItem(str(get_val(row.get('adjust_days', '')))))
+            table.setItem(row_idx, 24, QTableWidgetItem(get_percent(row.get('ops_incre_rate', ''))))
+            # 新增：创新高、创新低
+            table.setItem(row_idx, 25, QTableWidgetItem(get_bool(row.get('start_with_new_high', ''))))
+            table.setItem(row_idx, 26, QTableWidgetItem(get_bool(row.get('start_with_new_low', ''))))
         table.resizeColumnsToContents()
         table.horizontalHeader().setFixedHeight(50)
         table.horizontalHeader().setStyleSheet("font-size: 12px;")
@@ -1352,6 +1361,9 @@ class FormulaSelectWidget(QWidget):
         # 1. 收集所有条件
         conditions = []
         for en, widgets in self.var_widgets.items():
+            # 跳过只做传递的逻辑变量
+            if en in ('start_with_new_high', 'start_with_new_low'):
+                continue
             # 只处理有下限/上限的数值变量
             if 'lower' in widgets and 'upper' in widgets:
                 if widgets['checkbox'].isChecked():
@@ -1410,6 +1422,8 @@ class FormulaSelectWidget(QWidget):
         layout.setSpacing(0)
         layout.setAlignment(Qt.AlignTop)
 
+        self.cols_per_row = 5  # 修正：确保变量控件布局可用
+
         # 创建滚动区域
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -1463,7 +1477,11 @@ class FormulaSelectWidget(QWidget):
 
         # 1. 先放逻辑变量控件在第一行
         logic_keys = list(self.abbr_logic_map.items())
-        for col, (zh, en) in enumerate(logic_keys):
+        logic_per_row = 5
+        logic_rows = (len(logic_keys) + logic_per_row - 1) // logic_per_row
+        for idx, (zh, en) in enumerate(logic_keys):
+            row = idx // logic_per_row
+            col = idx % logic_per_row
             var_widget = QWidget()
             var_widget.setFixedHeight(35)
             var_layout = QHBoxLayout(var_widget)
@@ -1481,15 +1499,14 @@ class FormulaSelectWidget(QWidget):
             self.var_widgets[en] = {
                 'checkbox': checkbox
             }
-            grid_layout.addWidget(var_widget, 0, col)
+            grid_layout.addWidget(var_widget, row, col)
 
-        # 2. 数值变量控件从第一行开始，每行5个
-        self.cols_per_row = 5
+        # 2. 数值变量控件从logic_rows行开始，每行5个
         value_keys = list(self.abbr_map.items())
         self.value_keys = value_keys  # 记录变量控件顺序
         self.var_count = len(value_keys)
         for idx, (zh, en) in enumerate(value_keys):
-            row = idx // self.cols_per_row + 1  # 从第1行开始，因为第0行是逻辑变量
+            row = idx // self.cols_per_row + logic_rows  # 注意这里加上logic_rows
             col = idx % self.cols_per_row
             var_widget = QWidget()
             var_widget.setFixedHeight(35)
@@ -1549,6 +1566,7 @@ class FormulaSelectWidget(QWidget):
                 widget_dict['round_checkbox'] = round_checkbox
             self.var_widgets[en] = widget_dict
             grid_layout.addWidget(var_widget, row, col)
+
         # 3. 比较控件和添加比较按钮放在变量控件最后一行最后一列后面
         self.comparison_widgets = []
         self.add_comparison_btn = QPushButton("添加比较")
@@ -1571,15 +1589,16 @@ class FormulaSelectWidget(QWidget):
             }
         """)
         self.add_comparison_btn.clicked.connect(self.add_comparison_widget)
-        self._refresh_comparison_row(grid_layout)
+        self._refresh_comparison_row(grid_layout, logic_rows)
         conditions_group.setLayout(grid_layout)
         layout.addWidget(conditions_group)
         self.setLayout(layout)
         # 在末尾添加
         self._setup_state_sync()
 
-    def _refresh_comparison_row(self, grid_layout=None):
-        last_var_row = (len(self.value_keys) - 1) // self.cols_per_row + 1
+    def _refresh_comparison_row(self, grid_layout=None, logic_rows=0):
+        # 变量控件最后一行的行号
+        last_var_row = (len(self.value_keys) - 1) // self.cols_per_row + logic_rows
         last_var_col = (len(self.value_keys) - 1) % self.cols_per_row
         for comp in getattr(self, 'comparison_widgets', []):
             if hasattr(comp, 'widget'):
@@ -1588,7 +1607,7 @@ class FormulaSelectWidget(QWidget):
             self.add_comparison_btn.setParent(None)
         # 判断变量控件最后一行是否有内容
         start_col = last_var_col + 1
-        row = last_var_row
+        row = last_var_row + 2  # 下放两行
         if start_col > 0:
             row += 1
         col = 0
@@ -1620,7 +1639,7 @@ def get_abbr_map():
         ("前1组结束日地址值", "end_value"), 
         ("前1组结束地址前N日的最高值", "n_days_max_value"), 
         ("前1组结束地址前1日涨跌幅", "prev_day_change"), ("前1组结束日涨跌幅", "end_day_change"), ("后一组结束地址值", "diff_end_value"),
-        ("连续累加值数组非空数据长度", "continuous_len"), ("连续累加值开始值", "continuous_start_value"), ("连续累加值开始后1位值", "continuous_start_next_value"),
+        ("连续累加值数组非空数据长度", "continuous_len"), ("连续累加值正加和", "cont_sum_pos_sum"), ("连续累加值负加和", "cont_sum_neg_sum"), ("连续累加值开始值", "continuous_start_value"), ("连续累加值开始后1位值", "continuous_start_next_value"),
         ("连续累加值开始后2位值", "continuous_start_next_next_value"), ("连续累加值结束值", "continuous_end_value"), ("连续累加值结束前1位值", "continuous_end_prev_value"), ("连续累加值结束前2位值", "continuous_end_prev_prev_value"),
         ("连续累加值数组前一半绝对值之和", "continuous_abs_sum_first_half"), ("连续累加值数组后一半绝对值之和", "continuous_abs_sum_second_half"),
         ("连续累加值数组前四分之一绝对值之和", "continuous_abs_sum_block1"), ("连续累加值数组前四分之1-2绝对值之和", "continuous_abs_sum_block2"),
@@ -1660,7 +1679,10 @@ def get_abbr_logic_map():
     abbrs = [
         ("第1组后N最大值逻辑", "n_max_is_max"),
         ("开始日到结束日之间最高价/最低价小于M", "range_ratio_is_less"), 
-        ("开始日到结束日之间连续累加值绝对值小于M", "continuous_abs_is_less")
+        ("开始日到结束日之间连续累加值绝对值小于M", "continuous_abs_is_less"),
+        ("开始日到结束日之间有效累加值绝对值小于M", "valid_abs_is_less"),
+        ("创新高才计算开始值", "start_with_new_high"),
+        ("创新低才计算开始值", "start_with_new_low")
     ]
     return {zh: en for zh, en in abbrs}
 
