@@ -157,6 +157,8 @@ class StockAnalysisApp(QWidget):
         self.date_label = QLabel("请选择结束日期：")
         self.date_picker = QDateEdit(calendarPopup=True)
         self.date_picker.setDisplayFormat("yyyy/M/d")
+        # 绑定日期修正事件
+        self.date_picker.editingFinished.connect(self._fix_date_range)
 
         # CPU核心数控件
         cpu_widget = QWidget()
@@ -240,6 +242,9 @@ class StockAnalysisApp(QWidget):
         self.range_value_edit = QLineEdit()
         self.abs_sum_label = QLabel("开始日到结束日之间连续累加值绝对值小于")
         self.continuous_abs_threshold_edit = QLineEdit()
+        # 新增：有效累加值绝对值小于控件
+        self.valid_abs_sum_label = QLabel("开始日到结束日之间有效累加值绝对值小于")
+        self.valid_abs_sum_threshold_edit = QLineEdit()
 
         # 第一行全部控件
         top_grid.addWidget(self.label, 0, 0)
@@ -389,6 +394,8 @@ class StockAnalysisApp(QWidget):
         top_grid.addWidget(after_gt_prev_widget, 1, 7)
         top_grid.addWidget(expr_widget, 1, 8)
         top_grid.addWidget(ops_change_widget, 1, 9)
+        top_grid.addWidget(self.valid_abs_sum_label, 1, 10)
+        top_grid.addWidget(self.valid_abs_sum_threshold_edit, 1, 11)
 
         # 第三行：创新高和创新低相关控件
         # 创新高开始日期天数
@@ -488,12 +495,12 @@ class StockAnalysisApp(QWidget):
         new_low_span_widget.setLayout(new_low_span_layout)
 
         # # 添加第三行控件到布局
-        # top_grid.addWidget(new_high_start_widget, 2, 0)
-        # top_grid.addWidget(new_high_range_widget, 2, 1)
-        # top_grid.addWidget(new_high_span_widget, 2, 2)
-        # top_grid.addWidget(new_low_start_widget, 2, 3)
-        # top_grid.addWidget(new_low_range_widget, 2, 4)
-        # top_grid.addWidget(new_low_span_widget, 2, 5)
+        top_grid.addWidget(new_high_start_widget, 2, 0)
+        top_grid.addWidget(new_high_range_widget, 2, 1)
+        top_grid.addWidget(new_high_span_widget, 2, 2)
+        top_grid.addWidget(new_low_start_widget, 2, 3)
+        top_grid.addWidget(new_low_range_widget, 2, 4)
+        top_grid.addWidget(new_low_span_widget, 2, 5)
 
         # 查询区控件
         self.query_input = QLineEdit()
@@ -710,10 +717,44 @@ class StockAnalysisApp(QWidget):
             # print(f"保存状态: {state}")
 
     def get_or_calculate_result(self, formula_expr=None, select_count=None, sort_mode=None, show_main_output=True, only_show_selected=None, is_auto_analysis=False, end_date_start=None, end_date_end=None):
+        # 直接在此处校验创新高/创新低日期范围
+        workdays = getattr(self.init, 'workdays_str', None)
         end_date = self.date_picker.date().toString("yyyy-MM-dd")
+        if hasattr(self.init, 'workdays_str'):
+            if not self.init.workdays_str:
+                QMessageBox.warning(self, "提示", "请先上传数据文件！")
+                return None
+            date_str = self.date_picker.date().toString("yyyy-MM-dd")
+            if date_str not in self.init.workdays_str:
+                QMessageBox.warning(self, "提示", "只能选择交易日！")
+                return None
+        
+        if workdays:
+            try:
+                end_idx = workdays.index(end_date)
+            except Exception:
+                end_idx = None
+            if end_idx is not None:
+                # 创新高参数
+                nh_start = self.new_high_start_spin.value()
+                nh_range = self.new_high_range_spin.value()
+                nh_span = self.new_high_span_spin.value()
+                nh_total = nh_start + nh_range + nh_span
+                if end_idx - nh_total < 0:
+                    QMessageBox.warning(self, "提示", "创新高日期范围超出数据范围，请调整！")
+                    return None
+                # 创新低参数
+                nl_start = self.new_low_start_spin.value()
+                nl_range = self.new_low_range_spin.value()
+                nl_span = self.new_low_span_spin.value()
+                nl_total = nl_start + nl_range + nl_span
+                if end_idx - nl_total < 0:
+                    QMessageBox.warning(self, "提示", "创新低日期范围超出数据范围，请调整！")
+                    return None
         current_formula = formula_expr if formula_expr is not None else (
             self.formula_expr_edit.toPlainText() if hasattr(self, 'formula_expr_edit') else ''
         )
+    
         # 每次都强制重新计算
         # 收集所有参数
         params = {}
@@ -736,6 +777,13 @@ class StockAnalysisApp(QWidget):
         params['ops_change'] = self.ops_change_edit.text()
         # 选股计算公式
         params['formula_expr'] = current_formula
+        # 新增：创新高/创新低相关SpinBox参数
+        params['new_high_start'] = self.new_high_start_spin.value()
+        params['new_high_range'] = self.new_high_range_spin.value()
+        params['new_high_span'] = self.new_high_span_spin.value()
+        params['new_low_start'] = self.new_low_start_spin.value()
+        params['new_low_range'] = self.new_low_range_spin.value()
+        params['new_low_span'] = self.new_low_span_spin.value()
         # 获取end_date_start和end_date_end
         if is_auto_analysis and end_date_start is not None and end_date_end is not None:
             params['end_date_start'] = end_date_start
@@ -747,6 +795,11 @@ class StockAnalysisApp(QWidget):
             params['only_show_selected'] = only_show_selected
         # 添加CPU核心数参数
         params['max_cores'] = self.cpu_spin.value()
+        # 添加公式选股逻辑控件的勾选状态
+        state = getattr(self, 'last_formula_select_state', {})
+        params['start_with_new_high_flag'] = state.get('start_with_new_high', {}).get('checked', False)
+        params['start_with_new_low_flag'] = state.get('start_with_new_low', {}).get('checked', False)
+        params['valid_abs_sum_threshold'] = self.valid_abs_sum_threshold_edit.text()
         result = self.base_param.on_calculate_clicked(params)
         if result is None:
             if show_main_output:
@@ -1474,6 +1527,14 @@ class StockAnalysisApp(QWidget):
             'last_formula_select_state': getattr(self, 'last_formula_select_state', {}),
             'analysis_table_cache_data': getattr(self, 'analysis_table_cache_data', None),
             'cached_table_data': getattr(self, 'cached_table_data', None),
+            # 新增：创新高/创新低相关SpinBox控件
+            'new_high_start': self.new_high_start_spin.value(),
+            'new_high_range': self.new_high_range_spin.value(),
+            'new_high_span': self.new_high_span_spin.value(),
+            'new_low_start': self.new_low_start_spin.value(),
+            'new_low_range': self.new_low_range_spin.value(),
+            'new_low_span': self.new_low_span_spin.value(),
+            'valid_abs_sum_threshold': self.valid_abs_sum_threshold_edit.text(),
         }
         # 保存公式选股控件状态
         if hasattr(self, 'formula_widget') and self.formula_widget is not None:
@@ -1555,8 +1616,36 @@ class StockAnalysisApp(QWidget):
             # 恢复表格数据
             if 'cached_table_data' in config:
                 self.cached_table_data = config['cached_table_data']
+            # 新增：恢复创新高/创新低相关SpinBox控件
+            if 'new_high_start' in config:
+                self.new_high_start_spin.setValue(config['new_high_start'])
+            if 'new_high_range' in config:
+                self.new_high_range_spin.setValue(config['new_high_range'])
+            if 'new_high_span' in config:
+                self.new_high_span_spin.setValue(config['new_high_span'])
+            if 'new_low_start' in config:
+                self.new_low_start_spin.setValue(config['new_low_start'])
+            if 'new_low_range' in config:
+                self.new_low_range_spin.setValue(config['new_low_range'])
+            if 'new_low_span' in config:
+                self.new_low_span_spin.setValue(config['new_low_span'])
+            if 'valid_abs_sum_threshold' in config:
+                self.valid_abs_sum_threshold_edit.setText(config['valid_abs_sum_threshold'])
         except Exception as e:
             print(f"加载配置失败: {e}")
+
     def closeEvent(self, event):
         self.save_config()
         super().closeEvent(event)
+
+    def _fix_date_range(self):
+        # 自动修正日期到workdays范围
+        if not hasattr(self.init, 'workdays_str') or not self.init.workdays_str:
+            return
+        min_date = QDate.fromString(self.init.workdays_str[0], "yyyy-MM-dd")
+        max_date = QDate.fromString(self.init.workdays_str[-1], "yyyy-MM-dd")
+        cur_date = self.date_picker.date()
+        if cur_date < min_date:
+            self.date_picker.setDate(min_date)
+        elif cur_date > max_date:
+            self.date_picker.setDate(max_date)
