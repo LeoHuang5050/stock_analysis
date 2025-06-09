@@ -172,7 +172,7 @@ class StockAnalysisApp(QWidget):
         # 获取实际CPU核心数
         max_cores = cpu_count()
         self.cpu_spin.setMaximum(max_cores)  # 设置为实际CPU核心数
-        self.cpu_spin.setValue(min(16, max_cores))  # 默认值设为4或实际核心数（取较小值）
+        self.cpu_spin.setValue(min(10, max_cores))  # 默认值设为4或实际核心数（取较小值）
         self.cpu_spin.setFixedWidth(60)
         self.cpu_max_label = QLabel(f"当前CPU配置最大可设置: {max_cores}")
         self.cpu_max_label.setStyleSheet("font-weight: bold;")
@@ -181,7 +181,7 @@ class StockAnalysisApp(QWidget):
         self.cpu_help_label = QLabel()
         self.cpu_help_label.setText("❓")
         self.cpu_help_label.setStyleSheet("color: #0078d7; font-size: 16px;")
-        self.cpu_help_label.setToolTip("设置到最大会让CPU利用率达到100%，自动分析计算速度会达到最快，但是可能会导致CPU温度升高并触发自动重启机制")
+        self.cpu_help_label.setToolTip("增大CPU核心数一定程度上会加快计算速度，但是可能根据电脑不同引发异常，请根据实际情况设置")
         self.cpu_help_label.setEnabled(True)
         self.cpu_help_label.setAttribute(Qt.WA_TransparentForMouseEvents, False)
 
@@ -397,110 +397,530 @@ class StockAnalysisApp(QWidget):
         top_grid.addWidget(self.valid_abs_sum_label, 1, 10)
         top_grid.addWidget(self.valid_abs_sum_threshold_edit, 1, 11)
 
-        # 第三行：创新高和创新低相关控件
-        # 创新高开始日期天数
-        new_high_start_widget = QWidget()
-        new_high_start_layout = QHBoxLayout()
-        new_high_start_layout.setContentsMargins(0, 0, 0, 0)
-        new_high_start_layout.setSpacing(5)
-        new_high_start_layout.setAlignment(Qt.AlignLeft)
-        self.new_high_start_label = QLabel("创新高开始日期距结束日期天数")
-        self.new_high_start_spin = QSpinBox()
-        self.new_high_start_spin.setMinimum(0)
-        self.new_high_start_spin.setMaximum(100)
-        self.new_high_start_spin.setValue(0)
-        self.new_high_start_spin.setFixedWidth(60)
-        new_high_start_layout.addWidget(self.new_high_start_label)
-        new_high_start_layout.addWidget(self.new_high_start_spin)
-        new_high_start_widget.setLayout(new_high_start_layout)
+        # 添加交易方式下拉框
+        trade_mode_widget = QWidget()
+        trade_mode_layout = QHBoxLayout()
+        trade_mode_layout.setContentsMargins(0, 0, 0, 0)
+        trade_mode_layout.setSpacing(5)
+        trade_mode_layout.setAlignment(Qt.AlignLeft)
+        self.trade_mode_label = QLabel("交易方式")
+        self.trade_mode_combo = QComboBox()
+        self.trade_mode_combo.addItems(["T+0", "T+1"])
+        self.trade_mode_combo.setFixedWidth(60)
+        trade_mode_layout.addWidget(self.trade_mode_label)
+        trade_mode_layout.addWidget(self.trade_mode_combo)
+        trade_mode_widget.setLayout(trade_mode_layout)
+        top_grid.addWidget(trade_mode_widget, 1, 12)
 
-        # 创新高日期范围
-        new_high_range_widget = QWidget()
-        new_high_range_layout = QHBoxLayout()
-        new_high_range_layout.setContentsMargins(0, 0, 0, 0)
-        new_high_range_layout.setSpacing(5)
-        new_high_range_layout.setAlignment(Qt.AlignLeft)
-        self.new_high_range_label = QLabel("创新高日期范围")
-        self.new_high_range_spin = QSpinBox()
-        self.new_high_range_spin.setMinimum(0)
-        self.new_high_range_spin.setMaximum(100)
-        self.new_high_range_spin.setValue(0)
-        self.new_high_range_spin.setFixedWidth(60)
-        new_high_range_layout.addWidget(self.new_high_range_label)
-        new_high_range_layout.addWidget(self.new_high_range_spin)
-        new_high_range_widget.setLayout(new_high_range_layout)
+        # 第三行：创前新高1和创前新低相关控件
+        # 创前新高1开始日期天数
+        new_before_high_start_widget = QWidget()
+        new_before_high_start_layout = QHBoxLayout()
+        new_before_high_start_layout.setContentsMargins(0, 0, 0, 0)
+        new_before_high_start_layout.setSpacing(5)
+        new_before_high_start_layout.setAlignment(Qt.AlignLeft)
+        self.new_before_high_start_label = QLabel("创前新高1开始日期距结束日期天数")
+        self.new_before_high_start_spin = QSpinBox()
+        self.new_before_high_start_spin.setMinimum(0)
+        self.new_before_high_start_spin.setValue(0)
+        self.new_before_high_start_spin.setFixedWidth(60)
+        new_before_high_start_layout.addWidget(self.new_before_high_start_label)
+        new_before_high_start_layout.addWidget(self.new_before_high_start_spin)
+        new_before_high_start_widget.setLayout(new_before_high_start_layout)
 
-        # 创新高展宽期天数
-        new_high_span_widget = QWidget()
-        new_high_span_layout = QHBoxLayout()
-        new_high_span_layout.setContentsMargins(0, 0, 0, 0)
-        new_high_span_layout.setSpacing(5)
-        new_high_span_layout.setAlignment(Qt.AlignLeft)
-        self.new_high_span_label = QLabel("创新高展宽期天数")
-        self.new_high_span_spin = QSpinBox()
-        self.new_high_span_spin.setMinimum(0)
-        self.new_high_span_spin.setMaximum(100)
-        self.new_high_span_spin.setValue(0)
-        self.new_high_span_spin.setFixedWidth(60)
-        new_high_span_layout.addWidget(self.new_high_span_label)
-        new_high_span_layout.addWidget(self.new_high_span_spin)
-        new_high_span_widget.setLayout(new_high_span_layout)
+        # 创前新高1日期范围
+        new_before_high_range_widget = QWidget()
+        new_before_high_range_layout = QHBoxLayout()
+        new_before_high_range_layout.setContentsMargins(0, 0, 0, 0)
+        new_before_high_range_layout.setSpacing(5)
+        new_before_high_range_layout.setAlignment(Qt.AlignLeft)
+        self.new_before_high_range_label = QLabel("创前新高1日期范围")
+        self.new_before_high_range_spin = QSpinBox()
+        self.new_before_high_range_spin.setMinimum(1)
+        self.new_before_high_range_spin.setValue(0)
+        self.new_before_high_range_spin.setFixedWidth(60)
+        new_before_high_range_layout.addWidget(self.new_before_high_range_label)
+        new_before_high_range_layout.addWidget(self.new_before_high_range_spin)
+        new_before_high_range_widget.setLayout(new_before_high_range_layout)
+
+        # 创前新高1展宽期天数
+        new_before_high_span_widget = QWidget()
+        new_before_high_span_layout = QHBoxLayout()
+        new_before_high_span_layout.setContentsMargins(0, 0, 0, 0)
+        new_before_high_span_layout.setSpacing(5)
+        new_before_high_span_layout.setAlignment(Qt.AlignLeft)
+        self.new_before_high_span_label = QLabel("创前新高1展宽期天数")
+        self.new_before_high_span_spin = QSpinBox()
+        self.new_before_high_span_spin.setMinimum(1)
+        self.new_before_high_span_spin.setValue(0)
+        self.new_before_high_span_spin.setFixedWidth(60)
+        new_before_high_span_layout.addWidget(self.new_before_high_span_label)
+        new_before_high_span_layout.addWidget(self.new_before_high_span_spin)
+        new_before_high_span_widget.setLayout(new_before_high_span_layout)
+
+        # 创前新高1与或下拉框
+        new_before_high_logic_widget = QWidget()
+        new_before_high_logic_layout = QHBoxLayout()
+        new_before_high_logic_layout.setContentsMargins(0, 0, 0, 0)
+        new_before_high_logic_layout.setSpacing(5)
+        new_before_high_logic_layout.setAlignment(Qt.AlignLeft)
+        self.new_before_high_logic_label = QLabel("创前新高1与或")
+        self.new_before_high_logic_combo = QComboBox()
+        self.new_before_high_logic_combo.addItems(["与", "或"])
+        self.new_before_high_logic_combo.setFixedWidth(60)
+        new_before_high_logic_layout.addWidget(self.new_before_high_logic_label)
+        new_before_high_logic_layout.addWidget(self.new_before_high_logic_combo)
+        new_before_high_logic_widget.setLayout(new_before_high_logic_layout)
+
+        # 创前新高2开始日期距结束日期天数
+        new_before_high2_start_widget = QWidget()
+        new_before_high2_start_layout = QHBoxLayout()
+        new_before_high2_start_layout.setContentsMargins(0, 0, 0, 0)
+        new_before_high2_start_layout.setSpacing(5)
+        new_before_high2_start_layout.setAlignment(Qt.AlignLeft)
+        self.new_before_high2_start_label = QLabel("创前新高2开始日期距结束日期天数")
+        self.new_before_high2_start_spin = QSpinBox()
+        self.new_before_high2_start_spin.setMinimum(0)
+        self.new_before_high2_start_spin.setValue(0)
+        self.new_before_high2_start_spin.setFixedWidth(60)
+        new_before_high2_start_layout.addWidget(self.new_before_high2_start_label)
+        new_before_high2_start_layout.addWidget(self.new_before_high2_start_spin)
+        new_before_high2_start_widget.setLayout(new_before_high2_start_layout)
+
+        # 创前新高2日期范围
+        new_before_high2_range_widget = QWidget()
+        new_before_high2_range_layout = QHBoxLayout()
+        new_before_high2_range_layout.setContentsMargins(0, 0, 0, 0)
+        new_before_high2_range_layout.setSpacing(5)
+        new_before_high2_range_layout.setAlignment(Qt.AlignLeft)
+        self.new_before_high2_range_label = QLabel("创前新高2日期范围")
+        self.new_before_high2_range_spin = QSpinBox()
+        self.new_before_high2_range_spin.setMinimum(1)
+        self.new_before_high2_range_spin.setValue(0)
+        self.new_before_high2_range_spin.setFixedWidth(60)
+        new_before_high2_range_layout.addWidget(self.new_before_high2_range_label)
+        new_before_high2_range_layout.addWidget(self.new_before_high2_range_spin)
+        new_before_high2_range_widget.setLayout(new_before_high2_range_layout)
+
+        # 创前新高2展宽期天数
+        new_before_high2_span_widget = QWidget()
+        new_before_high2_span_layout = QHBoxLayout()
+        new_before_high2_span_layout.setContentsMargins(0, 0, 0, 0)
+        new_before_high2_span_layout.setSpacing(5)
+        new_before_high2_span_layout.setAlignment(Qt.AlignLeft)
+        self.new_before_high2_span_label = QLabel("创前新高2展宽期天数")
+        self.new_before_high2_span_spin = QSpinBox()
+        self.new_before_high2_span_spin.setMinimum(1)
+        self.new_before_high2_span_spin.setValue(0)
+        self.new_before_high2_span_spin.setFixedWidth(60)
+        new_before_high2_span_layout.addWidget(self.new_before_high2_span_label)
+        new_before_high2_span_layout.addWidget(self.new_before_high2_span_spin)
+        new_before_high2_span_widget.setLayout(new_before_high2_span_layout)
+
+        # 创前新高2与或下拉框
+        new_before_high2_logic_widget = QWidget()
+        new_before_high2_logic_layout = QHBoxLayout()
+        new_before_high2_logic_layout.setContentsMargins(0, 0, 0, 0)
+        new_before_high2_logic_layout.setSpacing(5)
+        new_before_high2_logic_layout.setAlignment(Qt.AlignLeft)
+        self.new_before_high2_logic_label = QLabel("创前新高2与或")
+        self.new_before_high2_logic_combo = QComboBox()
+        self.new_before_high2_logic_combo.addItems(["与", "或"])
+        self.new_before_high2_logic_combo.setFixedWidth(60)
+        new_before_high2_logic_layout.addWidget(self.new_before_high2_logic_label)
+        new_before_high2_logic_layout.addWidget(self.new_before_high2_logic_combo)
+        new_before_high2_logic_widget.setLayout(new_before_high2_logic_layout)
+
+        top_grid.addWidget(new_before_high_start_widget, 2, 0)
+        top_grid.addWidget(new_before_high_range_widget, 2, 1)
+        top_grid.addWidget(new_before_high_span_widget, 2, 2)
+        top_grid.addWidget(new_before_high_logic_widget, 2, 3)
+        top_grid.addWidget(new_before_high2_start_widget, 2, 4)
+        top_grid.addWidget(new_before_high2_range_widget, 2, 5)
+        top_grid.addWidget(new_before_high2_span_widget, 2, 6)
+        top_grid.addWidget(new_before_high2_logic_widget, 2, 7)
+
+        # 第四行：创前新高1和创前新低相关控件
+        # 创前新高1开始日期天数
+        new_after_high_start_widget = QWidget()
+        new_after_high_start_layout = QHBoxLayout()
+        new_after_high_start_layout.setContentsMargins(0, 0, 0, 0)
+        new_after_high_start_layout.setSpacing(5)
+        new_after_high_start_layout.setAlignment(Qt.AlignLeft)
+        self.new_after_high_start_label = QLabel("创后新高1开始日期距结束日期天数")
+        self.new_after_high_start_spin = QSpinBox()
+        self.new_after_high_start_spin.setMinimum(0)
+        self.new_after_high_start_spin.setValue(0)
+        self.new_after_high_start_spin.setFixedWidth(60)
+        new_after_high_start_layout.addWidget(self.new_after_high_start_label)
+        new_after_high_start_layout.addWidget(self.new_after_high_start_spin)
+        new_after_high_start_widget.setLayout(new_after_high_start_layout)
+
+        # 创前新高1日期范围
+        new_after_high_range_widget = QWidget()
+        new_after_high_range_layout = QHBoxLayout()
+        new_after_high_range_layout.setContentsMargins(0, 0, 0, 0)
+        new_after_high_range_layout.setSpacing(5)
+        new_after_high_range_layout.setAlignment(Qt.AlignLeft)
+        self.new_after_high_range_label = QLabel("创后新高1日期范围")
+        self.new_after_high_range_spin = QSpinBox()
+        self.new_after_high_range_spin.setMinimum(1)
+        self.new_after_high_range_spin.setValue(0)
+        self.new_after_high_range_spin.setFixedWidth(60)
+        new_after_high_range_layout.addWidget(self.new_after_high_range_label)
+        new_after_high_range_layout.addWidget(self.new_after_high_range_spin)
+        new_after_high_range_widget.setLayout(new_after_high_range_layout)
+
+        # 创前新高1展宽期天数
+        new_after_high_span_widget = QWidget()
+        new_after_high_span_layout = QHBoxLayout()
+        new_after_high_span_layout.setContentsMargins(0, 0, 0, 0)
+        new_after_high_span_layout.setSpacing(5)
+        new_after_high_span_layout.setAlignment(Qt.AlignLeft)
+        self.new_after_high_span_label = QLabel("创后新高1展宽期天数")
+        self.new_after_high_span_spin = QSpinBox()
+        self.new_after_high_span_spin.setMinimum(1)
+        self.new_after_high_span_spin.setValue(0)
+        self.new_after_high_span_spin.setFixedWidth(60)
+        new_after_high_span_layout.addWidget(self.new_after_high_span_label)
+        new_after_high_span_layout.addWidget(self.new_after_high_span_spin)
+        new_after_high_span_widget.setLayout(new_after_high_span_layout)
+
+        # 创前新高1与或下拉框
+        new_after_high_logic_widget = QWidget()
+        new_after_high_logic_layout = QHBoxLayout()
+        new_after_high_logic_layout.setContentsMargins(0, 0, 0, 0)
+        new_after_high_logic_layout.setSpacing(5)
+        new_after_high_logic_layout.setAlignment(Qt.AlignLeft)
+        self.new_after_high_logic_label = QLabel("创后新高1与或")
+        self.new_after_high_logic_combo = QComboBox()
+        self.new_after_high_logic_combo.addItems(["与", "或"])
+        self.new_after_high_logic_combo.setFixedWidth(60)
+        new_after_high_logic_layout.addWidget(self.new_after_high_logic_label)
+        new_after_high_logic_layout.addWidget(self.new_after_high_logic_combo)
+        new_after_high_logic_widget.setLayout(new_after_high_logic_layout)
+
+        # 创前新高2开始日期距结束日期天数
+        new_after_high2_start_widget = QWidget()
+        new_after_high2_start_layout = QHBoxLayout()
+        new_after_high2_start_layout.setContentsMargins(0, 0, 0, 0)
+        new_after_high2_start_layout.setSpacing(5)
+        new_after_high2_start_layout.setAlignment(Qt.AlignLeft)
+        self.new_after_high2_start_label = QLabel("创后新高2开始日期距结束日期天数")
+        self.new_after_high2_start_spin = QSpinBox()
+        self.new_after_high2_start_spin.setMinimum(0)
+        self.new_after_high2_start_spin.setValue(0)
+        self.new_after_high2_start_spin.setFixedWidth(60)
+        new_after_high2_start_layout.addWidget(self.new_after_high2_start_label)
+        new_after_high2_start_layout.addWidget(self.new_after_high2_start_spin)
+        new_after_high2_start_widget.setLayout(new_after_high2_start_layout)
+
+        # 创前新高2日期范围
+        new_after_high2_range_widget = QWidget()
+        new_after_high2_range_layout = QHBoxLayout()
+        new_after_high2_range_layout.setContentsMargins(0, 0, 0, 0)
+        new_after_high2_range_layout.setSpacing(5)
+        new_after_high2_range_layout.setAlignment(Qt.AlignLeft)
+        self.new_after_high2_range_label = QLabel("创后新高2日期范围")
+        self.new_after_high2_range_spin = QSpinBox()
+        self.new_after_high2_range_spin.setMinimum(1)
+        self.new_after_high2_range_spin.setValue(0)
+        self.new_after_high2_range_spin.setFixedWidth(60)
+        new_after_high2_range_layout.addWidget(self.new_after_high2_range_label)
+        new_after_high2_range_layout.addWidget(self.new_after_high2_range_spin)
+        new_after_high2_range_widget.setLayout(new_after_high2_range_layout)
+
+        # 创前新高2展宽期天数
+        new_after_high2_span_widget = QWidget()
+        new_after_high2_span_layout = QHBoxLayout()
+        new_after_high2_span_layout.setContentsMargins(0, 0, 0, 0)
+        new_after_high2_span_layout.setSpacing(5)
+        new_after_high2_span_layout.setAlignment(Qt.AlignLeft)
+        self.new_after_high2_span_label = QLabel("创后新高2展宽期天数")
+        self.new_after_high2_span_spin = QSpinBox()
+        self.new_after_high2_span_spin.setMinimum(1)
+        self.new_after_high2_span_spin.setValue(0)
+        self.new_after_high2_span_spin.setFixedWidth(60)
+        new_after_high2_span_layout.addWidget(self.new_after_high2_span_label)
+        new_after_high2_span_layout.addWidget(self.new_after_high2_span_spin)
+        new_after_high2_span_widget.setLayout(new_after_high2_span_layout)
+
+        # 创前新高2与或下拉框
+        new_after_high2_logic_widget = QWidget()
+        new_after_high2_logic_layout = QHBoxLayout()
+        new_after_high2_logic_layout.setContentsMargins(0, 0, 0, 0)
+        new_after_high2_logic_layout.setSpacing(5)
+        new_after_high2_logic_layout.setAlignment(Qt.AlignLeft)
+        self.new_after_high2_logic_label = QLabel("创后新高2与或")
+        self.new_after_high2_logic_combo = QComboBox()
+        self.new_after_high2_logic_combo.addItems(["与", "或"])
+        self.new_after_high2_logic_combo.setFixedWidth(60)
+        new_after_high2_logic_layout.addWidget(self.new_after_high2_logic_label)
+        new_after_high2_logic_layout.addWidget(self.new_after_high2_logic_combo)
+        new_after_high2_logic_widget.setLayout(new_after_high2_logic_layout)
+
+        top_grid.addWidget(new_after_high_start_widget, 3, 0)
+        top_grid.addWidget(new_after_high_range_widget, 3, 1)
+        top_grid.addWidget(new_after_high_span_widget, 3, 2)
+        top_grid.addWidget(new_after_high_logic_widget, 3, 3)
+        top_grid.addWidget(new_after_high2_start_widget, 3, 4)
+        top_grid.addWidget(new_after_high2_range_widget, 3, 5)
+        top_grid.addWidget(new_after_high2_span_widget, 3, 6)
+        top_grid.addWidget(new_after_high2_logic_widget, 3, 7)
 
         # 创新低开始日期天数
-        new_low_start_widget = QWidget()
-        new_low_start_layout = QHBoxLayout()
-        new_low_start_layout.setContentsMargins(0, 0, 0, 0)
-        new_low_start_layout.setSpacing(5)
-        new_low_start_layout.setAlignment(Qt.AlignLeft)
-        self.new_low_start_label = QLabel("创新低开始日期距结束日期天数")
-        self.new_low_start_spin = QSpinBox()
-        self.new_low_start_spin.setMinimum(0)
-        self.new_low_start_spin.setMaximum(100)
-        self.new_low_start_spin.setValue(0)
-        self.new_low_start_spin.setFixedWidth(60)
-        new_low_start_layout.addWidget(self.new_low_start_label)
-        new_low_start_layout.addWidget(self.new_low_start_spin)
-        new_low_start_widget.setLayout(new_low_start_layout)
+        new_before_low_start_widget = QWidget()
+        new_before_low_start_layout = QHBoxLayout()
+        new_before_low_start_layout.setContentsMargins(0, 0, 0, 0)
+        new_before_low_start_layout.setSpacing(5)
+        new_before_low_start_layout.setAlignment(Qt.AlignLeft)
+        self.new_before_low_start_label = QLabel("创前新低1开始日期距结束日期天数")
+        self.new_before_low_start_spin = QSpinBox()
+        self.new_before_low_start_spin.setMinimum(0)
+        self.new_before_low_start_spin.setValue(0)
+        self.new_before_low_start_spin.setFixedWidth(60)
+        new_before_low_start_layout.addWidget(self.new_before_low_start_label)
+        new_before_low_start_layout.addWidget(self.new_before_low_start_spin)
+        new_before_low_start_widget.setLayout(new_before_low_start_layout)
 
         # 创新低日期范围
-        new_low_range_widget = QWidget()
-        new_low_range_layout = QHBoxLayout()
-        new_low_range_layout.setContentsMargins(0, 0, 0, 0)
-        new_low_range_layout.setSpacing(5)
-        new_low_range_layout.setAlignment(Qt.AlignLeft)
-        self.new_low_range_label = QLabel("创新低日期范围")
-        self.new_low_range_spin = QSpinBox()
-        self.new_low_range_spin.setMinimum(0)
-        self.new_low_range_spin.setMaximum(100)
-        self.new_low_range_spin.setValue(0)
-        self.new_low_range_spin.setFixedWidth(60)
-        new_low_range_layout.addWidget(self.new_low_range_label)
-        new_low_range_layout.addWidget(self.new_low_range_spin)
-        new_low_range_widget.setLayout(new_low_range_layout)
+        new_before_low_range_widget = QWidget()
+        new_before_low_range_layout = QHBoxLayout()
+        new_before_low_range_layout.setContentsMargins(0, 0, 0, 0)
+        new_before_low_range_layout.setSpacing(5)
+        new_before_low_range_layout.setAlignment(Qt.AlignLeft)
+        self.new_before_low_range_label = QLabel("创前新低1日期范围")
+        self.new_before_low_range_spin = QSpinBox()
+        self.new_before_low_range_spin.setMinimum(1)
+        self.new_before_low_range_spin.setValue(0)
+        self.new_before_low_range_spin.setFixedWidth(60)
+        new_before_low_range_layout.addWidget(self.new_before_low_range_label)
+        new_before_low_range_layout.addWidget(self.new_before_low_range_spin)
+        new_before_low_range_widget.setLayout(new_before_low_range_layout)
 
         # 创新低展宽期天数
-        new_low_span_widget = QWidget()
-        new_low_span_layout = QHBoxLayout()
-        new_low_span_layout.setContentsMargins(0, 0, 0, 0)
-        new_low_span_layout.setSpacing(5)
-        new_low_span_layout.setAlignment(Qt.AlignLeft)
-        self.new_low_span_label = QLabel("创新低展宽期天数")
-        self.new_low_span_spin = QSpinBox()
-        self.new_low_span_spin.setMinimum(0)
-        self.new_low_span_spin.setMaximum(100)
-        self.new_low_span_spin.setValue(0)
-        self.new_low_span_spin.setFixedWidth(60)
-        new_low_span_layout.addWidget(self.new_low_span_label)
-        new_low_span_layout.addWidget(self.new_low_span_spin)
-        new_low_span_widget.setLayout(new_low_span_layout)
+        new_before_low_span_widget = QWidget()
+        new_before_low_span_layout = QHBoxLayout()
+        new_before_low_span_layout.setContentsMargins(0, 0, 0, 0)
+        new_before_low_span_layout.setSpacing(5)
+        new_before_low_span_layout.setAlignment(Qt.AlignLeft)
+        self.new_before_low_span_label = QLabel("创前新低1展宽期天数")
+        self.new_before_low_span_spin = QSpinBox()
+        self.new_before_low_span_spin.setMinimum(1)
+        self.new_before_low_span_spin.setValue(0)
+        self.new_before_low_span_spin.setFixedWidth(60)
+        new_before_low_span_layout.addWidget(self.new_before_low_span_label)
+        new_before_low_span_layout.addWidget(self.new_before_low_span_spin)
+        new_before_low_span_widget.setLayout(new_before_low_span_layout)
 
-        # # 添加第三行控件到布局
-        top_grid.addWidget(new_high_start_widget, 2, 0)
-        top_grid.addWidget(new_high_range_widget, 2, 1)
-        top_grid.addWidget(new_high_span_widget, 2, 2)
-        top_grid.addWidget(new_low_start_widget, 2, 3)
-        top_grid.addWidget(new_low_range_widget, 2, 4)
-        top_grid.addWidget(new_low_span_widget, 2, 5)
+        # 创前创新低1与或下拉框
+        new_before_low_logic_widget = QWidget()
+        new_before_low_logic_layout = QHBoxLayout()
+        new_before_low_logic_layout.setContentsMargins(0, 0, 0, 0)
+        new_before_low_logic_layout.setSpacing(5)
+        new_before_low_logic_layout.setAlignment(Qt.AlignLeft)
+        self.new_before_low_logic_label = QLabel("创前新低1与或")
+        self.new_before_low_logic_combo = QComboBox()
+        self.new_before_low_logic_combo.addItems(["与", "或"])
+        self.new_before_low_logic_combo.setFixedWidth(60)
+        new_before_low_logic_layout.addWidget(self.new_before_low_logic_label)
+        new_before_low_logic_layout.addWidget(self.new_before_low_logic_combo)
+        new_before_low_logic_widget.setLayout(new_before_low_logic_layout)
+
+        # 创前创新低2开始日期距结束日期天数
+        new_before_low2_start_widget = QWidget()
+        new_before_low2_start_layout = QHBoxLayout()
+        new_before_low2_start_layout.setContentsMargins(0, 0, 0, 0)
+        new_before_low2_start_layout.setSpacing(5)
+        new_before_low2_start_layout.setAlignment(Qt.AlignLeft)
+        self.new_before_low2_start_label = QLabel("创前新低2开始日期距结束日期天数")
+        self.new_before_low2_start_spin = QSpinBox()
+        self.new_before_low2_start_spin.setMinimum(0)
+        self.new_before_low2_start_spin.setValue(0)
+        self.new_before_low2_start_spin.setFixedWidth(60)
+        new_before_low2_start_layout.addWidget(self.new_before_low2_start_label)
+        new_before_low2_start_layout.addWidget(self.new_before_low2_start_spin)
+        new_before_low2_start_widget.setLayout(new_before_low2_start_layout)
+
+        # 创前创新低2日期范围
+        new_before_low2_range_widget = QWidget()
+        new_before_low2_range_layout = QHBoxLayout()
+        new_before_low2_range_layout.setContentsMargins(0, 0, 0, 0)
+        new_before_low2_range_layout.setSpacing(5)
+        new_before_low2_range_layout.setAlignment(Qt.AlignLeft)
+        self.new_before_low2_range_label = QLabel("创前新低2日期范围")
+        self.new_before_low2_range_spin = QSpinBox()
+        self.new_before_low2_range_spin.setMinimum(1)
+        self.new_before_low2_range_spin.setValue(0)
+        self.new_before_low2_range_spin.setFixedWidth(60)
+        new_before_low2_range_layout.addWidget(self.new_before_low2_range_label)
+        new_before_low2_range_layout.addWidget(self.new_before_low2_range_spin)
+        new_before_low2_range_widget.setLayout(new_before_low2_range_layout)
+
+        # 创前创新低2展宽期天数
+        new_before_low2_span_widget = QWidget()
+        new_before_low2_span_layout = QHBoxLayout()
+        new_before_low2_span_layout.setContentsMargins(0, 0, 0, 0)
+        new_before_low2_span_layout.setSpacing(5)
+        new_before_low2_span_layout.setAlignment(Qt.AlignLeft)
+        self.new_before_low2_span_label = QLabel("创前新低2展宽期天数")
+        self.new_before_low2_span_spin = QSpinBox()
+        self.new_before_low2_span_spin.setMinimum(1)
+        self.new_before_low2_span_spin.setValue(0)
+        self.new_before_low2_span_spin.setFixedWidth(60)
+        new_before_low2_span_layout.addWidget(self.new_before_low2_span_label)
+        new_before_low2_span_layout.addWidget(self.new_before_low2_span_spin)
+        new_before_low2_span_widget.setLayout(new_before_low2_span_layout)
+
+        # 创前创新低2与或下拉框
+        new_before_low2_logic_widget = QWidget()
+        new_before_low2_logic_layout = QHBoxLayout()
+        new_before_low2_logic_layout.setContentsMargins(0, 0, 0, 0)
+        new_before_low2_logic_layout.setSpacing(5)
+        new_before_low2_logic_layout.setAlignment(Qt.AlignLeft)
+        self.new_before_low2_logic_label = QLabel("创前新低2与或")
+        self.new_before_low2_logic_combo = QComboBox()
+        self.new_before_low2_logic_combo.addItems(["与", "或"])
+        self.new_before_low2_logic_combo.setFixedWidth(60)
+        new_before_low2_logic_layout.addWidget(self.new_before_low2_logic_label)
+        new_before_low2_logic_layout.addWidget(self.new_before_low2_logic_combo)
+        new_before_low2_logic_widget.setLayout(new_before_low2_logic_layout)
+
+        # 创后创新低1开始日期距结束日期天数
+        new_after_low_start_widget = QWidget()
+        new_after_low_start_layout = QHBoxLayout()
+        new_after_low_start_layout.setContentsMargins(0, 0, 0, 0)
+        new_after_low_start_layout.setSpacing(5)
+        new_after_low_start_layout.setAlignment(Qt.AlignLeft)
+        self.new_after_low_start_label = QLabel("创后新低1开始日期距结束日期天数")
+        self.new_after_low_start_spin = QSpinBox()
+        self.new_after_low_start_spin.setMinimum(0)
+        self.new_after_low_start_spin.setValue(0)
+        self.new_after_low_start_spin.setFixedWidth(60)
+        new_after_low_start_layout.addWidget(self.new_after_low_start_label)
+        new_after_low_start_layout.addWidget(self.new_after_low_start_spin)
+        new_after_low_start_widget.setLayout(new_after_low_start_layout)
+
+        # 创后创新低1日期范围
+        new_after_low_range_widget = QWidget()
+        new_after_low_range_layout = QHBoxLayout()
+        new_after_low_range_layout.setContentsMargins(0, 0, 0, 0)
+        new_after_low_range_layout.setSpacing(5)
+        new_after_low_range_layout.setAlignment(Qt.AlignLeft)
+        self.new_after_low_range_label = QLabel("创后新低1日期范围")
+        self.new_after_low_range_spin = QSpinBox()
+        self.new_after_low_range_spin.setMinimum(1)
+        self.new_after_low_range_spin.setValue(0)
+        self.new_after_low_range_spin.setFixedWidth(60)
+        new_after_low_range_layout.addWidget(self.new_after_low_range_label)
+        new_after_low_range_layout.addWidget(self.new_after_low_range_spin)
+        new_after_low_range_widget.setLayout(new_after_low_range_layout)
+
+        # 创后创新低1展宽期天数
+        new_after_low_span_widget = QWidget()
+        new_after_low_span_layout = QHBoxLayout()
+        new_after_low_span_layout.setContentsMargins(0, 0, 0, 0)
+        new_after_low_span_layout.setSpacing(5)
+        new_after_low_span_layout.setAlignment(Qt.AlignLeft)
+        self.new_after_low_span_label = QLabel("创后新低1展宽期天数")
+        self.new_after_low_span_spin = QSpinBox()
+        self.new_after_low_span_spin.setMinimum(1)
+        self.new_after_low_span_spin.setValue(0)
+        self.new_after_low_span_spin.setFixedWidth(60)
+        new_after_low_span_layout.addWidget(self.new_after_low_span_label)
+        new_after_low_span_layout.addWidget(self.new_after_low_span_spin)
+        new_after_low_span_widget.setLayout(new_after_low_span_layout)
+
+        # 创后创新低1与或下拉框
+        new_after_low_logic_widget = QWidget()
+        new_after_low_logic_layout = QHBoxLayout()
+        new_after_low_logic_layout.setContentsMargins(0, 0, 0, 0)
+        new_after_low_logic_layout.setSpacing(5)
+        new_after_low_logic_layout.setAlignment(Qt.AlignLeft)
+        self.new_after_low_logic_label = QLabel("创后新低1与或")
+        self.new_after_low_logic_combo = QComboBox()
+        self.new_after_low_logic_combo.addItems(["与", "或"])
+        self.new_after_low_logic_combo.setFixedWidth(60)
+        new_after_low_logic_layout.addWidget(self.new_after_low_logic_label)
+        new_after_low_logic_layout.addWidget(self.new_after_low_logic_combo)
+        new_after_low_logic_widget.setLayout(new_after_low_logic_layout)
+
+        # 创后创新低2开始日期距结束日期天数
+        new_after_low2_start_widget = QWidget()
+        new_after_low2_start_layout = QHBoxLayout()
+        new_after_low2_start_layout.setContentsMargins(0, 0, 0, 0)
+        new_after_low2_start_layout.setSpacing(5)
+        new_after_low2_start_layout.setAlignment(Qt.AlignLeft)
+        self.new_after_low2_start_label = QLabel("创后新低2开始日期距结束日期天数")
+        self.new_after_low2_start_spin = QSpinBox()
+        self.new_after_low2_start_spin.setMinimum(0)
+        self.new_after_low2_start_spin.setValue(0)
+        self.new_after_low2_start_spin.setFixedWidth(60)
+        new_after_low2_start_layout.addWidget(self.new_after_low2_start_label)
+        new_after_low2_start_layout.addWidget(self.new_after_low2_start_spin)
+        new_after_low2_start_widget.setLayout(new_after_low2_start_layout)
+
+        # 创后创新低2日期范围
+        new_after_low2_range_widget = QWidget()
+        new_after_low2_range_layout = QHBoxLayout()
+        new_after_low2_range_layout.setContentsMargins(0, 0, 0, 0)
+        new_after_low2_range_layout.setSpacing(5)
+        new_after_low2_range_layout.setAlignment(Qt.AlignLeft)
+        self.new_after_low2_range_label = QLabel("创后新低2日期范围")
+        self.new_after_low2_range_spin = QSpinBox()
+        self.new_after_low2_range_spin.setMinimum(1)
+        self.new_after_low2_range_spin.setValue(0)
+        self.new_after_low2_range_spin.setFixedWidth(60)
+        new_after_low2_range_layout.addWidget(self.new_after_low2_range_label)
+        new_after_low2_range_layout.addWidget(self.new_after_low2_range_spin)
+        new_after_low2_range_widget.setLayout(new_after_low2_range_layout)
+
+        # 创后创新低2展宽期天数
+        new_after_low2_span_widget = QWidget()
+        new_after_low2_span_layout = QHBoxLayout()
+        new_after_low2_span_layout.setContentsMargins(0, 0, 0, 0)
+        new_after_low2_span_layout.setSpacing(5)
+        new_after_low2_span_layout.setAlignment(Qt.AlignLeft)
+        self.new_after_low2_span_label = QLabel("创后新低2展宽期天数")
+        self.new_after_low2_span_spin = QSpinBox()
+        self.new_after_low2_span_spin.setMinimum(1)
+        self.new_after_low2_span_spin.setValue(0)
+        self.new_after_low2_span_spin.setFixedWidth(60)
+        new_after_low2_span_layout.addWidget(self.new_after_low2_span_label)
+        new_after_low2_span_layout.addWidget(self.new_after_low2_span_spin)
+        new_after_low2_span_widget.setLayout(new_after_low2_span_layout)
+
+        # 创后创新低2与或下拉框
+        new_after_low2_logic_widget = QWidget()
+        new_after_low2_logic_layout = QHBoxLayout()
+        new_after_low2_logic_layout.setContentsMargins(0, 0, 0, 0)
+        new_after_low2_logic_layout.setSpacing(5)
+        new_after_low2_logic_layout.setAlignment(Qt.AlignLeft)
+        self.new_after_low2_logic_label = QLabel("创后新低2与或")
+        self.new_after_low2_logic_combo = QComboBox()
+        self.new_after_low2_logic_combo.addItems(["与", "或"])
+        self.new_after_low2_logic_combo.setFixedWidth(60)
+        new_after_low2_logic_layout.addWidget(self.new_after_low2_logic_label)
+        new_after_low2_logic_layout.addWidget(self.new_after_low2_logic_combo)
+        new_after_low2_logic_widget.setLayout(new_after_low2_logic_layout)
+
+        top_grid.addWidget(new_before_low_start_widget, 4, 0)
+        top_grid.addWidget(new_before_low_range_widget, 4, 1)
+        top_grid.addWidget(new_before_low_span_widget, 4, 2)
+        top_grid.addWidget(new_before_low_logic_widget, 4, 3)
+        top_grid.addWidget(new_before_low2_start_widget, 4, 4)
+        top_grid.addWidget(new_before_low2_range_widget, 4, 5)
+        top_grid.addWidget(new_before_low2_span_widget, 4, 6)
+        top_grid.addWidget(new_before_low2_logic_widget, 4, 7)
+
+        top_grid.addWidget(new_after_low_start_widget, 5, 0)
+        top_grid.addWidget(new_after_low_range_widget, 5, 1)
+        top_grid.addWidget(new_after_low_span_widget, 5, 2)
+        top_grid.addWidget(new_after_low_logic_widget, 5, 3)
+        top_grid.addWidget(new_after_low2_start_widget, 5, 4)
+        top_grid.addWidget(new_after_low2_range_widget, 5, 5)
+        top_grid.addWidget(new_after_low2_span_widget, 5, 6)
+        top_grid.addWidget(new_after_low2_logic_widget, 5, 7)
 
         # 查询区控件
         self.query_input = QLineEdit()
@@ -736,21 +1156,77 @@ class StockAnalysisApp(QWidget):
                 end_idx = None
             if end_idx is not None:
                 # 创新高参数
-                nh_start = self.new_high_start_spin.value()
-                nh_range = self.new_high_range_spin.value()
-                nh_span = self.new_high_span_spin.value()
+                nh_start = self.new_before_high_start_spin.value()
+                nh_range = self.new_before_high_range_spin.value()
+                nh_span = self.new_before_high_span_spin.value()
                 nh_total = nh_start + nh_range + nh_span
                 if end_idx - nh_total < 0:
-                    QMessageBox.warning(self, "提示", "创新高日期范围超出数据范围，请调整！")
+                    QMessageBox.warning(self, "提示", "创前新高1日期范围超出数据范围，请调整！")
                     return None
-                # 创新低参数
-                nl_start = self.new_low_start_spin.value()
-                nl_range = self.new_low_range_spin.value()
-                nl_span = self.new_low_span_spin.value()
+                
+                # 创前新高2参数
+                nh2_start = self.new_before_high2_start_spin.value()
+                nh2_range = self.new_before_high2_range_spin.value()
+                nh2_span = self.new_before_high2_span_spin.value()
+                nh2_total = nh2_start + nh2_range + nh2_span
+                if end_idx - nh2_total < 0:
+                    QMessageBox.warning(self, "提示", "创前新高2日期范围超出数据范围，请调整！")
+                    return None
+                
+                # 创后新高1参数
+                new_after_high_start = self.new_after_high_start_spin.value()
+                new_after_high_range = self.new_after_high_range_spin.value()
+                new_after_high_span = self.new_after_high_span_spin.value()
+                new_after_high_total = new_after_high_start + new_after_high_range + new_after_high_span
+                if end_idx - new_after_high_total < 0:
+                    QMessageBox.warning(self, "提示", "创后新高1日期范围超出数据范围，请调整！")
+                    return None
+
+                # 创后新高2参数
+                new_after_high2_start = self.new_after_high2_start_spin.value()
+                new_after_high2_range = self.new_after_high2_range_spin.value()
+                new_after_high2_span = self.new_after_high2_span_spin.value()
+                new_after_high2_total = new_after_high2_start + new_after_high2_range + new_after_high2_span
+                if end_idx - new_after_high2_total < 0:
+                    QMessageBox.warning(self, "提示", "创后新高2日期范围超出数据范围，请调整！")
+                    return None
+                    
+                # 创前新低1参数
+                nl_start = self.new_before_low_start_spin.value()
+                nl_range = self.new_before_low_range_spin.value()
+                nl_span = self.new_before_low_span_spin.value()
                 nl_total = nl_start + nl_range + nl_span
                 if end_idx - nl_total < 0:
                     QMessageBox.warning(self, "提示", "创新低日期范围超出数据范围，请调整！")
                     return None
+                
+                # 创前新低2参数
+                nh2_start = self.new_before_high2_start_spin.value()
+                nh2_range = self.new_before_high2_range_spin.value()
+                nh2_span = self.new_before_high2_span_spin.value()
+                nh2_total = nh2_start + nh2_range + nh2_span
+                if end_idx - nh2_total < 0:
+                    QMessageBox.warning(self, "提示", "创前新高2日期范围超出数据范围，请调整！")
+                    return None
+
+                # 创后新低1参数
+                new_after_low_start = self.new_after_low_start_spin.value()
+                new_after_low_range = self.new_after_low_range_spin.value()
+                new_after_low_span = self.new_after_low_span_spin.value()
+                new_after_low_total = new_after_low_start + new_after_low_range + new_after_low_span
+                if end_idx - new_after_low_total < 0:
+                    QMessageBox.warning(self, "提示", "创后新低1日期范围超出数据范围，请调整！")
+                    return None
+                
+                # 创后新低2参数
+                new_after_low2_start = self.new_after_low2_start_spin.value()
+                new_after_low2_range = self.new_after_low2_range_spin.value()
+                new_after_low2_span = self.new_after_low2_span_spin.value()
+                new_after_low2_total = new_after_low2_start + new_after_low2_range + new_after_low2_span
+                if end_idx - new_after_low2_total < 0:
+                    QMessageBox.warning(self, "提示", "创后新低2日期范围超出数据范围，请调整！")
+                    return None
+
         current_formula = formula_expr if formula_expr is not None else (
             self.formula_expr_edit.toPlainText() if hasattr(self, 'formula_expr_edit') else ''
         )
@@ -770,6 +1246,7 @@ class StockAnalysisApp(QWidget):
         params['inc_rate'] = self.inc_rate_edit.text()
         params['after_gt_end_ratio'] = self.after_gt_end_edit.text()
         params['after_gt_start_ratio'] = self.after_gt_prev_edit.text()
+        params['trade_mode'] = self.trade_mode_combo.currentText()
         # 选股公式、数量、排序方式参数
         params['expr'] = self.expr_edit.toPlainText()
         params['select_count'] = select_count if select_count is not None else 10
@@ -778,12 +1255,45 @@ class StockAnalysisApp(QWidget):
         # 选股计算公式
         params['formula_expr'] = current_formula
         # 新增：创新高/创新低相关SpinBox参数
-        params['new_high_start'] = self.new_high_start_spin.value()
-        params['new_high_range'] = self.new_high_range_spin.value()
-        params['new_high_span'] = self.new_high_span_spin.value()
-        params['new_low_start'] = self.new_low_start_spin.value()
-        params['new_low_range'] = self.new_low_range_spin.value()
-        params['new_low_span'] = self.new_low_span_spin.value()
+        params['new_before_high_start'] = self.new_before_high_start_spin.value()
+        params['new_before_high_range'] = self.new_before_high_range_spin.value()
+        params['new_before_high_span'] = self.new_before_high_span_spin.value()
+        # 新增：创前新高2相关参数
+        params['new_before_high2_start'] = self.new_before_high2_start_spin.value()
+        params['new_before_high2_range'] = self.new_before_high2_range_spin.value()
+        params['new_before_high2_span'] = self.new_before_high2_span_spin.value()
+        params['new_before_high2_logic'] = self.new_before_high2_logic_combo.currentText()
+        # 新增：创后新高1相关参数
+        params['new_after_high_start'] = self.new_after_high_start_spin.value()
+        params['new_after_high_range'] = self.new_after_high_range_spin.value()
+        params['new_after_high_span'] = self.new_after_high_span_spin.value()
+        params['new_after_high_logic'] = self.new_after_high_logic_combo.currentText()
+        # 新增：创后新高2相关参数
+        params['new_after_high2_start'] = self.new_after_high2_start_spin.value()
+        params['new_after_high2_range'] = self.new_after_high2_range_spin.value()
+        params['new_after_high2_span'] = self.new_after_high2_span_spin.value()
+        params['new_after_high2_logic'] = self.new_after_high2_logic_combo.currentText()
+        # 新增：创前新低1相关参数
+        params['new_before_low_start'] = self.new_before_low_start_spin.value()
+        params['new_before_low_range'] = self.new_before_low_range_spin.value()
+        params['new_before_low_span'] = self.new_before_low_span_spin.value()
+        params['new_before_low_logic'] = self.new_before_low_logic_combo.currentText()
+        # 新增：创前新低2相关参数
+        params['new_before_low2_start'] = self.new_before_low2_start_spin.value()
+        params['new_before_low2_range'] = self.new_before_low2_range_spin.value()
+        params['new_before_low2_span'] = self.new_before_low2_span_spin.value()
+        params['new_before_low2_logic'] = self.new_before_low2_logic_combo.currentText()
+        # 新增：创后新低1相关参数
+        params['new_after_low_start'] = self.new_after_low_start_spin.value()
+        params['new_after_low_range'] = self.new_after_low_range_spin.value()
+        params['new_after_low_span'] = self.new_after_low_span_spin.value()
+        params['new_after_low_logic'] = self.new_after_low_logic_combo.currentText()
+        # 新增：创后新低2相关参数
+        params['new_after_low2_start'] = self.new_after_low2_start_spin.value()
+        params['new_after_low2_range'] = self.new_after_low2_range_spin.value()
+        params['new_after_low2_span'] = self.new_after_low2_span_spin.value()
+        params['new_after_low2_logic'] = self.new_after_low2_logic_combo.currentText()
+
         # 获取end_date_start和end_date_end
         if is_auto_analysis and end_date_start is not None and end_date_end is not None:
             params['end_date_start'] = end_date_start
@@ -797,9 +1307,16 @@ class StockAnalysisApp(QWidget):
         params['max_cores'] = self.cpu_spin.value()
         # 添加公式选股逻辑控件的勾选状态
         state = getattr(self, 'last_formula_select_state', {})
-        params['start_with_new_high_flag'] = state.get('start_with_new_high', {}).get('checked', False)
-        params['start_with_new_low_flag'] = state.get('start_with_new_low', {}).get('checked', False)
+        params['start_with_new_before_high_flag'] = state.get('start_with_new_before_high', {}).get('checked', False)
+        params['start_with_new_before_high2_flag'] = state.get('start_with_new_before_high2', {}).get('checked', False)
+        params['start_with_new_after_high_flag'] = state.get('start_with_new_after_high', {}).get('checked', False)
+        params['start_with_new_after_high2_flag'] = state.get('start_with_new_after_high2', {}).get('checked', False)
+        params['start_with_new_before_low_flag'] = state.get('start_with_new_before_low', {}).get('checked', False)
+        params['start_with_new_before_low2_flag'] = state.get('start_with_new_before_low2', {}).get('checked', False)
+        params['start_with_new_after_low_flag'] = state.get('start_with_new_after_low', {}).get('checked', False)
+        params['start_with_new_after_low2_flag'] = state.get('start_with_new_after_low2', {}).get('checked', False)
         params['valid_abs_sum_threshold'] = self.valid_abs_sum_threshold_edit.text()
+        params['new_before_high_logic'] = self.new_before_high_logic_combo.currentText()
         result = self.base_param.on_calculate_clicked(params)
         if result is None:
             if show_main_output:
@@ -909,7 +1426,7 @@ class StockAnalysisApp(QWidget):
                 mean_incre_rate_list.append(min_incre_rate)
                 mean_incre_rate_list_with_nan_list.append(min_incre_rate)
             else:
-                print(f"含空值了: mean_incre_rate_list_with_nan_list: {mean_incre_rate_list_with_nan_list}, min_incre_rate: {min_incre_rate}")
+                # print(f"含空值了: mean_incre_rate_list_with_nan_list: {mean_incre_rate_list_with_nan_list}, min_incre_rate: {min_incre_rate}")
                 mean_incre_rate_list_with_nan_list.append(float('nan'))
             
         mean_of_mean_hold_days = safe_mean(mean_hold_days_list)
@@ -987,6 +1504,26 @@ class StockAnalysisApp(QWidget):
             table.setSpan(row, 0, 1, table.columnCount())
             table.setWordWrap(True)
             table.resizeRowToContents(row)
+
+        # 插入参数输出
+        row = table.rowCount()
+        table.insertRow(row)
+        params = [
+            ("日期宽度", str(self.width_spin.value())),
+            ("开始日期值选择", self.start_option_combo.currentText()),
+            ("前移天数", str(self.shift_spin.value())),
+            ("操作天数", self.op_days_edit.text()),
+            ("递增率", f"{self.inc_rate_edit.text()}%"),
+            ("后值大于结束值比例", f"{self.after_gt_end_edit.text()}%"),
+            ("后值大于前值比例", f"{self.after_gt_prev_edit.text()}%"),
+            ("操作涨幅", f"{self.ops_change_edit.text()}%")
+        ]
+        for i, (label, value) in enumerate(params):
+            table.setItem(row, 0, QTableWidgetItem(label))
+            table.setItem(row, 1, QTableWidgetItem(value))
+            row += 1
+            table.insertRow(row)
+
         return table
 
     def show_cached_analysis_table(self):
@@ -1435,12 +1972,43 @@ class StockAnalysisApp(QWidget):
     def _show_imported_analysis(self, df):
         # 假设最后一行是公式行，且在第一列
         formula = ''
+        params = {}
         if '选股公式' in df.columns:
             formula = df['选股公式'].iloc[-1]
             df = df.iloc[:-1]
         elif df.shape[0] > 0 and str(df.iloc[-1, 0]).startswith('选股公式'):
             formula = str(df.iloc[-1, 0]).replace('选股公式:', '').strip()
+            # 检查前面的行是否是参数
+            for i in range(len(df) - 2, -1, -1):
+                row = df.iloc[i]
+                if isinstance(row[0], str) and row[0] in [
+                    "日期宽度", "开始日期值选择", "前移天数", "操作天数", 
+                    "递增率", "后值大于结束值比例", "后值大于前值比例", "操作涨幅"
+                ]:
+                    params[row[0]] = row[1]
             df = df.iloc[:-1]
+
+        # 恢复参数值
+        if params:
+            if "日期宽度" in params:
+                self.width_spin.setValue(int(params["日期宽度"]))
+            if "开始日期值选择" in params:
+                index = self.start_option_combo.findText(params["开始日期值选择"])
+                if index >= 0:
+                    self.start_option_combo.setCurrentIndex(index)
+            if "前移天数" in params:
+                self.shift_spin.setValue(int(params["前移天数"]))
+            if "操作天数" in params:
+                self.op_days_edit.setText(params["操作天数"])
+            if "递增率" in params:
+                self.inc_rate_edit.setText(params["递增率"].replace('%', ''))
+            if "后值大于结束值比例" in params:
+                self.after_gt_end_edit.setText(params["后值大于结束值比例"].replace('%', ''))
+            if "后值大于前值比例" in params:
+                self.after_gt_prev_edit.setText(params["后值大于前值比例"].replace('%', ''))
+            if "操作涨幅" in params:
+                self.ops_change_edit.setText(params["操作涨幅"].replace('%', ''))
+
         # 只保留"结束日期"非NaN的有效数据行
         valid_items = []
         columns = [str(col) for col in df.columns]
@@ -1527,14 +2095,46 @@ class StockAnalysisApp(QWidget):
             'last_formula_select_state': getattr(self, 'last_formula_select_state', {}),
             'analysis_table_cache_data': getattr(self, 'analysis_table_cache_data', None),
             'cached_table_data': getattr(self, 'cached_table_data', None),
+            'trade_mode': self.trade_mode_combo.currentText(),
             # 新增：创新高/创新低相关SpinBox控件
-            'new_high_start': self.new_high_start_spin.value(),
-            'new_high_range': self.new_high_range_spin.value(),
-            'new_high_span': self.new_high_span_spin.value(),
-            'new_low_start': self.new_low_start_spin.value(),
-            'new_low_range': self.new_low_range_spin.value(),
-            'new_low_span': self.new_low_span_spin.value(),
+            'new_before_high_start': self.new_before_high_start_spin.value(),
+            'new_before_high_range': self.new_before_high_range_spin.value(),
+            'new_before_high_span': self.new_before_high_span_spin.value(),
+            'new_before_low_start': self.new_before_low_start_spin.value(),
+            'new_before_low_range': self.new_before_low_range_spin.value(),
+            'new_before_low_span': self.new_before_low_span_spin.value(),
             'valid_abs_sum_threshold': self.valid_abs_sum_threshold_edit.text(),
+            'new_before_high_logic': self.new_before_high_logic_combo.currentText(),
+            # 新增：创前新高2相关参数
+            'new_before_high2_start': self.new_before_high2_start_spin.value(),
+            'new_before_high2_range': self.new_before_high2_range_spin.value(),
+            'new_before_high2_span': self.new_before_high2_span_spin.value(),
+            'new_before_high2_logic': self.new_before_high2_logic_combo.currentText(),
+            # 新增：创后新高1相关参数
+            'new_after_high_start': self.new_after_high_start_spin.value(),
+            'new_after_high_range': self.new_after_high_range_spin.value(),
+            'new_after_high_span': self.new_after_high_span_spin.value(),
+            'new_after_high_logic': self.new_after_high_logic_combo.currentText(),
+            # 新增：创后新高2相关参数
+            'new_after_high2_start': self.new_after_high2_start_spin.value(),
+            'new_after_high2_range': self.new_after_high2_range_spin.value(),
+            'new_after_high2_span': self.new_after_high2_span_spin.value(),
+            'new_after_high2_logic': self.new_after_high2_logic_combo.currentText(),
+            # 新增：创前新低2相关参数
+            'new_before_low2_start': self.new_before_low2_start_spin.value(),
+            'new_before_low2_range': self.new_before_low2_range_spin.value(),
+            'new_before_low2_span': self.new_before_low2_span_spin.value(),
+            'new_before_low2_logic': self.new_before_low2_logic_combo.currentText(),
+            # 新增：创后新低1相关参数
+            'new_after_low_start': self.new_after_low_start_spin.value(),
+            'new_after_low_range': self.new_after_low_range_spin.value(),
+            'new_after_low_span': self.new_after_low_span_spin.value(),
+            'new_after_low_logic': self.new_after_low_logic_combo.currentText(),
+            # 新增：创后新低2相关参数
+            'new_after_low2_start': self.new_after_low2_start_spin.value(),
+            'new_after_low2_range': self.new_after_low2_range_spin.value(),
+            'new_after_low2_span': self.new_after_low2_span_spin.value(),
+            'new_after_low2_logic': self.new_after_low2_logic_combo.currentText(),
         }
         # 保存公式选股控件状态
         if hasattr(self, 'formula_widget') and self.formula_widget is not None:
@@ -1616,21 +2216,85 @@ class StockAnalysisApp(QWidget):
             # 恢复表格数据
             if 'cached_table_data' in config:
                 self.cached_table_data = config['cached_table_data']
+            # 恢复交易方式
+            if 'trade_mode' in config:
+                index = self.trade_mode_combo.findText(config['trade_mode'])
+                if index >= 0:
+                    self.trade_mode_combo.setCurrentIndex(index)
             # 新增：恢复创新高/创新低相关SpinBox控件
-            if 'new_high_start' in config:
-                self.new_high_start_spin.setValue(config['new_high_start'])
-            if 'new_high_range' in config:
-                self.new_high_range_spin.setValue(config['new_high_range'])
-            if 'new_high_span' in config:
-                self.new_high_span_spin.setValue(config['new_high_span'])
-            if 'new_low_start' in config:
-                self.new_low_start_spin.setValue(config['new_low_start'])
-            if 'new_low_range' in config:
-                self.new_low_range_spin.setValue(config['new_low_range'])
-            if 'new_low_span' in config:
-                self.new_low_span_spin.setValue(config['new_low_span'])
+            if 'new_before_high_start' in config:
+                self.new_before_high_start_spin.setValue(config['new_before_high_start'])
+            if 'new_before_high_range' in config:
+                self.new_before_high_range_spin.setValue(config['new_before_high_range'])
+            if 'new_before_high_span' in config:
+                self.new_before_high_span_spin.setValue(config['new_before_high_span'])
             if 'valid_abs_sum_threshold' in config:
                 self.valid_abs_sum_threshold_edit.setText(config['valid_abs_sum_threshold'])
+            if 'new_before_high_logic' in config:
+                self.new_before_high_logic_combo.setCurrentText(config['new_before_high_logic'])
+            # 新增：恢复创前新低1相关参数
+            if 'new_before_low_start' in config:
+                self.new_before_low_start_spin.setValue(config['new_before_low_start'])
+            if 'new_before_low_range' in config:
+                self.new_before_low_range_spin.setValue(config['new_before_low_range'])
+            if 'new_before_low_span' in config:
+                self.new_before_low_span_spin.setValue(config['new_before_low_span'])
+            if 'new_before_low_logic' in config:
+                self.new_before_low_logic_combo.setCurrentText(config['new_before_low_logic'])
+            # 新增：恢复创前新高2相关参数
+            if 'new_before_high2_start' in config:
+                self.new_before_high2_start_spin.setValue(config['new_before_high2_start'])
+            if 'new_before_high2_range' in config:
+                self.new_before_high2_range_spin.setValue(config['new_before_high2_range'])
+            if 'new_before_high2_span' in config:
+                self.new_before_high2_span_spin.setValue(config['new_before_high2_span'])
+            if 'new_before_high2_logic' in config:
+                self.new_before_high2_logic_combo.setCurrentText(config['new_before_high2_logic'])
+            # 新增：恢复创后新高1相关参数
+            if 'new_after_high_start' in config:
+                self.new_after_high_start_spin.setValue(config['new_after_high_start'])
+            if 'new_after_high_range' in config:
+                self.new_after_high_range_spin.setValue(config['new_after_high_range'])
+            if 'new_after_high_span' in config:
+                self.new_after_high_span_spin.setValue(config['new_after_high_span'])
+            if 'new_after_high_logic' in config:
+                self.new_after_high_logic_combo.setCurrentText(config['new_after_high_logic'])
+            # 新增：恢复创后新高2相关参数
+            if 'new_after_high2_start' in config:
+                self.new_after_high2_start_spin.setValue(config['new_after_high2_start'])
+            if 'new_after_high2_range' in config:
+                self.new_after_high2_range_spin.setValue(config['new_after_high2_range'])
+            if 'new_after_high2_span' in config:
+                self.new_after_high2_span_spin.setValue(config['new_after_high2_span'])
+            if 'new_after_high2_logic' in config:
+                self.new_after_high2_logic_combo.setCurrentText(config['new_after_high2_logic'])
+            # 新增：恢复创前新低2相关参数
+            if 'new_before_low2_start' in config:
+                self.new_before_low2_start_spin.setValue(config['new_before_low2_start'])
+            if 'new_before_low2_range' in config:
+                self.new_before_low2_range_spin.setValue(config['new_before_low2_range'])
+            if 'new_before_low2_span' in config:
+                self.new_before_low2_span_spin.setValue(config['new_before_low2_span'])
+            if 'new_before_low2_logic' in config:
+                self.new_before_low2_logic_combo.setCurrentText(config['new_before_low2_logic'])
+            # 新增：恢复创后新低1相关参数
+            if 'new_after_low_start' in config:
+                self.new_after_low_start_spin.setValue(config['new_after_low_start'])
+            if 'new_after_low_range' in config:
+                self.new_after_low_range_spin.setValue(config['new_after_low_range'])
+            if 'new_after_low_span' in config:
+                self.new_after_low_span_spin.setValue(config['new_after_low_span'])
+            if 'new_after_low_logic' in config:
+                self.new_after_low_logic_combo.setCurrentText(config['new_after_low_logic'])
+            # 新增：恢复创后新低2相关参数
+            if 'new_after_low2_start' in config:
+                self.new_after_low2_start_spin.setValue(config['new_after_low2_start'])
+            if 'new_after_low2_range' in config:
+                self.new_after_low2_range_spin.setValue(config['new_after_low2_range'])
+            if 'new_after_low2_span' in config:
+                self.new_after_low2_span_spin.setValue(config['new_after_low2_span'])
+            if 'new_after_low2_logic' in config:
+                self.new_after_low2_logic_combo.setCurrentText(config['new_after_low2_logic'])
         except Exception as e:
             print(f"加载配置失败: {e}")
 

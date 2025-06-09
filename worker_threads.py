@@ -914,6 +914,7 @@ class CalculateThread(QThread):
         price_data_np = self.price_data.iloc[:, 2:].values.astype(np.float64)
         diff_data_np = self.diff_data.values.astype(np.float64)
         num_stocks = price_data_np.shape[0]
+        trade_t1_mode = params.get('trade_mode', 'T+1') == 'T+1'
 
         stock_idx_arr = np.arange(num_stocks, dtype=np.int32)
         n_days_max = params.get("n_days_max", 0)
@@ -936,19 +937,66 @@ class CalculateThread(QThread):
             n_proc = 1
 
         # 新增：创新高/创新低相关参数
-        new_high_start = int(params.get('new_high_start', 0))
-        new_high_range = int(params.get('new_high_range', 0))
-        new_high_span = int(params.get('new_high_span', 0))
-        new_low_start = int(params.get('new_low_start', 0))
-        new_low_range = int(params.get('new_low_range', 0))
-        new_low_span = int(params.get('new_low_span', 0))
+        new_before_high_start = int(params.get('new_before_high_start', 0))
+        new_before_high_range = int(params.get('new_before_high_range', 0))
+        new_before_high_span = int(params.get('new_before_high_span', 0))
+        new_before_high_logic = params.get('new_before_high_logic', '与')
+        
+        # 新增：创前新高2相关参数
+        new_before_high2_start = int(params.get('new_before_high2_start', 0))
+        new_before_high2_range = int(params.get('new_before_high2_range', 0))
+        new_before_high2_span = int(params.get('new_before_high2_span', 0))
+        new_before_high2_logic = params.get('new_before_high2_logic', '与')
+
+        # 新增：创后新高1相关参数
+        new_after_high_start = int(params.get('new_after_high_start', 0))
+        new_after_high_range = int(params.get('new_after_high_range', 0))
+        new_after_high_span = int(params.get('new_after_high_span', 0))
+        new_after_high_logic = params.get('new_after_high_logic', '与')
+        
+        # 新增：创后新高2相关参数
+        new_after_high2_start = int(params.get('new_after_high2_start', 0))
+        new_after_high2_range = int(params.get('new_after_high2_range', 0))
+        new_after_high2_span = int(params.get('new_after_high2_span', 0))
+        new_after_high2_logic = params.get('new_after_high2_logic', '与')
+
+        # 新增：创前新低1相关参数
+        new_before_low_start = int(params.get('new_before_low_start', 0))
+        new_before_low_range = int(params.get('new_before_low_range', 0))
+        new_before_low_span = int(params.get('new_before_low_span', 0))
+        new_before_low_logic = params.get('new_before_low_logic', '与')
+        
+        # 新增：创前新低2相关参数
+        new_before_low2_start = int(params.get('new_before_low2_start', 0))
+        new_before_low2_range = int(params.get('new_before_low2_range', 0))
+        new_before_low2_span = int(params.get('new_before_low2_span', 0))
+        new_before_low2_logic = params.get('new_before_low2_logic', '与')
+        
+        # 新增：创后新低1相关参数
+        new_after_low_start = int(params.get('new_after_low_start', 0))
+        new_after_low_range = int(params.get('new_after_low_range', 0))
+        new_after_low_span = int(params.get('new_after_low_span', 0))
+        new_after_low_logic = params.get('new_after_low_logic', '与')
+        
+        # 新增：创后新低2相关参数
+        new_after_low2_start = int(params.get('new_after_low2_start', 0))
+        new_after_low2_range = int(params.get('new_after_low2_range', 0))
+        new_after_low2_span = int(params.get('new_after_low2_span', 0))
+        new_after_low2_logic = params.get('new_after_low2_logic', '与')
 
         stock_idx_ranges = split_indices(num_stocks, n_proc)
         # n_proc = 1
         # 新增：创新高/创新低逻辑控件布尔参数
-        start_with_new_high_flag = params.get('start_with_new_high_flag', False)
-        start_with_new_low_flag = params.get('start_with_new_low_flag', False)
+        start_with_new_before_high_flag = params.get('start_with_new_before_high_flag', False)
+        start_with_new_before_high2_flag = params.get('start_with_new_before_high2_flag', False)
+        start_with_new_after_high_flag = params.get('start_with_new_after_high_flag', False)
+        start_with_new_after_high2_flag = params.get('start_with_new_after_high2_flag', False)
+        start_with_new_before_low_flag = params.get('start_with_new_before_low_flag', False)
+        start_with_new_before_low2_flag = params.get('start_with_new_before_low2_flag', False)
+        start_with_new_after_low_flag = params.get('start_with_new_after_low_flag', False)
+        start_with_new_after_low2_flag = params.get('start_with_new_after_low2_flag', False)
         valid_abs_sum_threshold = self.safe_float(params.get('valid_abs_sum_threshold', None))
+        new_before_high_logic = params.get('new_before_high_logic', '与')
         args_list = [
             (
                 price_data_np,
@@ -975,15 +1023,48 @@ class CalculateThread(QThread):
                 formula_expr,
                 select_count,
                 sort_mode,
+                trade_t1_mode,
                 only_show_selected,
-                new_high_start,
-                new_high_range,
-                new_high_span,
-                new_low_start,
-                new_low_range,
-                new_low_span,
-                start_with_new_high_flag,
-                start_with_new_low_flag,
+                new_before_high_start,
+                new_before_high_range,
+                new_before_high_span,
+                new_before_high_logic,
+                new_before_high2_start,
+                new_before_high2_range,
+                new_before_high2_span,
+                new_before_high2_logic,
+                new_after_high_start,
+                new_after_high_range,
+                new_after_high_span,
+                new_after_high_logic,
+                new_after_high2_start,
+                new_after_high2_range,
+                new_after_high2_span,
+                new_after_high2_logic,
+                new_before_low_start,
+                new_before_low_range,
+                new_before_low_span,
+                new_before_low_logic,
+                new_before_low2_start,
+                new_before_low2_range,
+                new_before_low2_span,
+                new_before_low2_logic,
+                new_after_low_start,
+                new_after_low_range,
+                new_after_low_span,
+                new_after_low_logic,
+                new_after_low2_start,
+                new_after_low2_range,
+                new_after_low2_span,
+                new_after_low2_logic,
+                start_with_new_before_high_flag,
+                start_with_new_before_high2_flag,
+                start_with_new_after_high_flag,
+                start_with_new_after_high2_flag,
+                start_with_new_before_low_flag,
+                start_with_new_before_low2_flag,
+                start_with_new_after_low_flag,
+                start_with_new_after_low2_flag,
             )
             for (start, end) in stock_idx_ranges if end > start
         ]
@@ -1042,7 +1123,7 @@ class CalculateThread(QThread):
         for stock_idx in range(num_stocks):
             for idx in range(end_date_start_idx, end_date_end_idx-1, -1):
                 end_date_idx = idx
-                end_date = date_columns[end_date_idx]
+                end_date = date_columns[idx]
                 start_date_idx = end_date_idx + width
                 if stock_idx == 0:
                     print(f"end_date_idx: {end_date_idx}, start_date_idx: {start_date_idx}")
@@ -1222,10 +1303,142 @@ def make_user_func(expr):
 
 def cy_batch_worker(args):
     import worker_threads_cy
-    price_data_np, date_columns, width, start_option, shift_days, end_date_start_idx, end_date_end_idx, diff_data_np, stock_idx_arr, is_forward, n_days, user_range_ratio, continuous_abs_threshold, valid_abs_sum_threshold, n_days_max, op_days, inc_rate, after_gt_end_ratio, after_gt_start_ratio, expr, ops_change_input, formula_expr, select_count, sort_mode, only_show_selected, new_high_start, new_high_range, new_high_span, new_low_start, new_low_range, new_low_span, start_with_new_high_flag, start_with_new_low_flag = args
+    (
+        price_data_np, 
+        date_columns, 
+        width, 
+        start_option, 
+        shift_days, 
+        end_date_start_idx, 
+        end_date_end_idx, 
+        diff_data_np, 
+        stock_idx_arr, 
+        is_forward, 
+        n_days, 
+        user_range_ratio, 
+        continuous_abs_threshold, 
+        valid_abs_sum_threshold, 
+        n_days_max, 
+        op_days, 
+        inc_rate, 
+        after_gt_end_ratio, 
+        after_gt_start_ratio, 
+        expr, 
+        ops_change_input, 
+        formula_expr, 
+        select_count, 
+        sort_mode, 
+        trade_t1_mode,
+        only_show_selected, 
+        new_before_high_start, 
+        new_before_high_range, 
+        new_before_high_span, 
+        new_before_high_logic, 
+        new_before_high2_start, 
+        new_before_high2_range, 
+        new_before_high2_span, 
+        new_before_high2_logic, 
+        new_after_high_start, 
+        new_after_high_range, 
+        new_after_high_span, 
+        new_after_high_logic, 
+        new_after_high2_start, 
+        new_after_high2_range, 
+        new_after_high2_span, 
+        new_after_high2_logic,
+        new_before_low_start,
+        new_before_low_range,
+        new_before_low_span,
+        new_before_low_logic,
+        new_before_low2_start,
+        new_before_low2_range,
+        new_before_low2_span,
+        new_before_low2_logic,
+        new_after_low_start,
+        new_after_low_range,
+        new_after_low_span,
+        new_after_low_logic,
+        new_after_low2_start,
+        new_after_low2_range,
+        new_after_low2_span,
+        new_after_low2_logic,
+        start_with_new_before_high_flag, 
+        start_with_new_before_high2_flag, 
+        start_with_new_after_high_flag,
+        start_with_new_after_high2_flag,
+        start_with_new_before_low_flag, 
+        start_with_new_before_low2_flag,
+        start_with_new_after_low_flag,
+        start_with_new_after_low2_flag,
+    ) = args
     stock_idx_arr = np.ascontiguousarray(stock_idx_arr, dtype=np.int32)
     date_grouped_results = worker_threads_cy.calculate_batch_cy(
-        price_data_np, date_columns, width, start_option, shift_days, end_date_start_idx, end_date_end_idx, diff_data_np, stock_idx_arr, is_forward, n_days, user_range_ratio, continuous_abs_threshold, valid_abs_sum_threshold, n_days_max, op_days, inc_rate, after_gt_end_ratio, after_gt_start_ratio, expr, ops_change_input, formula_expr, select_count, sort_mode, only_show_selected, new_high_start, new_high_range, new_high_span, new_low_start, new_low_range, new_low_span, start_with_new_high_flag, start_with_new_low_flag
+        price_data_np, 
+        date_columns, 
+        width, 
+        start_option, 
+        shift_days, 
+        end_date_start_idx, 
+        end_date_end_idx, 
+        diff_data_np, 
+        stock_idx_arr, 
+        is_forward, 
+        n_days, 
+        user_range_ratio, 
+        continuous_abs_threshold, 
+        valid_abs_sum_threshold, 
+        n_days_max, 
+        op_days, 
+        inc_rate, 
+        after_gt_end_ratio, 
+        after_gt_start_ratio, 
+        expr, 
+        ops_change_input, 
+        formula_expr, 
+        select_count, 
+        sort_mode, 
+        trade_t1_mode,
+        only_show_selected, 
+        new_before_high_start, 
+        new_before_high_range, 
+        new_before_high_span,  
+        new_before_high_logic, 
+        new_before_high2_start, 
+        new_before_high2_range, 
+        new_before_high2_span, 
+        new_before_high2_logic, 
+        new_after_high_start, 
+        new_after_high_range, 
+        new_after_high_span, 
+        new_after_high_logic, 
+        new_after_high2_start, 
+        new_after_high2_range, 
+        new_after_high2_span, 
+        new_after_high2_logic,
+        new_before_low_start,
+        new_before_low_range,
+        new_before_low_span,
+        new_before_low_logic,
+        new_before_low2_start,
+        new_before_low2_range,
+        new_before_low2_span,
+        new_before_low2_logic,
+        new_after_low_start,
+        new_after_low_range,
+        new_after_low_span,
+        new_after_low_logic,
+        new_after_low2_start,
+        new_after_low2_range,
+        new_after_low2_span,
+        new_after_low2_logic,
+        start_with_new_before_high_flag, 
+        start_with_new_before_high2_flag,
+        start_with_new_after_high_flag,
+        start_with_new_after_high2_flag,
+        start_with_new_before_low_flag, 
+        start_with_new_before_low2_flag,
+        start_with_new_after_low_flag,
+        start_with_new_after_low2_flag,
     )
     return date_grouped_results
 
