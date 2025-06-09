@@ -620,7 +620,7 @@ def show_params_table(parent, all_results, end_date=None, n_days=0, n_days_max=0
         '前1组结束日地址值',
         '前1组结束地址前1日涨跌幅', '前1组结束日涨跌幅', '后1组结束地址值',
         '递增值', '后值大于结束地址值', '后值大于前值返回值', '操作值', '持有天数', '操作涨幅', '调整天数', '日均涨幅',
-        '创新高', '创新低'  # 新增两列
+        '创前新高1', '创前新高2', '创后新高1', '创后新高2', '创前新低1', '创前新低2', '创后新低1', '创后新低2'  # 新增两列
     ]
     table = QTableWidget(len(stocks_data), len(headers))
     table.setHorizontalHeaderLabels(headers)
@@ -693,8 +693,14 @@ def show_params_table(parent, all_results, end_date=None, n_days=0, n_days_max=0
             table.setItem(row_idx, 23, QTableWidgetItem(str(get_val(row.get('adjust_days', '')))))
             table.setItem(row_idx, 24, QTableWidgetItem(get_percent(row.get('ops_incre_rate', ''))))
             # 新增：创新高、创新低
-            table.setItem(row_idx, 25, QTableWidgetItem(get_bool(row.get('start_with_new_high', ''))))
-            table.setItem(row_idx, 26, QTableWidgetItem(get_bool(row.get('start_with_new_low', ''))))
+            table.setItem(row_idx, 25, QTableWidgetItem(get_bool(row.get('start_with_new_before_high', ''))))
+            table.setItem(row_idx, 26, QTableWidgetItem(get_bool(row.get('start_with_new_before_high2', ''))))
+            table.setItem(row_idx, 27, QTableWidgetItem(get_bool(row.get('start_with_new_after_high', ''))))
+            table.setItem(row_idx, 28, QTableWidgetItem(get_bool(row.get('start_with_new_after_high2', ''))))
+            table.setItem(row_idx, 29, QTableWidgetItem(get_bool(row.get('start_with_new_before_low', ''))))
+            table.setItem(row_idx, 30, QTableWidgetItem(get_bool(row.get('start_with_new_before_low2', ''))))
+            table.setItem(row_idx, 31, QTableWidgetItem(get_bool(row.get('start_with_new_after_low', ''))))
+            table.setItem(row_idx, 32, QTableWidgetItem(get_bool(row.get('start_with_new_after_low2', ''))))
         table.resizeColumnsToContents()
         table.horizontalHeader().setFixedHeight(50)
         table.horizontalHeader().setStyleSheet("font-size: 12px;")
@@ -1362,7 +1368,10 @@ class FormulaSelectWidget(QWidget):
         conditions = []
         for en, widgets in self.var_widgets.items():
             # 跳过只做传递的逻辑变量
-            if en in ('start_with_new_high', 'start_with_new_low'):
+            if en in ('start_with_new_before_high', 'start_with_new_before_high2', 
+                      'start_with_new_after_high', 'start_with_new_after_high2', 
+                      'start_with_new_before_low', 'start_with_new_before_low2',
+                      'start_with_new_after_low', 'start_with_new_after_low2'):
                 continue
             # 只处理有下限/上限的数值变量
             if 'lower' in widgets and 'upper' in widgets:
@@ -1607,7 +1616,7 @@ class FormulaSelectWidget(QWidget):
             self.add_comparison_btn.setParent(None)
         # 判断变量控件最后一行是否有内容
         start_col = last_var_col + 1
-        row = last_var_row + 2  # 下放两行
+        row = last_var_row + 3  # 下放三行
         if start_col > 0:
             row += 1
         col = 0
@@ -1681,8 +1690,14 @@ def get_abbr_logic_map():
         ("开始日到结束日之间最高价/最低价小于M", "range_ratio_is_less"), 
         ("开始日到结束日之间连续累加值绝对值小于M", "continuous_abs_is_less"),
         ("开始日到结束日之间有效累加值绝对值小于M", "valid_abs_is_less"),
-        ("创新高才计算开始值", "start_with_new_high"),
-        ("创新低才计算开始值", "start_with_new_low")
+        ("创前新高1才计算开始值", "start_with_new_before_high"),
+        ("创前新高2才计算开始值", "start_with_new_before_high2"),
+        ("创后新高1才计算开始值", "start_with_new_after_high"),
+        ("创后新高2才计算开始值", "start_with_new_after_high2"),
+        ("创前新低1才计算开始值", "start_with_new_before_low"),
+        ("创前新低2才计算开始值", "start_with_new_before_low2"),
+        ("创后新低1才计算开始值", "start_with_new_after_low"),
+        ("创后新低2才计算开始值", "start_with_new_after_low2")
     ]
     return {zh: en for zh, en in abbrs}
 
