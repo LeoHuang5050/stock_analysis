@@ -1,9 +1,11 @@
 import sys
 from PyQt5.QtWidgets import (
-    QApplication, QWidget, QLabel, QPushButton, QComboBox, QSpinBox, QDateEdit, QCheckBox, QGridLayout, QHBoxLayout, QVBoxLayout, QSizePolicy, QTextEdit, QLineEdit, QDialog, QMessageBox, QFrame, QStackedLayout, QTableWidget, QTableWidgetItem
+    QApplication, QWidget, QLabel, QPushButton, QComboBox, QSpinBox, QDateEdit, QCheckBox, QGridLayout, QHBoxLayout, QVBoxLayout, QSizePolicy, QTextEdit, QLineEdit, QDialog, QMessageBox, QFrame, QStackedLayout, QTableWidget, QTableWidgetItem, QHeaderView
 )
 from PyQt5.QtCore import Qt, QDate, QItemSelectionModel
 from PyQt5.QtGui import QKeySequence, QGuiApplication, QIntValidator, QPixmap
+from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QHeaderView
 from function.init import StockAnalysisInit
 from function.base_param import BaseParamHandler
 from function.stock_functions import show_continuous_sum_table, EXPR_PLACEHOLDER_TEXT
@@ -1507,7 +1509,6 @@ class StockAnalysisApp(QWidget):
 
         # 插入参数输出
         row = table.rowCount()
-        table.insertRow(row)
         params = [
             ("日期宽度", str(self.width_spin.value())),
             ("开始日期值选择", self.start_option_combo.currentText()),
@@ -1519,10 +1520,24 @@ class StockAnalysisApp(QWidget):
             ("操作涨幅", f"{self.ops_change_edit.text()}%")
         ]
         for i, (label, value) in enumerate(params):
-            table.setItem(row, 0, QTableWidgetItem(label))
-            table.setItem(row, 1, QTableWidgetItem(value))
-            row += 1
-            table.insertRow(row)
+            table.insertRow(row + i)
+            table.setItem(row + i, 0, QTableWidgetItem(label))
+            table.setItem(row + i, 1, QTableWidgetItem(value))
+
+        # 设置第一列宽度为固定150px，其他列自适应
+        from PyQt5.QtWidgets import QHeaderView
+        header = table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.Fixed)
+        table.setColumnWidth(0, 150)
+        for col in range(1, table.columnCount()):
+            header.setSectionResizeMode(col, QHeaderView.Stretch)
+
+        # 设置所有非选股公式单元格居中
+        for i in range(table.rowCount()):
+            for j in range(table.columnCount()):
+                item = table.item(i, j)
+                if item is not None and not (formula and i == table.rowCount() - 9 and j == 0 and item.text().startswith("选股公式")):
+                    item.setTextAlignment(Qt.AlignCenter)
 
         return table
 
@@ -1702,32 +1717,30 @@ class StockAnalysisApp(QWidget):
             # 创建新表格
             data = self.cached_table_data["data"]
             formula = self.cached_table_data["formula"]
-            # 移除最后一行（公式行）
-            if data and data[-1][0].startswith("选股公式"):
-                data = data[:-1]
             table = QTableWidget(len(data), len(self.cached_table_data["headers"]), self.analysis_widget)
             table.setHorizontalHeaderLabels(self.cached_table_data["headers"])
             # 填充数据
             for i, row in enumerate(data):
                 for j, cell in enumerate(row):
-                    table.setItem(i, j, QTableWidgetItem(cell))
-            # 设置表格属性
-            table.resizeColumnsToContents()
-            table.horizontalHeader().setFixedHeight(40)
-            table.horizontalHeader().setStyleSheet("font-size: 12px;")
-            # 添加公式行
-            if formula:
-                from PyQt5.QtCore import Qt
-                row = table.rowCount()
-                table.insertRow(row)
-                item = QTableWidgetItem(f"选股公式:\n{formula}")
-                item.setFlags(item.flags() & ~Qt.ItemIsEditable)
-                item.setTextAlignment(Qt.AlignLeft | Qt.AlignTop)
-                item.setToolTip(item.text())
-                table.setItem(row, 0, item)
-                table.setSpan(row, 0, 1, table.columnCount())
-                table.setWordWrap(True)
-                table.resizeRowToContents(row)
+                    if i == len(data) - 9 and j == 0 and cell.startswith("选股公式"):
+                        item = QTableWidgetItem(f"选股公式:\n{formula}")
+                        item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+                        item.setTextAlignment(Qt.AlignLeft | Qt.AlignTop)
+                        item.setToolTip(item.text())
+                        table.setItem(i, 0, item)
+                        table.setSpan(i, 0, 1, table.columnCount())
+                        table.setWordWrap(True)
+                        table.resizeRowToContents(i)
+                    else:
+                        item = QTableWidgetItem(cell)
+                        item.setTextAlignment(Qt.AlignCenter)
+                        table.setItem(i, j, item)
+            # 设置第一列宽度为固定150px，其他列自适应
+            header = table.horizontalHeader()
+            header.setSectionResizeMode(0, QHeaderView.Fixed)
+            table.setColumnWidth(0, 150)
+            for col in range(1, table.columnCount()):
+                header.setSectionResizeMode(col, QHeaderView.Stretch)
             self.analysis_result_layout.addWidget(table)
         else:
             self.analysis_result_layout.addWidget(self.analysis_result_text)
@@ -1976,38 +1989,44 @@ class StockAnalysisApp(QWidget):
         if '选股公式' in df.columns:
             formula = df['选股公式'].iloc[-1]
             df = df.iloc[:-1]
-        elif df.shape[0] > 0 and str(df.iloc[-1, 0]).startswith('选股公式'):
-            formula = str(df.iloc[-1, 0]).replace('选股公式:', '').strip()
-            # 检查前面的行是否是参数
-            for i in range(len(df) - 2, -1, -1):
-                row = df.iloc[i]
+        elif df.shape[0] > 0 and str(df.iloc[-9, 0]).startswith('选股公式'):
+            formula = str(df.iloc[-9, 0]).replace('选股公式:', '').strip()
+            # 取倒数第8行到倒数第1行（参数信息）
+            param_rows = df.iloc[-8:]
+            for _, row in param_rows.iterrows():
                 if isinstance(row[0], str) and row[0] in [
                     "日期宽度", "开始日期值选择", "前移天数", "操作天数", 
                     "递增率", "后值大于结束值比例", "后值大于前值比例", "操作涨幅"
                 ]:
                     params[row[0]] = row[1]
-            df = df.iloc[:-1]
+            df = df.iloc[:-9]
 
-        # 恢复参数值
-        if params:
-            if "日期宽度" in params:
-                self.width_spin.setValue(int(params["日期宽度"]))
-            if "开始日期值选择" in params:
-                index = self.start_option_combo.findText(params["开始日期值选择"])
-                if index >= 0:
-                    self.start_option_combo.setCurrentIndex(index)
-            if "前移天数" in params:
-                self.shift_spin.setValue(int(params["前移天数"]))
-            if "操作天数" in params:
-                self.op_days_edit.setText(params["操作天数"])
-            if "递增率" in params:
-                self.inc_rate_edit.setText(params["递增率"].replace('%', ''))
-            if "后值大于结束值比例" in params:
-                self.after_gt_end_edit.setText(params["后值大于结束值比例"].replace('%', ''))
-            if "后值大于前值比例" in params:
-                self.after_gt_prev_edit.setText(params["后值大于前值比例"].replace('%', ''))
-            if "操作涨幅" in params:
-                self.ops_change_edit.setText(params["操作涨幅"].replace('%', ''))
+        # 恢复参数到控件（用导入文件中的值）
+        param_map = {
+            "日期宽度": (self.width_spin, int),
+            "开始日期值选择": (self.start_option_combo, str),
+            "前移天数": (self.shift_spin, int),
+            "操作天数": (self.op_days_edit, str),
+            "递增率": (self.inc_rate_edit, lambda v: v.replace('%','')),
+            "后值大于结束值比例": (self.after_gt_end_edit, lambda v: v.replace('%','')),
+            "后值大于前值比例": (self.after_gt_prev_edit, lambda v: v.replace('%','')),
+            "操作涨幅": (self.ops_change_edit, lambda v: v.replace('%','')),
+        }
+        print("导入参数：", params)  # 调试用
+        for key, (widget, val_func) in param_map.items():
+            if key in params:
+                val = str(params[key]).strip()
+                try:
+                    if hasattr(widget, 'setValue'):
+                        widget.setValue(val_func(val))
+                    elif hasattr(widget, 'setText'):
+                        widget.setText(val_func(val))
+                    elif hasattr(widget, 'findText') and hasattr(widget, 'setCurrentIndex'):
+                        idx = widget.findText(val_func(val))
+                        if idx >= 0:
+                            widget.setCurrentIndex(idx)
+                except Exception as e:
+                    print(f"恢复控件 {key} 失败: {e}")
 
         # 只保留"结束日期"非NaN的有效数据行
         valid_items = []
@@ -2050,6 +2069,22 @@ class StockAnalysisApp(QWidget):
                 if pd.isna(val) or str(val).lower() == 'nan':
                     val = ''
                 table.setItem(i, j, QTableWidgetItem(str(val)))
+
+        # 在公式行后添加参数行
+        params = [
+            ("日期宽度", str(self.width_spin.value())),
+            ("开始日期值选择", self.start_option_combo.currentText()),
+            ("前移天数", str(self.shift_spin.value())),
+            ("操作天数", self.op_days_edit.text()),
+            ("递增率", f"{self.inc_rate_edit.text()}%"),
+            ("后值大于结束值比例", f"{self.after_gt_end_edit.text()}%"),
+            ("后值大于前值比例", f"{self.after_gt_prev_edit.text()}%"),
+            ("操作涨幅", f"{self.ops_change_edit.text()}%")
+        ]
+        for i, (label, value) in enumerate(params):
+            table.insertRow(row_count + 1 + i)
+            table.setItem(row_count + 1 + i, 0, QTableWidgetItem(label))
+            table.setItem(row_count + 1 + i, 1, QTableWidgetItem(value))        
         # 公式行
         if formula:
             from PyQt5.QtCore import Qt
@@ -2061,6 +2096,24 @@ class StockAnalysisApp(QWidget):
             table.setSpan(row_count, 0, 1, col_count)
             table.setWordWrap(True)
             table.resizeRowToContents(row_count)
+
+        header = table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.Fixed)
+        table.setColumnWidth(0, 150)
+        for col in range(1, table.columnCount()):
+            header.setSectionResizeMode(col, QHeaderView.Stretch)
+        for i in range(table.rowCount()):
+            for j in range(table.columnCount()):
+                item = table.item(i, j)
+                if item is not None:
+                    if j == 0 and str(item.text()).startswith("选股公式"):
+                        item.setTextAlignment(Qt.AlignLeft | Qt.AlignTop)
+                        table.setSpan(i, 0, 1, table.columnCount())
+                        table.setWordWrap(True)
+                        table.resizeRowToContents(i)
+                    else:
+                        item.setTextAlignment(Qt.AlignCenter)
+                
         self.analysis_result_layout.addWidget(table)
         # 保存表格数据
         self.cached_table_data = {
