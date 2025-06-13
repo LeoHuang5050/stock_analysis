@@ -789,7 +789,7 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
     select_count_label.setFixedWidth(80)
     select_count_layout = QHBoxLayout()
     select_count_layout.setSpacing(4)
-    select_count_layout.setContentsMargins(10, 10, 10, 10)
+    select_count_layout.setContentsMargins(0, 0, 0, 0)
     select_count_layout.addWidget(select_count_label)
     select_count_layout.addWidget(select_count_spin)
     select_count_widget = QWidget()
@@ -821,15 +821,36 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
         if idx >= 0:
             sort_combo.setCurrentIndex(idx)
 
-    # 变更时同步到主界面变量
     def sync_to_main():
         parent.last_select_count = select_count_spin.value()
         parent.last_sort_mode = sort_combo.currentText()
     select_count_spin.valueChanged.connect(sync_to_main)
     sort_combo.currentTextChanged.connect(sync_to_main)
 
+    # 新增：操作值控件
+    expr_label = QLabel("操作值")
+    expr_label.setFixedWidth(50)
+    expr_label.setStyleSheet("border: none;")
+    expr_edit = parent.expr_edit if hasattr(parent, 'expr_edit') else None
+    if expr_edit is None:
+        from ui.stock_analysis_ui_v2 import ValidatedExprEdit
+        expr_edit = ValidatedExprEdit()
+        expr_edit.setPlainText("if INC != 0:\n    result = INC\nelse:\n    result = 0\n")
+    expr_edit.setFixedWidth(120)
+    expr_edit.setFixedHeight(20)
+    # 初始化内容
+    if hasattr(parent, 'last_expr') and parent.last_expr:
+        expr_edit.setPlainText(parent.last_expr)
+    def sync_expr_to_main():
+        if hasattr(parent, 'last_expr'):
+            parent.last_expr = expr_edit.toPlainText()
+    expr_edit.textChanged.connect(sync_expr_to_main)
+    # 直接添加到top_layout
+    top_layout.addWidget(expr_label)
+    top_layout.addWidget(expr_edit)
+
     select_btn = QPushButton("进行选股")
-    select_btn.setFixedSize(100, 50)
+    select_btn.setFixedSize(100, 20)
     select_btn.setStyleSheet("""
         QPushButton {
             background-color: #4A90E2;
@@ -849,8 +870,9 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
     """)
     # 新增：查看结果按钮
     view_result_btn = QPushButton("查看结果")
-    view_result_btn.setFixedSize(100, 50)
+    view_result_btn.setFixedSize(100, 20)
     view_result_btn.setStyleSheet(select_btn.styleSheet())
+    # 重新组织top_layout顺序
     for w in [select_count_widget, sort_label, sort_combo, select_btn, view_result_btn]:
         top_layout.addWidget(w)
     layout.addLayout(top_layout)
@@ -1648,7 +1670,7 @@ def get_abbr_map():
         ("前1组结束日地址值", "end_value"), 
         ("前1组结束地址前N日的最高值", "n_days_max_value"), 
         ("前1组结束地址前1日涨跌幅", "prev_day_change"), ("前1组结束日涨跌幅", "end_day_change"), ("后一组结束地址值", "diff_end_value"),
-        ("连续累加值数组非空数据长度", "continuous_len"), ("连续累加值正加和", "cont_sum_pos_sum"), ("连续累加值负加和", "cont_sum_neg_sum"), ("连续累加值开始值", "continuous_start_value"), ("连续累加值开始后1位值", "continuous_start_next_value"),
+        ("连续累加值数组非空数据长度", "continuous_len"), ("连续累加值正加值和", "cont_sum_pos_sum"), ("连续累加值负加值和", "cont_sum_neg_sum"), ("连续累加值开始值", "continuous_start_value"), ("连续累加值开始后1位值", "continuous_start_next_value"),
         ("连续累加值开始后2位值", "continuous_start_next_next_value"), ("连续累加值结束值", "continuous_end_value"), ("连续累加值结束前1位值", "continuous_end_prev_value"), ("连续累加值结束前2位值", "continuous_end_prev_prev_value"),
         ("连续累加值数组前一半绝对值之和", "continuous_abs_sum_first_half"), ("连续累加值数组后一半绝对值之和", "continuous_abs_sum_second_half"),
         ("连续累加值数组前四分之一绝对值之和", "continuous_abs_sum_block1"), ("连续累加值数组前四分之1-2绝对值之和", "continuous_abs_sum_block2"),
@@ -1689,15 +1711,7 @@ def get_abbr_logic_map():
         ("第1组后N最大值逻辑", "n_max_is_max"),
         ("开始日到结束日之间最高价/最低价小于M", "range_ratio_is_less"), 
         ("开始日到结束日之间连续累加值绝对值小于M", "continuous_abs_is_less"),
-        ("开始日到结束日之间有效累加值绝对值小于M", "valid_abs_is_less"),
-        ("创前新高1才计算开始值", "start_with_new_before_high"),
-        ("创前新高2才计算开始值", "start_with_new_before_high2"),
-        ("创后新高1才计算开始值", "start_with_new_after_high"),
-        ("创后新高2才计算开始值", "start_with_new_after_high2"),
-        ("创前新低1才计算开始值", "start_with_new_before_low"),
-        ("创前新低2才计算开始值", "start_with_new_before_low2"),
-        ("创后新低1才计算开始值", "start_with_new_after_low"),
-        ("创后新低2才计算开始值", "start_with_new_after_low2")
+        ("开始日到结束日之间有效累加值绝对值小于M", "valid_abs_is_less")
     ]
     return {zh: en for zh, en in abbrs}
 
@@ -1706,6 +1720,8 @@ def get_abbr_round_map():
     abbrs = [
         ("有效累加值正加值和", "valid_pos_sum"),
         ("有效累加值负加值和", "valid_neg_sum"),
+        ("连续累加值正加值和", "cont_sum_pos_sum"),
+        ("连续累加值负加值和", "cont_sum_neg_sum"),
     ]
     return {zh: en for zh, en in abbrs}
 
