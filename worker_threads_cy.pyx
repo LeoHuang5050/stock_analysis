@@ -286,438 +286,446 @@ def calculate_batch_cy(
             try:
                 with nogil:
                     # --- 创前新高1起始条件判断 ---
-                    new_before_high_start_idx = idx + new_before_high_start
-                    found_new_before_high = 0
-                    if new_before_high_logic == "与":
-                        found_new_before_high = 1
-                        for span_offset in range(new_before_high_span):
-                            check_idx = new_before_high_start_idx + span_offset
-                            cur_val = price_data_view[stock_idx, check_idx]
-                            max_val = -1e308
-                            has_valid_value = 0
-                            #if stock_idx == 3:
-                                #printf(b"new_before_high_start_idx=%d, span_offset=%d\n", new_before_high_start_idx, span_offset)
-                            for k in range(check_idx + 1, check_idx + new_before_high_range + 1):
-                                v = price_data_view[stock_idx, k]
-                                if isnan(v) or v == 0:
+                    if start_with_new_before_high_flag:
+                        new_before_high_start_idx = idx + new_before_high_start
+                        found_new_before_high = 0
+                        if new_before_high_logic == "与":
+                            found_new_before_high = 1
+                            for span_offset in range(new_before_high_span):
+                                check_idx = new_before_high_start_idx + span_offset
+                                cur_val = price_data_view[stock_idx, check_idx]
+                                max_val = -1e308
+                                has_valid_value = 0
+                                #if stock_idx == 3:
+                                    #printf(b"new_before_high_start_idx=%d, span_offset=%d\n", new_before_high_start_idx, span_offset)
+                                for k in range(check_idx + 1, check_idx + new_before_high_range + 1):
+                                    v = price_data_view[stock_idx, k]
+                                    if isnan(v) or v == 0:
+                                        continue
+                                    has_valid_value = 1
+                                    if v > max_val:
+                                        max_val = v
+                                
+                                #if stock_idx == 3:
+                                    #printf(b"new_before_high and logic, cur_val=%f, max_val=%f\n", cur_val, max_val)
+                                    #printf(b"New High Check: stock_idx=%d, span_offset=%d, new_high_span=%d, check_idx=%d, range: %d ~ %d\n", stock_idx, span_offset, new_before_high_span, check_idx, check_idx + new_before_high_range + 1, check_idx + 1)
+                                if not has_valid_value or isnan(cur_val):
+                                    found_new_before_high = 0
                                     continue
-                                has_valid_value = 1
-                                if v > max_val:
-                                    max_val = v
-                            
-                            #if stock_idx == 3:
-                                #printf(b"new_before_high and logic, cur_val=%f, max_val=%f\n", cur_val, max_val)
-                                #printf(b"New High Check: stock_idx=%d, span_offset=%d, new_high_span=%d, check_idx=%d, range: %d ~ %d\n", stock_idx, span_offset, new_before_high_span, check_idx, check_idx + new_before_high_range + 1, check_idx + 1)
-                            if not has_valid_value or isnan(cur_val):
-                                found_new_before_high = 0
-                                continue
-                            if cur_val <= max_val:
-                                found_new_before_high = 0
-                                break
-                    else:
-                        for span_offset in range(new_before_high_span):
-                            check_idx = new_before_high_start_idx + span_offset
-                            cur_val = price_data_view[stock_idx, check_idx]
-                            max_val = -1e308
-                            has_valid_value = 0
-                            #if stock_idx == 3:
-                                #printf(b"new_before_high_start_idx=%d, span_offset=%d\n", new_before_high_start_idx, span_offset)
-                            for k in range(check_idx + 1, check_idx + new_before_high_range + 1):
-                                v = price_data_view[stock_idx, k]
-                                if stock_idx == 3:
-                                    printf(b"k=%d, v=%d\n", k, v)
-                                if isnan(v) or v == 0:
+                                if cur_val <= max_val:
+                                    found_new_before_high = 0
+                                    break
+                        else:
+                            for span_offset in range(new_before_high_span):
+                                check_idx = new_before_high_start_idx + span_offset
+                                cur_val = price_data_view[stock_idx, check_idx]
+                                max_val = -1e308
+                                has_valid_value = 0
+                                #if stock_idx == 3:
+                                    #printf(b"new_before_high_start_idx=%d, span_offset=%d\n", new_before_high_start_idx, span_offset)
+                                for k in range(check_idx + 1, check_idx + new_before_high_range + 1):
+                                    v = price_data_view[stock_idx, k]
+                                    #if stock_idx == 3:
+                                        #printf(b"k=%d, v=%d\n", k, v)
+                                    if isnan(v) or v == 0:
+                                        continue
+                                    has_valid_value = 1
+                                    if v > max_val:
+                                        max_val = v
+                                #if stock_idx == 3:
+                                    #printf(b"new_before_high or logic, cur_val=%f, max_val=%f\n", cur_val, max_val)
+                                    #printf(b"New High Check: stock_idx=%d, span_offset=%d, new_high_span=%d, check_idx=%d, range: %d ~ %d\n", stock_idx, span_offset, new_before_high_span, check_idx, check_idx + new_before_high_range + 1, check_idx + 1)
+                                if not has_valid_value or isnan(cur_val):
                                     continue
-                                has_valid_value = 1
-                                if v > max_val:
-                                    max_val = v
-                            #if stock_idx == 3:
-                                #printf(b"new_before_high or logic, cur_val=%f, max_val=%f\n", cur_val, max_val)
-                                #printf(b"New High Check: stock_idx=%d, span_offset=%d, new_high_span=%d, check_idx=%d, range: %d ~ %d\n", stock_idx, span_offset, new_before_high_span, check_idx, check_idx + new_before_high_range + 1, check_idx + 1)
-                            if not has_valid_value or isnan(cur_val):
-                                continue
-                            if cur_val > max_val:
-                                found_new_before_high = 1
-                                break
-                    start_with_new_before_high = found_new_before_high == 1
-                    # 如果没有创前新高1，跳过后续计算
-                    if start_with_new_before_high_flag and not start_with_new_before_high:
-                        continue
+                                if cur_val > max_val:
+                                    found_new_before_high = 1
+                                    break
+                        start_with_new_before_high = found_new_before_high == 1
+                        # 如果没有创前新高1，跳过后续计算
+                        if not start_with_new_before_high:
+                            continue
 
                     # --- 创前新高2起始条件判断 ---
-                    new_before_high2_start_idx = idx + new_before_high2_start
-                    found_new_before_high2 = 0
-                    if new_before_high2_logic == "与":
-                        found_new_before_high2 = 1
-                        for span_offset in range(new_before_high2_span):
-                            check_idx = new_before_high2_start_idx + span_offset
-                            cur_val = price_data_view[stock_idx, check_idx]
-                            max_val = -1e308
-                            has_valid_value = 0
-                            for k in range(check_idx + 1, check_idx + new_before_high2_range + 1):
-                                v = price_data_view[stock_idx, k]
-                                if isnan(v) or v == 0:
+                    if start_with_new_before_high2_flag:
+                        new_before_high2_start_idx = idx + new_before_high2_start
+                        found_new_before_high2 = 0
+                        if new_before_high2_logic == "与":
+                            found_new_before_high2 = 1
+                            for span_offset in range(new_before_high2_span):
+                                check_idx = new_before_high2_start_idx + span_offset
+                                cur_val = price_data_view[stock_idx, check_idx]
+                                max_val = -1e308
+                                has_valid_value = 0
+                                for k in range(check_idx + 1, check_idx + new_before_high2_range + 1):
+                                    v = price_data_view[stock_idx, k]
+                                    if isnan(v) or v == 0:
+                                        continue
+                                    has_valid_value = 1
+                                    if v > max_val:
+                                        max_val = v
+                                
+                                #if stock_idx == 2:
+                                    #printf(b"new_before_high2 and logic, cur_val=%f, max_val=%f, has_valid_value=%d\n", cur_val, max_val, has_valid_value)
+                                    #printf(b"New High2 Check: stock_idx=%d, span_offset=%d, new_high2_span=%d, check_idx=%d, range: %d ~ %d\n", stock_idx, span_offset, new_before_high2_span, check_idx, check_idx + new_before_high2_range + 1, check_idx + 1)
+                                if not has_valid_value or isnan(cur_val):
+                                    found_new_before_high2 = 0
                                     continue
-                                has_valid_value = 1
-                                if v > max_val:
-                                    max_val = v
-                            
-                            #if stock_idx == 2:
-                                #printf(b"new_before_high2 and logic, cur_val=%f, max_val=%f, has_valid_value=%d\n", cur_val, max_val, has_valid_value)
-                                #printf(b"New High2 Check: stock_idx=%d, span_offset=%d, new_high2_span=%d, check_idx=%d, range: %d ~ %d\n", stock_idx, span_offset, new_before_high2_span, check_idx, check_idx + new_before_high2_range + 1, check_idx + 1)
-                            if not has_valid_value or isnan(cur_val):
-                                found_new_before_high2 = 0
-                                continue
-                            if cur_val <= max_val:
-                                found_new_before_high2 = 0
-                                break
-                    else:
-                        for span_offset in range(new_before_high2_span):
-                            check_idx = new_before_high2_start_idx + span_offset
-                            cur_val = price_data_view[stock_idx, check_idx]
-                            max_val = -1e308
-                            has_valid_value = 0
-                            for k in range(check_idx + 1, check_idx + new_before_high2_range + 1):
-                                v = price_data_view[stock_idx, k]
-                                if isnan(v) or v == 0:
+                                if cur_val <= max_val:
+                                    found_new_before_high2 = 0
+                                    break
+                        else:
+                            for span_offset in range(new_before_high2_span):
+                                check_idx = new_before_high2_start_idx + span_offset
+                                cur_val = price_data_view[stock_idx, check_idx]
+                                max_val = -1e308
+                                has_valid_value = 0
+                                for k in range(check_idx + 1, check_idx + new_before_high2_range + 1):
+                                    v = price_data_view[stock_idx, k]
+                                    if isnan(v) or v == 0:
+                                        continue
+                                    has_valid_value = 1
+                                    if v > max_val:
+                                        max_val = v
+                                #if stock_idx == 2:
+                                    #printf(b"new_before_high2 or logic, cur_val=%f, max_val=%f, has_valid_value=%d \n", cur_val, max_val, has_valid_value)
+                                    #printf(b"New High2 Check: stock_idx=%d, span_offset=%d, new_high2_span=%d, check_idx=%d, range: %d ~ %d\n", stock_idx, span_offset, new_before_high2_span, check_idx, check_idx + new_before_high2_range + 1, check_idx + 1)
+                                if not has_valid_value or isnan(cur_val):
                                     continue
-                                has_valid_value = 1
-                                if v > max_val:
-                                    max_val = v
-                            #if stock_idx == 2:
-                                #printf(b"new_before_high2 or logic, cur_val=%f, max_val=%f, has_valid_value=%d \n", cur_val, max_val, has_valid_value)
-                                #printf(b"New High2 Check: stock_idx=%d, span_offset=%d, new_high2_span=%d, check_idx=%d, range: %d ~ %d\n", stock_idx, span_offset, new_before_high2_span, check_idx, check_idx + new_before_high2_range + 1, check_idx + 1)
-                            if not has_valid_value or isnan(cur_val):
-                                continue
-                            if cur_val > max_val:
-                                found_new_before_high2 = 1
-                                break
-                    start_with_new_before_high2 = found_new_before_high2 == 1
+                                if cur_val > max_val:
+                                    found_new_before_high2 = 1
+                                    break
+                        start_with_new_before_high2 = found_new_before_high2 == 1
 
-                    #if stock_idx == 2:
-                        #printf(b"stock_idx=%d, start_with_new_before_high=%d, found_new_before_high=%d, start_with_new_before_high2=%d, found_new_before_high2=%d\n", stock_idx, start_with_new_before_high, found_new_before_high, start_with_new_before_high2, found_new_before_high2)
-                    # 如果没有创前新高2，跳过后续计算
-                    if start_with_new_before_high2_flag and not start_with_new_before_high2:
-                        continue
+                        #if stock_idx == 2:
+                            #printf(b"stock_idx=%d, start_with_new_before_high=%d, found_new_before_high=%d, start_with_new_before_high2=%d, found_new_before_high2=%d\n", stock_idx, start_with_new_before_high, found_new_before_high, start_with_new_before_high2, found_new_before_high2)
+                        # 如果没有创前新高2，跳过后续计算
+                        if not start_with_new_before_high2:
+                            continue
 
                     
                     # --- 创后新高起始条件判断 --- 
-                    new_after_high_start_idx = idx + new_after_high_start + new_after_high_range
-                    found_new_after_high = 0
-                    if new_after_high_logic == "与":
-                        found_new_after_high = 1
-                        for span_offset in range(new_after_high_span):
-                            check_idx = new_after_high_start_idx + span_offset 
-                            if stock_idx == 0:
-                                printf(b"New After High1 Check: new_after_high_start_idx=%d, check_idx=%d, span_offset=%d, new_after_high_start=%d, new_after_high_range=%d\n",new_after_high_start_idx, check_idx, span_offset, new_after_high_start, new_after_high_range)
-                                printf(b"New After High1 Check: stock_idx=%d, new_after_high_span=%d, range: %d ~ %d\n", stock_idx, new_after_high_span, check_idx - new_after_high_range, check_idx)
-                            cur_val = price_data_view[stock_idx, check_idx]
-                            max_val = -1e308
-                            has_valid_value = 0
-                            for k in range(check_idx - new_after_high_range, check_idx):
-                                if stock_idx == 0:
-                                    printf(b"k = %d\n", k)
-                                v = price_data_view[stock_idx, k]
-                                if isnan(v) or v == 0:
-                                    continue
-                                has_valid_value = 1
-                                if v > max_val:
-                                    max_val = v
-                            
-                            if stock_idx == 2:
-                                printf(b"new_after_high and logic, cur_val=%f, max_val=%f, has_valid_value=%d\n", cur_val, max_val, has_valid_value)
-                                printf(b"New After High Check: stock_idx=%d, span_offset=%d, new_high_span=%d, check_idx=%d, range: %d ~ %d\n", stock_idx, span_offset, new_after_high_span, check_idx, check_idx - new_after_high_range, check_idx)
-                            if not has_valid_value or isnan(cur_val):
-                                found_new_after_high = 0
-                                continue
-                            if cur_val <= max_val:
-                                found_new_after_high = 0
-                                break
-                    else:
-                        for span_offset in range(new_after_high_span):
-                            check_idx = new_after_high_start_idx + span_offset
-                            cur_val = price_data_view[stock_idx, check_idx]
-                            max_val = -1e308
-                            has_valid_value = 0
-                            #if stock_idx == 2:
-                                #printf(b"New After High1 or Check: new_after_high_start_idx=%d, check_idx=%d, span_offset=%d, new_after_high_start=%d, new_after_high_range=%d\n",new_after_high_start_idx, check_idx, span_offset, new_after_high_start, new_after_high_range)
-                                #printf(b"New After High1 or Check: stock_idx=%d, new_after_high_span=%d, range: %d ~ %d\n", stock_idx, new_after_high_span, check_idx - new_after_high_range, check_idx)
-                            for k in range(check_idx - new_after_high_range, check_idx):
-                                v = price_data_view[stock_idx, k]
+                    if start_with_new_after_high_flag:
+                        new_after_high_start_idx = idx + new_after_high_start + new_after_high_range
+                        found_new_after_high = 0
+                        if new_after_high_logic == "与":
+                            found_new_after_high = 1
+                            for span_offset in range(new_after_high_span):
+                                check_idx = new_after_high_start_idx + span_offset 
+                                #if stock_idx == 0:
+                                    #printf(b"New After High1 Check: new_after_high_start_idx=%d, check_idx=%d, span_offset=%d, new_after_high_start=%d, new_after_high_range=%d\n",new_after_high_start_idx, check_idx, span_offset, new_after_high_start, new_after_high_range)
+                                    #printf(b"New After High1 Check: stock_idx=%d, new_after_high_span=%d, range: %d ~ %d\n", stock_idx, new_after_high_span, check_idx - new_after_high_range, check_idx)
+                                cur_val = price_data_view[stock_idx, check_idx]
+                                max_val = -1e308
+                                has_valid_value = 0
+                                for k in range(check_idx - new_after_high_range, check_idx):
+                                    #if stock_idx == 0:
+                                        #printf(b"k = %d\n", k)
+                                    v = price_data_view[stock_idx, k]
+                                    if isnan(v) or v == 0:
+                                        continue
+                                    has_valid_value = 1
+                                    if v > max_val:
+                                        max_val = v
+                                
                                 #if stock_idx == 2:
-                                    #printf(b"k = %d\n", k)
-                                if isnan(v) or v == 0:
+                                    #printf(b"new_after_high and logic, cur_val=%f, max_val=%f, has_valid_value=%d\n", cur_val, max_val, has_valid_value)
+                                    #printf(b"New After High Check: stock_idx=%d, span_offset=%d, new_high_span=%d, check_idx=%d, range: %d ~ %d\n", stock_idx, span_offset, new_after_high_span, check_idx, check_idx - new_after_high_range, check_idx)
+                                if not has_valid_value or isnan(cur_val):
+                                    found_new_after_high = 0
                                     continue
-                                has_valid_value = 1
-                                if v > max_val:
-                                    max_val = v
-                            #if stock_idx == 2:
-                                #printf(b"new_after_high1 or logic, cur_val=%f, max_val=%f, has_valid_value=%d \n", cur_val, max_val, has_valid_value)
-                            if not has_valid_value or isnan(cur_val):
-                                continue
-                            if cur_val > max_val:
-                                found_new_after_high = 1
-                                break
-                    start_with_new_after_high = found_new_after_high == 1
-                    # 如果没有创后新高1，跳过后续计算
-                    if start_with_new_after_high_flag and not start_with_new_after_high:
-                        continue
+                                if cur_val <= max_val:
+                                    found_new_after_high = 0
+                                    break
+                        else:
+                            for span_offset in range(new_after_high_span):
+                                check_idx = new_after_high_start_idx + span_offset
+                                cur_val = price_data_view[stock_idx, check_idx]
+                                max_val = -1e308
+                                has_valid_value = 0
+                                #if stock_idx == 2:
+                                    #printf(b"New After High1 or Check: new_after_high_start_idx=%d, check_idx=%d, span_offset=%d, new_after_high_start=%d, new_after_high_range=%d\n",new_after_high_start_idx, check_idx, span_offset, new_after_high_start, new_after_high_range)
+                                    #printf(b"New After High1 or Check: stock_idx=%d, new_after_high_span=%d, range: %d ~ %d\n", stock_idx, new_after_high_span, check_idx - new_after_high_range, check_idx)
+                                for k in range(check_idx - new_after_high_range, check_idx):
+                                    v = price_data_view[stock_idx, k]
+                                    #if stock_idx == 2:
+                                        #printf(b"k = %d\n", k)
+                                    if isnan(v) or v == 0:
+                                        continue
+                                    has_valid_value = 1
+                                    if v > max_val:
+                                        max_val = v
+                                #if stock_idx == 2:
+                                    #printf(b"new_after_high1 or logic, cur_val=%f, max_val=%f, has_valid_value=%d \n", cur_val, max_val, has_valid_value)
+                                if not has_valid_value or isnan(cur_val):
+                                    continue
+                                if cur_val > max_val:
+                                    found_new_after_high = 1
+                                    break
+                        start_with_new_after_high = found_new_after_high == 1
+                        # 如果没有创后新高1，跳过后续计算
+                        if not start_with_new_after_high:
+                            continue
 
                     # --- 创后新高2起始条件判断 ---
-                    new_after_high2_start_idx = idx + new_after_high2_start + new_after_high2_range
-                    found_new_after_high2 = 0
-                    if new_after_high2_logic == "与":
-                        found_new_after_high2 = 1
-                        for span_offset in range(new_after_high2_span):
-                            check_idx = new_after_high2_start_idx + span_offset
-                            cur_val = price_data_view[stock_idx, check_idx]
-                            max_val = -1e308
-                            has_valid_value = 0
-                            for k in range(check_idx - new_after_high2_range, check_idx):
-                                v = price_data_view[stock_idx, k]
-                                if isnan(v) or v == 0:
+                    if start_with_new_after_high2_flag:
+                        new_after_high2_start_idx = idx + new_after_high2_start + new_after_high2_range
+                        found_new_after_high2 = 0
+                        if new_after_high2_logic == "与":
+                            found_new_after_high2 = 1
+                            for span_offset in range(new_after_high2_span):
+                                check_idx = new_after_high2_start_idx + span_offset
+                                cur_val = price_data_view[stock_idx, check_idx]
+                                max_val = -1e308
+                                has_valid_value = 0
+                                for k in range(check_idx - new_after_high2_range, check_idx):
+                                    v = price_data_view[stock_idx, k]
+                                    if isnan(v) or v == 0:
+                                        continue
+                                    has_valid_value = 1
+                                    if v > max_val:
+                                        max_val = v
+                                
+                                #if stock_idx == 2:
+                                    #printf(b"new_after_high2 and logic, cur_val=%f, max_val=%f, has_valid_value=%d\n", cur_val, max_val, has_valid_value)
+                                    #printf(b"New After High2 Check: stock_idx=%d, span_offset=%d, new_high2_span=%d, check_idx=%d, range: %d ~ %d\n", stock_idx, span_offset, new_after_high2_span, check_idx, check_idx - new_after_high2_range, check_idx)
+                                if not has_valid_value or isnan(cur_val):
+                                    found_new_after_high2 = 0
                                     continue
-                                has_valid_value = 1
-                                if v > max_val:
-                                    max_val = v
-                            
-                            #if stock_idx == 2:
-                                #printf(b"new_after_high2 and logic, cur_val=%f, max_val=%f, has_valid_value=%d\n", cur_val, max_val, has_valid_value)
-                                #printf(b"New After High2 Check: stock_idx=%d, span_offset=%d, new_high2_span=%d, check_idx=%d, range: %d ~ %d\n", stock_idx, span_offset, new_after_high2_span, check_idx, check_idx - new_after_high2_range, check_idx)
-                            if not has_valid_value or isnan(cur_val):
-                                found_new_after_high2 = 0
-                                continue
-                            if cur_val <= max_val:
-                                found_new_after_high2 = 0
-                                break
-                    else:
-                        for span_offset in range(new_after_high2_span):
-                            check_idx = new_after_high2_start_idx + span_offset
-                            cur_val = price_data_view[stock_idx, check_idx]
-                            max_val = -1e308
-                            has_valid_value = 0
-                            for k in range(check_idx - new_after_high2_range, check_idx):
-                                v = price_data_view[stock_idx, k]
-                                if isnan(v) or v == 0:
+                                if cur_val <= max_val:
+                                    found_new_after_high2 = 0
+                                    break
+                        else:
+                            for span_offset in range(new_after_high2_span):
+                                check_idx = new_after_high2_start_idx + span_offset
+                                cur_val = price_data_view[stock_idx, check_idx]
+                                max_val = -1e308
+                                has_valid_value = 0
+                                for k in range(check_idx - new_after_high2_range, check_idx):
+                                    v = price_data_view[stock_idx, k]
+                                    if isnan(v) or v == 0:
+                                        continue
+                                    has_valid_value = 1
+                                    if v > max_val:
+                                        max_val = v
+                                #if stock_idx == 2:
+                                    #printf(b"new_after_high2 or logic, cur_val=%f, max_val=%f, has_valid_value=%d \n", cur_val, max_val, has_valid_value)
+                                    #printf(b"New After High2 Check: stock_idx=%d, span_offset=%d, new_high2_span=%d, check_idx=%d, range: %d ~ %d\n", stock_idx, span_offset, new_after_high2_span, check_idx, check_idx - new_after_high2_range, check_idx)
+                                if not has_valid_value or isnan(cur_val):
                                     continue
-                                has_valid_value = 1
-                                if v > max_val:
-                                    max_val = v
-                            #if stock_idx == 2:
-                                #printf(b"new_after_high2 or logic, cur_val=%f, max_val=%f, has_valid_value=%d \n", cur_val, max_val, has_valid_value)
-                                #printf(b"New After High2 Check: stock_idx=%d, span_offset=%d, new_high2_span=%d, check_idx=%d, range: %d ~ %d\n", stock_idx, span_offset, new_after_high2_span, check_idx, check_idx - new_after_high2_range, check_idx)
-                            if not has_valid_value or isnan(cur_val):
-                                continue
-                            if cur_val > max_val:
-                                found_new_after_high2 = 1
-                                break
-                    start_with_new_after_high2 = found_new_after_high2 == 1
-                    # 如果没有创后新高2，跳过后续计算
-                    if start_with_new_after_high2_flag and not start_with_new_after_high2:
-                        continue
+                                if cur_val > max_val:
+                                    found_new_after_high2 = 1
+                                    break
+                        start_with_new_after_high2 = found_new_after_high2 == 1
+                        # 如果没有创后新高2，跳过后续计算
+                        if not start_with_new_after_high2:
+                            continue
 
-                    if stock_idx == 2:
-                        printf(b"stock_idx=%d, start_with_new_after_high=%d, found_new_after_high=%d, start_with_new_after_high2=%d, found_new_after_high2=%d\n", stock_idx, start_with_new_after_high, found_new_after_high, start_with_new_after_high2, found_new_after_high2)
+                    #if stock_idx == 2:
+                        #printf(b"stock_idx=%d, start_with_new_after_high=%d, found_new_after_high=%d, start_with_new_after_high2=%d, found_new_after_high2=%d\n", stock_idx, start_with_new_after_high, found_new_after_high, start_with_new_after_high2, found_new_after_high2)
 
                     # --- 创前新低1起始条件判断 ---
-                    new_before_low_start_idx = idx + new_before_low_start
-                    found_before_new_low = 0
-                    if new_before_low_logic == "与":
-                        found_before_new_low = 1
-                        for span_offset in range(new_before_low_span):
-                            check_idx = new_before_low_start_idx + span_offset
-                            if check_idx >= price_data_view.shape[1] or check_idx + new_before_low_range >= price_data_view.shape[1]:
-                                continue
-                            cur_val = price_data_view[stock_idx, check_idx]
-                            min_val = 1e308
-                            has_valid_value = 0
-                            for k in range(check_idx + 1, check_idx + new_before_low_range + 1):
-                                v = price_data_view[stock_idx, k]
-                                if isnan(v) or v == 0:
+                    if start_with_new_before_low_flag:
+                        new_before_low_start_idx = idx + new_before_low_start
+                        found_before_new_low = 0
+                        if new_before_low_logic == "与":
+                            found_before_new_low = 1
+                            for span_offset in range(new_before_low_span):
+                                check_idx = new_before_low_start_idx + span_offset
+                                if check_idx >= price_data_view.shape[1] or check_idx + new_before_low_range >= price_data_view.shape[1]:
                                     continue
-                                has_valid_value = 1
-                                if v < min_val:
-                                    min_val = v
-                            if not has_valid_value or isnan(cur_val):
-                                found_before_new_low = 0
-                                break
-                            if cur_val >= min_val:
-                                found_before_new_low = 0
-                                break
-                    else:  # "或"逻辑
-                        for span_offset in range(new_before_low_span):
-                            check_idx = new_before_low_start_idx + span_offset
-                            if check_idx >= price_data_view.shape[1] or check_idx + new_before_low_range >= price_data_view.shape[1]:
-                                continue
-                            cur_val = price_data_view[stock_idx, check_idx]
-                            min_val = 1e308
-                            has_valid_value = 0
-                            for k in range(check_idx + 1, check_idx + new_before_low_range + 1):
-                                v = price_data_view[stock_idx, k]
-                                if isnan(v) or v == 0:
+                                cur_val = price_data_view[stock_idx, check_idx]
+                                min_val = 1e308
+                                has_valid_value = 0
+                                for k in range(check_idx + 1, check_idx + new_before_low_range + 1):
+                                    v = price_data_view[stock_idx, k]
+                                    if isnan(v) or v == 0:
+                                        continue
+                                    has_valid_value = 1
+                                    if v < min_val:
+                                        min_val = v
+                                if not has_valid_value or isnan(cur_val):
+                                    found_before_new_low = 0
+                                    break
+                                if cur_val >= min_val:
+                                    found_before_new_low = 0
+                                    break
+                        else:  # "或"逻辑
+                            for span_offset in range(new_before_low_span):
+                                check_idx = new_before_low_start_idx + span_offset
+                                if check_idx >= price_data_view.shape[1] or check_idx + new_before_low_range >= price_data_view.shape[1]:
                                     continue
-                                has_valid_value = 1
-                                if v < min_val:
-                                    min_val = v
-                            if not has_valid_value or isnan(cur_val):
-                                continue
-                            if cur_val < min_val:
-                                found_before_new_low = 1
-                                break
-                    start_with_new_before_low = found_before_new_low == 1
-                    # 如果没有创前新低1，跳过后续计算
-                    if start_with_new_before_low_flag and not start_with_new_before_low:
-                        continue
+                                cur_val = price_data_view[stock_idx, check_idx]
+                                min_val = 1e308
+                                has_valid_value = 0
+                                for k in range(check_idx + 1, check_idx + new_before_low_range + 1):
+                                    v = price_data_view[stock_idx, k]
+                                    if isnan(v) or v == 0:
+                                        continue
+                                    has_valid_value = 1
+                                    if v < min_val:
+                                        min_val = v
+                                if not has_valid_value or isnan(cur_val):
+                                    continue
+                                if cur_val < min_val:
+                                    found_before_new_low = 1
+                                    break
+                        start_with_new_before_low = found_before_new_low == 1
+                        # 如果没有创前新低1，跳过后续计算
+                        if not start_with_new_before_low:
+                            continue
 
                     # --- 创前新低2起始条件判断 ---
-                    new_before_low2_start_idx = idx + new_before_low2_start
-                    found_new_before_low2 = 0
-                    if new_before_low2_logic == "与":
-                        found_new_before_low2 = 1
-                        for span_offset in range(new_before_low2_span):
-                            check_idx = new_before_low2_start_idx + span_offset
-                            if check_idx >= price_data_view.shape[1] or check_idx + new_before_low2_range >= price_data_view.shape[1]:
-                                continue
-                            cur_val = price_data_view[stock_idx, check_idx]
-                            min_val = 1e308
-                            has_valid_value = 0
-                            for k in range(check_idx + 1, check_idx + new_before_low2_range + 1):
-                                v = price_data_view[stock_idx, k]
-                                if isnan(v) or v == 0:
+                    if start_with_new_before_low2_flag:
+                        new_before_low2_start_idx = idx + new_before_low2_start
+                        found_new_before_low2 = 0
+                        if new_before_low2_logic == "与":
+                            found_new_before_low2 = 1
+                            for span_offset in range(new_before_low2_span):
+                                check_idx = new_before_low2_start_idx + span_offset
+                                if check_idx >= price_data_view.shape[1] or check_idx + new_before_low2_range >= price_data_view.shape[1]:
                                     continue
-                                has_valid_value = 1
-                                if v < min_val:
-                                    min_val = v
-                            if not has_valid_value or isnan(cur_val):
-                                found_new_before_low2 = 0
-                                break
-                            if cur_val >= min_val:
-                                found_new_before_low2 = 0
-                                break
-                    else:  # "或"逻辑
-                        for span_offset in range(new_before_low2_span):
-                            check_idx = new_before_low2_start_idx + span_offset
-                            if check_idx >= price_data_view.shape[1] or check_idx + new_before_low2_range >= price_data_view.shape[1]:
-                                continue
-                            cur_val = price_data_view[stock_idx, check_idx]
-                            min_val = 1e308
-                            has_valid_value = 0
-                            for k in range(check_idx + 1, check_idx + new_before_low2_range + 1):
-                                v = price_data_view[stock_idx, k]
-                                if isnan(v) or v == 0:
+                                cur_val = price_data_view[stock_idx, check_idx]
+                                min_val = 1e308
+                                has_valid_value = 0
+                                for k in range(check_idx + 1, check_idx + new_before_low2_range + 1):
+                                    v = price_data_view[stock_idx, k]
+                                    if isnan(v) or v == 0:
+                                        continue
+                                    has_valid_value = 1
+                                    if v < min_val:
+                                        min_val = v
+                                if not has_valid_value or isnan(cur_val):
+                                    found_new_before_low2 = 0
+                                    break
+                                if cur_val >= min_val:
+                                    found_new_before_low2 = 0
+                                    break
+                        else:  # "或"逻辑
+                            for span_offset in range(new_before_low2_span):
+                                check_idx = new_before_low2_start_idx + span_offset
+                                if check_idx >= price_data_view.shape[1] or check_idx + new_before_low2_range >= price_data_view.shape[1]:
                                     continue
-                                has_valid_value = 1
-                                if v < min_val:
-                                    min_val = v
-                            if not has_valid_value or isnan(cur_val):
-                                continue
-                            if cur_val < min_val:
-                                found_new_before_low2 = 1
-                                break
-                    start_with_new_before_low2 = found_new_before_low2 == 1
-                    # 如果没有创前新低2，跳过后续计算
-                    if start_with_new_before_low2_flag and not start_with_new_before_low2:
-                        continue
+                                cur_val = price_data_view[stock_idx, check_idx]
+                                min_val = 1e308
+                                has_valid_value = 0
+                                for k in range(check_idx + 1, check_idx + new_before_low2_range + 1):
+                                    v = price_data_view[stock_idx, k]
+                                    if isnan(v) or v == 0:
+                                        continue
+                                    has_valid_value = 1
+                                    if v < min_val:
+                                        min_val = v
+                                if not has_valid_value or isnan(cur_val):
+                                    continue
+                                if cur_val < min_val:
+                                    found_new_before_low2 = 1
+                                    break
+                        start_with_new_before_low2 = found_new_before_low2 == 1
+                        # 如果没有创前新低2，跳过后续计算
+                        if not start_with_new_before_low2:
+                            continue
 
                     # --- 创后新低1起始条件判断 ---
-                    new_after_low_start_idx = idx + new_after_low_start + new_after_low_range
-                    found_new_after_low = 0
-                    if new_after_low_logic == "与":
-                        found_new_after_low = 1
-                        for span_offset in range(new_after_low_span):
-                            check_idx = new_after_low_start_idx + span_offset
-                            if check_idx >= price_data_view.shape[1] or check_idx + new_after_low_range >= price_data_view.shape[1]:
-                                continue
-                            cur_val = price_data_view[stock_idx, check_idx]
-                            min_val = 1e308
-                            has_valid_value = 0
-                            for k in range(check_idx - new_after_low_range, check_idx):
-                                v = price_data_view[stock_idx, k]
-                                if isnan(v) or v == 0:
+                    if start_with_new_after_low_flag:
+                        new_after_low_start_idx = idx + new_after_low_start + new_after_low_range
+                        found_new_after_low = 0
+                        if new_after_low_logic == "与":
+                            found_new_after_low = 1
+                            for span_offset in range(new_after_low_span):
+                                check_idx = new_after_low_start_idx + span_offset
+                                if check_idx >= price_data_view.shape[1] or check_idx + new_after_low_range >= price_data_view.shape[1]:
                                     continue
-                                has_valid_value = 1
-                                if v < min_val:
-                                    min_val = v
-                            if not has_valid_value or isnan(cur_val):
-                                found_new_after_low = 0
-                                break
-                            if cur_val >= min_val:
-                                found_new_after_low = 0
-                                break
-                    else:  # "或"逻辑
-                        for span_offset in range(new_after_low_span):
-                            check_idx = new_after_low_start_idx + span_offset
-                            if check_idx >= price_data_view.shape[1] or check_idx + new_after_low_range >= price_data_view.shape[1]:
-                                continue
-                            cur_val = price_data_view[stock_idx, check_idx]
-                            min_val = 1e308
-                            has_valid_value = 0
-                            for k in range(check_idx - new_after_low_range, check_idx):
-                                v = price_data_view[stock_idx, k]
-                                if isnan(v) or v == 0:
+                                cur_val = price_data_view[stock_idx, check_idx]
+                                min_val = 1e308
+                                has_valid_value = 0
+                                for k in range(check_idx - new_after_low_range, check_idx):
+                                    v = price_data_view[stock_idx, k]
+                                    if isnan(v) or v == 0:
+                                        continue
+                                    has_valid_value = 1
+                                    if v < min_val:
+                                        min_val = v
+                                if not has_valid_value or isnan(cur_val):
+                                    found_new_after_low = 0
+                                    break
+                                if cur_val >= min_val:
+                                    found_new_after_low = 0
+                                    break
+                        else:  # "或"逻辑
+                            for span_offset in range(new_after_low_span):
+                                check_idx = new_after_low_start_idx + span_offset
+                                if check_idx >= price_data_view.shape[1] or check_idx + new_after_low_range >= price_data_view.shape[1]:
                                     continue
-                                has_valid_value = 1
-                                if v < min_val:
-                                    min_val = v
-                            if not has_valid_value or isnan(cur_val):
-                                continue
-                            if cur_val < min_val:
-                                found_new_after_low = 1
-                                break
-                    start_with_new_after_low = found_new_after_low == 1
-                    # 如果没有创后新低1，跳过后续计算
-                    if start_with_new_after_low_flag and not start_with_new_after_low:
-                        continue
+                                cur_val = price_data_view[stock_idx, check_idx]
+                                min_val = 1e308
+                                has_valid_value = 0
+                                for k in range(check_idx - new_after_low_range, check_idx):
+                                    v = price_data_view[stock_idx, k]
+                                    if isnan(v) or v == 0:
+                                        continue
+                                    has_valid_value = 1
+                                    if v < min_val:
+                                        min_val = v
+                                if not has_valid_value or isnan(cur_val):
+                                    continue
+                                if cur_val < min_val:
+                                    found_new_after_low = 1
+                                    break
+                        start_with_new_after_low = found_new_after_low == 1
+                        # 如果没有创后新低1，跳过后续计算
+                        if not start_with_new_after_low:
+                            continue
 
                     # --- 创后新低2起始条件判断 ---
-                    new_after_low2_start_idx = idx + new_after_low2_start + new_after_low2_range
-                    found_new_after_low2 = 0
-                    if new_after_low2_logic == "与":
-                        found_new_after_low2 = 1
-                        for span_offset in range(new_after_low2_span):
-                            check_idx = new_after_low2_start_idx + span_offset
-                            if check_idx >= price_data_view.shape[1] or check_idx + new_after_low2_range >= price_data_view.shape[1]:
-                                continue
-                            cur_val = price_data_view[stock_idx, check_idx]
-                            min_val = 1e308
-                            has_valid_value = 0
-                            for k in range(check_idx - new_after_low2_range, check_idx):
-                                v = price_data_view[stock_idx, k]
-                                if isnan(v) or v == 0:
+                    if start_with_new_after_low2:
+                        new_after_low2_start_idx = idx + new_after_low2_start + new_after_low2_range
+                        found_new_after_low2 = 0
+                        if new_after_low2_logic == "与":
+                            found_new_after_low2 = 1
+                            for span_offset in range(new_after_low2_span):
+                                check_idx = new_after_low2_start_idx + span_offset
+                                if check_idx >= price_data_view.shape[1] or check_idx + new_after_low2_range >= price_data_view.shape[1]:
                                     continue
-                                has_valid_value = 1
-                                if v < min_val:
-                                    min_val = v
-                            if not has_valid_value or isnan(cur_val):
-                                found_new_after_low2 = 0
-                                break
-                            if cur_val >= min_val:
-                                found_new_after_low2 = 0
-                                break
-                    else:  # "或"逻辑
-                        for span_offset in range(new_after_low2_span):
-                            check_idx = new_after_low2_start_idx + span_offset
-                            if check_idx >= price_data_view.shape[1] or check_idx + new_after_low2_range >= price_data_view.shape[1]:
-                                continue
-                            cur_val = price_data_view[stock_idx, check_idx]
-                            min_val = 1e308
-                            has_valid_value = 0
-                            for k in range(check_idx - new_after_low2_range, check_idx):
-                                v = price_data_view[stock_idx, k]
-                                if isnan(v) or v == 0:
+                                cur_val = price_data_view[stock_idx, check_idx]
+                                min_val = 1e308
+                                has_valid_value = 0
+                                for k in range(check_idx - new_after_low2_range, check_idx):
+                                    v = price_data_view[stock_idx, k]
+                                    if isnan(v) or v == 0:
+                                        continue
+                                    has_valid_value = 1
+                                    if v < min_val:
+                                        min_val = v
+                                if not has_valid_value or isnan(cur_val):
+                                    found_new_after_low2 = 0
+                                    break
+                                if cur_val >= min_val:
+                                    found_new_after_low2 = 0
+                                    break
+                        else:  # "或"逻辑
+                            for span_offset in range(new_after_low2_span):
+                                check_idx = new_after_low2_start_idx + span_offset
+                                if check_idx >= price_data_view.shape[1] or check_idx + new_after_low2_range >= price_data_view.shape[1]:
                                     continue
-                                has_valid_value = 1
-                                if v < min_val:
-                                    min_val = v
-                            if not has_valid_value or isnan(cur_val):
-                                continue
-                            if cur_val < min_val:
-                                found_new_after_low2 = 1
-                                break
-                    start_with_new_after_low2 = found_new_after_low2 == 1
-                    # 如果没有创后新低2，跳过后续计算
-                    if start_with_new_after_low2_flag and not start_with_new_after_low2:
-                        continue
+                                cur_val = price_data_view[stock_idx, check_idx]
+                                min_val = 1e308
+                                has_valid_value = 0
+                                for k in range(check_idx - new_after_low2_range, check_idx):
+                                    v = price_data_view[stock_idx, k]
+                                    if isnan(v) or v == 0:
+                                        continue
+                                    has_valid_value = 1
+                                    if v < min_val:
+                                        min_val = v
+                                if not has_valid_value or isnan(cur_val):
+                                    continue
+                                if cur_val < min_val:
+                                    found_new_after_low2 = 1
+                                    break
+                        start_with_new_after_low2 = found_new_after_low2 == 1
+                        # 如果没有创后新低2，跳过后续计算
+                        if not start_with_new_after_low2:
+                            continue
 
                     # 原有的with nogil内容
                     end_date_idx = idx
@@ -1361,6 +1369,8 @@ def calculate_batch_cy(
                     try:
                         if ops_change > ops_change_input and hold_days == 1:
                             adjust_days = 2
+                        elif ops_change > ops_change_input and hold_days == 2 and trade_t1_mode:
+                            adjust_days = 3
                         else:
                             adjust_days = hold_days
                     except Exception:
