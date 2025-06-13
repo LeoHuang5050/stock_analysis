@@ -122,6 +122,7 @@ class StockAnalysisApp(QWidget):
         self.base_param = BaseParamHandler(self)
         # 初始化变量
         self.last_formula_expr = ''
+        self.last_expr = ''  # 新增：操作值表达式缓存
         self.last_select_count = 10
         self.last_sort_mode = '最大值排序'
         self.last_formula_select_state = {}  # 初始化公式选股状态
@@ -257,11 +258,11 @@ class StockAnalysisApp(QWidget):
         top_grid.addWidget(start_option_widget, 0, 5)
         top_grid.addWidget(shift_widget, 0, 6)
         top_grid.addWidget(self.direction_checkbox, 0, 7)
-        top_grid.addWidget(self.range_label, 0, 8)
-        top_grid.addWidget(self.range_value_edit, 0, 9)
-        top_grid.addWidget(self.abs_sum_label, 0, 10)
-        top_grid.addWidget(self.continuous_abs_threshold_edit, 0, 11)
-        top_grid.addWidget(cpu_widget, 0, 12)  # 添加CPU核心数控件
+        top_grid.addWidget(self.range_label, 0, 9)
+        top_grid.addWidget(self.range_value_edit, 0, 10)
+        top_grid.addWidget(self.abs_sum_label, 0, 11)
+        top_grid.addWidget(self.continuous_abs_threshold_edit, 0, 12)
+       
 
         # 第二行
         # 新增"前1组结束地址后N日的最大值"
@@ -356,32 +357,32 @@ class StockAnalysisApp(QWidget):
         ops_change_widget.setMaximumWidth(100)
 
         # 操作值
-        expr_widget = QWidget()
-        expr_layout = QHBoxLayout()
-        expr_layout.setContentsMargins(0, 0, 0, 0)
-        expr_layout.setSpacing(0)
-        expr_layout.setAlignment(Qt.AlignLeft)
-        expr_layout.addWidget(QLabel("操作值"))
-        self.expr_edit = ValidatedExprEdit()
-        self.expr_edit.setPlainText(
-            "if INC != 0:\n"
-            "    result = INC\n"
-            "else:\n"
-            "    result = 0\n"
-        )
-        self.expr_edit.setMinimumHeight(25)
-        self.expr_edit.setMaximumHeight(120)
-        def adjust_expr_edit_height():
-            doc = self.expr_edit.document()
-            line_count = doc.blockCount()
-            font_metrics = self.expr_edit.fontMetrics()
-            height = font_metrics.lineSpacing() * line_count + 12
-            height = max(25, min(height, 120))
-            self.expr_edit.setFixedHeight(height)
-        self.expr_edit.textChanged.connect(adjust_expr_edit_height)
-        adjust_expr_edit_height()  # 初始化高度
-        expr_layout.addWidget(self.expr_edit)
-        expr_widget.setLayout(expr_layout)
+        # expr_widget = QWidget()
+        # expr_layout = QHBoxLayout()
+        # expr_layout.setContentsMargins(0, 0, 0, 0)
+        # expr_layout.setSpacing(0)
+        # expr_layout.setAlignment(Qt.AlignLeft)
+        # expr_layout.addWidget(QLabel("操作值"))
+        # self.expr_edit = ValidatedExprEdit()
+        # self.expr_edit.setPlainText(
+        #     "if INC != 0:\n"
+        #     "    result = INC\n"
+        #     "else:\n"
+        #     "    result = 0\n"
+        # )
+        # self.expr_edit.setMinimumHeight(25)
+        # self.expr_edit.setMaximumHeight(120)
+        # def adjust_expr_edit_height():
+        #     doc = self.expr_edit.document()
+        #     line_count = doc.blockCount()
+        #     font_metrics = self.expr_edit.fontMetrics()
+        #     height = font_metrics.lineSpacing() * line_count + 12
+        #     height = max(25, min(height, 120))
+        #     self.expr_edit.setFixedHeight(height)
+        # self.expr_edit.textChanged.connect(adjust_expr_edit_height)
+        # adjust_expr_edit_height()  # 初始化高度
+        # expr_layout.addWidget(self.expr_edit)
+        # expr_widget.setLayout(expr_layout)
         
         # 控件位置布局
         top_grid.addWidget(self.n_days_label1, 1, 0)
@@ -394,10 +395,11 @@ class StockAnalysisApp(QWidget):
         top_grid.addWidget(inc_rate_widget, 1, 5)
         top_grid.addWidget(after_gt_end_widget, 1, 6)
         top_grid.addWidget(after_gt_prev_widget, 1, 7)
-        top_grid.addWidget(expr_widget, 1, 8)
-        top_grid.addWidget(ops_change_widget, 1, 9)
-        top_grid.addWidget(self.valid_abs_sum_label, 1, 10)
-        top_grid.addWidget(self.valid_abs_sum_threshold_edit, 1, 11)
+        # top_grid.addWidget(expr_widget, 1, 8)
+        top_grid.addWidget(ops_change_widget, 1, 8)
+        top_grid.addWidget(self.valid_abs_sum_label, 1, 9)
+        top_grid.addWidget(self.valid_abs_sum_threshold_edit, 1, 10)
+        top_grid.addWidget(cpu_widget, 1, 11)  # 添加CPU核心数控件
 
         # 添加交易方式下拉框
         trade_mode_widget = QWidget()
@@ -412,10 +414,11 @@ class StockAnalysisApp(QWidget):
         trade_mode_layout.addWidget(self.trade_mode_label)
         trade_mode_layout.addWidget(self.trade_mode_combo)
         trade_mode_widget.setLayout(trade_mode_layout)
-        top_grid.addWidget(trade_mode_widget, 1, 12)
+        top_grid.addWidget(trade_mode_widget, 0, 8)
 
         # 第三行：创前新高1和创前新低相关控件
         # 创前新高1开始日期天数
+        self.new_before_high_flag_checkbox = QCheckBox()
         new_before_high_start_widget = QWidget()
         new_before_high_start_layout = QHBoxLayout()
         new_before_high_start_layout.setContentsMargins(0, 0, 0, 0)
@@ -426,6 +429,7 @@ class StockAnalysisApp(QWidget):
         self.new_before_high_start_spin.setMinimum(0)
         self.new_before_high_start_spin.setValue(0)
         self.new_before_high_start_spin.setFixedWidth(60)
+        new_before_high_start_layout.addWidget(self.new_before_high_flag_checkbox)
         new_before_high_start_layout.addWidget(self.new_before_high_start_label)
         new_before_high_start_layout.addWidget(self.new_before_high_start_spin)
         new_before_high_start_widget.setLayout(new_before_high_start_layout)
@@ -475,6 +479,7 @@ class StockAnalysisApp(QWidget):
         new_before_high_logic_widget.setLayout(new_before_high_logic_layout)
 
         # 创前新高2开始日期距结束日期天数
+        self.new_before_high2_flag_checkbox = QCheckBox()
         new_before_high2_start_widget = QWidget()
         new_before_high2_start_layout = QHBoxLayout()
         new_before_high2_start_layout.setContentsMargins(0, 0, 0, 0)
@@ -485,6 +490,7 @@ class StockAnalysisApp(QWidget):
         self.new_before_high2_start_spin.setMinimum(0)
         self.new_before_high2_start_spin.setValue(0)
         self.new_before_high2_start_spin.setFixedWidth(60)
+        new_before_high2_start_layout.addWidget(self.new_before_high2_flag_checkbox)
         new_before_high2_start_layout.addWidget(self.new_before_high2_start_label)
         new_before_high2_start_layout.addWidget(self.new_before_high2_start_spin)
         new_before_high2_start_widget.setLayout(new_before_high2_start_layout)
@@ -544,6 +550,7 @@ class StockAnalysisApp(QWidget):
 
         # 第四行：创前新高1和创前新低相关控件
         # 创前新高1开始日期天数
+        self.new_after_high_flag_checkbox = QCheckBox()
         new_after_high_start_widget = QWidget()
         new_after_high_start_layout = QHBoxLayout()
         new_after_high_start_layout.setContentsMargins(0, 0, 0, 0)
@@ -554,6 +561,7 @@ class StockAnalysisApp(QWidget):
         self.new_after_high_start_spin.setMinimum(0)
         self.new_after_high_start_spin.setValue(0)
         self.new_after_high_start_spin.setFixedWidth(60)
+        new_after_high_start_layout.addWidget(self.new_after_high_flag_checkbox)
         new_after_high_start_layout.addWidget(self.new_after_high_start_label)
         new_after_high_start_layout.addWidget(self.new_after_high_start_spin)
         new_after_high_start_widget.setLayout(new_after_high_start_layout)
@@ -603,6 +611,7 @@ class StockAnalysisApp(QWidget):
         new_after_high_logic_widget.setLayout(new_after_high_logic_layout)
 
         # 创前新高2开始日期距结束日期天数
+        self.new_after_high2_flag_checkbox = QCheckBox()
         new_after_high2_start_widget = QWidget()
         new_after_high2_start_layout = QHBoxLayout()
         new_after_high2_start_layout.setContentsMargins(0, 0, 0, 0)
@@ -613,6 +622,7 @@ class StockAnalysisApp(QWidget):
         self.new_after_high2_start_spin.setMinimum(0)
         self.new_after_high2_start_spin.setValue(0)
         self.new_after_high2_start_spin.setFixedWidth(60)
+        new_after_high2_start_layout.addWidget(self.new_after_high2_flag_checkbox)
         new_after_high2_start_layout.addWidget(self.new_after_high2_start_label)
         new_after_high2_start_layout.addWidget(self.new_after_high2_start_spin)
         new_after_high2_start_widget.setLayout(new_after_high2_start_layout)
@@ -671,6 +681,7 @@ class StockAnalysisApp(QWidget):
         top_grid.addWidget(new_after_high2_logic_widget, 3, 7)
 
         # 创新低开始日期天数
+        self.new_before_low_flag_checkbox = QCheckBox()
         new_before_low_start_widget = QWidget()
         new_before_low_start_layout = QHBoxLayout()
         new_before_low_start_layout.setContentsMargins(0, 0, 0, 0)
@@ -681,6 +692,7 @@ class StockAnalysisApp(QWidget):
         self.new_before_low_start_spin.setMinimum(0)
         self.new_before_low_start_spin.setValue(0)
         self.new_before_low_start_spin.setFixedWidth(60)
+        new_before_low_start_layout.addWidget(self.new_before_low_flag_checkbox)
         new_before_low_start_layout.addWidget(self.new_before_low_start_label)
         new_before_low_start_layout.addWidget(self.new_before_low_start_spin)
         new_before_low_start_widget.setLayout(new_before_low_start_layout)
@@ -730,6 +742,7 @@ class StockAnalysisApp(QWidget):
         new_before_low_logic_widget.setLayout(new_before_low_logic_layout)
 
         # 创前创新低2开始日期距结束日期天数
+        self.new_before_low2_flag_checkbox = QCheckBox()
         new_before_low2_start_widget = QWidget()
         new_before_low2_start_layout = QHBoxLayout()
         new_before_low2_start_layout.setContentsMargins(0, 0, 0, 0)
@@ -740,6 +753,7 @@ class StockAnalysisApp(QWidget):
         self.new_before_low2_start_spin.setMinimum(0)
         self.new_before_low2_start_spin.setValue(0)
         self.new_before_low2_start_spin.setFixedWidth(60)
+        new_before_low2_start_layout.addWidget(self.new_before_low2_flag_checkbox)
         new_before_low2_start_layout.addWidget(self.new_before_low2_start_label)
         new_before_low2_start_layout.addWidget(self.new_before_low2_start_spin)
         new_before_low2_start_widget.setLayout(new_before_low2_start_layout)
@@ -789,6 +803,7 @@ class StockAnalysisApp(QWidget):
         new_before_low2_logic_widget.setLayout(new_before_low2_logic_layout)
 
         # 创后创新低1开始日期距结束日期天数
+        self.new_after_low_flag_checkbox = QCheckBox()
         new_after_low_start_widget = QWidget()
         new_after_low_start_layout = QHBoxLayout()
         new_after_low_start_layout.setContentsMargins(0, 0, 0, 0)
@@ -799,6 +814,7 @@ class StockAnalysisApp(QWidget):
         self.new_after_low_start_spin.setMinimum(0)
         self.new_after_low_start_spin.setValue(0)
         self.new_after_low_start_spin.setFixedWidth(60)
+        new_after_low_start_layout.addWidget(self.new_after_low_flag_checkbox)
         new_after_low_start_layout.addWidget(self.new_after_low_start_label)
         new_after_low_start_layout.addWidget(self.new_after_low_start_spin)
         new_after_low_start_widget.setLayout(new_after_low_start_layout)
@@ -848,6 +864,7 @@ class StockAnalysisApp(QWidget):
         new_after_low_logic_widget.setLayout(new_after_low_logic_layout)
 
         # 创后创新低2开始日期距结束日期天数
+        self.new_after_low2_flag_checkbox = QCheckBox()
         new_after_low2_start_widget = QWidget()
         new_after_low2_start_layout = QHBoxLayout()
         new_after_low2_start_layout.setContentsMargins(0, 0, 0, 0)
@@ -858,6 +875,7 @@ class StockAnalysisApp(QWidget):
         self.new_after_low2_start_spin.setMinimum(0)
         self.new_after_low2_start_spin.setValue(0)
         self.new_after_low2_start_spin.setFixedWidth(60)
+        new_after_low2_start_layout.addWidget(self.new_after_low2_flag_checkbox)
         new_after_low2_start_layout.addWidget(self.new_after_low2_start_label)
         new_after_low2_start_layout.addWidget(self.new_after_low2_start_spin)
         new_after_low2_start_widget.setLayout(new_after_low2_start_layout)
@@ -978,7 +996,7 @@ class StockAnalysisApp(QWidget):
         for widget in [
             self.range_value_edit, self.continuous_abs_threshold_edit, self.query_input,
             self.op_days_edit, self.inc_rate_edit, self.after_gt_end_edit, self.after_gt_prev_edit, self.ops_change_edit,
-            self.expr_edit, self.n_days_spin, self.n_days_max_spin, self.width_spin, self.shift_spin, self.start_option_combo
+            self.n_days_spin, self.n_days_max_spin, self.width_spin, self.shift_spin, self.start_option_combo
         ]:
             if hasattr(widget, 'setSizePolicy'):
                 widget.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
@@ -1151,7 +1169,7 @@ class StockAnalysisApp(QWidget):
                 QMessageBox.warning(self, "提示", "只能选择交易日！")
                 return None
         
-        if workdays:
+        if not is_auto_analysis:
             try:
                 end_idx = workdays.index(end_date)
             except Exception:
@@ -1228,7 +1246,7 @@ class StockAnalysisApp(QWidget):
                 if end_idx - new_after_low2_total < 0:
                     QMessageBox.warning(self, "提示", "创后新低2日期范围超出数据范围，请调整！")
                     return None
-
+         
         current_formula = formula_expr if formula_expr is not None else (
             self.formula_expr_edit.toPlainText() if hasattr(self, 'formula_expr_edit') else ''
         )
@@ -1236,6 +1254,13 @@ class StockAnalysisApp(QWidget):
         # 每次都强制重新计算
         # 收集所有参数
         params = {}
+        # 获取end_date_start和end_date_end
+        if is_auto_analysis and end_date_start is not None and end_date_end is not None:
+            params['end_date_start'] = end_date_start
+            params['end_date_end'] = end_date_end
+        else:
+            params['end_date_start'] = end_date
+            params['end_date_end'] = end_date
         params['width'] = self.width_spin.value()
         params['start_option'] = self.start_option_combo.currentText()
         params['shift_days'] = self.shift_spin.value()
@@ -1250,7 +1275,7 @@ class StockAnalysisApp(QWidget):
         params['after_gt_start_ratio'] = self.after_gt_prev_edit.text()
         params['trade_mode'] = self.trade_mode_combo.currentText()
         # 选股公式、数量、排序方式参数
-        params['expr'] = self.expr_edit.toPlainText()
+        params['expr'] = self.last_expr  # 新增：操作值表达式
         params['select_count'] = select_count if select_count is not None else 10
         params['sort_mode'] = sort_mode if sort_mode is not None else "最大值排序"
         params['ops_change'] = self.ops_change_edit.text()
@@ -1296,27 +1321,21 @@ class StockAnalysisApp(QWidget):
         params['new_after_low2_span'] = self.new_after_low2_span_spin.value()
         params['new_after_low2_logic'] = self.new_after_low2_logic_combo.currentText()
 
-        # 获取end_date_start和end_date_end
-        if is_auto_analysis and end_date_start is not None and end_date_end is not None:
-            params['end_date_start'] = end_date_start
-            params['end_date_end'] = end_date_end
-        else:
-            params['end_date_start'] = end_date
-            params['end_date_end'] = end_date
+        
         if only_show_selected is not None:
             params['only_show_selected'] = only_show_selected
         # 添加CPU核心数参数
         params['max_cores'] = self.cpu_spin.value()
         # 添加公式选股逻辑控件的勾选状态
         state = getattr(self, 'last_formula_select_state', {})
-        params['start_with_new_before_high_flag'] = state.get('start_with_new_before_high', {}).get('checked', False)
-        params['start_with_new_before_high2_flag'] = state.get('start_with_new_before_high2', {}).get('checked', False)
-        params['start_with_new_after_high_flag'] = state.get('start_with_new_after_high', {}).get('checked', False)
-        params['start_with_new_after_high2_flag'] = state.get('start_with_new_after_high2', {}).get('checked', False)
-        params['start_with_new_before_low_flag'] = state.get('start_with_new_before_low', {}).get('checked', False)
-        params['start_with_new_before_low2_flag'] = state.get('start_with_new_before_low2', {}).get('checked', False)
-        params['start_with_new_after_low_flag'] = state.get('start_with_new_after_low', {}).get('checked', False)
-        params['start_with_new_after_low2_flag'] = state.get('start_with_new_after_low2', {}).get('checked', False)
+        params['start_with_new_before_high_flag'] = self.new_before_high_flag_checkbox.isChecked()
+        params['start_with_new_before_high2_flag'] = self.new_before_high2_flag_checkbox.isChecked()
+        params['start_with_new_after_high_flag'] = self.new_after_high_flag_checkbox.isChecked()
+        params['start_with_new_after_high2_flag'] = self.new_after_high2_flag_checkbox.isChecked()
+        params['start_with_new_before_low_flag'] = self.new_before_low_flag_checkbox.isChecked()
+        params['start_with_new_before_low2_flag'] = self.new_before_low2_flag_checkbox.isChecked()
+        params['start_with_new_after_low_flag'] = self.new_after_low_flag_checkbox.isChecked()
+        params['start_with_new_after_low2_flag'] = self.new_after_low2_flag_checkbox.isChecked()
         params['valid_abs_sum_threshold'] = self.valid_abs_sum_threshold_edit.text()
         params['new_before_high_logic'] = self.new_before_high_logic_combo.currentText()
         result = self.base_param.on_calculate_clicked(params)
@@ -1445,7 +1464,7 @@ class StockAnalysisApp(QWidget):
         table.setItem(0, 6, QTableWidgetItem(f"{mean_of_mean_incre_rate_with_nan}%" if mean_of_mean_incre_rate_with_nan != '' else ''))
         table.setItem(0, 7, QTableWidgetItem(f"{max_incre_rate}%" if max_incre_rate != '' else ''))
         table.setItem(0, 8, QTableWidgetItem(f"{min_incre_rate}%" if min_incre_rate != '' else ''))
-        table.resizeColumnsToContents()
+        # table.resizeColumnsToContents()
         table.horizontalHeader().setFixedHeight(40)
         table.horizontalHeader().setStyleSheet("font-size: 12px;")
 
@@ -1490,7 +1509,11 @@ class StockAnalysisApp(QWidget):
                 val = sum(vals) / len(vals)
             return float(Decimal(str(val)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
 
-        table.setItem(0, 4, QTableWidgetItem(f"{safe_mean(non_nan_mean_list)}%" if non_nan_mean_list else ''))
+        non_nan_mean_val = safe_mean(non_nan_mean_list)
+        if non_nan_mean_val != '':
+            table.setItem(0, 4, QTableWidgetItem(f"{non_nan_mean_val}%"))
+        else:
+            table.setItem(0, 4, QTableWidgetItem(''))
         table.setItem(0, 5, QTableWidgetItem(f"{safe_mean(with_nan_mean_list)}%" if with_nan_mean_list else ''))
         # print(f"non_nan_mean_list: {non_nan_mean_list}, len: {len(non_nan_mean_list)}")
         # print(f"with_nan_mean_list: {with_nan_mean_list}, len: {len(with_nan_mean_list)}")
@@ -1525,20 +1548,9 @@ class StockAnalysisApp(QWidget):
             table.setItem(row + i, 1, QTableWidgetItem(value))
 
         # 设置第一列宽度为固定150px，其他列自适应
-        from PyQt5.QtWidgets import QHeaderView
         header = table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.Fixed)
         table.setColumnWidth(0, 150)
-        for col in range(1, table.columnCount()):
-            header.setSectionResizeMode(col, QHeaderView.Stretch)
-
-        # 设置所有非选股公式单元格居中
-        for i in range(table.rowCount()):
-            for j in range(table.columnCount()):
-                item = table.item(i, j)
-                if item is not None and not (formula and i == table.rowCount() - 9 and j == 0 and item.text().startswith("选股公式")):
-                    item.setTextAlignment(Qt.AlignCenter)
-
         return table
 
     def show_cached_analysis_table(self):
@@ -1602,6 +1614,88 @@ class StockAnalysisApp(QWidget):
                         end_date = d
                         break
         # print(f"自动调整后的end_date: {end_date}")
+        # 检查创新高新低日期宽度
+        # 创新高参数
+        new_before_high_flag = self.new_before_high_flag_checkbox.isChecked()
+        new_before_high2_flag = self.new_before_high2_flag_checkbox.isChecked()
+        new_after_high_flag = self.new_after_high_flag_checkbox.isChecked()
+        new_after_high2_flag = self.new_after_high2_flag_checkbox.isChecked()
+        new_before_low_flag = self.new_before_low_flag_checkbox.isChecked()
+        new_before_low2_flag = self.new_before_low2_flag_checkbox.isChecked()
+        new_after_low_flag = self.new_after_low_flag_checkbox.isChecked()
+        new_after_low2_flag = self.new_after_low2_flag_checkbox.isChecked()
+
+        nh_start = self.new_before_high_start_spin.value()
+        nh_range = self.new_before_high_range_spin.value()
+        nh_span = self.new_before_high_span_spin.value()
+        nh_total = nh_start + nh_range + nh_span
+        if new_before_high_flag and start_date_idx - nh_total < 0:
+            QMessageBox.warning(self, "提示", "创前新高1日期范围超出数据范围，请调整结束日期开始日！")
+            return None
+        
+        # 创前新高2参数
+        nh2_start = self.new_before_high2_start_spin.value()
+        nh2_range = self.new_before_high2_range_spin.value()
+        nh2_span = self.new_before_high2_span_spin.value()
+        nh2_total = nh2_start + nh2_range + nh2_span
+        if new_before_high2_flag and start_date_idx - nh2_total < 0:
+            QMessageBox.warning(self, "提示", "创前新高2日期范围超出数据范围，请调整结束日期开始日！")
+            return None
+        
+        # 创后新高1参数
+        new_after_high_start = self.new_after_high_start_spin.value()
+        new_after_high_range = self.new_after_high_range_spin.value()
+        new_after_high_span = self.new_after_high_span_spin.value()
+        new_after_high_total = new_after_high_start + new_after_high_range + new_after_high_span
+        if new_after_high_flag and start_date_idx - new_after_high_total < 0:
+            QMessageBox.warning(self, "提示", "创后新高1日期范围超出数据范围，请调整结束日期开始日！")
+            return None
+
+        # 创后新高2参数
+        new_after_high2_start = self.new_after_high2_start_spin.value()
+        new_after_high2_range = self.new_after_high2_range_spin.value()
+        new_after_high2_span = self.new_after_high2_span_spin.value()
+        new_after_high2_total = new_after_high2_start + new_after_high2_range + new_after_high2_span
+        if new_after_high2_flag and start_date_idx - new_after_high2_total < 0:
+            QMessageBox.warning(self, "提示", "创后新高2日期范围超出数据范围，请调整结束日期开始日！")
+            return None
+            
+        # 创前新低1参数
+        nl_start = self.new_before_low_start_spin.value()
+        nl_range = self.new_before_low_range_spin.value()
+        nl_span = self.new_before_low_span_spin.value()
+        nl_total = nl_start + nl_range + nl_span
+        if new_before_low_flag and start_date_idx - nl_total < 0:
+            QMessageBox.warning(self, "提示", "创新低日期范围超出数据范围，请调整结束日期开始日！")
+            return None
+        
+        # 创前新低2参数
+        nh2_start = self.new_before_high2_start_spin.value()
+        nh2_range = self.new_before_high2_range_spin.value()
+        nh2_span = self.new_before_high2_span_spin.value()
+        nh2_total = nh2_start + nh2_range + nh2_span
+        if new_before_high2_flag and start_date_idx - nh2_total < 0:
+            QMessageBox.warning(self, "提示", "创前新高2日期范围超出数据范围，请调整结束日期开始日！")
+            return None
+
+        # 创后新低1参数
+        new_after_low_start = self.new_after_low_start_spin.value()
+        new_after_low_range = self.new_after_low_range_spin.value()
+        new_after_low_span = self.new_after_low_span_spin.value()
+        new_after_low_total = new_after_low_start + new_after_low_range + new_after_low_span
+        if new_after_low_flag and start_date_idx - new_after_low_total < 0:
+            QMessageBox.warning(self, "提示", "创后新低1日期范围超出数据范围，请调整结束日期开始日！")
+            return None
+        
+        # 创后新低2参数
+        new_after_low2_start = self.new_after_low2_start_spin.value()
+        new_after_low2_range = self.new_after_low2_range_spin.value()
+        new_after_low2_span = self.new_after_low2_span_spin.value()
+        new_after_low2_total = new_after_low2_start + new_after_low2_range + new_after_low2_span
+        if new_after_low2_flag and start_date_idx - new_after_low2_total < 0:
+            QMessageBox.warning(self, "提示", "创后新低2日期范围超出数据范围，请调整结束日期开始日！")
+            return None
+
         # 获取选股数量和排序方式
         select_count = getattr(self, 'last_select_count', 10)
         sort_mode = getattr(self, 'last_sort_mode', '最大值排序')
@@ -1733,14 +1827,11 @@ class StockAnalysisApp(QWidget):
                         table.resizeRowToContents(i)
                     else:
                         item = QTableWidgetItem(cell)
-                        item.setTextAlignment(Qt.AlignCenter)
                         table.setItem(i, j, item)
             # 设置第一列宽度为固定150px，其他列自适应
             header = table.horizontalHeader()
             header.setSectionResizeMode(0, QHeaderView.Fixed)
             table.setColumnWidth(0, 150)
-            for col in range(1, table.columnCount()):
-                header.setSectionResizeMode(col, QHeaderView.Stretch)
             self.analysis_result_layout.addWidget(table)
         else:
             self.analysis_result_layout.addWidget(self.analysis_result_text)
@@ -2100,19 +2191,6 @@ class StockAnalysisApp(QWidget):
         header = table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.Fixed)
         table.setColumnWidth(0, 150)
-        for col in range(1, table.columnCount()):
-            header.setSectionResizeMode(col, QHeaderView.Stretch)
-        for i in range(table.rowCount()):
-            for j in range(table.columnCount()):
-                item = table.item(i, j)
-                if item is not None:
-                    if j == 0 and str(item.text()).startswith("选股公式"):
-                        item.setTextAlignment(Qt.AlignLeft | Qt.AlignTop)
-                        table.setSpan(i, 0, 1, table.columnCount())
-                        table.setWordWrap(True)
-                        table.resizeRowToContents(i)
-                    else:
-                        item.setTextAlignment(Qt.AlignCenter)
                 
         self.analysis_result_layout.addWidget(table)
         # 保存表格数据
@@ -2137,7 +2215,7 @@ class StockAnalysisApp(QWidget):
             'range_value': self.range_value_edit.text(),
             'continuous_abs_threshold': self.continuous_abs_threshold_edit.text(),
             'ops_change': self.ops_change_edit.text(),
-            'expr': self.expr_edit.toPlainText(),
+            'expr': getattr(self, 'last_expr', ''),  # 新增：操作值表达式
             'last_formula_expr': getattr(self, 'last_formula_expr', ''),
             'last_select_count': getattr(self, 'last_select_count', 10),
             'last_sort_mode': getattr(self, 'last_sort_mode', '最大值排序'),
@@ -2173,6 +2251,11 @@ class StockAnalysisApp(QWidget):
             'new_after_high2_range': self.new_after_high2_range_spin.value(),
             'new_after_high2_span': self.new_after_high2_span_spin.value(),
             'new_after_high2_logic': self.new_after_high2_logic_combo.currentText(),
+            # 新增：创前新低1相关参数
+            'new_before_low_start': self.new_before_low_start_spin.value(),
+            'new_before_low_range': self.new_before_low_range_spin.value(),
+            'new_before_low_span': self.new_before_low_span_spin.value(),
+            'new_before_low_logic': self.new_before_low_logic_combo.currentText(),
             # 新增：创前新低2相关参数
             'new_before_low2_start': self.new_before_low2_start_spin.value(),
             'new_before_low2_range': self.new_before_low2_range_spin.value(),
@@ -2188,6 +2271,14 @@ class StockAnalysisApp(QWidget):
             'new_after_low2_range': self.new_after_low2_range_spin.value(),
             'new_after_low2_span': self.new_after_low2_span_spin.value(),
             'new_after_low2_logic': self.new_after_low2_logic_combo.currentText(),
+            'new_before_high_flag': self.new_before_high_flag_checkbox.isChecked(),
+            'new_before_high2_flag': self.new_before_high2_flag_checkbox.isChecked(),
+            'new_after_high_flag': self.new_after_high_flag_checkbox.isChecked(),
+            'new_after_high2_flag': self.new_after_high2_flag_checkbox.isChecked(),
+            'new_before_low_flag': self.new_before_low_flag_checkbox.isChecked(),
+            'new_before_low2_flag': self.new_before_low2_flag_checkbox.isChecked(),
+            'new_after_low_flag': self.new_after_low_flag_checkbox.isChecked(),
+            'new_after_low2_flag': self.new_after_low2_flag_checkbox.isChecked(),
         }
         # 保存公式选股控件状态
         if hasattr(self, 'formula_widget') and self.formula_widget is not None:
@@ -2237,7 +2328,7 @@ class StockAnalysisApp(QWidget):
             if 'ops_change' in config:
                 self.ops_change_edit.setText(config['ops_change'])
             if 'expr' in config:
-                self.expr_edit.setText(config['expr'])
+                self.last_expr = config['expr']
             if 'last_formula_expr' in config:
                 self.last_formula_expr = config['last_formula_expr']
             if 'last_select_count' in config:
@@ -2348,6 +2439,14 @@ class StockAnalysisApp(QWidget):
                 self.new_after_low2_span_spin.setValue(config['new_after_low2_span'])
             if 'new_after_low2_logic' in config:
                 self.new_after_low2_logic_combo.setCurrentText(config['new_after_low2_logic'])
+            self.new_before_high_flag_checkbox.setChecked(config.get('new_before_high_flag', False))
+            self.new_before_high2_flag_checkbox.setChecked(config.get('new_before_high2_flag', False))
+            self.new_after_high_flag_checkbox.setChecked(config.get('new_after_high_flag', False))
+            self.new_after_high2_flag_checkbox.setChecked(config.get('new_after_high2_flag', False))
+            self.new_before_low_flag_checkbox.setChecked(config.get('new_before_low_flag', False))
+            self.new_before_low2_flag_checkbox.setChecked(config.get('new_before_low2_flag', False))
+            self.new_after_low_flag_checkbox.setChecked(config.get('new_after_low_flag', False))
+            self.new_after_low2_flag_checkbox.setChecked(config.get('new_after_low2_flag', False))
         except Exception as e:
             print(f"加载配置失败: {e}")
 

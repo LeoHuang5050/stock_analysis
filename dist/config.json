@@ -33,12 +33,6 @@
     "valid_abs_is_less": {
       "checked": false
     },
-    "start_with_new_before_high": {
-      "checked": false
-    },
-    "start_with_new_before_low": {
-      "checked": false
-    },
     "end_value": {
       "checked": false,
       "lower": "",
@@ -71,11 +65,13 @@
     },
     "cont_sum_pos_sum": {
       "checked": false,
+      "round_checked": false,
       "lower": "",
       "upper": ""
     },
     "cont_sum_neg_sum": {
       "checked": false,
+      "round_checked": false,
       "lower": "",
       "upper": ""
     },
@@ -498,13 +494,48 @@
     ],
     "formula": "if continuous_end_prev_value >= -3 and continuous_end_prev_value <= 0 and continuous_end_prev_prev_value >= 0 and continuous_end_prev_prev_value <= 3:\n    result = valid_pos_sum + valid_neg_sum\nelse:\n    result = 0"
   },
+  "trade_mode": "T+0",
   "new_before_high_start": 0,
-  "new_before_high_range": 0,
-  "new_before_high_span": 0,
+  "new_before_high_range": 1,
+  "new_before_high_span": 1,
   "new_before_low_start": 0,
-  "new_before_low_range": 0,
-  "new_before_low_span": 0,
+  "new_before_low_range": 1,
+  "new_before_low_span": 1,
   "valid_abs_sum_threshold": "",
+  "new_before_high_logic": "与",
+  "new_before_high2_start": 0,
+  "new_before_high2_range": 1,
+  "new_before_high2_span": 1,
+  "new_before_high2_logic": "与",
+  "new_after_high_start": 0,
+  "new_after_high_range": 1,
+  "new_after_high_span": 1,
+  "new_after_high_logic": "与",
+  "new_after_high2_start": 0,
+  "new_after_high2_range": 1,
+  "new_after_high2_span": 1,
+  "new_after_high2_logic": "与",
+  "new_before_low_logic": "与",
+  "new_before_low2_start": 0,
+  "new_before_low2_range": 1,
+  "new_before_low2_span": 1,
+  "new_before_low2_logic": "与",
+  "new_after_low_start": 0,
+  "new_after_low_range": 1,
+  "new_after_low_span": 1,
+  "new_after_low_logic": "与",
+  "new_after_low2_start": 0,
+  "new_after_low2_range": 1,
+  "new_after_low2_span": 1,
+  "new_after_low2_logic": "与",
+  "new_before_high_flag": true,
+  "new_before_high2_flag": false,
+  "new_after_high_flag": false,
+  "new_after_high2_flag": false,
+  "new_before_low_flag": false,
+  "new_before_low2_flag": false,
+  "new_after_low_flag": false,
+  "new_after_low2_flag": false,
   "formula_select_state": {
     "n_max_is_max": {
       "checked": false
@@ -516,12 +547,6 @@
       "checked": false
     },
     "valid_abs_is_less": {
-      "checked": false
-    },
-    "start_with_new_before_high": {
-      "checked": false
-    },
-    "start_with_new_before_low": {
       "checked": false
     },
     "end_value": {
@@ -556,11 +581,13 @@
     },
     "cont_sum_pos_sum": {
       "checked": false,
+      "round_checked": false,
       "lower": "",
       "upper": ""
     },
     "cont_sum_neg_sum": {
       "checked": false,
+      "round_checked": false,
       "lower": "",
       "upper": ""
     },
