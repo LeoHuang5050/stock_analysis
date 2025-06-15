@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import chinese_calendar
 from datetime import datetime, timedelta
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTextEdit, QLineEdit, QSpinBox, QComboBox, QPushButton, QTableWidget, QTableWidgetItem, QSizePolicy, QDialog, QTabWidget, QMessageBox, QGridLayout, QDateEdit, QInputDialog, QAbstractItemView, QGroupBox, QCheckBox, QHeaderView, QScrollArea, QToolButton, QApplication, QMainWindow
 from PyQt5.QtCore import QDate, QObject, QEvent, Qt
 from PyQt5.QtGui import QDoubleValidator
@@ -1187,12 +1187,23 @@ def show_formula_select_table_result(parent, result, price_data=None, output_edi
     table.horizontalHeader().setStyleSheet("font-size: 12px;")
     return table
 
+def get_abbr_round_only_map():
+    """获取只有圆框的变量映射"""
+    abbrs = [
+        ("非空涨跌幅均值", "non_nan_mean"),
+        ("含空涨跌幅均值", "with_nan_mean"),
+        ("从下往上的前4个涨跌幅含空均值", "bottom_fourth_with_nan"),
+        ("从下往上的前4个涨跌幅非空均值", "bottom_fourth_non_nan")
+    ]
+    return {zh: en for zh, en in abbrs}
+
 class FormulaSelectWidget(QWidget):
     def __init__(self, abbr_map, abbr_logic_map, abbr_round_map, main_window):
         super().__init__()
         self.abbr_map = abbr_map
         self.abbr_logic_map = abbr_logic_map
         self.abbr_round_map = abbr_round_map
+        self.abbr_round_only_map = get_abbr_round_only_map()  # 添加新的map
         self.var_widgets = {}
         self.comparison_widgets = []  # 存储所有比较控件
         self.main_window = main_window  # 保存主窗口引用
@@ -1218,6 +1229,12 @@ class FormulaSelectWidget(QWidget):
                 item['lower'] = widgets['lower'].text()
             if 'upper' in widgets:
                 item['upper'] = widgets['upper'].text()
+            if 'step' in widgets:
+                item['step'] = widgets['step'].text()
+            if 'direction' in widgets:
+                item['direction'] = widgets['direction'].currentText()
+            if 'logic_check' in widgets:
+                item['logic_checked'] = widgets['logic_check'].isChecked()
             state[en] = item
         # 保存比较控件状态
         comparison_state = []
@@ -1264,6 +1281,12 @@ class FormulaSelectWidget(QWidget):
                     widgets['lower'].setText(data['lower'])
                 if 'upper' in widgets and 'upper' in data:
                     widgets['upper'].setText(data['upper'])
+                if 'step' in widgets and 'step' in data:
+                    widgets['step'].setText(data['step'])
+                if 'direction' in widgets and 'direction' in data:
+                    widgets['direction'].setCurrentText(data['direction'])
+                if 'logic_check' in widgets and 'logic_checked' in data:
+                    widgets['logic_check'].setChecked(data['logic_checked'])
         # 先清除现有的比较控件
         for comp in self.comparison_widgets[:]:
             self.delete_comparison_widget(comp['widget'])
@@ -1293,7 +1316,7 @@ class FormulaSelectWidget(QWidget):
     def add_comparison_widget(self):
         # 创建比较控件容器
         comparison_widget = QWidget()
-        comparison_widget.setFixedWidth(1008)
+        comparison_widget.setFixedWidth(1080)
         comparison_widget.setFixedHeight(45)  # 设置固定高度为35像素
         comparison_layout = QHBoxLayout(comparison_widget)
         comparison_layout.setContentsMargins(10, 10, 10, 10)
@@ -1548,6 +1571,7 @@ class FormulaSelectWidget(QWidget):
             checkbox = QCheckBox()
             checkbox.setFixedWidth(15)
             var_layout.addWidget(checkbox)
+            
             # 只为abbr_round_map中的变量添加圆框
             need_round_checkbox = en in self.abbr_round_map.values()
             if need_round_checkbox:
@@ -1574,23 +1598,53 @@ class FormulaSelectWidget(QWidget):
                     }
                 """)
                 var_layout.addWidget(round_checkbox)
+            
             name_label = QLabel(zh)
             name_label.setFixedWidth(250)
             name_label.setStyleSheet("border: none;")
             name_label.setAlignment(Qt.AlignLeft)
             var_layout.addWidget(name_label)
+
+            # 添加下限输入框
             lower_input = QLineEdit()
             lower_input.setPlaceholderText("下限")
-            lower_input.setFixedWidth(50)
+            lower_input.setFixedWidth(30)
             var_layout.addWidget(lower_input)
+
+            # 添加上限输入框
             upper_input = QLineEdit()
             upper_input.setPlaceholderText("上限")
-            upper_input.setFixedWidth(50)
+            upper_input.setFixedWidth(30)
             var_layout.addWidget(upper_input)
+
+            # 添加步长输入框
+            step_input = QLineEdit()
+            step_input.setPlaceholderText("步长")
+            step_input.setFixedWidth(30)
+            var_layout.addWidget(step_input)
+
+            # 添加方向下拉框
+            direction_combo = QComboBox()
+            direction_combo.addItems(["右单向", "左单向", "全方向"])
+            direction_combo.setFixedWidth(60)
+            direction_combo.setFixedHeight(15)
+            var_layout.addWidget(direction_combo)
+
+            # 添加含逻辑勾选框和标签
+            logic_check = QCheckBox()
+            logic_check.setFixedWidth(15)
+            logic_label = QLabel("含逻辑")
+            logic_label.setStyleSheet("border: none;")
+            var_layout.addWidget(logic_check)
+            var_layout.addWidget(logic_label)
+
             widget_dict = {
                 'checkbox': checkbox,
                 'lower': lower_input,
-                'upper': upper_input
+                'upper': upper_input,
+                'step': step_input,
+                'direction': direction_combo,
+                'logic_check': logic_check
             }
             if need_round_checkbox:
                 name_label.setFixedWidth(228)
@@ -1598,7 +1652,57 @@ class FormulaSelectWidget(QWidget):
             self.var_widgets[en] = widget_dict
             grid_layout.addWidget(var_widget, row, col)
 
-        # 3. 比较控件和添加比较按钮放在变量控件最后一行最后一列后面
+        # 3. 添加只有圆框的变量控件
+        round_only_keys = list(self.abbr_round_only_map.items())
+        start_row = (len(value_keys) + self.cols_per_row - 1) // self.cols_per_row + logic_rows
+        for idx, (zh, en) in enumerate(round_only_keys):
+            row = start_row + idx // self.cols_per_row
+            col = idx % self.cols_per_row
+            var_widget = QWidget()
+            var_widget.setFixedHeight(35)
+            var_layout = QHBoxLayout(var_widget)
+            var_layout.setContentsMargins(10, 10, 10, 10)
+            var_layout.setSpacing(8)
+            var_layout.setAlignment(Qt.AlignLeft)
+            
+            # 添加圆框
+            round_checkbox = QCheckBox()
+            round_checkbox.setFixedWidth(15)
+            round_checkbox.setStyleSheet("""
+                QCheckBox {
+                    spacing: 0px;
+                    padding: 0px;
+                    border: none;
+                    background: transparent;
+                }
+                QCheckBox::indicator {
+                    width: 10px; height: 10px;
+                    border-radius: 5px;
+                    border: 1.2px solid #666;
+                    background: white;
+                    margin: 0px;
+                    padding: 0px;
+                }
+                QCheckBox::indicator:checked {
+                    background: #409EFF;
+                    border: 1.2px solid #409EFF;
+                }
+            """)
+            var_layout.addWidget(round_checkbox)
+            
+            name_label = QLabel(zh)
+            name_label.setFixedWidth(250)
+            name_label.setStyleSheet("border: none;")
+            name_label.setAlignment(Qt.AlignLeft)
+            var_layout.addWidget(name_label)
+
+            widget_dict = {
+                'round_checkbox': round_checkbox
+            }
+            self.var_widgets[en] = widget_dict
+            grid_layout.addWidget(var_widget, row, col)
+
+        # 4. 比较控件和添加比较按钮放在变量控件最后一行最后一列后面
         self.comparison_widgets = []
         self.add_comparison_btn = QPushButton("添加比较")
         self.add_comparison_btn.setFixedSize(100, 30)
@@ -1663,6 +1767,12 @@ class FormulaSelectWidget(QWidget):
                 widgets['lower'].textChanged.connect(self._sync_to_main)
             if 'upper' in widgets:
                 widgets['upper'].textChanged.connect(self._sync_to_main)
+            if 'step' in widgets:
+                widgets['step'].textChanged.connect(self._sync_to_main)
+            if 'direction' in widgets:
+                widgets['direction'].currentTextChanged.connect(self._sync_to_main)
+            if 'logic_check' in widgets:
+                widgets['logic_check'].stateChanged.connect(self._sync_to_main)
 
 def get_abbr_map():
     """获取变量缩写映射字典"""
@@ -1700,7 +1810,7 @@ def get_abbr_map():
         ("向前最小连续累加值前四分之1绝对值之和", "forward_min_continuous_abs_sum_block1"), ("向前最小连续累加值前四分之1-2绝对值之和", "forward_min_continuous_abs_sum_block2"),
         ("向前最小连续累加值前四分之2-3绝对值之和", "forward_min_continuous_abs_sum_block3"), ("向前最小连续累加值后四分之1绝对值之和", "forward_min_continuous_abs_sum_block4"),
         ("向前最大连续累加值数组非空数据长度", "forward_max_result_len"),
-        ("向前最小连续累加值数组非空数据长度", "forward_min_result_len")
+        ("向前最小连续累加值数组非空数据长度", "forward_min_result_len"),
     ]
     return {zh: en for zh, en in abbrs}
 
@@ -1722,6 +1832,10 @@ def get_abbr_round_map():
         ("有效累加值负加值和", "valid_neg_sum"),
         ("连续累加值正加值和", "cont_sum_pos_sum"),
         ("连续累加值负加值和", "cont_sum_neg_sum"),
+        ("非空涨跌幅均值", "non_nan_mean"),
+        ("含空涨跌幅均值", "with_nan_mean"),
+        ("从下往上的前4个涨跌幅含空均值", "bottom_fourth_with_nan"),
+        ("从下往上的前4个涨跌幅非空均值", "bottom_fourth_non_nan")
     ]
     return {zh: en for zh, en in abbrs}
 
@@ -1768,3 +1882,206 @@ def parse_formula_to_config(formula, abbr_map=None):
         comp = {'var1': var1, 'lower': '', 'upper': upper, 'var2': var2}
         config.setdefault('comparison_widgets', []).append(comp)
     return config
+
+def calculate_analysis_result(valid_items):
+    """
+    计算分析结果，包含每个日期的详细数据和总体统计
+    
+    Args:
+        valid_items: 包含股票数据的列表，每个元素是一个元组 (date_key, stocks)
+        
+    Returns:
+        dict: 包含分析结果的字典，结构如下：
+        {
+            'items': [
+                {
+                    'date': '日期',
+                    'hold_days': '操作天数',
+                    'ops_change': '持有涨跌幅',
+                    'daily_change': '日均涨跌幅',
+                    'non_nan_mean': '从下往上非空均值',
+                    'with_nan_mean': '从下往上含空均值'
+                },
+                ...
+            ],
+            'summary': {
+                'mean_hold_days': '操作天数均值',
+                'mean_ops_change': '持有涨跌幅均值',
+                'mean_daily_change': '日均涨跌幅均值',
+                'mean_non_nan': '从下往上非空均值均值',
+                'mean_with_nan': '从下往上含空均值均值',
+                'mean_daily_with_nan': '日均涨跌幅含空均值',
+                'max_change': '最大涨跌幅',
+                'min_change': '最小涨跌幅'
+            }
+        }
+    """
+    def safe_val(val):
+        if val is None:
+            return ''
+        if isinstance(val, float) and math.isnan(val):
+            return ''
+        if isinstance(val, str) and val.strip().lower().startswith('nan'):
+            return ''
+        return val
+
+    def safe_mean(lst, treat_nan_as_zero=False):
+        if treat_nan_as_zero:
+            # 将nan值视为0，计算所有值的平均
+            vals = [0 if (isinstance(v, float) and math.isnan(v)) else v for v in lst]
+            if not vals:
+                return ''
+            val = sum(vals) / len(vals)
+        else:
+            # 只计算非nan值的平均
+            vals = [v for v in lst if not (isinstance(v, float) and math.isnan(v))]
+            if not vals:
+                return ''
+            val = sum(vals) / len(vals)
+        return float(Decimal(str(val)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
+
+    # 存储每个日期的详细数据
+    items = []
+    # 存储用于计算总体统计的数据
+    hold_days_list = []
+    ops_change_list = []
+    daily_change_list = []
+    daily_change_list_with_nan = []  # 新增：存储含空值的日均涨跌幅列表
+    non_nan_mean_list = []
+    with_nan_mean_list = []
+    
+    # 计算每个日期的数据
+    for date_key, stocks in valid_items:
+        hold_days_list_per_date = []
+        ops_change_list_per_date = []
+        ops_incre_rate_list_per_date = []
+        
+        for stock in stocks:
+            try:
+                v = safe_val(stock.get('hold_days', ''))
+                if v != '':
+                    v = float(v)
+                    if not math.isnan(v):
+                        hold_days_list_per_date.append(v)
+            except Exception:
+                pass
+            try:
+                v = safe_val(stock.get('ops_change', ''))
+                if v != '':
+                    v = float(v)
+                    if not math.isnan(v):
+                        ops_change_list_per_date.append(v)
+            except Exception:
+                pass
+            try:
+                v = safe_val(stock.get('ops_incre_rate', ''))
+                if v != '':
+                    v = float(v)
+                    if not math.isnan(v):
+                        ops_incre_rate_list_per_date.append(v)
+            except Exception:
+                pass
+
+        mean_hold_days = safe_mean(hold_days_list_per_date)
+        mean_ops_change = safe_mean(ops_change_list_per_date)
+        mean_ops_incre_rate = safe_mean(ops_incre_rate_list_per_date)
+        
+        daily_change = ''
+        if mean_hold_days and mean_hold_days != 0 and mean_ops_change != '':
+            calc1 = mean_ops_incre_rate if mean_ops_incre_rate != '' else float('inf')
+            calc2 = mean_ops_change / mean_hold_days if mean_hold_days != 0 else float('inf')
+            daily_change = round(min(calc1, calc2), 2)
+            
+        if mean_hold_days != '':
+            hold_days_list.append(mean_hold_days)
+        if mean_ops_change != '':
+            ops_change_list.append(mean_ops_change)
+        if daily_change != '':
+            daily_change_list.append(daily_change)
+            daily_change_list_with_nan.append(daily_change)  # 添加到含空值列表
+        else:
+            daily_change_list_with_nan.append(0)  # 空值当作0处理
+            
+        # 添加到items列表
+        items.append({
+            'date': date_key,
+            'hold_days': mean_hold_days,
+            'ops_change': mean_ops_change,
+            'daily_change': daily_change,
+            'non_nan_mean': '',  # 将在后面计算
+            'with_nan_mean': ''  # 将在后面计算
+        })
+
+    # 计算从下往上的均值
+    n = len(items)
+    for i in range(n):
+        # 获取从当前位置到末尾的所有daily_change值
+        sub_list = [item['daily_change'] for item in items[i:]]
+        
+        # 计算非空均值
+        non_nan_sum = 0
+        non_nan_len = 0
+        for v in sub_list:
+            if isinstance(v, str) and v == '':
+                continue
+            if isinstance(v, float) and math.isnan(v):
+                continue
+            try:
+                v = float(v) if isinstance(v, str) else v
+                non_nan_sum += v
+                non_nan_len += 1
+            except (ValueError, TypeError):
+                continue
+                
+        if non_nan_len > 0:
+            non_nan_mean = float(Decimal(str(non_nan_sum / non_nan_len)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
+        else:
+            non_nan_mean = float('nan')
+            
+        # 计算含空均值 - 修改这里，确保分母包含所有值（包括空值）
+        with_nan_vals = []
+        for v in sub_list:
+            if isinstance(v, str) and v == '':
+                with_nan_vals.append(0)
+            elif isinstance(v, float) and math.isnan(v):
+                with_nan_vals.append(0)
+            else:
+                try:
+                    v = float(v) if isinstance(v, str) else v
+                    with_nan_vals.append(v)
+                except (ValueError, TypeError):
+                    with_nan_vals.append(0)
+                    
+        with_nan_mean = sum(with_nan_vals) / len(sub_list) if sub_list else float('nan')
+        
+        # 更新items中的值
+        items[i]['non_nan_mean'] = non_nan_mean
+        items[i]['with_nan_mean'] = with_nan_mean
+        
+        # 添加到均值列表
+        non_nan_mean_list.append(non_nan_mean)
+        with_nan_mean_list.append(with_nan_mean)
+
+    # 计算总体统计
+    summary = {
+        'mean_hold_days': safe_mean(hold_days_list),
+        'mean_ops_change': safe_mean(ops_change_list),
+        'mean_daily_change': safe_mean(daily_change_list),
+        'mean_non_nan': safe_mean(non_nan_mean_list),
+        'mean_with_nan': safe_mean(with_nan_mean_list),  # 保持为从下往上含空均值
+        'mean_daily_with_nan': safe_mean(daily_change_list_with_nan),  # 使用含空值的列表计算均值
+        'max_change': max(daily_change_list) if daily_change_list else '',
+        'min_change': min(daily_change_list) if daily_change_list else '',
+        # 添加倒数第四个的从下往上的非空均值和含空均值
+        'bottom_fourth_with_nan': items[-4]['with_nan_mean'] if len(items) > 3 else None,
+        'bottom_fourth_non_nan': items[-4]['non_nan_mean'] if len(items) > 3 else None
+    }
+
+    # 打印校验结果
+    if len(items) > 3:
+        print(f"\n倒数第四个的从下往上 - 含空均值: {items[-4]['with_nan_mean']:.4f}, 非空均值: {items[-4]['non_nan_mean']:.4f}")
+
+    return {
+        'items': items,
+        'summary': summary
+    }

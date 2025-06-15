@@ -8,7 +8,7 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QHeaderView
 from function.init import StockAnalysisInit
 from function.base_param import BaseParamHandler
-from function.stock_functions import show_continuous_sum_table, EXPR_PLACEHOLDER_TEXT
+from function.stock_functions import show_continuous_sum_table, EXPR_PLACEHOLDER_TEXT, calculate_analysis_result
 import gc
 import numpy as np
 import pandas as pd
@@ -243,12 +243,23 @@ class StockAnalysisApp(QWidget):
         self.direction_checkbox = QCheckBox("是否计算向前")
         self.range_label = QLabel("开始日到结束日之间最高价/最低价小于")
         self.range_value_edit = QLineEdit()
+        # 创建连续累加值绝对值小于控件
+        abs_sum_widget = QWidget()
+        abs_sum_layout = QHBoxLayout()
+        abs_sum_layout.setContentsMargins(0, 0, 0, 0)
+        abs_sum_layout.setSpacing(5)
+        abs_sum_layout.setAlignment(Qt.AlignLeft)
         self.abs_sum_label = QLabel("开始日到结束日之间连续累加值绝对值小于")
         self.continuous_abs_threshold_edit = QLineEdit()
+        self.continuous_abs_threshold_edit.setFixedWidth(60)
+        abs_sum_layout.addWidget(self.abs_sum_label)
+        abs_sum_layout.addWidget(self.continuous_abs_threshold_edit)
+        abs_sum_widget.setLayout(abs_sum_layout)
+        
         # 新增：有效累加值绝对值小于控件
         self.valid_abs_sum_label = QLabel("开始日到结束日之间有效累加值绝对值小于")
         self.valid_abs_sum_threshold_edit = QLineEdit()
-
+        
         # 第一行全部控件
         top_grid.addWidget(self.label, 0, 0)
         top_grid.addWidget(self.upload_btn, 0, 1)
@@ -260,8 +271,7 @@ class StockAnalysisApp(QWidget):
         top_grid.addWidget(self.direction_checkbox, 0, 7)
         top_grid.addWidget(self.range_label, 0, 9)
         top_grid.addWidget(self.range_value_edit, 0, 10)
-        top_grid.addWidget(self.abs_sum_label, 0, 11)
-        top_grid.addWidget(self.continuous_abs_threshold_edit, 0, 12)
+        top_grid.addWidget(abs_sum_widget, 0, 11)
        
 
         # 第二行
@@ -1365,158 +1375,33 @@ class StockAnalysisApp(QWidget):
         table.setSelectionBehavior(QTableWidget.SelectItems)
         table.setSelectionMode(QTableWidget.ExtendedSelection)
         table.setEditTriggers(QTableWidget.NoEditTriggers)
-        def safe_val(val):
-            if val is None:
-                return ''
-            if isinstance(val, float) and math.isnan(val):
-                return ''
-            if isinstance(val, str) and val.strip().lower().startswith('nan'):
-                return ''
-            return val
-        mean_hold_days_list = []
-        mean_ops_change_list = []
-        mean_incre_rate_list = []
-        mean_incre_rate_list_with_nan_list = []
-        for row_idx, (date_key, stocks) in enumerate(valid_items):
-            hold_days_list = []
-            ops_change_list = []
-            ops_change_list_with_nan = []
-            ops_incre_rate_list = []
-            for stock in stocks:
-                try:
-                    v = safe_val(stock.get('hold_days', ''))
-                    if v != '':
-                        v = float(v)
-                        if not math.isnan(v):
-                            hold_days_list.append(v)
-                except Exception:
-                    pass
-                try:
-                    v = safe_val(stock.get('ops_change', ''))
-                    if v != '':
-                        v = float(v)
-                        if not math.isnan(v):
-                            ops_change_list.append(v)
-                except Exception:
-                    pass
-                try:
-                    v = safe_val(stock.get('ops_incre_rate', ''))
-                    if v != '':
-                        v = float(v)
-                        if not math.isnan(v):
-                            ops_incre_rate_list.append(v)
-                except Exception:
-                    pass
-            def safe_mean(lst, treat_nan_as_zero=False):
-                if treat_nan_as_zero:
-                    # 将nan值视为0，计算所有值的平均
-                    vals = [0 if (isinstance(v, float) and math.isnan(v)) else v for v in lst]
-                    if not vals:
-                        return ''
-                    val = sum(vals) / len(vals)
-                else:
-                    # 只计算非nan值的平均
-                    vals = [v for v in lst if not (isinstance(v, float) and math.isnan(v))]
-                    if not vals:
-                        return ''
-                    val = sum(vals) / len(vals)
-                return float(Decimal(str(val)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
 
-            mean_hold_days = safe_mean(hold_days_list)
-            mean_ops_change = safe_mean(ops_change_list)
-            mean_ops_incre_rate = safe_mean(ops_incre_rate_list)
-            min_incre_rate = ''
-            if mean_hold_days and mean_hold_days != 0 and mean_ops_change != '':
-                calc1 = mean_ops_incre_rate if mean_ops_incre_rate != '' else float('inf')
-                calc2 = mean_ops_change / mean_hold_days if mean_hold_days != 0 else float('inf')
-                min_incre_rate = round(min(calc1, calc2), 2)
-            table.setItem(row_idx + 2, 0, QTableWidgetItem(date_key))
-            table.setItem(row_idx + 2, 1, QTableWidgetItem(str(mean_hold_days)))
-            table.setItem(row_idx + 2, 2, QTableWidgetItem(f"{mean_ops_change}%" if mean_ops_change != '' else ''))
-            table.setItem(row_idx + 2, 3, QTableWidgetItem(f"{min_incre_rate}%" if min_incre_rate != '' else ''))
-            # 第五、第六列用非空均值占位
-            table.setItem(row_idx + 2, 4, QTableWidgetItem(str(mean_ops_change)))
-            table.setItem(row_idx + 2, 5, QTableWidgetItem(str(mean_ops_incre_rate)))
-            # 第七列为包含空值的均值
-            
-            if mean_hold_days != '':
-                mean_hold_days_list.append(mean_hold_days)
-            if mean_ops_change != '':
-                mean_ops_change_list.append(mean_ops_change)
-            if min_incre_rate != '':
-                mean_incre_rate_list.append(min_incre_rate)
-                mean_incre_rate_list_with_nan_list.append(min_incre_rate)
-            else:
-                # print(f"含空值了: mean_incre_rate_list_with_nan_list: {mean_incre_rate_list_with_nan_list}, min_incre_rate: {min_incre_rate}")
-                mean_incre_rate_list_with_nan_list.append(float('nan'))
-            
-        mean_of_mean_hold_days = safe_mean(mean_hold_days_list)
-        mean_of_mean_ops_change = safe_mean(mean_ops_change_list)
-        mean_of_mean_incre_rate = safe_mean(mean_incre_rate_list)
-        mean_of_mean_incre_rate_with_nan = safe_mean(mean_incre_rate_list_with_nan_list, treat_nan_as_zero=True)
-        # 计算最大值和最小值
-        max_incre_rate = max(mean_incre_rate_list) if mean_incre_rate_list else ''
-        min_incre_rate = min(mean_incre_rate_list) if mean_incre_rate_list else ''
-        # 在第一行插入均值行
-        table.setItem(0, 1, QTableWidgetItem(str(mean_of_mean_hold_days)))
-        table.setItem(0, 2, QTableWidgetItem(f"{mean_of_mean_ops_change}%" if mean_of_mean_ops_change != '' else ''))
-        table.setItem(0, 3, QTableWidgetItem(f"{mean_of_mean_incre_rate}%" if mean_of_mean_incre_rate != '' else ''))
-        table.setItem(0, 6, QTableWidgetItem(f"{mean_of_mean_incre_rate_with_nan}%" if mean_of_mean_incre_rate_with_nan != '' else ''))
-        table.setItem(0, 7, QTableWidgetItem(f"{max_incre_rate}%" if max_incre_rate != '' else ''))
-        table.setItem(0, 8, QTableWidgetItem(f"{min_incre_rate}%" if min_incre_rate != '' else ''))
-        # table.resizeColumnsToContents()
+        # 使用新的分析结果计算函数
+        result = calculate_analysis_result(valid_items)
+        
+        # 设置第一行的均值数据
+        summary = result['summary']
+        table.setItem(0, 1, QTableWidgetItem(str(summary['mean_hold_days'])))
+        table.setItem(0, 2, QTableWidgetItem(f"{summary['mean_ops_change']}%" if summary['mean_ops_change'] != '' else ''))
+        table.setItem(0, 3, QTableWidgetItem(f"{summary['mean_daily_change']}%" if summary['mean_daily_change'] != '' else ''))
+        table.setItem(0, 4, QTableWidgetItem(f"{summary['mean_non_nan']}%" if summary['mean_non_nan'] != '' else ''))
+        table.setItem(0, 5, QTableWidgetItem(f"{summary['mean_with_nan']}%" if summary['mean_with_nan'] != '' else ''))
+        table.setItem(0, 6, QTableWidgetItem(f"{summary['mean_daily_with_nan']}%" if summary['mean_daily_with_nan'] != '' else ''))
+        table.setItem(0, 7, QTableWidgetItem(f"{summary['max_change']}%" if summary['max_change'] != '' else ''))
+        table.setItem(0, 8, QTableWidgetItem(f"{summary['min_change']}%" if summary['min_change'] != '' else ''))
+
+        # 设置每行的数据
+        for row_idx, item in enumerate(result['items']):
+            table.setItem(row_idx + 2, 0, QTableWidgetItem(item['date']))
+            table.setItem(row_idx + 2, 1, QTableWidgetItem(str(item['hold_days'])))
+            table.setItem(row_idx + 2, 2, QTableWidgetItem(f"{item['ops_change']}%" if item['ops_change'] != '' else ''))
+            table.setItem(row_idx + 2, 3, QTableWidgetItem(f"{item['daily_change']}%" if item['daily_change'] != '' else ''))
+            table.setItem(row_idx + 2, 4, QTableWidgetItem(f"{round(item['non_nan_mean'],2)}%" if not math.isnan(item['non_nan_mean']) else ''))
+            table.setItem(row_idx + 2, 5, QTableWidgetItem(f"{round(item['with_nan_mean'],2)}%" if not math.isnan(item['with_nan_mean']) else ''))
+
         table.horizontalHeader().setFixedHeight(40)
         table.horizontalHeader().setStyleSheet("font-size: 12px;")
 
-        # 统计所有行的从下往上非空均值和含空均值
-        non_nan_mean_list = []
-        with_nan_mean_list = []
-        n = len(mean_incre_rate_list_with_nan_list)
-        for i in range(n):
-            sub_list = mean_incre_rate_list_with_nan_list[i:]
-            # 非空均值：只统计非nan
-            non_nan_sum = 0
-            non_nan_len = 0
-            for v in sub_list:
-                if isinstance(v, float) and math.isnan(v):
-                    continue
-                non_nan_sum += v
-                non_nan_len += 1
-            if non_nan_len > 0:
-                non_nan_mean = float(Decimal(str(non_nan_sum / non_nan_len)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
-            else:
-                non_nan_mean = float('nan')
-            # 含空均值：nan算0，分母为总数
-            with_nan_vals = [0 if (isinstance(v, float) and math.isnan(v)) else v for v in sub_list]
-            with_nan_mean = sum(with_nan_vals) / len(sub_list) if sub_list else float('nan')
-            non_nan_mean_list.append(non_nan_mean)
-            with_nan_mean_list.append(with_nan_mean)
-            table.setItem(i + 2, 4, QTableWidgetItem(f"{round(non_nan_mean,2)}%" if not math.isnan(non_nan_mean) else ''))
-            table.setItem(i + 2, 5, QTableWidgetItem(f"{round(with_nan_mean,2)}%" if not math.isnan(with_nan_mean) else ''))
-
-        def safe_mean(lst, treat_nan_as_zero=False):
-            if treat_nan_as_zero:
-                # 将nan值视为0，计算所有值的平均
-                vals = [0 if (isinstance(v, float) and math.isnan(v)) else v for v in lst]
-                if not vals:
-                    return ''
-                val = sum(vals) / len(vals)
-            else:
-                # 只计算非nan值的平均
-                vals = [v for v in lst if not (isinstance(v, float) and math.isnan(v))]
-                if not vals:
-                    return ''
-                val = sum(vals) / len(vals)
-            return float(Decimal(str(val)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
-
-        non_nan_mean_val = safe_mean(non_nan_mean_list)
-        if non_nan_mean_val != '':
-            table.setItem(0, 4, QTableWidgetItem(f"{non_nan_mean_val}%"))
-        else:
-            table.setItem(0, 4, QTableWidgetItem(''))
-        table.setItem(0, 5, QTableWidgetItem(f"{safe_mean(with_nan_mean_list)}%" if with_nan_mean_list else ''))
-        # print(f"non_nan_mean_list: {non_nan_mean_list}, len: {len(non_nan_mean_list)}")
-        # print(f"with_nan_mean_list: {with_nan_mean_list}, len: {len(with_nan_mean_list)}")
         # 在表格最后一行插入公式，跨所有列
         if formula:
             row = table.rowCount()
@@ -1551,6 +1436,7 @@ class StockAnalysisApp(QWidget):
         header = table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.Fixed)
         table.setColumnWidth(0, 150)
+        
         return table
 
     def show_cached_analysis_table(self):
