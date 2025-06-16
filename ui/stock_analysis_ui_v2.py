@@ -2172,6 +2172,8 @@ class StockAnalysisApp(QWidget):
                 config['formula_select_state'] = self.formula_widget.get_state()
             except Exception as e:
                 print(f"保存公式选股控件状态失败: {e}")
+        # 新增：保存forward_param_state
+        config['forward_param_state'] = getattr(self, 'forward_param_state', {})
         try:
             with open('config.json', 'w', encoding='utf-8') as f:
                 json.dump(config, f, ensure_ascii=False, indent=2)
@@ -2333,6 +2335,11 @@ class StockAnalysisApp(QWidget):
             self.new_before_low2_flag_checkbox.setChecked(config.get('new_before_low2_flag', False))
             self.new_after_low_flag_checkbox.setChecked(config.get('new_after_low_flag', False))
             self.new_after_low2_flag_checkbox.setChecked(config.get('new_after_low2_flag', False))
+            # 新增：恢复forward_param_state
+            if 'forward_param_state' in config:
+                self.forward_param_state = config['forward_param_state']
+            else:
+                self.forward_param_state = {}
         except Exception as e:
             print(f"加载配置失败: {e}")
 
