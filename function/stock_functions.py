@@ -113,6 +113,14 @@ class TableSearchFilter(QObject):
         if not found:
             QMessageBox.information(self.table, "提示", "未找到相关内容。")
 
+def safe_val(val):
+    import math
+    if val is None:
+        return 0.0
+    if isinstance(val, float) and (math.isnan(val) or str(val).lower() == 'nan'):
+        return 0.0
+    return val
+
 def show_continuous_sum_table(parent, all_results, price_data, as_widget=False):
     try:
         if not all_results or not all_results.get("dates"):
@@ -266,7 +274,7 @@ def show_continuous_sum_table(parent, all_results, price_data, as_widget=False):
                     row.get('forward_max_valid_abs_sum_block4', ''),
                 ]
                 for i, val in enumerate(forward_param_values):
-                    table3.setItem(row_idx, 4 + max_forward_len + i, QTableWidgetItem(str(val)))
+                    table3.setItem(row_idx, 4 + max_forward_len + i, QTableWidgetItem(str(safe_val(val))))
 
             # table4
             table4.setRowCount(len(stocks_data))
@@ -309,7 +317,7 @@ def show_continuous_sum_table(parent, all_results, price_data, as_widget=False):
                     row.get('forward_min_valid_abs_sum_block4', ''),
                 ]
                 for i, val in enumerate(forward_min_param_values):
-                    table4.setItem(row_idx, 4 + max_forward_min_len + i, QTableWidgetItem(str(val)))
+                    table4.setItem(row_idx, 4 + max_forward_min_len + i, QTableWidgetItem(str(safe_val(val))))
 
             # 设置表格列宽自适应
             table1.resizeColumnsToContents()
@@ -385,6 +393,7 @@ def show_formula_select_table_result_window(table, content_widget):
     result_window.setCentralWidget(central_widget)
     result_window.resize(450, 450)
     result_window.show()
+    content_widget.result_window = result_window
     content_widget.result_table = table
 
 def unify_date_columns(df):
@@ -761,7 +770,6 @@ class FormulaExprEdit(QTextEdit):
         super().focusOutEvent(event)
 
 def show_formula_select_table(parent, all_results=None, as_widget=True):
-    from PyQt5.QtWidgets import QMessageBox, QScrollArea
     # print("打开公式选股界面")
     # print(f"当前 last_formula_select_state: {getattr(parent, 'last_formula_select_state', {})}")
     
@@ -872,8 +880,136 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
     view_result_btn = QPushButton("查看结果")
     view_result_btn.setFixedSize(100, 20)
     view_result_btn.setStyleSheet(select_btn.styleSheet())
+
+    # 新增：设置向前参数按钮
+    set_forward_param_btn = QPushButton("设置向前参数")
+    set_forward_param_btn.setFixedSize(100, 20)
+    set_forward_param_btn.setStyleSheet(select_btn.styleSheet())
+
+    def on_set_forward_param_btn_clicked():
+        abbr_map = get_window_abbr_map()
+        class ForwardParamDialog(QDialog):
+            def __init__(self, abbr_map, state=None, parent=None):
+                super().__init__(parent)
+                self.setWindowTitle("设置向前参数")
+                grid = QGridLayout(self)
+                grid.setHorizontalSpacing(20)
+                grid.setVerticalSpacing(10)
+                self.widgets = {}
+                keys = list(abbr_map.keys())
+                for idx, zh_name in enumerate(keys):
+                    col = idx % 4
+                    row = idx // 4
+                    group_widget = QWidget()
+                    group_layout = QHBoxLayout()
+                    group_layout.setContentsMargins(0, 0, 0, 0)
+                    group_layout.setSpacing(5)
+                    group_layout.setAlignment(Qt.AlignLeft)
+                    enable_cb = QCheckBox()
+                    enable_cb.setFixedWidth(15)
+                    label = QLabel(zh_name)
+                    label.setFixedWidth(250)
+                    lower_edit = QLineEdit()
+                    lower_edit.setPlaceholderText("下限")
+                    lower_edit.setFixedWidth(50)
+                    lower_edit.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+                    upper_edit = QLineEdit()
+                    upper_edit.setPlaceholderText("上限")
+                    upper_edit.setFixedWidth(50)
+                    upper_edit.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+                    step_edit = QLineEdit()
+                    step_edit.setPlaceholderText("步长")
+                    step_edit.setFixedWidth(50)
+                    step_edit.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+                    direction_combo = QComboBox()
+                    direction_combo.addItems(["右单向", "左单向", "全方向"])
+                    direction_combo.setFixedWidth(60)
+                    direction_combo.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+                    logic_check = QCheckBox()
+                    logic_check.setFixedWidth(15)
+                    logic_label = QLabel("含逻辑")
+                    logic_label.setStyleSheet("border: none;")
+                    group_layout.addWidget(enable_cb)
+                    group_layout.addWidget(label)
+                    group_layout.addWidget(lower_edit)
+                    group_layout.addWidget(upper_edit)
+                    group_layout.addWidget(step_edit)
+                    group_layout.addWidget(direction_combo)
+                    group_layout.addWidget(logic_check)
+                    group_layout.addWidget(logic_label)
+                    group_widget.setLayout(group_layout)
+                    grid.addWidget(group_widget, row, col)
+                    self.widgets[abbr_map[zh_name]] = {
+                        "enable": enable_cb,
+                        "lower": lower_edit,
+                        "upper": upper_edit,
+                        "step": step_edit,
+                        "direction": direction_combo,
+                        "logic": logic_check
+                    }
+                btn_ok = QPushButton("确定")
+                btn_ok.setFixedWidth(80)
+                btn_ok.setFixedHeight(32)
+                btn_ok.setStyleSheet("font-size: 14px;")
+                btn_ok.clicked.connect(self.accept)
+                grid.addWidget(btn_ok, row+1, 0, 1, 4)
+                # 设置拉伸策略：内容区不拉伸，只拉伸最右空白列和最下空白行
+                for i in range(4):
+                    grid.setColumnStretch(i, 0)
+                grid.setColumnStretch(4, 1)
+                # 在 grid 的最后一行加一个空白控件
+                empty = QWidget()
+                grid.addWidget(empty, row+2, 0, 1, 5)  # 5列，确保最右
+                for i in range(row+2):
+                    grid.setRowStretch(i, 0)
+                grid.setRowStretch(row+2, 1)
+                # 恢复state
+                if hasattr(parent, 'forward_param_state') and parent.forward_param_state:
+                    state = parent.forward_param_state
+                if state:
+                    for k, v in state.items():
+                        if k in self.widgets:
+                            w = self.widgets[k]
+                            w["enable"].setChecked(v.get("enable", False))
+                            w["lower"].setText(v.get("lower", ""))
+                            w["upper"].setText(v.get("upper", ""))
+                            w["step"].setText(v.get("step", ""))
+                            idx = w["direction"].findText(v.get("direction", "右单向"))
+                            if idx >= 0:
+                                w["direction"].setCurrentIndex(idx)
+                            w["logic"].setChecked(v.get("logic", False))
+                self.setLayout(grid)
+            def get_params(self):
+                params = {}
+                for k, w in self.widgets.items():
+                    params[k] = {
+                        "enable": w["enable"].isChecked(),
+                        "lower": w["lower"].text(),
+                        "upper": w["upper"].text(),
+                        "step": w["step"].text(),
+                        "direction": w["direction"].currentText(),
+                        "logic": w["logic"].isChecked()
+                    }
+                return params
+            def closeEvent(self, event):
+                params = self.get_params()
+                if hasattr(self.parent(), 'forward_param_state'):
+                    self.parent().forward_param_state = params
+                    if hasattr(self.parent(), 'save_config'):
+                        self.parent().save_config()
+                super().closeEvent(event)
+        # parent为主窗口实例
+        dlg = ForwardParamDialog(abbr_map, state=getattr(parent, 'forward_param_state', None), parent=parent)
+        if dlg.exec_():
+            params = dlg.get_params()
+            parent.forward_param_state = params
+            if hasattr(parent, 'save_config'):
+                parent.save_config()
+
+    set_forward_param_btn.clicked.connect(on_set_forward_param_btn_clicked)
+
     # 重新组织top_layout顺序
-    for w in [select_count_widget, sort_label, sort_combo, select_btn, view_result_btn]:
+    for w in [select_count_widget, sort_label, sort_combo, select_btn, view_result_btn, set_forward_param_btn]:
         top_layout.addWidget(w)
     layout.addLayout(top_layout)
 
@@ -1192,8 +1328,32 @@ def get_abbr_round_only_map():
     abbrs = [
         ("非空涨跌幅均值", "non_nan_mean"),
         ("含空涨跌幅均值", "with_nan_mean"),
-        ("从下往上的前4个涨跌幅含空均值", "bottom_fourth_with_nan"),
-        ("从下往上的前4个涨跌幅非空均值", "bottom_fourth_non_nan")
+        ("从下往上的第1个涨跌幅含空均值", "bottom_first_with_nan"),
+        ("从下往上的第2个涨跌幅含空均值", "bottom_second_with_nan"),
+        ("从下往上的第3个涨跌幅含空均值", "bottom_third_with_nan"),
+        ("从下往上的第4个涨跌幅含空均值", "bottom_fourth_with_nan"),
+        ("从下往上的第1个涨跌幅非空均值", "bottom_first_non_nan"),
+        ("从下往上的第2个涨跌幅非空均值", "bottom_second_non_nan"),
+        ("从下往上的第3个涨跌幅非空均值", "bottom_third_non_nan"),
+        ("从下往上的第4个涨跌幅非空均值", "bottom_fourth_non_nan"),
+        ("从下往上第N位非空均值", "bottom_nth_non_nan1"),
+        ("从下往上第N位非空均值", "bottom_nth_non_nan2"),
+        ("从下往上第N位非空均值", "bottom_nth_non_nan3"),
+        ("从下往上第N位含空均值", "bottom_nth_with_nan1"),
+        ("从下往上第N位含空均值", "bottom_nth_with_nan2"),
+    ]
+    # 允许label重复，英文名唯一
+    abbr_map = {}
+    for zh, en in abbrs:
+        abbr_map[(zh, en)] = en
+    return abbr_map
+
+def get_special_abbr_map():
+    """获取特殊变量映射"""
+    abbrs = [
+        ("日期宽度", "width"),
+        ("操作天数", "op_days"),
+        ("递增率", "increment_rate"),
     ]
     return {zh: en for zh, en in abbrs}
 
@@ -1204,13 +1364,13 @@ class FormulaSelectWidget(QWidget):
         self.abbr_logic_map = abbr_logic_map
         self.abbr_round_map = abbr_round_map
         self.abbr_round_only_map = get_abbr_round_only_map()  # 添加新的map
+        self.special_abbr_map = get_special_abbr_map()  # 添加特殊map
         self.var_widgets = {}
         self.comparison_widgets = []  # 存储所有比较控件
         self.main_window = main_window  # 保存主窗口引用
         self.init_ui()
         # 先恢复状态
         if hasattr(self.main_window, 'last_formula_select_state'):
-            # print(f"恢复状态: {self.main_window.last_formula_select_state}")
             self.set_state(self.main_window.last_formula_select_state)
         # 再设置状态同步
         self._setup_state_sync()
@@ -1235,6 +1395,8 @@ class FormulaSelectWidget(QWidget):
                 item['direction'] = widgets['direction'].currentText()
             if 'logic_check' in widgets:
                 item['logic_checked'] = widgets['logic_check'].isChecked()
+            if 'n_input' in widgets:
+                item['n_value'] = widgets['n_input'].text()
             state[en] = item
         # 保存比较控件状态
         comparison_state = []
@@ -1247,18 +1409,12 @@ class FormulaSelectWidget(QWidget):
                 'var2': comp['var2'].currentText()
             })
         state['comparison_widgets'] = comparison_state
-        # print(f"保存状态: {state}")  # 添加打印语句
         self.main_window.last_formula_select_state = state
-        # print(f"保存后的状态: {self.main_window.last_formula_select_state}")  # 添加打印语句
-        """同步状态到主界面"""
         if not hasattr(self, 'main_window'):
             return
-        # 生成公式
         formula = self.generate_formula()
-        # 更新主界面的公式
         if hasattr(self.main_window, 'formula_expr_edit'):
             self.main_window.formula_expr_edit.setPlainText(formula)
-        # 更新last_formula_expr
         self.main_window.last_formula_expr = formula
 
     def get_state(self):
@@ -1287,6 +1443,8 @@ class FormulaSelectWidget(QWidget):
                     widgets['direction'].setCurrentText(data['direction'])
                 if 'logic_check' in widgets and 'logic_checked' in data:
                     widgets['logic_check'].setChecked(data['logic_checked'])
+                if 'n_input' in widgets and 'n_value' in data:
+                    widgets['n_input'].setText(data['n_value'])
         # 先清除现有的比较控件
         for comp in self.comparison_widgets[:]:
             self.delete_comparison_widget(comp['widget'])
@@ -1294,11 +1452,8 @@ class FormulaSelectWidget(QWidget):
         for comp_data in state.get('comparison_widgets', []):
             comp = self.add_comparison_widget()
             if comp:  # 确保 comp 不是 None
-                # 等待下拉框选项加载完成
                 QApplication.processEvents()
-                # 设置勾选框状态
-                comp['checkbox'].setChecked(comp_data.get('checked', True))  # 默认True保持向后兼容
-                # 设置下拉框的值
+                comp['checkbox'].setChecked(comp_data.get('checked', True))
                 var1_text = comp_data.get('var1', '')
                 var2_text = comp_data.get('var2', '')
                 if var1_text:
@@ -1309,14 +1464,13 @@ class FormulaSelectWidget(QWidget):
                     idx = comp['var2'].findText(var2_text)
                     if idx >= 0:
                         comp['var2'].setCurrentIndex(idx)
-                # 设置输入框的值
                 comp['lower'].setText(comp_data.get('lower', ''))
                 comp['upper'].setText(comp_data.get('upper', ''))
 
     def add_comparison_widget(self):
         # 创建比较控件容器
         comparison_widget = QWidget()
-        comparison_widget.setFixedWidth(1080)
+        comparison_widget.setFixedWidth(630)
         comparison_widget.setFixedHeight(45)  # 设置固定高度为35像素
         comparison_layout = QHBoxLayout(comparison_widget)
         comparison_layout.setContentsMargins(10, 10, 10, 10)
@@ -1332,7 +1486,7 @@ class FormulaSelectWidget(QWidget):
         # 第一个变量下拉框
         var1_combo = QComboBox()
         var1_combo.addItems([zh for zh, _ in self.abbr_map.items()])
-        var1_combo.setFixedWidth(270)
+        var1_combo.setFixedWidth(215)
         var1_combo.setFixedHeight(20)
         var1_combo.view().setMinimumWidth(270)
         comparison_layout.addWidget(var1_combo)
@@ -1352,7 +1506,7 @@ class FormulaSelectWidget(QWidget):
         # 第二个变量下拉框
         var2_combo = QComboBox()
         var2_combo.addItems([zh for zh, _ in self.abbr_map.items()])
-        var2_combo.setFixedWidth(270)
+        var2_combo.setFixedWidth(215)
         var2_combo.view().setMinimumWidth(270)
         comparison_layout.addWidget(var2_combo)
         
@@ -1435,6 +1589,25 @@ class FormulaSelectWidget(QWidget):
             elif 'checkbox' in widgets and 'lower' not in widgets:
                 if widgets['checkbox'].isChecked():
                     conditions.append(f"{en}")
+        # 新增：向前参数勾选项也参与条件拼接
+        if hasattr(self.main_window, 'forward_param_state') and self.main_window.forward_param_state:
+            for en, v in self.main_window.forward_param_state.items():
+                if v.get('enable'):
+                    conds = []
+                    lower = v.get('lower', '').strip()
+                    upper = v.get('upper', '').strip()
+                    # 变量名与公式变量名需一致，若abbr_map有映射则用英文名
+                    var_name = en
+                    if hasattr(self, 'abbr_map') and self.abbr_map:
+                        zh_name = next((zh for zh, en2 in self.abbr_map.items() if en2 == en), None)
+                        if zh_name:
+                            var_name = en  # 这里en已是英文名
+                    if lower:
+                        conds.append(f"{var_name} >= {lower}")
+                    if upper:
+                        conds.append(f"{var_name} <= {upper}")
+                    if conds:
+                        conditions.append(' and '.join(conds))
         # 2. 收集比较控件的条件
         for comp in self.comparison_widgets:
             # 只处理勾选的比较控件
@@ -1460,6 +1633,9 @@ class FormulaSelectWidget(QWidget):
         # 4. 收集所有被圆框勾选的变量
         result_vars = []
         for en, widgets in self.var_widgets.items():
+            # 跳过 get_abbr_round_only_map 中的变量
+            if en in self.abbr_round_only_map.values():
+                continue
             if 'round_checkbox' in widgets and widgets['round_checkbox'].isChecked():
                 result_vars.append(en)
         if result_vars:
@@ -1476,7 +1652,7 @@ class FormulaSelectWidget(QWidget):
         layout.setSpacing(0)
         layout.setAlignment(Qt.AlignTop)
 
-        self.cols_per_row = 5  # 修正：确保变量控件布局可用
+        self.cols_per_row = 4  # 修正：确保变量控件布局可用
 
         # 创建滚动区域
         scroll = QScrollArea()
@@ -1531,7 +1707,7 @@ class FormulaSelectWidget(QWidget):
 
         # 1. 先放逻辑变量控件在第一行
         logic_keys = list(self.abbr_logic_map.items())
-        logic_per_row = 5
+        logic_per_row = 4
         logic_rows = (len(logic_keys) + logic_per_row - 1) // logic_per_row
         for idx, (zh, en) in enumerate(logic_keys):
             row = idx // logic_per_row
@@ -1557,11 +1733,18 @@ class FormulaSelectWidget(QWidget):
 
         # 2. 数值变量控件从logic_rows行开始，每行5个
         value_keys = list(self.abbr_map.items())
+        # 排除向前参数
+        window_abbrs = set(get_window_abbr_map().values())
+        value_keys = [(zh, en) for zh, en in value_keys if en not in window_abbrs]
         self.value_keys = value_keys  # 记录变量控件顺序
         self.var_count = len(value_keys)
+        current_row = logic_rows  # 当前行号
+        current_col = 0  # 当前列号
+        
+        # 先放置普通变量控件
         for idx, (zh, en) in enumerate(value_keys):
-            row = idx // self.cols_per_row + logic_rows  # 注意这里加上logic_rows
-            col = idx % self.cols_per_row
+            row = current_row
+            col = current_col
             var_widget = QWidget()
             var_widget.setFixedHeight(35)
             var_layout = QHBoxLayout(var_widget)
@@ -1574,6 +1757,7 @@ class FormulaSelectWidget(QWidget):
             
             # 只为abbr_round_map中的变量添加圆框
             need_round_checkbox = en in self.abbr_round_map.values()
+            name_label = QLabel(zh)
             if need_round_checkbox:
                 round_checkbox = QCheckBox()
                 round_checkbox.setFixedWidth(15)
@@ -1598,9 +1782,11 @@ class FormulaSelectWidget(QWidget):
                     }
                 """)
                 var_layout.addWidget(round_checkbox)
+                name_label.setFixedWidth(227)
+            else:
+                name_label.setFixedWidth(250)
             
-            name_label = QLabel(zh)
-            name_label.setFixedWidth(250)
+            
             name_label.setStyleSheet("border: none;")
             name_label.setAlignment(Qt.AlignLeft)
             var_layout.addWidget(name_label)
@@ -1647,17 +1833,21 @@ class FormulaSelectWidget(QWidget):
                 'logic_check': logic_check
             }
             if need_round_checkbox:
-                name_label.setFixedWidth(228)
                 widget_dict['round_checkbox'] = round_checkbox
             self.var_widgets[en] = widget_dict
             grid_layout.addWidget(var_widget, row, col)
+            
+            # 更新行列号
+            current_col += 1
+            if current_col >= self.cols_per_row:
+                current_row += 1
+                current_col = 0
 
-        # 3. 添加只有圆框的变量控件
-        round_only_keys = list(self.abbr_round_only_map.items())
-        start_row = (len(value_keys) + self.cols_per_row - 1) // self.cols_per_row + logic_rows
-        for idx, (zh, en) in enumerate(round_only_keys):
-            row = start_row + idx // self.cols_per_row
-            col = idx % self.cols_per_row
+        # 紧接着放置特殊变量控件
+        special_keys = list(self.special_abbr_map.items())
+        for idx, (zh, en) in enumerate(special_keys):
+            row = current_row
+            col = current_col
             var_widget = QWidget()
             var_widget.setFixedHeight(35)
             var_layout = QHBoxLayout(var_widget)
@@ -1665,7 +1855,64 @@ class FormulaSelectWidget(QWidget):
             var_layout.setSpacing(8)
             var_layout.setAlignment(Qt.AlignLeft)
             
-            # 添加圆框
+            # 添加方框勾选框
+            checkbox = QCheckBox()
+            checkbox.setFixedWidth(15)
+            var_layout.addWidget(checkbox)
+            
+            # 添加label
+            name_label = QLabel(zh)
+            name_label.setFixedWidth(250)
+            name_label.setStyleSheet("border: none;")
+            name_label.setAlignment(Qt.AlignLeft)
+            var_layout.addWidget(name_label)
+
+            # 添加下限和上限输入框
+            lower_input = QLineEdit()
+            lower_input.setPlaceholderText("下限")
+            lower_input.setFixedWidth(30)
+            var_layout.addWidget(lower_input)
+
+            upper_input = QLineEdit()
+            upper_input.setPlaceholderText("上限")
+            upper_input.setFixedWidth(30)
+            var_layout.addWidget(upper_input)
+
+            # 添加步长输入框
+            step_input = QLineEdit()
+            step_input.setPlaceholderText("步长")
+            step_input.setFixedWidth(30)
+            var_layout.addWidget(step_input)
+
+            widget_dict = {
+                'checkbox': checkbox,
+                'lower': lower_input,
+                'upper': upper_input,
+                'step': step_input
+            }
+
+            self.var_widgets[en] = widget_dict
+            grid_layout.addWidget(var_widget, row, col)
+            
+            # 更新行列号
+            current_col += 1
+            if current_col >= self.cols_per_row:
+                current_row += 1
+                current_col = 0
+
+        # 3. 添加只有圆框的变量控件
+        round_only_keys = list(self.abbr_round_only_map.items())
+        for idx, ((zh, en), en_val) in enumerate(round_only_keys):
+            row = current_row
+            col = current_col
+            var_widget = QWidget()
+            var_widget.setFixedHeight(35)
+            var_layout = QHBoxLayout(var_widget)
+            var_layout.setContentsMargins(10, 10, 10, 10)
+            var_layout.setSpacing(2)  # 更紧凑
+            var_layout.setAlignment(Qt.AlignLeft)
+            
+            # 添加圆框勾选框
             round_checkbox = QCheckBox()
             round_checkbox.setFixedWidth(15)
             round_checkbox.setStyleSheet("""
@@ -1690,19 +1937,43 @@ class FormulaSelectWidget(QWidget):
             """)
             var_layout.addWidget(round_checkbox)
             
-            name_label = QLabel(zh)
-            name_label.setFixedWidth(250)
+            # 添加label
+            if en_val in ['bottom_nth_non_nan1', 'bottom_nth_non_nan2', 'bottom_nth_non_nan3', 'bottom_nth_with_nan1', 'bottom_nth_with_nan2']:
+                name_label = QLabel(zh)
+                name_label.setFixedWidth(120)  # 更紧凑
+            else:
+                name_label = QLabel(zh)
+                name_label.setFixedWidth(250)  # 保持原宽度
             name_label.setStyleSheet("border: none;")
             name_label.setAlignment(Qt.AlignLeft)
             var_layout.addWidget(name_label)
 
-            widget_dict = {
-                'round_checkbox': round_checkbox
-            }
-            self.var_widgets[en] = widget_dict
-            grid_layout.addWidget(var_widget, row, col)
+            # 为特定的变量添加N值输入框
+            if en_val in ['bottom_nth_non_nan1', 'bottom_nth_non_nan2', 'bottom_nth_non_nan3', 'bottom_nth_with_nan1', 'bottom_nth_with_nan2']:
+                n_input = QLineEdit()
+                n_input.setPlaceholderText("N")
+                n_input.setFixedWidth(30)
+                n_input.textChanged.connect(self._sync_to_main)  # 自动保存
+                var_layout.addWidget(n_input)
+                widget_dict = {
+                    'round_checkbox': round_checkbox,
+                    'n_input': n_input
+                }
+            else:
+                widget_dict = {
+                    'round_checkbox': round_checkbox
+                }
 
-        # 4. 比较控件和添加比较按钮放在变量控件最后一行最后一列后面
+            self.var_widgets[en_val] = widget_dict
+            grid_layout.addWidget(var_widget, row, col)
+            
+            # 更新行列号
+            current_col += 1
+            if current_col >= self.cols_per_row:
+                current_row += 1
+                current_col = 0
+
+        # 4. 比较控件和添加比较按钮放在最后
         self.comparison_widgets = []
         self.add_comparison_btn = QPushButton("添加比较")
         self.add_comparison_btn.setFixedSize(100, 30)
@@ -1735,25 +2006,31 @@ class FormulaSelectWidget(QWidget):
         # 变量控件最后一行的行号
         last_var_row = (len(self.value_keys) - 1) // self.cols_per_row + logic_rows
         last_var_col = (len(self.value_keys) - 1) % self.cols_per_row
+        # 计算 round_only 控件的行数
+        round_only_count = len(self.abbr_round_only_map)
+        round_only_rows = (round_only_count + self.cols_per_row - 1) // self.cols_per_row
+        # 计算特殊变量控件的行数
+        special_count = len(self.special_abbr_map)
+        special_rows = (special_count + self.cols_per_row - 1) // self.cols_per_row
+        # 新的比较区起始行：变量控件最后一行 + round_only 控件行数 + 特殊变量行数 + 2
+        comparison_start_row = last_var_row + round_only_rows + special_rows + 2
         for comp in getattr(self, 'comparison_widgets', []):
             if hasattr(comp, 'widget'):
                 comp['widget'].setParent(None)
         if hasattr(self, 'add_comparison_btn'):
             self.add_comparison_btn.setParent(None)
         # 判断变量控件最后一行是否有内容
-        start_col = last_var_col + 1
-        row = last_var_row + 3  # 下放三行
-        if start_col > 0:
-            row += 1
+        row = comparison_start_row
         col = 0
         for i, comp in enumerate(self.comparison_widgets):
-            grid_layout.addWidget(comp['widget'], row, col, 1, 2)  # 每个比较控件跨2列
-            col += 2
-            if col >= 4:  # 每行最多2个比较控件
+            grid_layout.addWidget(comp['widget'], row, col)
+            col += 1
+            if col >= 4:  # 每行最多4个比较控件
                 row += 1
                 col = 0
-        # 添加比较按钮
-        grid_layout.addWidget(self.add_comparison_btn, row, col, 1, 2)
+        # 添加比较按钮单独占一行
+        row += 1
+        grid_layout.addWidget(self.add_comparison_btn, row, 0, 1, 2)
 
     def _setup_state_sync(self):
         """设置所有控件的状态同步"""
@@ -1789,6 +2066,13 @@ def get_abbr_map():
         ("有效累加值数组前一半绝对值之和", "valid_abs_sum_first_half"), ("有效累加值数组后一半绝对值之和", "valid_abs_sum_second_half"),
         ("有效累加值数组前四分之1绝对值之和", "valid_abs_sum_block1"), ("有效累加值数组前四分之1-2绝对值之和", "valid_abs_sum_block2"),
         ("有效累加值数组前四分之2-3绝对值之和", "valid_abs_sum_block3"), ("有效累加值数组后四分之1绝对值之和", "valid_abs_sum_block4"),
+    ]
+    abbrs += list(get_window_abbr_map().items())
+    return {zh: en for zh, en in abbrs}
+
+def get_window_abbr_map():
+    """获取窗口变量缩写映射字典"""
+    abbrs = [
         ("向前最大有效累加值数组非空数据长度", "forward_max_valid_sum_len"), 
         ("向前最大有效累加值正加值和", "forward_max_valid_pos_sum"), ("向前最大有效累加值负加值和", "forward_max_valid_neg_sum"),
         ("向前最大有效累加值数组前一半绝对值之和", "forward_max_valid_abs_sum_first_half"), ("向前最大有效累加值数组后一半绝对值之和", "forward_max_valid_abs_sum_second_half"),
@@ -1814,7 +2098,6 @@ def get_abbr_map():
     ]
     return {zh: en for zh, en in abbrs}
 
-
 def get_abbr_logic_map():
     """获取变量缩写映射字典"""
     abbrs = [
@@ -1832,10 +2115,6 @@ def get_abbr_round_map():
         ("有效累加值负加值和", "valid_neg_sum"),
         ("连续累加值正加值和", "cont_sum_pos_sum"),
         ("连续累加值负加值和", "cont_sum_neg_sum"),
-        ("非空涨跌幅均值", "non_nan_mean"),
-        ("含空涨跌幅均值", "with_nan_mean"),
-        ("从下往上的前4个涨跌幅含空均值", "bottom_fourth_with_nan"),
-        ("从下往上的前4个涨跌幅非空均值", "bottom_fourth_non_nan")
     ]
     return {zh: en for zh, en in abbrs}
 
@@ -2072,14 +2351,16 @@ def calculate_analysis_result(valid_items):
         'mean_daily_with_nan': safe_mean(daily_change_list_with_nan),  # 使用含空值的列表计算均值
         'max_change': max(daily_change_list) if daily_change_list else '',
         'min_change': min(daily_change_list) if daily_change_list else '',
-        # 添加倒数第四个的从下往上的非空均值和含空均值
+        # 添加从下往上的前1~4个的非空均值和含空均值
+        'bottom_first_with_nan': items[-1]['with_nan_mean'] if len(items) > 0 else None,
+        'bottom_second_with_nan': items[-2]['with_nan_mean'] if len(items) > 1 else None,
+        'bottom_third_with_nan': items[-3]['with_nan_mean'] if len(items) > 2 else None,
         'bottom_fourth_with_nan': items[-4]['with_nan_mean'] if len(items) > 3 else None,
+        'bottom_first_non_nan': items[-1]['non_nan_mean'] if len(items) > 0 else None,
+        'bottom_second_non_nan': items[-2]['non_nan_mean'] if len(items) > 1 else None,
+        'bottom_third_non_nan': items[-3]['non_nan_mean'] if len(items) > 2 else None,
         'bottom_fourth_non_nan': items[-4]['non_nan_mean'] if len(items) > 3 else None
     }
-
-    # 打印校验结果
-    if len(items) > 3:
-        print(f"\n倒数第四个的从下往上 - 含空均值: {items[-4]['with_nan_mean']:.4f}, 非空均值: {items[-4]['non_nan_mean']:.4f}")
 
     return {
         'items': items,
