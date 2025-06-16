@@ -1017,6 +1017,13 @@ def calculate_batch_cy(
                             forward_min_abs_sum_block2 = round_to_2(forward_min_abs_sum_block2)
                             forward_min_abs_sum_block3 = round_to_2(forward_min_abs_sum_block3)
                             forward_min_abs_sum_block4 = round_to_2(forward_min_abs_sum_block4)
+                        else:
+                            forward_min_abs_sum_first_half = NAN
+                            forward_min_abs_sum_second_half = NAN
+                            forward_min_abs_sum_block1 = NAN
+                            forward_min_abs_sum_block2 = NAN
+                            forward_min_abs_sum_block3 = NAN
+                            forward_min_abs_sum_block4 = NAN
 
                     else:
                         forward_max_sum_len = 0
@@ -1036,8 +1043,8 @@ def calculate_batch_cy(
 
                     # 计算正累加和和负累加和
                     # 向前最大有效累加值的正负加和
+                    forward_max_valid_sum_vec.clear()
                     if forward_max_result_c.size() > 0:
-                        forward_max_valid_sum_vec.clear()
                         calc_valid_sum_and_pos_neg(
                             forward_max_result_c,
                             forward_max_valid_sum_vec, &forward_max_valid_sum_len,
@@ -1050,8 +1057,8 @@ def calculate_batch_cy(
                         forward_max_valid_neg_sum = 0
 
                     # 向前最小有效累加值的正负加和
+                    forward_min_valid_sum_vec.clear()
                     if forward_min_result_c.size() > 0:
-                        forward_min_valid_sum_vec.clear()
                         calc_valid_sum_and_pos_neg(
                             forward_min_result_c,
                             forward_min_valid_sum_vec, &forward_min_valid_sum_len,
