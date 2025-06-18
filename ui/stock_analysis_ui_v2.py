@@ -1166,7 +1166,7 @@ class StockAnalysisApp(QWidget):
             self.last_formula_select_state = state
             # print(f"保存状态: {state}")
 
-    def get_or_calculate_result(self, formula_expr=None, select_count=None, sort_mode=None, show_main_output=True, only_show_selected=None, is_auto_analysis=False, end_date_start=None, end_date_end=None):
+    def get_or_calculate_result(self, formula_expr=None, select_count=None, sort_mode=None, show_main_output=True, only_show_selected=None, is_auto_analysis=False, end_date_start=None, end_date_end=None, comparison_vars=None):
         # 直接在此处校验创新高/创新低日期范围
         workdays = getattr(self.init, 'workdays_str', None)
         end_date = self.date_picker.date().toString("yyyy-MM-dd")
@@ -1330,6 +1330,7 @@ class StockAnalysisApp(QWidget):
         params['new_after_low2_range'] = self.new_after_low2_range_spin.value()
         params['new_after_low2_span'] = self.new_after_low2_span_spin.value()
         params['new_after_low2_logic'] = self.new_after_low2_logic_combo.currentText()
+        params['comparison_vars'] = comparison_vars
 
         
         if only_show_selected is not None:

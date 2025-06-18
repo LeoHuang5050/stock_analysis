@@ -34,7 +34,7 @@ class BaseParamHandler:
             "ops_change": float(self.main_window.ops_change_edit.text() or 0),# 添加 only_show_selected 参数
         })
         
-        self.main_window.result_text.setText("正在计算参数，请稍候...")
+        self.main_window.result_text.setText("正在切换窗口，请稍候...")
         QApplication.processEvents()
         
         calc = CalculateThread(
@@ -47,7 +47,6 @@ class BaseParamHandler:
         # result = calc.calculate_py_version(params)
         result = calc.calculate_batch_16_cores(params)
         
-        self.main_window.result_text.setText("批量参数计算完毕！")
         self.main_window.all_row_results = result  # 直接存储整个结果对象
         self.main_window.continuous_results = result.get('continuous_results', None)
         self.main_window.forward_max_date = result.get('forward_max_date')
