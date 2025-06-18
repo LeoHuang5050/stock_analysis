@@ -997,6 +997,8 @@ class CalculateThread(QThread):
         start_with_new_after_low2_flag = params.get('start_with_new_after_low2_flag', False)
         valid_abs_sum_threshold = self.safe_float(params.get('valid_abs_sum_threshold', None))
         new_before_high_logic = params.get('new_before_high_logic', '与')
+        comparison_vars = params.get('comparison_vars', [])
+        
         args_list = [
             (
                 price_data_np,
@@ -1065,6 +1067,7 @@ class CalculateThread(QThread):
                 start_with_new_before_low2_flag,
                 start_with_new_after_low_flag,
                 start_with_new_after_low2_flag,
+                comparison_vars,  # 添加比较变量列表
             )
             for (start, end) in stock_idx_ranges if end > start
         ]
@@ -1370,6 +1373,7 @@ def cy_batch_worker(args):
         start_with_new_before_low2_flag,
         start_with_new_after_low_flag,
         start_with_new_after_low2_flag,
+        comparison_vars,  # 添加比较变量列表
     ) = args
     stock_idx_arr = np.ascontiguousarray(stock_idx_arr, dtype=np.int32)
     date_grouped_results = worker_threads_cy.calculate_batch_cy(
@@ -1439,6 +1443,7 @@ def cy_batch_worker(args):
         start_with_new_before_low2_flag,
         start_with_new_after_low_flag,
         start_with_new_after_low2_flag,
+        comparison_vars,  # 添加比较变量列表
     )
     return date_grouped_results
 
