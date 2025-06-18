@@ -116,9 +116,9 @@ class TableSearchFilter(QObject):
 def safe_val(val):
     import math
     if val is None:
-        return 0.0
+        return ""
     if isinstance(val, float) and (math.isnan(val) or str(val).lower() == 'nan'):
-        return 0.0
+        return ""
     return val
 
 def show_continuous_sum_table(parent, all_results, price_data, as_widget=False):
@@ -187,12 +187,12 @@ def show_continuous_sum_table(parent, all_results, price_data, as_widget=False):
                 actual_value_val = row.get('actual_value', '')
                 table1.setItem(row_idx, 0, QTableWidgetItem(str(code)))
                 table1.setItem(row_idx, 1, QTableWidgetItem(str(name)))
-                table1.setItem(row_idx, 2, QTableWidgetItem(str(actual_value_val)))
-                table1.setItem(row_idx, 3, QTableWidgetItem(str(row.get('actual_value_date', ''))))
+                table1.setItem(row_idx, 2, QTableWidgetItem(str(safe_val(actual_value_val))))
+                table1.setItem(row_idx, 3, QTableWidgetItem(str(safe_val(row.get('actual_value_date', '')))))
                 results = row.get('continuous_results', [])
                 for col_idx in range(max_len):
                     val = results[col_idx] if col_idx < len(results) else ""
-                    table1.setItem(row_idx, 4 + col_idx, QTableWidgetItem(str(val)))
+                    table1.setItem(row_idx, 4 + col_idx, QTableWidgetItem(str(safe_val(val))))
                 param_values = [
                     len(results),
                     row.get('cont_sum_pos_sum', ''),
@@ -211,14 +211,14 @@ def show_continuous_sum_table(parent, all_results, price_data, as_widget=False):
                     row.get('continuous_abs_sum_block4', ''),
                 ]
                 for i, val in enumerate(param_values):
-                    table1.setItem(row_idx, 4 + max_len + i, QTableWidgetItem(str(val)))
+                    table1.setItem(row_idx, 4 + max_len + i, QTableWidgetItem(str(safe_val(val))))
                 # 空一列
                 table1.setItem(row_idx, 4 + max_len + len(param_values), QTableWidgetItem(""))
                 # 有效累加值内容
                 valid_arr = row.get('valid_sum_arr', [])
                 for col_idx in range(max_valid_len):
                     val = valid_arr[col_idx] if col_idx < len(valid_arr) else ""
-                    table1.setItem(row_idx, 4 + max_len + len(param_values) + 1 + col_idx, QTableWidgetItem(str(val)))
+                    table1.setItem(row_idx, 4 + max_len + len(param_values) + 1 + col_idx, QTableWidgetItem(str(safe_val(val))))
                 valid_param_values = [
                     row.get('valid_sum_len', ''),
                     row.get('valid_pos_sum', ''),
@@ -231,7 +231,7 @@ def show_continuous_sum_table(parent, all_results, price_data, as_widget=False):
                     row.get('valid_abs_sum_block4', ''),
                 ]
                 for i, val in enumerate(valid_param_values):
-                    table1.setItem(row_idx, 4 + max_len + len(param_values) + 1 + max_valid_len + i, QTableWidgetItem(str(val)))
+                    table1.setItem(row_idx, 4 + max_len + len(param_values) + 1 + max_valid_len + i, QTableWidgetItem(str(safe_val(val))))
 
             # table3
             table3.setRowCount(len(stocks_data))
@@ -626,9 +626,14 @@ def show_params_table(parent, all_results, end_date=None, n_days=0, n_days_max=0
         f'开始日到结束日之间最高价/最低价小于M',
         f'开始日到结束日之间连续累加值绝对值小于M',
         f'开始日到结束日之间有效累加值绝对值小于M',
+        f'开始日到结束日之间向前最小连续累加值绝对值小于M',
+        f'开始日到结束日之间向前最小有效累加值绝对值小于M',
+        f'开始日到结束日之间向前最大连续累加值绝对值小于M',
+        f'开始日到结束日之间向前最大有效累加值绝对值小于M',
         '前1组结束日地址值',
         '前1组结束地址前1日涨跌幅', '前1组结束日涨跌幅', '后1组结束地址值',
         '递增值', '后值大于结束地址值', '后值大于前值返回值', '操作值', '持有天数', '操作涨幅', '调整天数', '日均涨幅',
+        't+1递增值', 't+1后值大于结束地址值', 't+1后值大于前值返回值', 't+1操作值', 't+1持有天数', 't+1操作涨幅', 't+1调整天数', 't+1日均涨幅',
         '创前新高1', '创前新高2', '创后新高1', '创后新高2', '创前新低1', '创前新低2', '创后新低1', '创后新低2'  # 新增两列
     ]
     table = QTableWidget(len(stocks_data), len(headers))
@@ -689,27 +694,38 @@ def show_params_table(parent, all_results, end_date=None, n_days=0, n_days_max=0
             table.setItem(row_idx, 10, QTableWidgetItem(get_bool(row.get('range_ratio_is_less', ''))))
             table.setItem(row_idx, 11, QTableWidgetItem(get_bool(row.get('continuous_abs_is_less', ''))))
             table.setItem(row_idx, 12, QTableWidgetItem(get_bool(row.get('valid_abs_is_less', ''))))
-            table.setItem(row_idx, 13, QTableWidgetItem(str(get_val(row.get('end_value', '')))))
-            table.setItem(row_idx, 14, QTableWidgetItem(get_percent(row.get('prev_day_change', ''))))
-            table.setItem(row_idx, 15, QTableWidgetItem(get_percent(row.get('end_day_change', ''))))
-            table.setItem(row_idx, 16, QTableWidgetItem(str(get_val(row.get('diff_end_value', '')))))
-            table.setItem(row_idx, 17, QTableWidgetItem(str(get_val(row.get('increment_value', '')))))
-            table.setItem(row_idx, 18, QTableWidgetItem(str(get_val(row.get('after_gt_end_value', '')))))
-            table.setItem(row_idx, 19, QTableWidgetItem(str(get_val(row.get('after_gt_start_value', '')))))
-            table.setItem(row_idx, 20, QTableWidgetItem(str(get_val(row.get('ops_value', '')))))
-            table.setItem(row_idx, 21, QTableWidgetItem(str(row.get('hold_days', ''))))
-            table.setItem(row_idx, 22, QTableWidgetItem(get_percent(row.get('ops_change', ''))))
-            table.setItem(row_idx, 23, QTableWidgetItem(str(get_val(row.get('adjust_days', '')))))
-            table.setItem(row_idx, 24, QTableWidgetItem(get_percent(row.get('ops_incre_rate', ''))))
+            table.setItem(row_idx, 13, QTableWidgetItem(get_bool(row.get('forward_min_continuous_abs_is_less', ''))))
+            table.setItem(row_idx, 14, QTableWidgetItem(get_bool(row.get('forward_min_valid_abs_is_less', ''))))
+            table.setItem(row_idx, 15, QTableWidgetItem(get_bool(row.get('forward_max_continuous_abs_is_less', ''))))
+            table.setItem(row_idx, 16, QTableWidgetItem(get_bool(row.get('forward_max_valid_abs_is_less', ''))))
+            table.setItem(row_idx, 17, QTableWidgetItem(str(get_val(row.get('end_value', '')))))
+            table.setItem(row_idx, 18, QTableWidgetItem(get_percent(row.get('prev_day_change', ''))))
+            table.setItem(row_idx, 19, QTableWidgetItem(get_percent(row.get('end_day_change', ''))))
+            table.setItem(row_idx, 20, QTableWidgetItem(str(get_val(row.get('diff_end_value', '')))))
+            table.setItem(row_idx, 21, QTableWidgetItem(str(get_val(row.get('increment_value', '')))))
+            table.setItem(row_idx, 22, QTableWidgetItem(str(get_val(row.get('after_gt_end_value', '')))))
+            table.setItem(row_idx, 23, QTableWidgetItem(str(get_val(row.get('after_gt_start_value', '')))))
+            table.setItem(row_idx, 24, QTableWidgetItem(str(get_val(row.get('ops_value', '')))))
+            table.setItem(row_idx, 25, QTableWidgetItem(str(row.get('hold_days', ''))))
+            table.setItem(row_idx, 26, QTableWidgetItem(get_percent(row.get('ops_change', ''))))
+            table.setItem(row_idx, 27, QTableWidgetItem(str(get_val(row.get('adjust_days', '')))))
+            table.setItem(row_idx, 28, QTableWidgetItem(get_percent(row.get('ops_incre_rate', ''))))
+            table.setItem(row_idx, 29, QTableWidgetItem(str(get_val(row.get('t1_increment_value', '')))))
+            table.setItem(row_idx, 30, QTableWidgetItem(str(get_val(row.get('t1_after_gt_end_value', '')))))
+            table.setItem(row_idx, 31, QTableWidgetItem(str(get_val(row.get('t1_after_gt_start_value', '')))))
+            table.setItem(row_idx, 32, QTableWidgetItem(str(get_val(row.get('t1_ops_value', '')))))
+            table.setItem(row_idx, 33, QTableWidgetItem(str(row.get('t1_hold_days', ''))))
+            table.setItem(row_idx, 34, QTableWidgetItem(get_percent(row.get('t1_ops_change', ''))))
+            table.setItem(row_idx, 35, QTableWidgetItem(str(get_val(row.get('t1_adjust_days', '')))))
             # 新增：创新高、创新低
-            table.setItem(row_idx, 25, QTableWidgetItem(get_bool(row.get('start_with_new_before_high', ''))))
-            table.setItem(row_idx, 26, QTableWidgetItem(get_bool(row.get('start_with_new_before_high2', ''))))
-            table.setItem(row_idx, 27, QTableWidgetItem(get_bool(row.get('start_with_new_after_high', ''))))
-            table.setItem(row_idx, 28, QTableWidgetItem(get_bool(row.get('start_with_new_after_high2', ''))))
-            table.setItem(row_idx, 29, QTableWidgetItem(get_bool(row.get('start_with_new_before_low', ''))))
-            table.setItem(row_idx, 30, QTableWidgetItem(get_bool(row.get('start_with_new_before_low2', ''))))
-            table.setItem(row_idx, 31, QTableWidgetItem(get_bool(row.get('start_with_new_after_low', ''))))
-            table.setItem(row_idx, 32, QTableWidgetItem(get_bool(row.get('start_with_new_after_low2', ''))))
+            table.setItem(row_idx, 36, QTableWidgetItem(get_bool(row.get('start_with_new_before_high', ''))))
+            table.setItem(row_idx, 37, QTableWidgetItem(get_bool(row.get('start_with_new_before_high2', ''))))
+            table.setItem(row_idx, 38, QTableWidgetItem(get_bool(row.get('start_with_new_after_high', ''))))
+            table.setItem(row_idx, 39, QTableWidgetItem(get_bool(row.get('start_with_new_after_high2', ''))))
+            table.setItem(row_idx, 40, QTableWidgetItem(get_bool(row.get('start_with_new_before_low', ''))))
+            table.setItem(row_idx, 41, QTableWidgetItem(get_bool(row.get('start_with_new_before_low2', ''))))
+            table.setItem(row_idx, 42, QTableWidgetItem(get_bool(row.get('start_with_new_after_low', ''))))
+            table.setItem(row_idx, 43, QTableWidgetItem(get_bool(row.get('start_with_new_after_low2', ''))))
         table.resizeColumnsToContents()
         table.horizontalHeader().setFixedHeight(50)
         table.horizontalHeader().setStyleSheet("font-size: 12px;")
@@ -1042,6 +1058,20 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
         if not formula_expr:
             QMessageBox.information(parent, "提示", "请先填写选股公式")
             return
+        
+        # 获取比较变量列表
+        comparison_vars = [] 
+        for comp in formula_widget.comparison_widgets:
+            if comp['checkbox'].isChecked():
+                var1 = comp['var1'].currentText()
+                var2 = comp['var2'].currentText()
+                var1_en = next((en for zh, en in formula_widget.abbr_map.items() if zh == var1), None)
+                var2_en = next((en for zh, en in formula_widget.abbr_map.items() if zh == var2), None)
+                if var1_en and var2_en:
+                    comparison_vars.append((var1_en, var2_en))  # 以元组对的形式添加
+    
+        comparison_vars = list(comparison_vars)  # 转换为list
+        print(f"comparison_vars: {comparison_vars}")
         select_count = select_count_spin.value()
         sort_mode = sort_combo.currentText()
         all_param_result = parent.get_or_calculate_result(
@@ -1049,7 +1079,8 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
             select_count=select_count,
             sort_mode=sort_mode,
             show_main_output=False,
-            only_show_selected=False  # 保持False以获取完整数据
+            only_show_selected=False,  # 保持False以获取完整数据
+            comparison_vars=comparison_vars
         )
         if all_param_result is None:
             # QMessageBox.information(parent, "提示", "请先上传数据文件！")
@@ -2078,9 +2109,9 @@ def get_window_abbr_map():
         ("向前最大有效累加值数组前一半绝对值之和", "forward_max_valid_abs_sum_first_half"), ("向前最大有效累加值数组后一半绝对值之和", "forward_max_valid_abs_sum_second_half"),
         ("向前最大有效累加值数组前四分之1绝对值之和", "forward_max_valid_abs_sum_block1"), ("向前最大有效累加值数组前四分之1-2绝对值之和", "forward_max_valid_abs_sum_block2"),
         ("向前最大有效累加值数组前四分之2-3绝对值之和", "forward_max_valid_abs_sum_block3"), ("向前最大有效累加值数组后四分之1绝对值之和", "forward_max_valid_abs_sum_block4"),
-        ("向前最大连续累加值前一半绝对值之和", "forward_max_continuous_abs_sum_first_half"), ("向前最大连续累加值后一半绝对值之和", "forward_max_continuous_abs_sum_second_half"),
-        ("向前最大连续累加值前四分之1绝对值之和", "forward_max_continuous_abs_sum_block1"), ("向前最大连续累加值前四分之1-2绝对值之和", "forward_max_continuous_abs_sum_block2"),
-        ("向前最大连续累加值前四分之2-3绝对值之和", "forward_max_continuous_abs_sum_block3"), ("向前最大连续累加值后四分之1绝对值之和", "forward_max_continuous_abs_sum_block4"),
+        ("向前最大连续累加值前一半绝对值之和", "forward_max_abs_sum_first_half"), ("向前最大连续累加值后一半绝对值之和", "forward_max_abs_sum_second_half"),
+        ("向前最大连续累加值前四分之1绝对值之和", "forward_max_abs_sum_block1"), ("向前最大连续累加值前四分之1-2绝对值之和", "forward_max_abs_sum_block2"),
+        ("向前最大连续累加值前四分之2-3绝对值之和", "forward_max_abs_sum_block3"), ("向前最大连续累加值后四分之1绝对值之和", "forward_max_abs_sum_block4"),
         ("向前最小有效累加值数组非空数据长度", "forward_min_valid_sum_len"), 
         ("向前最小有效累加值正加值和", "forward_min_valid_pos_sum"), ("向前最小有效累加值负加值和", "forward_min_valid_neg_sum"),
         ("向前最小有效累加值数组前一半绝对值之和", "forward_min_valid_abs_sum_first_half"), ("向前最小有效累加值数组后一半绝对值之和", "forward_min_valid_abs_sum_second_half"),
@@ -2090,9 +2121,9 @@ def get_window_abbr_map():
         ("向前最大连续累加值结束值", "forward_max_continuous_end_value"), ("向前最大连续累加值结束前1位值", "forward_max_continuous_end_prev_value"), ("向前最大连续累加值结束前2位值", "forward_max_continuous_end_prev_prev_value"),
         ("向前最小连续累加值开始值", "forward_min_continuous_start_value"), ("向前最小连续累加值开始后1位值", "forward_min_continuous_start_next_value"), ("向前最小连续累加值开始后2位值", "forward_min_continuous_start_next_next_value"),
         ("向前最小连续累加值结束值", "forward_min_continuous_end_value"), ("向前最小连续累加值结束前1位值", "forward_min_continuous_end_prev_value"), ("向前最小连续累加值结束前2位值", "forward_min_continuous_end_prev_prev_value"),
-        ("向前最小连续累加值前一半绝对值之和", "forward_min_continuous_abs_sum_first_half"), ("向前最小连续累加值后一半绝对值之和", "forward_min_continuous_abs_sum_second_half"),
-        ("向前最小连续累加值前四分之1绝对值之和", "forward_min_continuous_abs_sum_block1"), ("向前最小连续累加值前四分之1-2绝对值之和", "forward_min_continuous_abs_sum_block2"),
-        ("向前最小连续累加值前四分之2-3绝对值之和", "forward_min_continuous_abs_sum_block3"), ("向前最小连续累加值后四分之1绝对值之和", "forward_min_continuous_abs_sum_block4"),
+        ("向前最小连续累加值前一半绝对值之和", "forward_min_abs_sum_first_half"), ("向前最小连续累加值后一半绝对值之和", "forward_min_abs_sum_second_half"),
+        ("向前最小连续累加值前四分之1绝对值之和", "forward_min_abs_sum_block1"), ("向前最小连续累加值前四分之1-2绝对值之和", "forward_min_abs_sum_block2"),
+        ("向前最小连续累加值前四分之2-3绝对值之和", "forward_min_abs_sum_block3"), ("向前最小连续累加值后四分之1绝对值之和", "forward_min_abs_sum_block4"),
         ("向前最大连续累加值数组非空数据长度", "forward_max_result_len"),
         ("向前最小连续累加值数组非空数据长度", "forward_min_result_len"),
     ]
@@ -2104,7 +2135,11 @@ def get_abbr_logic_map():
         ("第1组后N最大值逻辑", "n_max_is_max"),
         ("开始日到结束日之间最高价/最低价小于M", "range_ratio_is_less"), 
         ("开始日到结束日之间连续累加值绝对值小于M", "continuous_abs_is_less"),
-        ("开始日到结束日之间有效累加值绝对值小于M", "valid_abs_is_less")
+        ("开始日到结束日之间有效累加值绝对值小于M", "valid_abs_is_less"),
+        ("开始日到结束日之间向前最小连续累加值绝对值小于M", "forward_min_continuous_abs_is_less"),
+        ("开始日到结束日之间向前最小有效累加值绝对值小于M", "forward_min_valid_abs_is_less"),
+        ("开始日到结束日之间向前最大连续累加值绝对值小于M", "forward_max_continuous_abs_is_less"),
+        ("开始日到结束日之间向前最大有效累加值绝对值小于M", "forward_max_valid_abs_is_less"),
     ]
     return {zh: en for zh, en in abbrs}
 
