@@ -1369,9 +1369,11 @@ class StockAnalysisApp(QWidget):
             formula = ''
         formula = formula.strip()
         row_count = len(valid_items)
-        table = CopyableTableWidget(row_count + 2, 9, self.analysis_widget)  # 9列
+        table = CopyableTableWidget(row_count + 2, 14, self.analysis_widget)  # 修正为14列
         table.setHorizontalHeaderLabels([
-            "结束日期", "操作天数", "持有涨跌幅", "日均涨跌幅", "从下往上非空均值", "从下往上含空均值", "含空值均值", "最大值", "最小值"
+            "结束日期", "操作天数", "持有涨跌幅", 
+            "调天日均涨跌幅", "调天从下往上非空均值", "调天从下往上含空均值", "含空值均值", "调天最大值", "调天最小值",
+            "调幅日均涨跌幅", "调幅从下往上非空均值", "调幅从下往上含空均值", "调幅最大值", "调幅最小值"
         ])
         table.setSelectionBehavior(QTableWidget.SelectItems)
         table.setSelectionMode(QTableWidget.ExtendedSelection)
@@ -1390,6 +1392,11 @@ class StockAnalysisApp(QWidget):
         table.setItem(0, 6, QTableWidgetItem(f"{summary['mean_daily_with_nan']}%" if summary['mean_daily_with_nan'] != '' else ''))
         table.setItem(0, 7, QTableWidgetItem(f"{summary['max_change']}%" if summary['max_change'] != '' else ''))
         table.setItem(0, 8, QTableWidgetItem(f"{summary['min_change']}%" if summary['min_change'] != '' else ''))
+        table.setItem(0, 9, QTableWidgetItem(f"{summary['mean_adjust_ops_incre_rate']}%" if summary['mean_adjust_ops_incre_rate'] != '' else ''))
+        table.setItem(0, 10, QTableWidgetItem(f"{summary['mean_adjust_non_nan']}%" if summary['mean_adjust_non_nan'] != '' else ''))
+        table.setItem(0, 11, QTableWidgetItem(f"{summary['mean_adjust_with_nan']}%" if summary['mean_adjust_with_nan'] != '' else ''))
+        table.setItem(0, 12, QTableWidgetItem(f"{summary['max_adjust_ops_incre_rate']}%" if summary['max_adjust_ops_incre_rate'] != '' else ''))
+        table.setItem(0, 13, QTableWidgetItem(f"{summary['min_adjust_ops_incre_rate']}%" if summary['min_adjust_ops_incre_rate'] != '' else ''))
 
         # 设置每行的数据
         for row_idx, item in enumerate(result['items']):
@@ -1399,6 +1406,15 @@ class StockAnalysisApp(QWidget):
             table.setItem(row_idx + 2, 3, QTableWidgetItem(f"{item['daily_change']}%" if item['daily_change'] != '' else ''))
             table.setItem(row_idx + 2, 4, QTableWidgetItem(f"{round(item['non_nan_mean'],2)}%" if not math.isnan(item['non_nan_mean']) else ''))
             table.setItem(row_idx + 2, 5, QTableWidgetItem(f"{round(item['with_nan_mean'],2)}%" if not math.isnan(item['with_nan_mean']) else ''))
+            # 修正：移除不存在的字段，使用正确的字段名
+            table.setItem(row_idx + 2, 6, QTableWidgetItem(""))  # 含空值均值在summary中，这里暂时留空
+            table.setItem(row_idx + 2, 7, QTableWidgetItem(""))  # 最大值在summary中，这里暂时留空
+            table.setItem(row_idx + 2, 8, QTableWidgetItem(""))  # 最小值在summary中，这里暂时留空
+            table.setItem(row_idx + 2, 9, QTableWidgetItem(f"{item['adjust_daily_change']}%" if item['adjust_daily_change'] != '' else ''))
+            table.setItem(row_idx + 2, 10, QTableWidgetItem(f"{round(item['adjust_non_nan_mean'],2)}%" if not math.isnan(item['adjust_non_nan_mean']) else ''))
+            table.setItem(row_idx + 2, 11, QTableWidgetItem(f"{round(item['adjust_with_nan_mean'],2)}%" if not math.isnan(item['adjust_with_nan_mean']) else ''))
+            table.setItem(row_idx + 2, 12, QTableWidgetItem(""))  # 调幅最大值在summary中，这里暂时留空
+            table.setItem(row_idx + 2, 13, QTableWidgetItem(""))  # 调幅最小值在summary中，这里暂时留空
 
         table.horizontalHeader().setFixedHeight(40)
         table.horizontalHeader().setStyleSheet("font-size: 12px;")
@@ -1437,6 +1453,10 @@ class StockAnalysisApp(QWidget):
         header = table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.Fixed)
         table.setColumnWidth(0, 150)
+        
+        # 设置其他列自适应宽度，确保列名完全显示
+        for i in range(1, table.columnCount()):
+            header.setSectionResizeMode(i, QHeaderView.ResizeToContents)
         
         return table
 
@@ -1719,6 +1739,11 @@ class StockAnalysisApp(QWidget):
             header = table.horizontalHeader()
             header.setSectionResizeMode(0, QHeaderView.Fixed)
             table.setColumnWidth(0, 150)
+            
+            # 设置其他列自适应宽度，确保列名完全显示
+            for i in range(1, table.columnCount()):
+                header.setSectionResizeMode(i, QHeaderView.ResizeToContents)
+                
             self.analysis_result_layout.addWidget(table)
         else:
             self.analysis_result_layout.addWidget(self.analysis_result_text)
@@ -2078,6 +2103,10 @@ class StockAnalysisApp(QWidget):
         header = table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.Fixed)
         table.setColumnWidth(0, 150)
+        
+        # 设置其他列自适应宽度，确保列名完全显示
+        for i in range(1, table.columnCount()):
+            header.setSectionResizeMode(i, QHeaderView.ResizeToContents)
                 
         self.analysis_result_layout.addWidget(table)
         # 保存表格数据
