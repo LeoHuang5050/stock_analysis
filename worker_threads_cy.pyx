@@ -213,12 +213,6 @@ def calculate_batch_cy(
     cdef int increment_days = -1
     cdef int after_gt_end_days = -1
     cdef int after_gt_start_days = -1
-    cdef double t1_increment_value = NAN
-    cdef double t1_after_gt_end_value = NAN
-    cdef double t1_after_gt_start_value = NAN
-    cdef int t1_increment_days = -1
-    cdef int t1_after_gt_end_days = -1
-    cdef int t1_after_gt_start_days = -1
     cdef double increment_threshold
     cdef double after_gt_end_threshold
     cdef double after_gt_start_threshold
@@ -251,6 +245,10 @@ def calculate_batch_cy(
     cdef int new_after_low2_start_idx, found_new_after_low2
     cdef double cont_sum_pos_sum = NAN
     cdef double cont_sum_neg_sum = NAN  # 连续累加值正加和、负加和
+    cdef double forward_max_cont_sum_pos_sum = NAN
+    cdef double forward_max_cont_sum_neg_sum = NAN
+    cdef double forward_min_cont_sum_pos_sum = NAN
+    cdef double forward_min_cont_sum_neg_sum = NAN
 
     # 计算向前最大最小连续累加值的分块和绝对值之和（只针对 forward_max_result_c 和 forward_min_result_c，不涉及有效累加值）
     cdef int forward_max_result_len
@@ -803,6 +801,15 @@ def calculate_batch_cy(
 
                     cont_sum_pos_sum = round_to_2_nan(cont_sum_pos_sum)
                     cont_sum_neg_sum = round_to_2_nan(cont_sum_neg_sum)
+
+                    #计算向前最大最小连续累加值正加和与负加和
+                    calc_pos_neg_sum(forward_max_result_c, &forwar_max_cont_sum_pos_sum, &forwar_max_cont_sum_neg_sum)
+                    forwar_max_cont_sum_pos_sum = round_to_2_nan(forwar_max_cont_sum_pos_sum)
+                    forwar_max_cont_sum_neg_sum = round_to_2_nan(forwar_max_cont_sum_neg_sum)
+
+                    calc_pos_neg_sum(forward_min_result_c, &forwar_min_cont_sum_pos_sum, &forwar_min_cont_sum_neg_sum)
+                    forwar_min_cont_sum_pos_sum = round_to_2_nan(forwar_min_cont_sum_pos_sum)
+                    forwar_min_cont_sum_neg_sum = round_to_2_nan(forwar_min_cont_sum_neg_sum)
                     
 
                     # 计算向前最大连续累加值
@@ -852,6 +859,9 @@ def calculate_batch_cy(
                     after_gt_end_days = -1
                     after_gt_start_value = NAN
                     after_gt_start_days = -1
+                    increment_change = NAN
+                    after_gt_end_change = NAN
+                    after_gt_start_change = NAN
 
                     if op_days > 0:
                         end_value = price_data_view[stock_idx, end_date_idx]
@@ -862,17 +872,19 @@ def calculate_batch_cy(
                                 if k < 0:
                                     break
                                 v = price_data_view[stock_idx, k]
-                                if isnan(v):
+                                if isnan(v) or (trade_t1_mode and n == 1):
                                     continue
                                 increment_threshold = end_value * inc_rate * n
                                 if increment_threshold != 0 and (v - end_value) > increment_threshold:
                                     increment_value = round_to_2(v)
                                     increment_days = n
+                                    increment_change = inc_rate * n * 100
                                     found = True
                                     break
                             if not found:
                                 increment_value = NAN
                                 increment_days = -1
+                                increment_change = NAN
 
                             # after_gt_end_value 计算（方向：end_date_idx-1 向 end_date_idx-op_days）
                             found = False
@@ -880,12 +892,13 @@ def calculate_batch_cy(
                                 if k < 0:
                                     break
                                 v = price_data_view[stock_idx, k]
-                                if isnan(v):
+                                if isnan(v) or (trade_t1_mode and n == 1):
                                     continue
                                 after_gt_end_threshold = end_value * after_gt_end_ratio
                                 if after_gt_end_ratio != 0 and (v - end_value) > after_gt_end_threshold:
                                     after_gt_end_value = round_to_2(v)
                                     after_gt_end_days = n
+                                    after_gt_end_change = after_gt_end_ratio * 100
                                     found = True
                                     break
                             if not found:
@@ -898,73 +911,32 @@ def calculate_batch_cy(
                                     continue
                                 v_now = price_data_view[stock_idx, k]
                                 v_prev = price_data_view[stock_idx, k - 1]
-                                if isnan(v_now) or isnan(v_prev):
+                                if isnan(v_now) or isnan(v_prev) or (trade_t1_mode and n == 1):
                                     continue
                                 after_gt_start_threshold = v_now * after_gt_start_ratio
                                 if after_gt_start_ratio != 0 and (v_prev - v_now) > after_gt_start_threshold:
                                     after_gt_start_value = round_to_2(v_prev)
                                     after_gt_start_days = n
+                                    # 计算 after_gt_start_change：满足条件那一天的前一天涨幅 + after_gt_start_ratio
+                                    if k + 1 < num_dates:
+                                        prev_price = price_data_view[stock_idx, k + 1]
+                                        if k + 2 < num_dates:
+                                            prev_prev_price = price_data_view[stock_idx, k + 2]
+                                            if not isnan(prev_price) and not isnan(prev_prev_price) and prev_prev_price != 0:
+                                                prev_day_change_for_k = ((prev_price - prev_prev_price) / prev_prev_price) * 100
+                                                after_gt_start_change = round_to_2(prev_day_change_for_k + after_gt_start_ratio)
+                                            else:
+                                                after_gt_start_change = NAN
+                                        else:
+                                            after_gt_start_change = NAN
+                                    else:
+                                        after_gt_start_change = NAN
                                     found = True
                                     break
                             if not found:
                                 after_gt_start_value = NAN
                                 after_gt_start_days = -1
-
-                            # t+1递增值
-                            found = False
-                            for n, k in enumerate(range(end_date_idx - 1, end_date_idx - op_days - 1, -1), 1):
-                                if k < 0:
-                                    break
-                                v = price_data_view[stock_idx, k]
-                                if isnan(v) or n == 1:
-                                    continue
-                                increment_threshold = end_value * inc_rate * n
-                                if increment_threshold != 0 and (v - end_value) > increment_threshold:
-                                    t1_increment_value = round_to_2(v)
-                                    t1_increment_days = n
-                                    found = True
-                                    break
-                            if not found:
-                                t1_increment_value = NAN
-                                t1_increment_days = -1
-
-                            # t+1 after_gt_end_value 计算（方向：end_date_idx-1 向 end_date_idx-op_days）
-                            found = False
-                            for n, k in enumerate(range(end_date_idx - 1, end_date_idx - op_days - 1, -1), 1):
-                                if k < 0:
-                                    break
-                                v = price_data_view[stock_idx, k]
-                                if isnan(v) or n == 1:
-                                    continue
-                                after_gt_end_threshold = end_value * after_gt_end_ratio
-                                if after_gt_end_ratio != 0 and (v - end_value) > after_gt_end_threshold:
-                                    t1_after_gt_end_value = round_to_2(v)
-                                    t1_after_gt_end_days = n
-                                    found = True
-                                    break
-                            if not found:
-                                t1_after_gt_end_value = NAN
-                                t1_after_gt_end_days = -1
-                            # t+1 after_gt_start_value 计算（方向：end_date_idx 向 end_date_idx-op_days，判断k和k-1）
-                            found = False
-                            for n, k in enumerate(range(end_date_idx, end_date_idx - op_days, -1), 1):
-                                if k - 1 < 0 or k >= num_dates or n == 1:
-                                    continue
-                                v_now = price_data_view[stock_idx, k]
-                                v_prev = price_data_view[stock_idx, k - 1]
-                                if isnan(v_now) or isnan(v_prev):
-                                    continue
-                                after_gt_start_threshold = v_now * after_gt_start_ratio
-                                if after_gt_start_ratio != 0 and (v_prev - v_now) > after_gt_start_threshold:
-                                    t1_after_gt_start_value = round_to_2(v_prev)
-                                    t1_after_gt_start_days = n
-                                    found = True
-                                    break
-                            if not found:
-                                t1_after_gt_start_value = NAN
-                                t1_after_gt_start_days = -1
-
-                        
+                                after_gt_start_change = NAN
 
 
                     # 处理NAN值
@@ -1468,37 +1440,30 @@ def calculate_batch_cy(
                     if result_value == 'increment_value':
                         ops_value = increment_value
                         hold_days = increment_days
-                        t1_ops_value = t1_increment_value
-                        t1_hold_days = t1_increment_days
+                        adjust_ops_value = increment_change
                         
                     elif result_value == 'after_gt_end_value':
                         ops_value = after_gt_end_value
                         hold_days = after_gt_end_days
-                        t1_ops_value = t1_after_gt_end_value
-                        t1_hold_days = t1_after_gt_end_days
+                        adjust_ops_value = after_gt_end_change
                     elif result_value == 'after_gt_start_value':
                         ops_value = after_gt_start_value
                         hold_days = after_gt_start_days
-                        t1_ops_value = t1_after_gt_start_value
-                        t1_hold_days = t1_after_gt_start_days
+                        adjust_ops_value = after_gt_start_change
                     else:
                         ops_value = result_value
                         hold_days = None
-                        t1_ops_value = result_value
-                        t1_hold_days = None
+                        adjust_ops_value = None
+
                 except Exception as e:
                     ops_value = None
                     hold_days = None
-                    t1_ops_value = None
-                    t1_hold_days = None
+                    adjust_ops_value = None
 
                 # 新增：计算操作涨幅、调整天数、日均涨幅
                 ops_change = None
                 adjust_days = None
                 ops_incre_rate = None
-                t1_ops_change = None
-                t1_adjust_days = None
-                t1_ops_incre_rate = None
                 end_value_for_ops = end_value if not isnan(end_value) else None
 
                 # 操作涨幅
@@ -1522,63 +1487,30 @@ def calculate_batch_cy(
                     except Exception:
                         ops_change = None  
 
-                # t+1 操作涨幅
-                if t1_ops_value is not None and not isnan(t1_ops_value) and t1_hold_days is not None and t1_hold_days != -1 and not isnan(t1_hold_days) and end_value_for_ops not in (None, 0):
-                    try:
-                        t1_ops_change = round_to_2((t1_ops_value - end_value_for_ops) / end_value_for_ops * 100)
-                    except Exception:
-                        t1_ops_change = None  
-
-                # 当操作值为空值的情况
-                else:
-                    t1_hold_days = op_days
-                    op_days_when_ops_value_nan = min(t1_hold_days, end_date_idx)
-                    if end_date_idx - t1_hold_days >= 0:
-                        op_idx_when_ops_value_nan = end_date_idx - hold_days
-                    else:
-                        t1_hold_days = end_date_idx
-                        op_idx_when_ops_value_nan = 0
-                    try:
-                        t1_ops_change = round_to_2((price_data_view[stock_idx, op_idx_when_ops_value_nan] - end_value_for_ops) / end_value_for_ops * 100)
-                    except Exception:
-                        t1_ops_change = None 
-
                 # 调整天数
                 if ops_change is not None and ops_change_input is not None and hold_days is not None:
                     try:
                         if ops_change > ops_change_input and hold_days == 1:
                             adjust_days = 2
+                        elif ops_change > ops_change_input and hold_days == 2 and trade_t1_mode:
+                            adjust_days = 3
                         else:
-                            adjust_days = hold_days
+                            adjust_days = hold_days + 1
                     except Exception:
                         adjust_days = None
 
-                # t+1 调整天数
-                if t1_ops_change is not None and ops_change_input is not None and t1_hold_days is not None:
-                    try:
-                        if t1_ops_change > ops_change_input and hold_days == 2:
-                            t1_adjust_days = 3
-                        else:
-                            t1_adjust_days = t1_hold_days
-                    except Exception:
-                        t1_adjust_days = None
-
-                # 日均涨幅
+                # 调天日均涨幅
                 if ops_change is not None and adjust_days not in (None, 0):
                     try:
                         ops_incre_rate = round_to_2(ops_change / adjust_days)
                     except Exception:
                         ops_incre_rate = None
 
-                # 日均涨幅
-                if t1_ops_change is not None and t1_adjust_days not in (None, 0):
-                    try:
-                        t1_ops_incre_rate = round_to_2(t1_ops_change / t1_adjust_days)
-                    except Exception:
-                        t1_ops_incre_rate = None
-
-                if stock_idx == 0:
-                    print(f"[calculate_batch_cy] stock_idx={stock_idx}")
+                # 调幅日均涨幅： 调整涨幅 / 持有天数
+                if adjust_ops_value is not None and not isnan(adjust_ops_value):
+                    adjust_ops_incre_rate = adjust_ops_value / hold_days
+                else:
+                    adjust_ops_incre_rate = ops_incre_rate
 
                 # 新增：score 计算
                 score = None
@@ -1685,22 +1617,31 @@ def calculate_batch_cy(
                         'after_gt_end_value': after_gt_end_value,
                         'after_gt_start_value': after_gt_start_value,
                         'ops_value': ops_value,
+                        'increment_change': increment_change,
+                        'after_gt_end_change': after_gt_end_change,
+                        'after_gt_start_change': after_gt_start_change,
+                        'adjust_ops_value': adjust_ops_value,
+                        'adjust_ops_incre_rate': adjust_ops_incre_rate,
                         'hold_days': hold_days,
                         'ops_change': ops_change,
                         'adjust_days': adjust_days,
                         'ops_incre_rate': ops_incre_rate,
-                        't1_increment_value': t1_increment_value,
-                        't1_after_gt_end_value': t1_after_gt_end_value,
-                        't1_after_gt_start_value': t1_after_gt_start_value,
-                        't1_ops_value': t1_ops_value,
-                        't1_hold_days': t1_hold_days,
-                        't1_ops_change': t1_ops_change,
-                        't1_adjust_days': t1_adjust_days,
-                        't1_ops_incre_rate': t1_ops_incre_rate,
                         'forward_max_result_len': forward_max_result_len,
                         'forward_min_result_len': forward_min_result_len,
                         'cont_sum_pos_sum': cont_sum_pos_sum,
                         'cont_sum_neg_sum': cont_sum_neg_sum,
+                        'forward_max_cont_sum_pos_sum': forward_max_cont_sum_pos_sum,
+                        'forward_max_cont_sum_neg_sum': forward_max_cont_sum_neg_sum,
+                        'forward_min_cont_sum_pos_sum': forward_min_cont_sum_pos_sum,
+                        'forward_min_cont_sum_neg_sum': forward_min_cont_sum_neg_sum,
+                        'start_with_new_before_high': start_with_new_before_high_py,
+                        'start_with_new_before_high2': start_with_new_before_high2_py,
+                        'start_with_new_after_high': start_with_new_after_high_py,
+                        'start_with_new_after_high2': start_with_new_after_high2_py,
+                        'start_with_new_before_low': start_with_new_before_low_py,
+                        'start_with_new_before_low2': start_with_new_before_low2_py,
+                        'start_with_new_after_low': start_with_new_after_low_py,
+                        'start_with_new_after_low2': start_with_new_after_low2_py,
                     }
 
                     # 在执行公式前检查每对比较变量
@@ -1840,19 +1781,20 @@ def calculate_batch_cy(
                                 'ops_change': ops_change,
                                 'adjust_days': adjust_days,
                                 'ops_incre_rate': ops_incre_rate,
-                                't1_increment_value': t1_increment_value,
-                                't1_after_gt_end_value': t1_after_gt_end_value,
-                                't1_after_gt_start_value': t1_after_gt_start_value,
-                                't1_ops_value': t1_ops_value,
-                                't1_hold_days': t1_hold_days,
-                                't1_ops_change': t1_ops_change,
-                                't1_adjust_days': t1_adjust_days,
-                                't1_ops_incre_rate': t1_ops_incre_rate,
+                                'increment_change': increment_change,
+                                'after_gt_end_change': after_gt_end_change,
+                                'after_gt_start_change': after_gt_start_change,
+                                'adjust_ops_value': adjust_ops_value,
+                                'adjust_ops_incre_rate': adjust_ops_incre_rate,
                                 'score': score,
                                 'forward_max_result_len': forward_max_result_len,
                                 'forward_min_result_len': forward_min_result_len,
                                 'cont_sum_pos_sum': cont_sum_pos_sum,
                                 'cont_sum_neg_sum': cont_sum_neg_sum,
+                                'forward_max_cont_sum_pos_sum': forward_max_cont_sum_pos_sum,
+                                'forward_max_cont_sum_neg_sum': forward_max_cont_sum_neg_sum,
+                                'forward_min_cont_sum_pos_sum': forward_min_cont_sum_pos_sum,
+                                'forward_min_cont_sum_neg_sum': forward_min_cont_sum_neg_sum,
                                 'start_with_new_before_high': start_with_new_before_high_py,
                                 'start_with_new_before_high2': start_with_new_before_high2_py,
                                 'start_with_new_after_high': start_with_new_after_high_py,
@@ -1978,19 +1920,20 @@ def calculate_batch_cy(
                             'ops_change': ops_change,
                             'adjust_days': adjust_days,
                             'ops_incre_rate': ops_incre_rate,
-                            't1_increment_value': t1_increment_value,
-                            't1_after_gt_end_value': t1_after_gt_end_value,
-                            't1_after_gt_start_value': t1_after_gt_start_value,
-                            't1_ops_value': t1_ops_value,
-                            't1_hold_days': t1_hold_days,
-                            't1_ops_change': t1_ops_change,
-                            't1_adjust_days': t1_adjust_days,
-                            't1_ops_incre_rate': t1_ops_incre_rate,
+                            'increment_change': increment_change,
+                            'after_gt_end_change': after_gt_end_change,
+                            'after_gt_start_change': after_gt_start_change,
+                            'adjust_ops_value': adjust_ops_value,
+                            'adjust_ops_incre_rate': adjust_ops_incre_rate,
                             'score': score,
                             'forward_max_result_len': forward_max_result_len,
                             'forward_min_result_len': forward_min_result_len,
                             'cont_sum_pos_sum': cont_sum_pos_sum,
                             'cont_sum_neg_sum': cont_sum_neg_sum,
+                            'forward_max_cont_sum_pos_sum': forward_max_cont_sum_pos_sum,
+                            'forward_max_cont_sum_neg_sum': forward_max_cont_sum_neg_sum,
+                            'forward_min_cont_sum_pos_sum': forward_min_cont_sum_pos_sum,
+                            'forward_min_cont_sum_neg_sum': forward_min_cont_sum_neg_sum,
                             'start_with_new_before_high': start_with_new_before_high_py,
                             'start_with_new_before_high2': start_with_new_before_high2_py,
                             'start_with_new_after_high': start_with_new_after_high_py,

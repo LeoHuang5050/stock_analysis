@@ -11,8 +11,7 @@ from datetime import datetime
 import sys as _sys
 import os as _os
 _sys.path.append(_os.path.abspath(_os.path.join(_os.path.dirname(__file__), '..')))
-from function.stock_functions import unify_date_columns, calc_continuous_sum_np, get_workdays
-import chinese_calendar
+from function.stock_functions import unify_date_columns, get_workdays
 
 # 导入worker_threads文件夹下的方法
 from worker_threads import FileLoaderThread, CalculateThread

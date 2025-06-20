@@ -58,6 +58,7 @@ forward_param_headers = [
     "向前最大日期",
     "向前最大连续累加值长度",
     "向前最大有效累加值数组长度", "向前最大有效累加值", "向前最大有效累加值正加值和", "向前最大有效累加值负加值和",
+    "向前最大连续累加值正加值和", "向前最大连续累加值负加值和",
     "向前最大连续累加值开始值", "向前最大连续累加值开始后1位值", "向前最大连续累加值开始后2位值",
     "向前最大连续累加值结束值", "向前最大连续累加值结束前1位值", "向前最大连续累加值结束前2位值",
     "向前最大连续累加值前一半绝对值之和", "向前最大连续累加值后一半绝对值之和",
@@ -72,6 +73,7 @@ forward_min_param_headers = [
     "向前最小日期",
     "向前最小连续累加值长度",
     "向前最小有效累加值数组长度", "向前最小有效累加值", "向前最小有效累加值正加值和", "向前最小有效累加值负加值和",
+    "向前最小连续累加值正加值和", "向前最小连续累加值负加值和",
     "向前最小连续累加值开始值", "向前最小连续累加值开始后1位值", "向前最小连续累加值开始后2位值",
     "向前最小连续累加值结束值", "向前最小连续累加值结束前1位值", "向前最小连续累加值结束前2位值",
     "向前最小连续累加值前一半绝对值之和", "向前最小连续累加值后一半绝对值之和",
@@ -254,6 +256,8 @@ def show_continuous_sum_table(parent, all_results, price_data, as_widget=False):
                     row.get('forward_max_valid_sum_arr', ''),
                     row.get('forward_max_valid_pos_sum', ''),
                     row.get('forward_max_valid_neg_sum', ''),
+                    row.get('forward_max_cont_sum_pos_sum', ''),
+                    row.get('forward_max_cont_sum_neg_sum', ''),
                     row.get('forward_max_continuous_start_value', ''),
                     row.get('forward_max_continuous_start_next_value', ''),
                     row.get('forward_max_continuous_start_next_next_value', ''),
@@ -297,6 +301,8 @@ def show_continuous_sum_table(parent, all_results, price_data, as_widget=False):
                     row.get('forward_min_valid_sum_arr', ''),
                     row.get('forward_min_valid_pos_sum', ''),
                     row.get('forward_min_valid_neg_sum', ''),
+                    row.get('forward_min_cont_sum_pos_sum', ''),
+                    row.get('forward_min_cont_sum_neg_sum', ''),
                     row.get('forward_min_continuous_start_value', ''),
                     row.get('forward_min_continuous_start_next_value', ''),
                     row.get('forward_min_continuous_start_next_next_value', ''),
@@ -391,7 +397,7 @@ def show_formula_select_table_result_window(table, content_widget):
     layout_ = QVBoxLayout(central_widget)
     layout_.addWidget(table)
     result_window.setCentralWidget(central_widget)
-    result_window.resize(450, 450)
+    result_window.resize(580, 450)
     result_window.show()
     content_widget.result_window = result_window
     content_widget.result_table = table
@@ -406,76 +412,6 @@ def unify_date_columns(df):
             new_columns.append(col_str)
     df.columns = new_columns
     return df
-
-def calc_continuous_sum_np(arr, start_idx, end_idx):
-    np.set_printoptions(suppress=True, precision=4, linewidth=200, floatmode='fixed')
-    if start_idx < end_idx:
-        print("start_idx < end_idx, return []")
-        return []
-    if start_idx == end_idx:
-        return [round(float(arr[start_idx]), 2)]
-    # 正步长切片+反转，保证顺序和表格一致
-    arr_slice = np.array(arr[end_idx:start_idx+1])[::-1]
-    mask = ~np.isnan(arr_slice)
-    if not np.any(mask):
-        print("all nan in arr_slice, return []")
-        return []
-    arr_slice = arr_slice[mask]
-    signs = np.sign(arr_slice)
-    sign_changes = np.diff(signs) != 0
-    
-    # 使用numpy的cumsum和where来优化累加
-    cumsum = np.cumsum(arr_slice)
-    change_indices = np.where(sign_changes)[0] + 1
-    
-    if len(change_indices) == 0:
-        return [round(float(cumsum[-1]), 2)]
-        
-    result = []
-    last_idx = 0
-    for idx in change_indices:
-        result.append(round(float(cumsum[idx-1] - cumsum[last_idx-1] if last_idx > 0 else cumsum[idx-1]), 2))
-        last_idx = idx
-    
-    result.append(round(float(cumsum[-1] - cumsum[last_idx-1] if last_idx > 0 else cumsum[-1]), 2))
-    return result
-
-def calc_continuous_sum_sliding(arr, start_idx, end_idx, prev_result=None, prev_start_idx=None, prev_end_idx=None):
-    """
-    使用滑动窗口优化的连续累加值计算
-    arr: 完整数组
-    start_idx: 当前起始索引
-    end_idx: 当前结束索引
-    prev_result: 上一次的计算结果
-    prev_start_idx: 上一次的起始索引
-    prev_end_idx: 上一次的结束索引
-    """
-    # print(f"start_idx: {start_idx}, end_idx: {end_idx}")
-    if start_idx < end_idx:
-        return []
-    if start_idx == end_idx:
-        return [round(float(arr[start_idx]), 2)]
-
-    # 如果是第一次计算或索引变化超过1，使用完整计算
-    if prev_result is None or abs(start_idx - prev_start_idx) > 1 or abs(end_idx - prev_end_idx) > 1:
-        return calc_continuous_sum_np(arr, start_idx, end_idx)
-
-    # 获取新增和移除的元素
-    removed_elements = []
-    new_elements = []
-    
-    removed_elements.append(arr[prev_start_idx])
-    new_elements.append(arr[end_idx])
-
-    # 如果只有一个元素变化，可以优化计算
-    if len(new_elements) == 1 and len(removed_elements) == 1:
-        # 这里可以实现增量计算逻辑
-        # 由于连续累加值的计算比较复杂，需要根据具体业务逻辑来实现
-        # 暂时回退到完整计算
-        return calc_continuous_sum_np(arr, start_idx, end_idx)
-    
-    # 如果有多个元素变化，使用完整计算
-    return calc_continuous_sum_np(arr, start_idx, end_idx)
 
 def get_workdays(end_date, width):
     days = []
@@ -632,8 +568,8 @@ def show_params_table(parent, all_results, end_date=None, n_days=0, n_days_max=0
         f'开始日到结束日之间向前最大有效累加值绝对值小于M',
         '前1组结束日地址值',
         '前1组结束地址前1日涨跌幅', '前1组结束日涨跌幅', '后1组结束地址值',
-        '递增值', '后值大于结束地址值', '后值大于前值返回值', '操作值', '持有天数', '操作涨幅', '调整天数', '日均涨幅',
-        't+1递增值', 't+1后值大于结束地址值', 't+1后值大于前值返回值', 't+1操作值', 't+1持有天数', 't+1操作涨幅', 't+1调整天数', 't+1日均涨幅',
+        '递增值', '后值大于结束地址值', '后值大于前值返回值', '操作值', '持有天数', '调天操作涨幅', '调整天数', '调天日均涨幅',
+        '调幅递增涨幅', '调幅后值大于结束地址值涨幅', '调幅后值大于前值返回值涨幅', '调幅操作涨幅', '调幅日均涨幅',
         '创前新高1', '创前新高2', '创后新高1', '创后新高2', '创前新低1', '创前新低2', '创后新低1', '创后新低2'  # 新增两列
     ]
     table = QTableWidget(len(stocks_data), len(headers))
@@ -710,22 +646,20 @@ def show_params_table(parent, all_results, end_date=None, n_days=0, n_days_max=0
             table.setItem(row_idx, 26, QTableWidgetItem(get_percent(row.get('ops_change', ''))))
             table.setItem(row_idx, 27, QTableWidgetItem(str(get_val(row.get('adjust_days', '')))))
             table.setItem(row_idx, 28, QTableWidgetItem(get_percent(row.get('ops_incre_rate', ''))))
-            table.setItem(row_idx, 29, QTableWidgetItem(str(get_val(row.get('t1_increment_value', '')))))
-            table.setItem(row_idx, 30, QTableWidgetItem(str(get_val(row.get('t1_after_gt_end_value', '')))))
-            table.setItem(row_idx, 31, QTableWidgetItem(str(get_val(row.get('t1_after_gt_start_value', '')))))
-            table.setItem(row_idx, 32, QTableWidgetItem(str(get_val(row.get('t1_ops_value', '')))))
-            table.setItem(row_idx, 33, QTableWidgetItem(str(row.get('t1_hold_days', ''))))
-            table.setItem(row_idx, 34, QTableWidgetItem(get_percent(row.get('t1_ops_change', ''))))
-            table.setItem(row_idx, 35, QTableWidgetItem(str(get_val(row.get('t1_adjust_days', '')))))
+            table.setItem(row_idx, 29, QTableWidgetItem(get_percent(row.get('increment_change', ''))))
+            table.setItem(row_idx, 30, QTableWidgetItem(get_percent(row.get('after_gt_end_change', ''))))
+            table.setItem(row_idx, 31, QTableWidgetItem(get_percent(row.get('after_gt_start_change', ''))))
+            table.setItem(row_idx, 32, QTableWidgetItem(get_percent(row.get('adjust_ops_value', ''))))
+            table.setItem(row_idx, 33, QTableWidgetItem(get_percent(row.get('adjust_ops_incre_rate', ''))))
             # 新增：创新高、创新低
-            table.setItem(row_idx, 36, QTableWidgetItem(get_bool(row.get('start_with_new_before_high', ''))))
-            table.setItem(row_idx, 37, QTableWidgetItem(get_bool(row.get('start_with_new_before_high2', ''))))
-            table.setItem(row_idx, 38, QTableWidgetItem(get_bool(row.get('start_with_new_after_high', ''))))
-            table.setItem(row_idx, 39, QTableWidgetItem(get_bool(row.get('start_with_new_after_high2', ''))))
-            table.setItem(row_idx, 40, QTableWidgetItem(get_bool(row.get('start_with_new_before_low', ''))))
-            table.setItem(row_idx, 41, QTableWidgetItem(get_bool(row.get('start_with_new_before_low2', ''))))
-            table.setItem(row_idx, 42, QTableWidgetItem(get_bool(row.get('start_with_new_after_low', ''))))
-            table.setItem(row_idx, 43, QTableWidgetItem(get_bool(row.get('start_with_new_after_low2', ''))))
+            table.setItem(row_idx, 34, QTableWidgetItem(get_bool(row.get('start_with_new_before_high', ''))))
+            table.setItem(row_idx, 35, QTableWidgetItem(get_bool(row.get('start_with_new_before_high2', ''))))
+            table.setItem(row_idx, 36, QTableWidgetItem(get_bool(row.get('start_with_new_after_high', ''))))
+            table.setItem(row_idx, 37, QTableWidgetItem(get_bool(row.get('start_with_new_after_high2', ''))))
+            table.setItem(row_idx, 38, QTableWidgetItem(get_bool(row.get('start_with_new_before_low', ''))))
+            table.setItem(row_idx, 39, QTableWidgetItem(get_bool(row.get('start_with_new_before_low2', ''))))
+            table.setItem(row_idx, 40, QTableWidgetItem(get_bool(row.get('start_with_new_after_low', ''))))
+            table.setItem(row_idx, 41, QTableWidgetItem(get_bool(row.get('start_with_new_after_low2', ''))))
         table.resizeColumnsToContents()
         table.horizontalHeader().setFixedHeight(50)
         table.horizontalHeader().setStyleSheet("font-size: 12px;")
@@ -904,6 +838,7 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
 
     def on_set_forward_param_btn_clicked():
         abbr_map = get_window_abbr_map()
+        round_map = get_abbr_round_map()  # 获取需要圆框勾选的变量映射
         class ForwardParamDialog(QDialog):
             def __init__(self, abbr_map, state=None, parent=None):
                 super().__init__(parent)
@@ -923,8 +858,38 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
                     group_layout.setAlignment(Qt.AlignLeft)
                     enable_cb = QCheckBox()
                     enable_cb.setFixedWidth(15)
+
                     label = QLabel(zh_name)
-                    label.setFixedWidth(250)
+                    
+                    # 添加圆框勾选框
+                    round_check = None
+                    if abbr_map[zh_name] in round_map.values():
+                        round_check = QCheckBox()
+                        round_check.setFixedWidth(15)
+                        round_check.setStyleSheet("""
+                            QCheckBox {
+                                spacing: 0px;
+                                padding: 0px;
+                                border: none;
+                                background: transparent;
+                            }
+                            QCheckBox::indicator {
+                                width: 10px; height: 10px;
+                                border-radius: 5px;
+                                border: 1.2px solid #666;
+                                background: white;
+                                margin: 0px;
+                                padding: 0px;
+                            }
+                            QCheckBox::indicator:checked {
+                                background: #409EFF;
+                                border: 1.2px solid #409EFF;
+                            }
+                        """)
+                        label.setFixedWidth(230)
+                    else:
+                        label.setFixedWidth(250)
+
                     lower_edit = QLineEdit()
                     lower_edit.setPlaceholderText("下限")
                     lower_edit.setFixedWidth(50)
@@ -945,7 +910,10 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
                     logic_check.setFixedWidth(15)
                     logic_label = QLabel("含逻辑")
                     logic_label.setStyleSheet("border: none;")
+                    
                     group_layout.addWidget(enable_cb)
+                    if round_check:
+                        group_layout.addWidget(round_check)
                     group_layout.addWidget(label)
                     group_layout.addWidget(lower_edit)
                     group_layout.addWidget(upper_edit)
@@ -953,9 +921,11 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
                     group_layout.addWidget(direction_combo)
                     group_layout.addWidget(logic_check)
                     group_layout.addWidget(logic_label)
+                    
                     group_widget.setLayout(group_layout)
                     grid.addWidget(group_widget, row, col)
-                    self.widgets[abbr_map[zh_name]] = {
+                    
+                    widget_dict = {
                         "enable": enable_cb,
                         "lower": lower_edit,
                         "upper": upper_edit,
@@ -963,6 +933,11 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
                         "direction": direction_combo,
                         "logic": logic_check
                     }
+                    if round_check:
+                        widget_dict["round"] = round_check
+                    
+                    self.widgets[abbr_map[zh_name]] = widget_dict
+                
                 btn_ok = QPushButton("确定")
                 btn_ok.setFixedWidth(80)
                 btn_ok.setFixedHeight(32)
@@ -994,11 +969,14 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
                             if idx >= 0:
                                 w["direction"].setCurrentIndex(idx)
                             w["logic"].setChecked(v.get("logic", False))
+                            if "round" in w:
+                                w["round"].setChecked(v.get("round", False))
                 self.setLayout(grid)
+                
             def get_params(self):
                 params = {}
                 for k, w in self.widgets.items():
-                    params[k] = {
+                    param_dict = {
                         "enable": w["enable"].isChecked(),
                         "lower": w["lower"].text(),
                         "upper": w["upper"].text(),
@@ -1006,7 +984,11 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
                         "direction": w["direction"].currentText(),
                         "logic": w["logic"].isChecked()
                     }
+                    if "round" in w:
+                        param_dict["round"] = w["round"].isChecked()
+                    params[k] = param_dict
                 return params
+                
             def closeEvent(self, event):
                 params = self.get_params()
                 if hasattr(self.parent(), 'forward_param_state'):
@@ -1139,7 +1121,7 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
         layout_ = QVBoxLayout(central_widget)
         layout_.addWidget(table)
         result_window.setCentralWidget(central_widget)
-        result_window.resize(450, 450)
+        result_window.resize(580, 450)
         result_window.show()
         content_widget.result_window = result_window
         content_widget.result_table = table
@@ -1205,29 +1187,6 @@ def calc_valid_sum(arr):
     result[:-1] = np.where(mask, arr[:-1], np.where(arr[1:] >= 0, arr[1:], -abs_arr[1:]))
     return result.tolist()
 
-def calc_continuous_sum_sliding_window(arr, window_size):
-    """
-    计算滑动窗口下每个窗口的连续同符号累加和（每个窗口内从头到尾的连续和序列）。
-    arr: 一维np.ndarray或list
-    window_size: 窗口宽度
-    返回: list，每个元素为该窗口的连续和序列
-    """
-    arr = np.array(arr, dtype=float)
-    n = len(arr)
-    if n < window_size or window_size <= 0:
-        return []
-    results = []
-    for i in range(n - window_size + 1):
-        window = arr[i:i+window_size]
-        # 计算窗口内的连续同符号累加和
-        cont_sum = [window[0]]
-        for j in range(1, window_size):
-            if window[j] * window[j-1] > 0:
-                cont_sum.append(cont_sum[-1] + window[j])
-            else:
-                cont_sum.append(window[j])
-        results.append(cont_sum)
-    return results
 
 def format_stock_table(result):
     merged_results = result.get('dates', {})
@@ -1248,7 +1207,7 @@ def format_stock_table(result):
 
 def show_formula_select_table_result(parent, result, price_data=None, output_edit=None, is_select_action=False):
     merged_results = result.get('dates', {})
-    headers = ["股票代码", "股票名称", "持有天数", "操作涨幅", "日均涨跌幅", "选股公式输出值"]
+    headers = ["股票代码", "股票名称", "持有天数", "操作涨幅", "调天日均涨跌幅", "调幅日均涨跌幅", "选股公式输出值"]
     if not merged_results or not any(merged_results.values()):
         # 返回一个只有表头的空表格
         table = QTableWidget(0, len(headers), parent)
@@ -1274,6 +1233,7 @@ def show_formula_select_table_result(parent, result, price_data=None, output_edi
     hold_days_list = []
     ops_change_list = []
     ops_incre_rate_list = []
+    adjust_ops_incre_rate_list = []
     def safe_val(val):
         if val is None:
             return ''
@@ -1294,15 +1254,18 @@ def show_formula_select_table_result(parent, result, price_data=None, output_edi
         ops_change = safe_val(stock.get('ops_change', ''))
         ops_incre_rate = safe_val(stock.get('ops_incre_rate', ''))
         score = safe_val(stock.get('score', ''))
+        adjust_ops_incre_rate = safe_val(stock.get('adjust_ops_incre_rate', ''))
         # 加%号显示
         ops_change_str = f"{ops_change}%" if ops_change != '' else ''
         ops_incre_rate_str = f"{ops_incre_rate}%" if ops_incre_rate != '' else ''
+        adjust_ops_incre_rate_str = f"{adjust_ops_incre_rate}%" if adjust_ops_incre_rate != '' else ''
         table.setItem(row_idx, 0, QTableWidgetItem(str(code)))
         table.setItem(row_idx, 1, QTableWidgetItem(str(name)))
         table.setItem(row_idx, 2, QTableWidgetItem(str(hold_days)))
         table.setItem(row_idx, 3, QTableWidgetItem(ops_change_str))
         table.setItem(row_idx, 4, QTableWidgetItem(ops_incre_rate_str))
-        table.setItem(row_idx, 5, QTableWidgetItem(str(score)))
+        table.setItem(row_idx, 5, QTableWidgetItem(adjust_ops_incre_rate_str))
+        table.setItem(row_idx, 6, QTableWidgetItem(str(score)))
         # 收集用于均值计算的数据（只收集有效数值）
         try:
             if hold_days != '':
@@ -1325,6 +1288,13 @@ def show_formula_select_table_result(parent, result, price_data=None, output_edi
                     ops_incre_rate_list.append(v)
         except Exception:
             pass
+        try:
+            if adjust_ops_incre_rate != '':
+                v = float(adjust_ops_incre_rate)
+                if not math.isnan(v):
+                    adjust_ops_incre_rate_list.append(v)
+        except Exception:
+            pass
     # 插入空行
     empty_row_idx = len(stocks)
     for col in range(len(headers)):
@@ -1335,20 +1305,15 @@ def show_formula_select_table_result(parent, result, price_data=None, output_edi
     mean_hold_days = safe_mean(hold_days_list)
     mean_ops_change = safe_mean(ops_change_list)
     mean_ops_incre_rate = safe_mean(ops_incre_rate_list)
-    # 计算日均涨跌幅列的值
-    min_incre_rate = ''
-    if mean_hold_days and mean_hold_days != 0 and mean_ops_change != '':
-        calc1 = mean_ops_incre_rate if mean_ops_incre_rate != '' else float('inf')
-        calc2 = mean_ops_change / mean_hold_days if mean_hold_days != 0 else float('inf')
-        min_incre_rate = round(min(calc1, calc2), 2)
+    mean_adjust_ops_incre_rate = safe_mean(adjust_ops_incre_rate_list)
     # 插入均值行
     mean_row_idx = len(stocks) + 1
     table.setItem(mean_row_idx, 0, QTableWidgetItem(""))
     table.setItem(mean_row_idx, 1, QTableWidgetItem(str(first_date)))
     table.setItem(mean_row_idx, 2, QTableWidgetItem(str(mean_hold_days)))
     table.setItem(mean_row_idx, 3, QTableWidgetItem(f"{mean_ops_change}%" if mean_ops_change != '' else ''))
-    table.setItem(mean_row_idx, 4, QTableWidgetItem(f"{min_incre_rate}%" if min_incre_rate != '' else ''))
-    table.setItem(mean_row_idx, 5, QTableWidgetItem(""))
+    table.setItem(mean_row_idx, 4, QTableWidgetItem(f"{mean_ops_incre_rate}%" if mean_ops_incre_rate != '' else ''))
+    table.setItem(mean_row_idx, 5, QTableWidgetItem(f"{mean_adjust_ops_incre_rate}%" if mean_adjust_ops_incre_rate != '' else ''))
     table.resizeColumnsToContents()
     table.horizontalHeader().setFixedHeight(50)
     table.horizontalHeader().setStyleSheet("font-size: 12px;")
@@ -1596,6 +1561,7 @@ class FormulaSelectWidget(QWidget):
     def generate_formula(self):
         # 1. 收集所有条件
         conditions = []
+        result_vars = []
         for en, widgets in self.var_widgets.items():
             # 跳过只做传递的逻辑变量
             if en in ('start_with_new_before_high', 'start_with_new_before_high2', 
@@ -1620,6 +1586,10 @@ class FormulaSelectWidget(QWidget):
             elif 'checkbox' in widgets and 'lower' not in widgets:
                 if widgets['checkbox'].isChecked():
                     conditions.append(f"{en}")
+            # 如果有圆框且被勾选，加入结果变量
+            if 'round_checkbox' in widgets and widgets['round_checkbox'].isChecked():
+                result_vars.append(en)
+                
         # 新增：向前参数勾选项也参与条件拼接
         if hasattr(self.main_window, 'forward_param_state') and self.main_window.forward_param_state:
             for en, v in self.main_window.forward_param_state.items():
@@ -1639,6 +1609,10 @@ class FormulaSelectWidget(QWidget):
                         conds.append(f"{var_name} <= {upper}")
                     if conds:
                         conditions.append(' and '.join(conds))
+                    # 如果圆框被勾选，加入结果变量
+                    if v.get('round'):
+                        result_vars.append(var_name)
+                        
         # 2. 收集比较控件的条件
         for comp in self.comparison_widgets:
             # 只处理勾选的比较控件
@@ -1662,13 +1636,6 @@ class FormulaSelectWidget(QWidget):
         else:
             cond_str = "if True:"
         # 4. 收集所有被圆框勾选的变量
-        result_vars = []
-        for en, widgets in self.var_widgets.items():
-            # 跳过 get_abbr_round_only_map 中的变量
-            if en in self.abbr_round_only_map.values():
-                continue
-            if 'round_checkbox' in widgets and widgets['round_checkbox'].isChecked():
-                result_vars.append(en)
         if result_vars:
             result_expr = "result = " + " + ".join(result_vars)
         else:
@@ -1816,7 +1783,6 @@ class FormulaSelectWidget(QWidget):
                 name_label.setFixedWidth(227)
             else:
                 name_label.setFixedWidth(250)
-            
             
             name_label.setStyleSheet("border: none;")
             name_label.setAlignment(Qt.AlignLeft)
@@ -2104,28 +2070,38 @@ def get_abbr_map():
 def get_window_abbr_map():
     """获取窗口变量缩写映射字典"""
     abbrs = [
+        ("向前最大连续累加值数组非空数据长度", "forward_max_result_len"),
+        ("向前最大连续累加值开始值", "forward_max_continuous_start_value"), ("向前最大连续累加值开始后1位值", "forward_max_continuous_start_next_value"), 
+        ("向前最大连续累加值开始后2位值", "forward_max_continuous_start_next_next_value"), ("向前最大连续累加值结束值", "forward_max_continuous_end_value"), 
+        ("向前最大连续累加值结束前1位值", "forward_max_continuous_end_prev_value"), ("向前最大连续累加值结束前2位值", "forward_max_continuous_end_prev_prev_value"),
+        ("向前最大连续累加值正加值和", "forward_max_cont_sum_pos_sum"), ("向前最大连续累加值负加值和", "forward_max_cont_sum_neg_sum"),
+        ("向前最大连续累加值前一半绝对值之和", "forward_max_abs_sum_first_half"), ("向前最大连续累加值后一半绝对值之和", "forward_max_abs_sum_second_half"),
+        ("向前最大连续累加值前四分之1绝对值之和", "forward_max_abs_sum_block1"), ("向前最大连续累加值前四分之1-2绝对值之和", "forward_max_abs_sum_block2"),
+        ("向前最大连续累加值前四分之2-3绝对值之和", "forward_max_abs_sum_block3"), ("向前最大连续累加值后四分之1绝对值之和", "forward_max_abs_sum_block4"),
+        
         ("向前最大有效累加值数组非空数据长度", "forward_max_valid_sum_len"), 
         ("向前最大有效累加值正加值和", "forward_max_valid_pos_sum"), ("向前最大有效累加值负加值和", "forward_max_valid_neg_sum"),
         ("向前最大有效累加值数组前一半绝对值之和", "forward_max_valid_abs_sum_first_half"), ("向前最大有效累加值数组后一半绝对值之和", "forward_max_valid_abs_sum_second_half"),
         ("向前最大有效累加值数组前四分之1绝对值之和", "forward_max_valid_abs_sum_block1"), ("向前最大有效累加值数组前四分之1-2绝对值之和", "forward_max_valid_abs_sum_block2"),
         ("向前最大有效累加值数组前四分之2-3绝对值之和", "forward_max_valid_abs_sum_block3"), ("向前最大有效累加值数组后四分之1绝对值之和", "forward_max_valid_abs_sum_block4"),
-        ("向前最大连续累加值前一半绝对值之和", "forward_max_abs_sum_first_half"), ("向前最大连续累加值后一半绝对值之和", "forward_max_abs_sum_second_half"),
-        ("向前最大连续累加值前四分之1绝对值之和", "forward_max_abs_sum_block1"), ("向前最大连续累加值前四分之1-2绝对值之和", "forward_max_abs_sum_block2"),
-        ("向前最大连续累加值前四分之2-3绝对值之和", "forward_max_abs_sum_block3"), ("向前最大连续累加值后四分之1绝对值之和", "forward_max_abs_sum_block4"),
+        
+        ("向前最小连续累加值数组非空数据长度", "forward_min_result_len"),
+        ("向前最小连续累加值开始值", "forward_min_continuous_start_value"), ("向前最小连续累加值开始后1位值", "forward_min_continuous_start_next_value"), 
+        ("向前最小连续累加值开始后2位值", "forward_min_continuous_start_next_next_value"),("向前最小连续累加值结束值", "forward_min_continuous_end_value"), 
+        ("向前最小连续累加值结束前1位值", "forward_min_continuous_end_prev_value"), ("向前最小连续累加值结束前2位值", "forward_min_continuous_end_prev_prev_value"),
+        ("向前最小连续累加值正加值和", "forward_min_cont_sum_pos_sum"), ("向前最小连续累加值负加值和", "forward_min_cont_sum_neg_sum"),
+        ("向前最小连续累加值前一半绝对值之和", "forward_min_abs_sum_first_half"), ("向前最小连续累加值后一半绝对值之和", "forward_min_abs_sum_second_half"),
+        ("向前最小连续累加值前四分之1绝对值之和", "forward_min_abs_sum_block1"), ("向前最小连续累加值前四分之1-2绝对值之和", "forward_min_abs_sum_block2"),
+        ("向前最小连续累加值前四分之2-3绝对值之和", "forward_min_abs_sum_block3"), ("向前最小连续累加值后四分之1绝对值之和", "forward_min_abs_sum_block4"),
+        
+
         ("向前最小有效累加值数组非空数据长度", "forward_min_valid_sum_len"), 
         ("向前最小有效累加值正加值和", "forward_min_valid_pos_sum"), ("向前最小有效累加值负加值和", "forward_min_valid_neg_sum"),
         ("向前最小有效累加值数组前一半绝对值之和", "forward_min_valid_abs_sum_first_half"), ("向前最小有效累加值数组后一半绝对值之和", "forward_min_valid_abs_sum_second_half"),
         ("向前最小有效累加值数组前四分之1绝对值之和", "forward_min_valid_abs_sum_block1"), ("向前最小有效累加值数组前四分之1-2绝对值之和", "forward_min_valid_abs_sum_block2"),
         ("向前最小有效累加值数组前四分之2-3绝对值之和", "forward_min_valid_abs_sum_block3"), ("向前最小有效累加值数组后四分之1绝对值之和", "forward_min_valid_abs_sum_block4"),
-        ("向前最大连续累加值开始值", "forward_max_continuous_start_value"), ("向前最大连续累加值开始后1位值", "forward_max_continuous_start_next_value"), ("向前最大连续累加值开始后2位值", "forward_max_continuous_start_next_next_value"),
-        ("向前最大连续累加值结束值", "forward_max_continuous_end_value"), ("向前最大连续累加值结束前1位值", "forward_max_continuous_end_prev_value"), ("向前最大连续累加值结束前2位值", "forward_max_continuous_end_prev_prev_value"),
-        ("向前最小连续累加值开始值", "forward_min_continuous_start_value"), ("向前最小连续累加值开始后1位值", "forward_min_continuous_start_next_value"), ("向前最小连续累加值开始后2位值", "forward_min_continuous_start_next_next_value"),
-        ("向前最小连续累加值结束值", "forward_min_continuous_end_value"), ("向前最小连续累加值结束前1位值", "forward_min_continuous_end_prev_value"), ("向前最小连续累加值结束前2位值", "forward_min_continuous_end_prev_prev_value"),
-        ("向前最小连续累加值前一半绝对值之和", "forward_min_abs_sum_first_half"), ("向前最小连续累加值后一半绝对值之和", "forward_min_abs_sum_second_half"),
-        ("向前最小连续累加值前四分之1绝对值之和", "forward_min_abs_sum_block1"), ("向前最小连续累加值前四分之1-2绝对值之和", "forward_min_abs_sum_block2"),
-        ("向前最小连续累加值前四分之2-3绝对值之和", "forward_min_abs_sum_block3"), ("向前最小连续累加值后四分之1绝对值之和", "forward_min_abs_sum_block4"),
-        ("向前最大连续累加值数组非空数据长度", "forward_max_result_len"),
-        ("向前最小连续累加值数组非空数据长度", "forward_min_result_len"),
+        
+        
     ]
     return {zh: en for zh, en in abbrs}
 
@@ -2150,6 +2126,14 @@ def get_abbr_round_map():
         ("有效累加值负加值和", "valid_neg_sum"),
         ("连续累加值正加值和", "cont_sum_pos_sum"),
         ("连续累加值负加值和", "cont_sum_neg_sum"),
+        ("向前最大连续累加值正加值和", "forward_max_cont_sum_pos_sum"),
+        ("向前最大连续累加值负加值和", "forward_max_cont_sum_neg_sum"),
+        ("向前最小连续累加值正加值和", "forward_min_cont_sum_pos_sum"),
+        ("向前最小连续累加值负加值和", "forward_min_cont_sum_neg_sum"),
+        ("向前最大有效累加值正加值和", "forward_max_valid_pos_sum"),
+        ("向前最大有效累加值负加值和", "forward_max_valid_neg_sum"),
+        ("向前最小有效累加值正加值和", "forward_min_valid_pos_sum"),
+        ("向前最小有效累加值负加值和", "forward_min_valid_neg_sum"),
     ]
     return {zh: en for zh, en in abbrs}
 
@@ -2222,11 +2206,18 @@ def calculate_analysis_result(valid_items):
                 'mean_hold_days': '操作天数均值',
                 'mean_ops_change': '持有涨跌幅均值',
                 'mean_daily_change': '日均涨跌幅均值',
-                'mean_non_nan': '从下往上非空均值均值',
-                'mean_with_nan': '从下往上含空均值均值',
-                'mean_daily_with_nan': '日均涨跌幅含空均值',
-                'max_change': '最大涨跌幅',
-                'min_change': '最小涨跌幅'
+                'mean_adjust_ops_incre_rate': '调天日均涨跌幅均值',
+                'mean_non_nan': '调天从下往上非空均值均值',
+                'mean_with_nan': '调天从下往上含空均值均值',
+                'mean_daily_with_nan': '调天含空值均值',
+                'max_change': '调天最大值',
+                'min_change': '调天最小值',
+                'mean_adjust_ops_incre_rate': '调幅日均涨跌幅均值',
+                'mean_non_nan_adjust_ops_incre_rate': '调幅从下往上非空均值均值',
+                'mean_with_nan_adjust_ops_incre_rate': '调幅从下往上含空均值均值',
+                'mean_daily_with_nan_adjust_ops_incre_rate': '调幅含空值均值',
+                'max_adjust_ops_incre_rate': '调幅最大值',
+                'min_adjust_ops_incre_rate': '调幅最小值',
             }
         }
     """
@@ -2264,11 +2255,18 @@ def calculate_analysis_result(valid_items):
     non_nan_mean_list = []
     with_nan_mean_list = []
     
+    # 新增：调幅相关列表
+    adjust_ops_incre_rate_list = []
+    adjust_ops_incre_rate_list_with_nan = []  # 存储含空值的调幅日均涨跌幅列表
+    adjust_non_nan_mean_list = []
+    adjust_with_nan_mean_list = []
+    
     # 计算每个日期的数据
     for date_key, stocks in valid_items:
         hold_days_list_per_date = []
         ops_change_list_per_date = []
         ops_incre_rate_list_per_date = []
+        adjust_ops_incre_rate_list_per_date = []
         
         for stock in stocks:
             try:
@@ -2295,16 +2293,25 @@ def calculate_analysis_result(valid_items):
                         ops_incre_rate_list_per_date.append(v)
             except Exception:
                 pass
-
+            # 新增：收集调幅日均涨跌幅
+            try:
+                v = safe_val(stock.get('adjust_ops_incre_rate', ''))
+                if v != '':
+                    v = float(v)
+                    if not math.isnan(v):
+                        adjust_ops_incre_rate_list_per_date.append(v)
+            except Exception:
+                pass
+        
         mean_hold_days = safe_mean(hold_days_list_per_date)
         mean_ops_change = safe_mean(ops_change_list_per_date)
         mean_ops_incre_rate = safe_mean(ops_incre_rate_list_per_date)
+        # 新增：计算调幅日均涨跌幅均值
+        mean_adjust_ops_incre_rate = safe_mean(adjust_ops_incre_rate_list_per_date)
         
-        daily_change = ''
-        if mean_hold_days and mean_hold_days != 0 and mean_ops_change != '':
-            calc1 = mean_ops_incre_rate if mean_ops_incre_rate != '' else float('inf')
-            calc2 = mean_ops_change / mean_hold_days if mean_hold_days != 0 else float('inf')
-            daily_change = round(min(calc1, calc2), 2)
+        daily_change = mean_ops_incre_rate
+        # 新增：调幅日均涨跌幅
+        adjust_daily_change = mean_adjust_ops_incre_rate
             
         if mean_hold_days != '':
             hold_days_list.append(mean_hold_days)
@@ -2316,14 +2323,24 @@ def calculate_analysis_result(valid_items):
         else:
             daily_change_list_with_nan.append(0)  # 空值当作0处理
             
+        # 新增：处理调幅日均涨跌幅
+        if adjust_daily_change != '':
+            adjust_ops_incre_rate_list.append(adjust_daily_change)
+            adjust_ops_incre_rate_list_with_nan.append(adjust_daily_change)  # 添加到含空值列表
+        else:
+            adjust_ops_incre_rate_list_with_nan.append(0)  # 空值当作0处理
+            
         # 添加到items列表
         items.append({
             'date': date_key,
             'hold_days': mean_hold_days,
             'ops_change': mean_ops_change,
             'daily_change': daily_change,
+            'adjust_daily_change': adjust_daily_change,  # 新增：调幅日均涨跌幅
             'non_nan_mean': '',  # 将在后面计算
-            'with_nan_mean': ''  # 将在后面计算
+            'with_nan_mean': '',  # 将在后面计算
+            'adjust_non_nan_mean': '',  # 新增：调幅从下往上非空均值
+            'adjust_with_nan_mean': ''  # 新增：调幅从下往上含空均值
         })
 
     # 计算从下往上的均值
@@ -2372,9 +2389,54 @@ def calculate_analysis_result(valid_items):
         items[i]['non_nan_mean'] = non_nan_mean
         items[i]['with_nan_mean'] = with_nan_mean
         
+        # 新增：计算调幅从下往上的均值
+        adjust_sub_list = [item['adjust_daily_change'] for item in items[i:]]
+        
+        # 计算调幅非空均值
+        adjust_non_nan_sum = 0
+        adjust_non_nan_len = 0
+        for v in adjust_sub_list:
+            if isinstance(v, str) and v == '':
+                continue
+            if isinstance(v, float) and math.isnan(v):
+                continue
+            try:
+                v = float(v) if isinstance(v, str) else v
+                adjust_non_nan_sum += v
+                adjust_non_nan_len += 1
+            except (ValueError, TypeError):
+                continue
+                
+        if adjust_non_nan_len > 0:
+            adjust_non_nan_mean = float(Decimal(str(adjust_non_nan_sum / adjust_non_nan_len)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
+        else:
+            adjust_non_nan_mean = float('nan')
+            
+        # 计算调幅含空均值
+        adjust_with_nan_vals = []
+        for v in adjust_sub_list:
+            if isinstance(v, str) and v == '':
+                adjust_with_nan_vals.append(0)
+            elif isinstance(v, float) and math.isnan(v):
+                adjust_with_nan_vals.append(0)
+            else:
+                try:
+                    v = float(v) if isinstance(v, str) else v
+                    adjust_with_nan_vals.append(v)
+                except (ValueError, TypeError):
+                    adjust_with_nan_vals.append(0)
+                    
+        adjust_with_nan_mean = sum(adjust_with_nan_vals) / len(adjust_sub_list) if adjust_sub_list else float('nan')
+        
+        # 更新items中的调幅值
+        items[i]['adjust_non_nan_mean'] = adjust_non_nan_mean
+        items[i]['adjust_with_nan_mean'] = adjust_with_nan_mean
+        
         # 添加到均值列表
         non_nan_mean_list.append(non_nan_mean)
         with_nan_mean_list.append(with_nan_mean)
+        adjust_non_nan_mean_list.append(adjust_non_nan_mean)
+        adjust_with_nan_mean_list.append(adjust_with_nan_mean)
 
     # 计算总体统计
     summary = {
@@ -2386,6 +2448,13 @@ def calculate_analysis_result(valid_items):
         'mean_daily_with_nan': safe_mean(daily_change_list_with_nan),  # 使用含空值的列表计算均值
         'max_change': max(daily_change_list) if daily_change_list else '',
         'min_change': min(daily_change_list) if daily_change_list else '',
+        # 新增：调幅相关统计
+        'mean_adjust_ops_incre_rate': safe_mean(adjust_ops_incre_rate_list),
+        'mean_adjust_non_nan': safe_mean(adjust_non_nan_mean_list),
+        'mean_adjust_with_nan': safe_mean(adjust_with_nan_mean_list),
+        'mean_adjust_daily_with_nan': safe_mean(adjust_ops_incre_rate_list_with_nan),
+        'max_adjust_ops_incre_rate': max(adjust_ops_incre_rate_list) if adjust_ops_incre_rate_list else '',
+        'min_adjust_ops_incre_rate': min(adjust_ops_incre_rate_list) if adjust_ops_incre_rate_list else '',
         # 添加从下往上的前1~4个的非空均值和含空均值
         'bottom_first_with_nan': items[-1]['with_nan_mean'] if len(items) > 0 else None,
         'bottom_second_with_nan': items[-2]['with_nan_mean'] if len(items) > 1 else None,
@@ -2394,7 +2463,16 @@ def calculate_analysis_result(valid_items):
         'bottom_first_non_nan': items[-1]['non_nan_mean'] if len(items) > 0 else None,
         'bottom_second_non_nan': items[-2]['non_nan_mean'] if len(items) > 1 else None,
         'bottom_third_non_nan': items[-3]['non_nan_mean'] if len(items) > 2 else None,
-        'bottom_fourth_non_nan': items[-4]['non_nan_mean'] if len(items) > 3 else None
+        'bottom_fourth_non_nan': items[-4]['non_nan_mean'] if len(items) > 3 else None,
+        # 新增：调幅从下往上的前1~4个的非空均值和含空均值
+        'adjust_bottom_first_with_nan': items[-1]['adjust_with_nan_mean'] if len(items) > 0 else None,
+        'adjust_bottom_second_with_nan': items[-2]['adjust_with_nan_mean'] if len(items) > 1 else None,
+        'adjust_bottom_third_with_nan': items[-3]['adjust_with_nan_mean'] if len(items) > 2 else None,
+        'adjust_bottom_fourth_with_nan': items[-4]['adjust_with_nan_mean'] if len(items) > 3 else None,
+        'adjust_bottom_first_non_nan': items[-1]['adjust_non_nan_mean'] if len(items) > 0 else None,
+        'adjust_bottom_second_non_nan': items[-2]['adjust_non_nan_mean'] if len(items) > 1 else None,
+        'adjust_bottom_third_non_nan': items[-3]['adjust_non_nan_mean'] if len(items) > 2 else None,
+        'adjust_bottom_fourth_non_nan': items[-4]['adjust_non_nan_mean'] if len(items) > 3 else None
     }
 
     return {
