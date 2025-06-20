@@ -1,7 +1,6 @@
 from PyQt5.QtWidgets import QMessageBox, QApplication
 import pandas as pd
 from worker_threads import CalculateThread
-from function.stock_functions import calc_continuous_sum_np
 import numpy as np
 
 class BaseParamHandler:
