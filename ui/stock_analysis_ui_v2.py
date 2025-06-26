@@ -9,6 +9,7 @@ from PyQt5.QtWidgets import QHeaderView
 from function.init import StockAnalysisInit
 from function.base_param import BaseParamHandler
 from function.stock_functions import show_continuous_sum_table, EXPR_PLACEHOLDER_TEXT, calculate_analysis_result
+from ui.common_widgets import CopyableTableWidget
 import gc
 import numpy as np
 import pandas as pd
@@ -19,6 +20,7 @@ import os
 from decimal import Decimal, ROUND_HALF_UP
 from multiprocessing import cpu_count
 from datetime import datetime
+from ui.component_analysis_ui import ComponentAnalysisWidget
 
 class Tab4SpaceTextEdit(QTextEdit):
     def keyPressEvent(self, event):
@@ -67,27 +69,6 @@ class ExprLineEdit(QLineEdit):
         btn_ok.clicked.connect(on_ok)
         dialog.exec_()
 
-class CopyableTableWidget(QTableWidget):
-    def keyPressEvent(self, event):
-        if event.matches(QKeySequence.Copy):
-            self.copySelection()
-        else:
-            super().keyPressEvent(event)
-
-    def copySelection(self):
-        selection = self.selectedRanges()
-        if not selection:
-            return
-        s = ""
-        for r in selection:
-            for row in range(r.topRow(), r.bottomRow() + 1):
-                row_data = []
-                for col in range(r.leftColumn(), r.rightColumn() + 1):
-                    item = self.item(row, col)
-                    row_data.append(item.text() if item else "")
-                s += "\t".join(row_data) + "\n"
-        QGuiApplication.clipboard().setText(s.strip())
-
 class ExprEditDialog(QDialog):
     def __init__(self, initial_text="", parent=None):
         super().__init__(parent)
@@ -128,6 +109,7 @@ class StockAnalysisApp(QWidget):
         self.last_formula_select_state = {}  # 初始化公式选股状态
         self.last_analysis_start_date = ''
         self.last_analysis_end_date = ''
+        self.cached_component_analysis_results = None
         self.init_ui()
         self.connect_signals()
         # 默认最大化显示
@@ -988,12 +970,15 @@ class StockAnalysisApp(QWidget):
         self.auto_analysis_btn.setFixedSize(100, 50)
         self.op_stat_btn = QPushButton("操作统计")
         self.op_stat_btn.setFixedSize(100, 50)
+        self.component_analysis_btn = QPushButton("组合分析")
+        self.component_analysis_btn.setFixedSize(100, 50)
         btn_layout = QHBoxLayout()
         btn_layout.addWidget(self.continuous_sum_btn)
         btn_layout.addWidget(self.param_show_btn)
         btn_layout.addWidget(self.formula_select_btn)
         btn_layout.addWidget(self.auto_analysis_btn)
         btn_layout.addWidget(self.op_stat_btn)
+        btn_layout.addWidget(self.component_analysis_btn)
         btn_layout.addStretch()  # 按钮靠左
         main_layout.addLayout(btn_layout)
 
@@ -1022,6 +1007,7 @@ class StockAnalysisApp(QWidget):
         self.formula_select_btn.clicked.connect(self.on_formula_select_clicked)
         self.auto_analysis_btn.clicked.connect(self.on_auto_analysis_btn_clicked)
         self.op_stat_btn.clicked.connect(self.on_op_stat_btn_clicked)
+        self.component_analysis_btn.clicked.connect(self.on_component_analysis_btn_clicked)
 
     def on_query_param(self):
         # 查询参数信息
@@ -1355,11 +1341,15 @@ class StockAnalysisApp(QWidget):
                 self.result_text.setText("请先上传数据文件！")
                 self.output_stack.setCurrentWidget(self.result_text)
             self.last_end_date = end_date
-            self.last_formula_expr = current_formula
+            # 只有非组合分析才保存公式，组合分析的公式一直在变化，不需要保存
+            if not is_auto_analysis:
+                self.last_formula_expr = current_formula
             self.last_calculate_result = None
             return None
         self.last_end_date = end_date
-        self.last_formula_expr = current_formula
+        # 只有非组合分析才保存公式，组合分析的公式一直在变化，不需要保存
+        if not is_auto_analysis:
+            self.last_formula_expr = current_formula
         self.last_calculate_result = result
         return self.last_calculate_result
 
@@ -1905,6 +1895,34 @@ class StockAnalysisApp(QWidget):
             except Exception as e:
                 QMessageBox.critical(self, "导出失败", f"导出CSV失败：{e}")
 
+    def on_component_analysis_btn_clicked(self):
+        """组合分析按钮点击事件"""
+        # 直接显示组合分析界面
+        self.show_component_analysis_interface()
+
+    def show_component_analysis_interface(self):
+        """显示组合分析界面"""
+        from ui.component_analysis_ui import ComponentAnalysisWidget
+        
+        self.clear_result_area()
+        component_widget = ComponentAnalysisWidget(self)
+        
+        # 恢复之前保存的勾选框状态
+        if hasattr(self, 'last_component_continuous_sum_logic'):
+            component_widget.continuous_sum_logic_checkbox.setChecked(self.last_component_continuous_sum_logic)
+        if hasattr(self, 'last_component_valid_sum_logic'):
+            component_widget.valid_sum_logic_checkbox.setChecked(self.last_component_valid_sum_logic)
+        
+        component_widget.setMinimumSize(1200, 600)
+        self.component_widget = component_widget  # 保存引用以便后续保存状态
+        self.table_widget = component_widget
+        self.output_stack.addWidget(component_widget)
+        self.output_stack.setCurrentWidget(component_widget)
+        # 恢复分析结果
+        if hasattr(self, '_pending_component_analysis_results'):
+            component_widget.set_cached_analysis_results(self._pending_component_analysis_results)
+            del self._pending_component_analysis_results
+
     def on_export_excel(self):
         # 获取当前表格数据
         table = None
@@ -2138,6 +2156,8 @@ class StockAnalysisApp(QWidget):
             'direction': self.direction_checkbox.isChecked(),
             'analysis_start_date': getattr(self, 'last_analysis_start_date', ''),
             'analysis_end_date': getattr(self, 'last_analysis_end_date', ''),
+            'component_analysis_start_date': getattr(self, 'last_component_analysis_start_date', ''),
+            'component_analysis_end_date': getattr(self, 'last_component_analysis_end_date', ''),
             'cpu_cores': self.cpu_spin.value(),
             'last_formula_select_state': getattr(self, 'last_formula_select_state', {}),
             'analysis_table_cache_data': getattr(self, 'analysis_table_cache_data', None),
@@ -2195,6 +2215,9 @@ class StockAnalysisApp(QWidget):
             'new_before_low2_flag': self.new_before_low2_flag_checkbox.isChecked(),
             'new_after_low_flag': self.new_after_low_flag_checkbox.isChecked(),
             'new_after_low2_flag': self.new_after_low2_flag_checkbox.isChecked(),
+            # 新增：组合分析界面勾选框状态
+            'component_continuous_sum_logic': getattr(self, 'last_component_continuous_sum_logic', False),
+            'component_valid_sum_logic': getattr(self, 'last_component_valid_sum_logic', False),
         }
         # 保存公式选股控件状态
         if hasattr(self, 'formula_widget') and self.formula_widget is not None:
@@ -2204,6 +2227,12 @@ class StockAnalysisApp(QWidget):
                 print(f"保存公式选股控件状态失败: {e}")
         # 新增：保存forward_param_state
         config['forward_param_state'] = getattr(self, 'forward_param_state', {})
+        # 保存组合分析结果
+        if hasattr(self, 'component_widget') and hasattr(self.component_widget, 'get_cached_analysis_results'):
+            import pickle, base64
+            results = self.component_widget.get_cached_analysis_results()
+            if results:
+                config['component_analysis_results'] = base64.b64encode(pickle.dumps(results)).decode('utf-8')
         try:
             with open('config.json', 'w', encoding='utf-8') as f:
                 json.dump(config, f, ensure_ascii=False, indent=2)
@@ -2260,6 +2289,11 @@ class StockAnalysisApp(QWidget):
                 self.last_analysis_start_date = config['analysis_start_date']
             if 'analysis_end_date' in config:
                 self.last_analysis_end_date = config['analysis_end_date']
+            # 加载组合分析子界面的日期配置
+            if 'component_analysis_start_date' in config:
+                self.last_component_analysis_start_date = config['component_analysis_start_date']
+            if 'component_analysis_end_date' in config:
+                self.last_component_analysis_end_date = config['component_analysis_end_date']
             # 恢复CPU核心数
             if 'cpu_cores' in config:
                 self.cpu_spin.setValue(config['cpu_cores'])
@@ -2370,6 +2404,17 @@ class StockAnalysisApp(QWidget):
                 self.forward_param_state = config['forward_param_state']
             else:
                 self.forward_param_state = {}
+            # 恢复组合分析结果
+            if 'component_analysis_results' in config:
+                import pickle, base64
+                try:
+                    results = pickle.loads(base64.b64decode(config['component_analysis_results']))
+                    if hasattr(self, 'component_widget') and hasattr(self.component_widget, 'set_cached_analysis_results'):
+                        self.component_widget.set_cached_analysis_results(results)
+                    else:
+                        self._pending_component_analysis_results = results
+                except Exception as e:
+                    print(f'恢复组合分析结果失败: {e}')
         except Exception as e:
             print(f"加载配置失败: {e}")
 
