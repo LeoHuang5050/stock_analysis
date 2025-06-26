@@ -1097,7 +1097,30 @@ class ComponentAnalysisWidget(QWidget):
             return
         try:
             import pandas as pd
-            df = pd.read_excel(file_path, dtype=str, header=0)
+            # 添加文件读取的容错处理
+            try:
+                df = pd.read_excel(file_path, dtype=str, header=0)
+            except Exception as read_error:
+                QMessageBox.warning(self, "文件读取错误", 
+                    f"无法读取Excel文件，请检查文件是否损坏或格式不正确！\n错误信息：{read_error}")
+                return
+            
+            # 检查DataFrame是否为空或格式异常
+            if df.empty:
+                QMessageBox.warning(self, "文件内容错误", "Excel文件为空，请检查文件内容！")
+                return
+                
+            if len(df.columns) < 6:
+                QMessageBox.warning(self, "文件格式错误", 
+                    "导入失败，请检查文件是否是组合分析导出文件！")
+                return
+            
+            # 检查文件格式是否符合组合分析导出文件特征
+            if not self._validate_import_file_format(df):
+                QMessageBox.warning(self, "文件格式错误", 
+                    "导入失败，请检查文件是否是组合分析导出文件！")
+                return
+            
             # 解析参数行
             param_map = {}
             data_rows = []
@@ -1131,17 +1154,57 @@ class ComponentAnalysisWidget(QWidget):
             headers = []
             data_rows = []
             param_map = {}
-            with open(file_path, 'r', encoding='utf-8-sig') as f:
-                reader = csv.reader(f)
-                for idx, row in enumerate(reader):
-                    if idx == 0:
-                        headers = row
-                        continue
-                    if row and row[0].startswith('#') and ':' in row[0]:
-                        k, v = row[0][1:].split(':', 1)
-                        param_map[k.strip()] = v.strip()
-                    else:
-                        data_rows.append(row)
+            
+            # 添加文件读取的容错处理
+            try:
+                with open(file_path, 'r', encoding='utf-8-sig') as f:
+                    reader = csv.reader(f)
+                    for idx, row in enumerate(reader):
+                        if idx == 0:
+                            headers = row
+                            # 立即检查头部格式
+                            if len(headers) < 6:
+                                QMessageBox.warning(self, "文件格式错误", 
+                                    "导入失败，请检查文件是否是组合分析导出文件！")
+                                return
+                            continue
+                        if row and row[0].startswith('#') and ':' in row[0]:
+                            k, v = row[0][1:].split(':', 1)
+                            param_map[k.strip()] = v.strip()
+                        else:
+                            data_rows.append(row)
+            except UnicodeDecodeError:
+                # 尝试其他编码
+                try:
+                    with open(file_path, 'r', encoding='gbk') as f:
+                        reader = csv.reader(f)
+                        for idx, row in enumerate(reader):
+                            if idx == 0:
+                                headers = row
+                                if len(headers) < 6:
+                                    QMessageBox.warning(self, "文件格式错误", 
+                                        "导入失败，请检查文件是否是组合分析导出文件！")
+                                    return
+                                continue
+                            if row and row[0].startswith('#') and ':' in row[0]:
+                                k, v = row[0][1:].split(':', 1)
+                                param_map[k.strip()] = v.strip()
+                            else:
+                                data_rows.append(row)
+                except Exception as gbk_error:
+                    QMessageBox.warning(self, "文件编码错误", 
+                        f"无法读取CSV文件，请检查文件编码格式！\n错误信息：{gbk_error}")
+                    return
+            except Exception as read_error:
+                QMessageBox.warning(self, "文件读取错误", 
+                    f"无法读取CSV文件，请检查文件是否损坏！\n错误信息：{read_error}")
+                return
+            
+            # 检查文件格式是否符合组合分析导出文件特征
+            if not self._validate_import_file_format_csv(headers):
+                QMessageBox.warning(self, "文件格式错误", 
+                    "导入失败，请检查文件是否是组合分析导出文件！")
+                return
             
             # 恢复控件
             self._restore_main_window_params(param_map)
@@ -1152,6 +1215,81 @@ class ComponentAnalysisWidget(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "导入失败", f"导入CSV失败：{e}")
             
+    def _validate_import_file_format(self, df):
+        """验证Excel文件格式是否符合组合分析导出文件特征"""
+        try:
+            # 检查必需的列是否存在
+            required_columns = [
+                "组合分析排序输出值", "公式", "日期宽度", "操作天数", "递增率", "排序方式"
+            ]
+            
+            # 获取DataFrame的列名
+            columns = df.columns.tolist()
+            
+            # 检查是否包含所有必需的列
+            missing_columns = []
+            for col in required_columns:
+                if col not in columns:
+                    missing_columns.append(col)
+            
+            if missing_columns:
+                print(f"缺少必需的列: {missing_columns}")
+                return False
+            
+            # 检查是否有数据行（排除参数行）
+            data_rows = 0
+            for i, row in df.iterrows():
+                first_cell = str(row.iloc[0])
+                if not first_cell.startswith('#') or ':' not in first_cell:
+                    data_rows += 1
+            
+            if data_rows == 0:
+                print("没有找到有效的数据行")
+                return False
+            
+            # 检查第一行数据是否包含数值（组合分析排序输出值应该是数值）
+            for i, row in df.iterrows():
+                first_cell = str(row.iloc[0])
+                if not first_cell.startswith('#') or ':' not in first_cell:
+                    try:
+                        float(first_cell)  # 尝试转换为数值
+                        break
+                    except ValueError:
+                        print(f"第一列数据不是有效数值: {first_cell}")
+                        return False
+            
+            print("文件格式验证通过")
+            return True
+            
+        except Exception as e:
+            print(f"文件格式验证失败: {e}")
+            return False
+    
+    def _validate_import_file_format_csv(self, headers):
+        """验证CSV文件格式是否符合组合分析导出文件特征"""
+        try:
+            # 检查必需的列是否存在
+            required_columns = [
+                "组合分析排序输出值", "公式", "日期宽度", "操作天数", "递增率", "排序方式"
+            ]
+            
+            # 检查是否包含所有必需的列
+            missing_columns = []
+            for col in required_columns:
+                if col not in headers:
+                    missing_columns.append(col)
+            
+            if missing_columns:
+                print(f"缺少必需的列: {missing_columns}")
+                return False
+            
+            print("CSV文件格式验证通过")
+            return True
+            
+        except Exception as e:
+            print(f"CSV文件格式验证失败: {e}")
+            return False
+    
     def _restore_main_window_params(self, param_map):
         """根据参数字典自动恢复主界面控件内容（优先操作控件本身）"""
         for k, v in param_map.items():
