@@ -5,13 +5,14 @@ from datetime import datetime, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTextEdit, QLineEdit, QSpinBox, QComboBox, QPushButton, QTableWidget, QTableWidgetItem, QSizePolicy, QDialog, QTabWidget, QMessageBox, QGridLayout, QDateEdit, QInputDialog, QAbstractItemView, QGroupBox, QCheckBox, QHeaderView, QScrollArea, QToolButton, QApplication, QMainWindow
 from PyQt5.QtCore import QDate, QObject, QEvent, Qt
-from PyQt5.QtGui import QDoubleValidator
+from PyQt5.QtGui import QDoubleValidator, QIntValidator
 import time
 
 import math
 import concurrent.futures
 from multiprocessing import cpu_count
 import re
+import gc
 
 EXPR_PLACEHOLDER_TEXT = (
     "需要严格按照python表达式规则填入。\n"
@@ -1015,7 +1016,7 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
     abbr_map = get_abbr_map()
     logic_map = get_abbr_logic_map()
     round_map = get_abbr_round_map()
-    formula_widget = FormulaSelectWidget(abbr_map, logic_map, round_map, parent)
+    formula_widget = FormulaSelectWidget(abbr_map, logic_map, round_map, parent, sort_combo)
     # 恢复状态
     if hasattr(parent, 'last_formula_select_state'):
         # print(f"恢复状态: {parent.last_formula_select_state}")
@@ -1322,21 +1323,43 @@ def show_formula_select_table_result(parent, result, price_data=None, output_edi
 def get_abbr_round_only_map():
     """获取只有圆框的变量映射"""
     abbrs = [
-        ("非空涨跌幅均值", "non_nan_mean"),
-        ("含空涨跌幅均值", "with_nan_mean"),
-        ("从下往上的第1个涨跌幅含空均值", "bottom_first_with_nan"),
-        ("从下往上的第2个涨跌幅含空均值", "bottom_second_with_nan"),
-        ("从下往上的第3个涨跌幅含空均值", "bottom_third_with_nan"),
-        ("从下往上的第4个涨跌幅含空均值", "bottom_fourth_with_nan"),
-        ("从下往上的第1个涨跌幅非空均值", "bottom_first_non_nan"),
-        ("从下往上的第2个涨跌幅非空均值", "bottom_second_non_nan"),
-        ("从下往上的第3个涨跌幅非空均值", "bottom_third_non_nan"),
-        ("从下往上的第4个涨跌幅非空均值", "bottom_fourth_non_nan"),
-        ("从下往上第N位非空均值", "bottom_nth_non_nan1"),
-        ("从下往上第N位非空均值", "bottom_nth_non_nan2"),
-        ("从下往上第N位非空均值", "bottom_nth_non_nan3"),
-        ("从下往上第N位含空均值", "bottom_nth_with_nan1"),
-        ("从下往上第N位含空均值", "bottom_nth_with_nan2"),
+        ("非空调天涨跌幅均值", "mean_non_nan"),
+        ("含空调天涨跌幅均值", "mean_with_nan"),
+        ("非空调幅涨跌幅均值", "mean_adjust_non_nan"),
+        ("含空调幅涨跌幅均值", "mean_adjust_with_nan"),
+
+        ("从下往上的第1个调天涨跌幅含空均值", "bottom_first_with_nan"),
+        ("从下往上的第2个调天涨跌幅含空均值", "bottom_second_with_nan"),
+        ("从下往上的第3个调天涨跌幅含空均值", "bottom_third_with_nan"),
+        ("从下往上的第4个调天涨跌幅含空均值", "bottom_fourth_with_nan"),
+        ("从下往上的第1个调天涨跌幅非空均值", "bottom_first_non_nan"),
+        ("从下往上的第2个调天涨跌幅非空均值", "bottom_second_non_nan"),
+        ("从下往上的第3个调天涨跌幅非空均值", "bottom_third_non_nan"),
+        ("从下往上的第4个调天涨跌幅非空均值", "bottom_fourth_non_nan"),
+
+        ("从下往上的第1个调幅涨跌幅含空均值", "adjust_bottom_first_with_nan"),
+        ("从下往上的第2个调幅涨跌幅含空均值", "adjust_bottom_second_with_nan"),
+        ("从下往上的第3个调幅涨跌幅含空均值", "adjust_bottom_third_with_nan"),
+        ("从下往上的第4个调幅涨跌幅含空均值", "adjust_bottom_fourth_with_nan"),
+        ("从下往上的第1个调幅涨跌幅非空均值", "adjust_bottom_first_non_nan"),
+        ("从下往上的第2个调幅涨跌幅非空均值", "adjust_bottom_second_non_nan"),
+        ("从下往上的第3个调幅涨跌幅非空均值", "adjust_bottom_third_non_nan"),
+        ("从下往上的第4个调幅涨跌幅非空均值", "adjust_bottom_fourth_non_nan"),
+
+        ("从下往上第N位调天非空均值", "bottom_nth_non_nan1"),
+        ("从下往上第N位调天非空均值", "bottom_nth_non_nan2"),
+        ("从下往上第N位调天非空均值", "bottom_nth_non_nan3"),
+        ("从下往上第N位调天含空均值", "bottom_nth_with_nan1"),
+        ("从下往上第N位调天含空均值", "bottom_nth_with_nan2"),
+        ("从下往上第N位调天含空均值", "bottom_nth_with_nan3"),
+
+        ("从下往上第N位调幅非空均值", "bottom_nth_adjust_non_nan1"),
+        ("从下往上第N位调幅非空均值", "bottom_nth_adjust_non_nan2"),
+        ("从下往上第N位调幅非空均值", "bottom_nth_adjust_non_nan3"),
+        ("从下往上第N位调幅含空均值", "bottom_nth_adjust_with_nan1"),
+        ("从下往上第N位调幅含空均值", "bottom_nth_adjust_with_nan2"),
+        ("从下往上第N位调幅含空均值", "bottom_nth_adjust_with_nan3"),
+        
     ]
     # 允许label重复，英文名唯一
     abbr_map = {}
@@ -1354,16 +1377,18 @@ def get_special_abbr_map():
     return {zh: en for zh, en in abbrs}
 
 class FormulaSelectWidget(QWidget):
-    def __init__(self, abbr_map, abbr_logic_map, abbr_round_map, main_window):
+    def __init__(self, abbr_map, abbr_logic_map, abbr_round_map, main_window, sort_combo=None):
         super().__init__()
         self.abbr_map = abbr_map
         self.abbr_logic_map = abbr_logic_map
         self.abbr_round_map = abbr_round_map
         self.abbr_round_only_map = get_abbr_round_only_map()  # 添加新的map
         self.special_abbr_map = get_special_abbr_map()  # 添加特殊map
+        self.component_analysis_variables = get_component_analysis_variables()  # 添加组合分析元件变量列表
         self.var_widgets = {}
         self.comparison_widgets = []  # 存储所有比较控件
         self.main_window = main_window  # 保存主窗口引用
+        self.sort_combo = sort_combo  # 保存排序方式（可选）
         self.init_ui()
         # 先恢复状态
         if hasattr(self.main_window, 'last_formula_select_state'):
@@ -1558,17 +1583,576 @@ class FormulaSelectWidget(QWidget):
         # 在末尾添加
         self._sync_to_main()
 
+    def _generate_special_result_combinations(self):
+        """
+        为四个特殊变量生成特定的9种result组合
+        返回result变量列表的列表，每个组合包含排序方式信息
+        """
+        combinations = []
+        
+        # 检查这四个变量是否被勾选圆框
+        var_states = {}
+        for var in ['cont_sum_pos_sum', 'cont_sum_neg_sum', 'valid_pos_sum', 'valid_neg_sum']:
+            if var in self.var_widgets:
+                widgets = self.var_widgets[var]
+                var_states[var] = widgets['round_checkbox'].isChecked() if 'round_checkbox' in widgets else False
+            else:
+                var_states[var] = False
+        
+        # 获取变量状态
+        cont_pos_checked = var_states['cont_sum_pos_sum']
+        cont_neg_checked = var_states['cont_sum_neg_sum']
+        valid_pos_checked = var_states['valid_pos_sum']
+        valid_neg_checked = var_states['valid_neg_sum']
+        
+        # 生成9种组合
+        # 组合1: 连续累加值正相加
+        if cont_pos_checked:
+            combinations.append({
+                'result_vars': ['cont_sum_pos_sum'],
+                'sort_modes': ['最大值排序']  # 正值用最大值排序
+            })
+        
+        # 组合2: 连续累加值负相加
+        if cont_neg_checked:
+            combinations.append({
+                'result_vars': ['cont_sum_neg_sum'],
+                'sort_modes': ['最小值排序']  # 负值用最小值排序
+            })
+        
+        # 组合3: 连续累加值正相加 + 连续累加值负相加
+        if cont_pos_checked and cont_neg_checked:
+            combinations.append({
+                'result_vars': ['cont_sum_pos_sum', 'cont_sum_neg_sum'],
+                'sort_modes': ['最大值排序', '最小值排序']  # 混合值需要两种排序
+            })
+        
+        # 组合4: 有效累加值正相加
+        if valid_pos_checked:
+            combinations.append({
+                'result_vars': ['valid_pos_sum'],
+                'sort_modes': ['最大值排序']  # 正值用最大值排序
+            })
+        
+        # 组合5: 有效累加值负相加
+        if valid_neg_checked:
+            combinations.append({
+                'result_vars': ['valid_neg_sum'],
+                'sort_modes': ['最小值排序']  # 负值用最小值排序
+            })
+        
+        # 组合6: 有效累加值正相加 + 有效累加值负相加
+        if valid_pos_checked and valid_neg_checked:
+            combinations.append({
+                'result_vars': ['valid_pos_sum', 'valid_neg_sum'],
+                'sort_modes': ['最大值排序', '最小值排序']  # 混合值需要两种排序
+            })
+        
+        # 组合7: 连续累加值正相加 + 有效累加值正相加
+        if cont_pos_checked and valid_pos_checked:
+            combinations.append({
+                'result_vars': ['cont_sum_pos_sum', 'valid_pos_sum'],
+                'sort_modes': ['最大值排序']  # 都是正值用最大值排序
+            })
+        
+        # 组合8: 连续累加值负相加 + 有效累加值负相加
+        if cont_neg_checked and valid_neg_checked:
+            combinations.append({
+                'result_vars': ['cont_sum_neg_sum', 'valid_neg_sum'],
+                'sort_modes': ['最小值排序']  # 都是负值用最小值排序
+            })
+        
+        # 组合9: 连续累加值正相加 + 连续累加值负相加 + 有效累加值正相加 + 有效累加值负相加
+        if cont_pos_checked and cont_neg_checked and valid_pos_checked and valid_neg_checked:
+            combinations.append({
+                'result_vars': ['cont_sum_pos_sum', 'cont_sum_neg_sum', 'valid_pos_sum', 'valid_neg_sum'],
+                'sort_modes': ['最大值排序', '最小值排序']  # 混合值需要两种排序
+            })
+        
+        # 容错处理：如果没有勾选基础变量，检查是否有向前参数，如果有则让向前参数自行组成result
+        if not combinations:
+            print("没有勾选基础变量，检查向前参数...")
+            # 收集8个特殊向前参数变量
+            forward_result_vars = []
+            if hasattr(self.main_window, 'forward_param_state') and self.main_window.forward_param_state:
+                for en, v in self.main_window.forward_param_state.items():
+                    if v.get('round'):
+                        # 检查是否是8个特殊向前参数变量
+                        if en in ['forward_min_valid_pos_sum', 'forward_min_valid_neg_sum',
+                                 'forward_max_valid_pos_sum', 'forward_max_valid_neg_sum',
+                                 'forward_max_cont_sum_pos_sum', 'forward_max_cont_sum_neg_sum',
+                                 'forward_min_cont_sum_pos_sum', 'forward_min_cont_sum_neg_sum']:
+                            forward_result_vars.append(en)
+            
+            if forward_result_vars:
+                print(f"发现向前参数变量: {forward_result_vars}")
+                # 向前相关参数不区分最大最小排序，以基础参数为准，如果没有基础参数，则按用户设置的排序
+                # 获取用户设置的排序方式
+                user_sort_mode = self.sort_combo.currentText() if self.sort_combo else (self.main_window.last_sort_mode if hasattr(self.main_window, 'last_sort_mode') else None)
+                if user_sort_mode is None:
+                    raise ValueError("无法获取用户设置的排序方式：sort_combo为None且main_window没有last_sort_mode属性")
+                print(f"添加特殊向前组合时获取到的 user_sort_mode: {user_sort_mode}")
+                combinations.append({
+                    'result_vars': forward_result_vars,
+                    'sort_modes': [user_sort_mode]
+                })
+            else:
+                print("没有发现向前参数变量")
+        
+        return combinations
+
+    def generate_formula_list(self):
+        """
+        生成公式列表，用于组合分析，类似笛卡尔积
+        根据步长和方向选项生成所有可能的组合
+        支持含逻辑处理：当控件勾选含逻辑时，会在该控件的组合中添加一个True条件
+        支持向前参数：forward_param_state中的参数也参与组合生成
+        支持特殊排序：根据result变量的特性决定排序方式
+        """
+        formula_list = []
+        
+        # 收集逻辑变量条件（这些在所有组合中都一样）
+        logic_conditions = []
+        for en, widgets in self.var_widgets.items():
+            if 'checkbox' in widgets and 'lower' not in widgets:
+                if widgets['checkbox'].isChecked():
+                    logic_conditions.append(f"{en}")
+        
+        # 收集需要组合的变量控件
+        combination_vars = []
+        for en, widgets in self.var_widgets.items():
+            # 特殊处理：组合公式排除 "前1组结束地址前N最高值"
+            if en == 'n_days_max_value':
+                continue
+                
+            if 'lower' in widgets and 'upper' in widgets and 'step' in widgets and 'direction' in widgets:
+                if widgets['checkbox'].isChecked():
+                    lower_text = widgets['lower'].text().strip()
+                    upper_text = widgets['upper'].text().strip()
+                    step_text = widgets['step'].text().strip()
+                    direction = widgets['direction'].currentText()
+                    has_logic = widgets.get('logic_check', None) and widgets['logic_check'].isChecked()
+                    
+                    if lower_text and upper_text and step_text:
+                        try:
+                            lower_val = float(lower_text)
+                            upper_val = float(upper_text)
+                            step_val = float(step_text)
+                            
+                            combination_vars.append({
+                                'var_name': en,
+                                'lower': lower_val,
+                                'upper': upper_val,
+                                'step': step_val,
+                                'direction': direction,
+                                'has_logic': has_logic
+                            })
+                        except ValueError:
+                            # 如果数值转换失败，跳过这个变量
+                            continue
+        
+        # 收集向前参数，也参与组合生成
+        if hasattr(self.main_window, 'forward_param_state') and self.main_window.forward_param_state:
+            for en, v in self.main_window.forward_param_state.items():
+                if v.get('enable'):
+                    lower_text = v.get('lower', '').strip()
+                    upper_text = v.get('upper', '').strip()
+                    step_text = v.get('step', '').strip()
+                    direction = v.get('direction', '右单向')
+                    has_logic = v.get('logic', False)
+                    
+                    print(f"  启用状态: {v.get('enable')}")
+                    print(f"  下限: '{lower_text}', 上限: '{upper_text}', 步长: '{step_text}'")
+                    
+                    if lower_text and upper_text and step_text:
+                        try:
+                            lower_val = float(lower_text)
+                            upper_val = float(upper_text)
+                            step_val = float(step_text)
+                            
+                            print(f"  添加向前参数到组合: {en} ({lower_val}, {upper_val}, {step_val})")
+                            combination_vars.append({
+                                'var_name': en,
+                                'lower': lower_val,
+                                'upper': upper_val,
+                                'step': step_val,
+                                'direction': direction,
+                                'has_logic': has_logic
+                            })
+                        except ValueError as e:
+                            print(f"  数值转换失败: {e}")
+                            # 如果数值转换失败，跳过这个变量
+                            continue
+                    else:
+                        print(f"  参数不完整，跳过")
+        else:
+            print("没有向前参数状态或状态为空")
+        
+        print(f"最终组合变量数量: {len(combination_vars)}")
+        for var in combination_vars:
+            print(f"  组合变量: {var['var_name']} ({var['lower']}, {var['upper']}, {var['step']})")
+        
+        # 收集圆框变量（这些在所有组合中都一样）
+        # 特殊处理四个变量的result组合
+        special_result_combinations = self._generate_special_result_combinations()
+        print(f"generate_formula_list中特殊组合数量: {len(special_result_combinations)}")
+        
+        # 收集其他圆框变量（排除特殊变量和get_abbr_round_only_map中的变量）
+        other_result_vars = []
+        # 获取get_abbr_round_only_map中的变量名列表，用于排除
+        round_only_vars = set()
+        for (zh, en), en_val in self.abbr_round_only_map.items():
+            round_only_vars.add(en_val)
+        
+        for en, widgets in self.var_widgets.items():
+            # 排除特殊变量和get_abbr_round_only_map中的变量
+            if (en not in ['cont_sum_pos_sum', 'cont_sum_neg_sum', 'valid_pos_sum', 'valid_neg_sum'] and 
+                en not in round_only_vars):
+                if 'round_checkbox' in widgets and widgets['round_checkbox'].isChecked():
+                    other_result_vars.append(en)
+        
+        # 收集向前参数的圆框变量
+        # 8个特殊向前参数变量（正负相加值）不参与组合，直接加到result
+        special_forward_result_vars = []
+        other_forward_result_vars = []
+        
+        # 检查是否有基础变量，如果没有基础变量，8个特殊向前参数变量已经在_generate_special_result_combinations中处理了
+        has_basic_vars = any(
+            widgets.get('round_checkbox', None) and widgets['round_checkbox'].isChecked()
+            for en, widgets in self.var_widgets.items()
+            if en in ['cont_sum_pos_sum', 'cont_sum_neg_sum', 'valid_pos_sum', 'valid_neg_sum']
+        )
+        
+        if hasattr(self.main_window, 'forward_param_state') and self.main_window.forward_param_state:
+            for en, v in self.main_window.forward_param_state.items():
+                if v.get('round'):
+                    # 检查是否是8个特殊向前参数变量
+                    if en in ['forward_min_valid_pos_sum', 'forward_min_valid_neg_sum',
+                             'forward_max_valid_pos_sum', 'forward_max_valid_neg_sum',
+                             'forward_max_cont_sum_pos_sum', 'forward_max_cont_sum_neg_sum',
+                             'forward_min_cont_sum_pos_sum', 'forward_min_cont_sum_neg_sum']:
+                        # 只有当有基础变量时，才添加到special_forward_result_vars
+                        # 如果没有基础变量，这些变量已经在_generate_special_result_combinations中处理了
+                        if has_basic_vars:
+                            special_forward_result_vars.append(en)
+                    else:
+                        other_forward_result_vars.append(en)
+        else:
+            print("没有向前参数状态或状态为空")
+        
+        # 将其他向前参数的圆框变量添加到other_result_vars
+        other_result_vars.extend(other_forward_result_vars)
+        
+        # 收集比较控件（这些在所有组合中都一样）
+        comparison_conditions = []
+        for comp in self.comparison_widgets:
+            if comp['checkbox'].isChecked():
+                var1 = comp['var1'].currentText()
+                lower = comp['lower'].text().strip()
+                upper = comp['upper'].text().strip()
+                var2 = comp['var2'].currentText()
+                var1_en = next((en for zh, en in self.abbr_map.items() if zh == var1), None)
+                var2_en = next((en for zh, en in self.abbr_map.items() if zh == var2), None)
+                comp_conds = []
+                if lower and var1_en and var2_en:
+                    comp_conds.append(f"{var1_en} >= {lower} * {var2_en}")
+                if upper and var1_en and var2_en:
+                    comp_conds.append(f"{var1_en} <= {upper} * {var2_en}")
+                if comp_conds:
+                    comparison_conditions.append(' and '.join(comp_conds))
+        
+        # 生成所有可能的组合
+        if not combination_vars:
+            # 如果没有需要组合的变量，为每个特殊result组合生成一个公式
+            all_conditions = logic_conditions + comparison_conditions
+            if all_conditions:
+                cond_str = "if " + " and ".join(all_conditions) + ":"
+            else:
+                cond_str = "if True:"
+            
+            # 为每个特殊组合生成公式
+            if special_result_combinations:
+                print(f"有特殊组合 special_result_combinations :{special_result_combinations}")
+                for special_combo in special_result_combinations:
+                    # 合并特殊组合和其他result变量
+                    # 注意：8个特殊向前参数变量已经在special_combo['result_vars']中了（当没有基础变量时）
+                    # 所以这里只需要添加其他result变量
+                    all_result_vars = special_combo['result_vars'] + other_result_vars + special_forward_result_vars
+                    if all_result_vars:
+                        result_expr = "result = " + " + ".join(all_result_vars)
+                    else:
+                        result_expr = "result = 0"
+                    
+                    # 为每个排序方式生成一个公式
+                    for sort_mode in special_combo['sort_modes']:
+                        formula = f"{cond_str}\n    {result_expr}\nelse:\n    result = 0"
+                        formula_list.append({
+                            'formula': formula,
+                            'sort_mode': sort_mode,
+                            'result_vars': all_result_vars
+                        })
+            else:
+                # 容错处理：当没有特殊组合时，也要处理向前参数和其他result变量
+                print(f"没有特殊组合")
+                all_result_vars = other_result_vars + special_forward_result_vars
+                if all_result_vars:
+                    result_expr = "result = " + " + ".join(all_result_vars)
+                else:
+                    result_expr = "result = 0"
+                
+                # 向前相关参数不区分最大最小排序，以基础参数为准，如果没有基础参数，则按用户设置的排序
+                # 获取用户设置的排序方式
+                user_sort_mode = self.sort_combo.currentText() if self.sort_combo else '最大值排序'
+                print(f"user_sort_mode: {user_sort_mode}")
+                
+                # 生成一个公式
+                formula = f"{cond_str}\n    {result_expr}\nelse:\n    result = 0"
+                formula_list.append({
+                    'formula': formula,
+                    'sort_mode': user_sort_mode,
+                    'result_vars': all_result_vars
+                })
+        else:
+            # 为每个变量生成组合
+            var_combinations = []
+            
+            for var_info in combination_vars:
+                var_name = var_info['var_name']
+                lower_val = var_info['lower']
+                upper_val = var_info['upper']
+                step_val = var_info['step']
+                direction = var_info['direction']
+                has_logic = var_info['has_logic']
+                
+                combinations = []
+                
+                if direction == "右单向":
+                    # 最大值不变，最小值按步长变化
+                    current_lower = lower_val
+                    while current_lower < upper_val:  # 改为 < 避免等于的情况
+                        combinations.append((round(current_lower, 2), round(upper_val, 2)))
+                        current_lower += step_val
+                
+                elif direction == "左单向":
+                    # 最小值不变，最大值按步长变化
+                    current_upper = upper_val
+                    while current_upper > lower_val:  # 改为 > 避免等于的情况
+                        combinations.append((round(lower_val, 2), round(current_upper, 2)))
+                        current_upper -= step_val
+                
+                elif direction == "全方向":
+                    # 右单向 + 左单向
+                    # 右单向部分
+                    current_lower = lower_val
+                    while current_lower < upper_val:  # 改为 < 避免等于的情况
+                        combinations.append((round(current_lower, 2), round(upper_val, 2)))
+                        current_lower += step_val
+                    
+                    # 左单向部分
+                    current_upper = upper_val - step_val  # 避免重复
+                    while current_upper > lower_val:  # 改为 > 避免等于的情况
+                        combinations.append((round(lower_val, 2), round(current_upper, 2)))
+                        current_upper -= step_val
+                
+                # 如果含逻辑，添加一个True条件（不限制该变量的值范围）
+                if has_logic:
+                    combinations.append(('True', 'True'))
+                
+                var_combinations.append({
+                    'var_name': var_name,
+                    'combinations': combinations
+                })
+            
+            # 生成笛卡尔积
+            if var_combinations:
+                # 获取所有变量的组合数量
+                total_combinations = 1
+                for var_combo in var_combinations:
+                    total_combinations *= len(var_combo['combinations'])
+                
+                # 为每个特殊result组合生成公式
+                for special_combo in special_result_combinations:
+                    # 为每个其他变量的组合生成公式
+                    for i in range(total_combinations):
+                        # 计算当前组合的索引
+                        indices = []
+                        temp = i
+                        for var_combo in var_combinations:
+                            indices.append(temp % len(var_combo['combinations']))
+                            temp //= len(var_combo['combinations'])
+                        
+                        # 构建当前组合的条件
+                        current_conditions = logic_conditions + comparison_conditions
+                        
+                        print(f"生成组合 {i+1} 的条件:")
+                        print(f"  逻辑条件: {logic_conditions}")
+                        print(f"  比较条件: {comparison_conditions}")
+                        
+                        for j, var_combo in enumerate(var_combinations):
+                            combo_idx = indices[j]
+                            lower_val, upper_val = var_combo['combinations'][combo_idx]
+                            var_name = var_combo['var_name']
+                            
+                            print(f"  变量 {var_name}: ({lower_val}, {upper_val})")
+                            
+                            # 如果是True条件，跳过该变量（不添加任何条件）
+                            if lower_val == 'True' and upper_val == 'True':
+                                print(f"    跳过True条件")
+                                continue
+                            
+                            # 添加当前变量的条件
+                            var_conditions = []
+                            var_conditions.append(f"{var_name} >= {lower_val}")
+                            var_conditions.append(f"{var_name} <= {upper_val}")
+                            current_conditions.append(' and '.join(var_conditions))
+                            print(f"    添加条件: {' and '.join(var_conditions)}")
+                        
+                        print(f"  最终条件: {current_conditions}")
+                        
+                        # 生成公式
+                        if current_conditions:
+                            cond_str = "if " + " and ".join(current_conditions) + ":"
+                        else:
+                            cond_str = "if True:"
+                        
+                        # 合并特殊组合和其他result变量
+                        all_result_vars = special_combo['result_vars'] + other_result_vars + special_forward_result_vars
+                        if all_result_vars:
+                            result_expr = "result = " + " + ".join(all_result_vars)
+                        else:
+                            result_expr = "result = 0"
+                        
+                        # 为每个排序方式生成一个公式
+                        for sort_mode in special_combo['sort_modes']:
+                            formula = f"{cond_str}\n    {result_expr}\nelse:\n    result = 0"
+                            formula_list.append({
+                                'formula': formula,
+                                'sort_mode': sort_mode,
+                                'result_vars': all_result_vars
+                            })
+                    
+        for i, formula_obj in enumerate(formula_list):
+            print(f"公式 {i+1} (排序方式: {formula_obj['sort_mode']}):")
+            print(formula_obj['formula'])
+            print("-" * 50)
+        return formula_list
+
+    def generate_special_params_combinations(self):
+        """
+        生成特殊变量的组合参数
+        特殊变量包括：日期宽度、操作天数、递增率
+        这些变量只有上下限和步长，按步长递增生成组合
+        如果未勾选，则用主界面参数
+        返回参数元组列表：[(width, op_days, increment_rate), ...]
+        """
+        special_combinations = []
+        special_vars = {}
+        
+        # 先收集勾选的变量
+        for en, widgets in self.var_widgets.items():
+            if en in ['width', 'op_days', 'increment_rate']:
+                if 'checkbox' in widgets and widgets['checkbox'].isChecked():
+                    lower_text = widgets.get('lower', '').text().strip()
+                    upper_text = widgets.get('upper', '').text().strip()
+                    step_text = widgets.get('step', '').text().strip()
+                    if lower_text and upper_text and step_text:
+                        try:
+                            if en in ['width', 'op_days']:
+                                # 日期宽度和操作天数使用整数
+                                lower_val = int(float(lower_text))
+                                upper_val = int(float(upper_text))
+                                step_val = int(float(step_text))
+                                # 生成整数序列
+                                values = list(range(lower_val, upper_val + 1, step_val))
+                            else:
+                                # 递增率使用浮点数，保留两位小数
+                                lower_val = float(lower_text)
+                                upper_val = float(upper_text)
+                                step_val = float(step_text)
+                                values = [round(v, 2) for v in
+                                         list(self._frange(lower_val, upper_val, step_val))]
+                            
+                            special_vars[en] = {'values': values}
+                        except ValueError:
+                            continue
+        
+        # 没勾选的用主界面参数
+        param_map = {
+            'width': getattr(self.main_window, 'width_spin', None),
+            'op_days': getattr(self.main_window, 'op_days_edit', None),
+            'increment_rate': getattr(self.main_window, 'inc_rate_edit', None)
+        }
+        
+        for en in ['width', 'op_days', 'increment_rate']:
+            if en not in special_vars:
+                widget = param_map[en]
+                if widget is not None:
+                    try:
+                        # 根据控件类型获取值
+                        if hasattr(widget, 'value'):  # QSpinBox类型
+                            val = widget.value()
+                        elif hasattr(widget, 'text'):  # QLineEdit类型
+                            val = widget.text()
+                        else:
+                            val = 30 if en == 'width' else 5 if en == 'op_days' else 3
+                        
+                        # 根据变量类型转换
+                        if en in ['width', 'op_days']:
+                            val = int(float(val))
+                        else:
+                            val = round(float(val), 2)
+                    except (ValueError, AttributeError):
+                        # 如果获取失败，使用默认值
+                        val = 30 if en == 'width' else 5 if en == 'op_days' else 3
+                else:
+                    # 如果控件不存在，使用默认值
+                    val = 30 if en == 'width' else 5 if en == 'op_days' else 3
+                special_vars[en] = {'values': [val]}
+        
+        # 生成笛卡尔积
+        width_values = special_vars['width']['values']
+        op_days_values = special_vars['op_days']['values']
+        increment_rate_values = special_vars['increment_rate']['values']
+        
+        for width in width_values:
+            for op_days in op_days_values:
+                for increment_rate in increment_rate_values:
+                    special_combinations.append((width, op_days, increment_rate))
+        
+        for i, combination in enumerate(special_combinations):
+            print(f"组合 {i+1}: {combination}")
+            print()
+        
+        return special_combinations
+
+    def _frange(self, start, stop, step):
+        """生成浮点数区间"""
+        vals = []
+        v = start
+        while v <= stop:
+            vals.append(v)
+            v += step
+        return vals
+
     def generate_formula(self):
         # 1. 收集所有条件
         conditions = []
         result_vars = []
+        
+        # 获取get_abbr_round_only_map中的变量名列表，用于排除
+        round_only_vars = set()
+        for (zh, en), en_val in self.abbr_round_only_map.items():
+            round_only_vars.add(en_val)
+        
+        # 获取特殊变量列表，用于排除（日期宽度、操作天数、递增率）
+        special_abbr_map = get_special_abbr_map()
+        special_vars = set(special_abbr_map.values())
+        
         for en, widgets in self.var_widgets.items():
-            # 跳过只做传递的逻辑变量
-            if en in ('start_with_new_before_high', 'start_with_new_before_high2', 
-                      'start_with_new_after_high', 'start_with_new_after_high2', 
-                      'start_with_new_before_low', 'start_with_new_before_low2',
-                      'start_with_new_after_low', 'start_with_new_after_low2'):
+            # 排除特殊变量（日期宽度、操作天数、递增率）
+            if en in special_vars:
                 continue
+                
             # 只处理有下限/上限的数值变量
             if 'lower' in widgets and 'upper' in widgets:
                 if widgets['checkbox'].isChecked():
@@ -1586,13 +2170,18 @@ class FormulaSelectWidget(QWidget):
             elif 'checkbox' in widgets and 'lower' not in widgets:
                 if widgets['checkbox'].isChecked():
                     conditions.append(f"{en}")
-            # 如果有圆框且被勾选，加入结果变量
-            if 'round_checkbox' in widgets and widgets['round_checkbox'].isChecked():
+            # 如果有圆框且被勾选，且不是get_abbr_round_only_map中的变量，加入结果变量
+            if 'round_checkbox' in widgets and widgets['round_checkbox'].isChecked() and en not in round_only_vars:
                 result_vars.append(en)
                 
         # 新增：向前参数勾选项也参与条件拼接
         if hasattr(self.main_window, 'forward_param_state') and self.main_window.forward_param_state:
             for en, v in self.main_window.forward_param_state.items():
+                # 排除特殊变量（日期宽度、操作天数、递增率）
+                if en in special_vars:
+                    continue
+                    
+                # 方框勾选：参与条件拼接
                 if v.get('enable'):
                     conds = []
                     lower = v.get('lower', '').strip()
@@ -1609,10 +2198,15 @@ class FormulaSelectWidget(QWidget):
                         conds.append(f"{var_name} <= {upper}")
                     if conds:
                         conditions.append(' and '.join(conds))
-                    # 如果圆框被勾选，加入结果变量
-                    if v.get('round'):
-                        result_vars.append(var_name)
-                        
+                
+                # 圆框勾选：独立于方框勾选，直接加入结果变量
+                if v.get('round'):
+                    var_name = en
+                    if hasattr(self, 'abbr_map') and self.abbr_map:
+                        zh_name = next((zh for zh, en2 in self.abbr_map.items() if en2 == en), None)
+                        if zh_name:
+                            var_name = en  # 这里en已是英文名
+                    result_vars.append(var_name)
         # 2. 收集比较控件的条件
         for comp in self.comparison_widgets:
             # 只处理勾选的比较控件
@@ -1868,17 +2462,26 @@ class FormulaSelectWidget(QWidget):
             lower_input = QLineEdit()
             lower_input.setPlaceholderText("下限")
             lower_input.setFixedWidth(30)
+            # 为日期宽度和操作天数添加整数验证器
+            if en in ['width', 'op_days']:
+                lower_input.setValidator(QIntValidator(0, 1000))
             var_layout.addWidget(lower_input)
 
             upper_input = QLineEdit()
             upper_input.setPlaceholderText("上限")
             upper_input.setFixedWidth(30)
+            # 为日期宽度和操作天数添加整数验证器
+            if en in ['width', 'op_days']:
+                upper_input.setValidator(QIntValidator(0, 1000))
             var_layout.addWidget(upper_input)
 
             # 添加步长输入框
             step_input = QLineEdit()
             step_input.setPlaceholderText("步长")
             step_input.setFixedWidth(30)
+            # 为日期宽度和操作天数添加整数验证器
+            if en in ['width', 'op_days']:
+                step_input.setValidator(QIntValidator(1, 100))
             var_layout.addWidget(step_input)
 
             widget_dict = {
@@ -1935,9 +2538,9 @@ class FormulaSelectWidget(QWidget):
             var_layout.addWidget(round_checkbox)
             
             # 添加label
-            if en_val in ['bottom_nth_non_nan1', 'bottom_nth_non_nan2', 'bottom_nth_non_nan3', 'bottom_nth_with_nan1', 'bottom_nth_with_nan2']:
+            if en_val in self.component_analysis_variables:
                 name_label = QLabel(zh)
-                name_label.setFixedWidth(120)  # 更紧凑
+                name_label.setFixedWidth(140)  # 更紧凑
             else:
                 name_label = QLabel(zh)
                 name_label.setFixedWidth(250)  # 保持原宽度
@@ -1946,7 +2549,7 @@ class FormulaSelectWidget(QWidget):
             var_layout.addWidget(name_label)
 
             # 为特定的变量添加N值输入框
-            if en_val in ['bottom_nth_non_nan1', 'bottom_nth_non_nan2', 'bottom_nth_non_nan3', 'bottom_nth_with_nan1', 'bottom_nth_with_nan2']:
+            if en_val in self.component_analysis_variables:
                 n_input = QLineEdit()
                 n_input.setPlaceholderText("N")
                 n_input.setFixedWidth(30)
@@ -2047,6 +2650,22 @@ class FormulaSelectWidget(QWidget):
                 widgets['direction'].currentTextChanged.connect(self._sync_to_main)
             if 'logic_check' in widgets:
                 widgets['logic_check'].stateChanged.connect(self._sync_to_main)
+            if 'n_input' in widgets:
+                widgets['n_input'].textChanged.connect(self._sync_to_main)
+
+    def get_round_only_map_selected_vars(self):
+        """
+        获取get_abbr_round_only_map中勾选的变量列表
+        """
+        selected_vars = []
+        
+        for (zh, en), en_val in self.abbr_round_only_map.items():
+            if en_val in self.var_widgets:
+                widgets = self.var_widgets[en_val]
+                if 'round_checkbox' in widgets and widgets['round_checkbox'].isChecked():
+                    selected_vars.append(en_val)
+        
+        return selected_vars
 
 def get_abbr_map():
     """获取变量缩写映射字典"""
@@ -2074,33 +2693,32 @@ def get_window_abbr_map():
         ("向前最大连续累加值开始值", "forward_max_continuous_start_value"), ("向前最大连续累加值开始后1位值", "forward_max_continuous_start_next_value"), 
         ("向前最大连续累加值开始后2位值", "forward_max_continuous_start_next_next_value"), ("向前最大连续累加值结束值", "forward_max_continuous_end_value"), 
         ("向前最大连续累加值结束前1位值", "forward_max_continuous_end_prev_value"), ("向前最大连续累加值结束前2位值", "forward_max_continuous_end_prev_prev_value"),
-        ("向前最大连续累加值正加值和", "forward_max_cont_sum_pos_sum"), ("向前最大连续累加值负加值和", "forward_max_cont_sum_neg_sum"),
         ("向前最大连续累加值前一半绝对值之和", "forward_max_abs_sum_first_half"), ("向前最大连续累加值后一半绝对值之和", "forward_max_abs_sum_second_half"),
         ("向前最大连续累加值前四分之1绝对值之和", "forward_max_abs_sum_block1"), ("向前最大连续累加值前四分之1-2绝对值之和", "forward_max_abs_sum_block2"),
         ("向前最大连续累加值前四分之2-3绝对值之和", "forward_max_abs_sum_block3"), ("向前最大连续累加值后四分之1绝对值之和", "forward_max_abs_sum_block4"),
+        ("向前最大连续累加值正加值和", "forward_max_cont_sum_pos_sum"), ("向前最大连续累加值负加值和", "forward_max_cont_sum_neg_sum"),
         
         ("向前最大有效累加值数组非空数据长度", "forward_max_valid_sum_len"), 
-        ("向前最大有效累加值正加值和", "forward_max_valid_pos_sum"), ("向前最大有效累加值负加值和", "forward_max_valid_neg_sum"),
         ("向前最大有效累加值数组前一半绝对值之和", "forward_max_valid_abs_sum_first_half"), ("向前最大有效累加值数组后一半绝对值之和", "forward_max_valid_abs_sum_second_half"),
         ("向前最大有效累加值数组前四分之1绝对值之和", "forward_max_valid_abs_sum_block1"), ("向前最大有效累加值数组前四分之1-2绝对值之和", "forward_max_valid_abs_sum_block2"),
         ("向前最大有效累加值数组前四分之2-3绝对值之和", "forward_max_valid_abs_sum_block3"), ("向前最大有效累加值数组后四分之1绝对值之和", "forward_max_valid_abs_sum_block4"),
+        ("向前最大有效累加值正加值和", "forward_max_valid_pos_sum"), ("向前最大有效累加值负加值和", "forward_max_valid_neg_sum"),
         
         ("向前最小连续累加值数组非空数据长度", "forward_min_result_len"),
         ("向前最小连续累加值开始值", "forward_min_continuous_start_value"), ("向前最小连续累加值开始后1位值", "forward_min_continuous_start_next_value"), 
         ("向前最小连续累加值开始后2位值", "forward_min_continuous_start_next_next_value"),("向前最小连续累加值结束值", "forward_min_continuous_end_value"), 
         ("向前最小连续累加值结束前1位值", "forward_min_continuous_end_prev_value"), ("向前最小连续累加值结束前2位值", "forward_min_continuous_end_prev_prev_value"),
-        ("向前最小连续累加值正加值和", "forward_min_cont_sum_pos_sum"), ("向前最小连续累加值负加值和", "forward_min_cont_sum_neg_sum"),
         ("向前最小连续累加值前一半绝对值之和", "forward_min_abs_sum_first_half"), ("向前最小连续累加值后一半绝对值之和", "forward_min_abs_sum_second_half"),
         ("向前最小连续累加值前四分之1绝对值之和", "forward_min_abs_sum_block1"), ("向前最小连续累加值前四分之1-2绝对值之和", "forward_min_abs_sum_block2"),
         ("向前最小连续累加值前四分之2-3绝对值之和", "forward_min_abs_sum_block3"), ("向前最小连续累加值后四分之1绝对值之和", "forward_min_abs_sum_block4"),
+        ("向前最小连续累加值正加值和", "forward_min_cont_sum_pos_sum"), ("向前最小连续累加值负加值和", "forward_min_cont_sum_neg_sum"),
         
 
         ("向前最小有效累加值数组非空数据长度", "forward_min_valid_sum_len"), 
-        ("向前最小有效累加值正加值和", "forward_min_valid_pos_sum"), ("向前最小有效累加值负加值和", "forward_min_valid_neg_sum"),
         ("向前最小有效累加值数组前一半绝对值之和", "forward_min_valid_abs_sum_first_half"), ("向前最小有效累加值数组后一半绝对值之和", "forward_min_valid_abs_sum_second_half"),
         ("向前最小有效累加值数组前四分之1绝对值之和", "forward_min_valid_abs_sum_block1"), ("向前最小有效累加值数组前四分之1-2绝对值之和", "forward_min_valid_abs_sum_block2"),
         ("向前最小有效累加值数组前四分之2-3绝对值之和", "forward_min_valid_abs_sum_block3"), ("向前最小有效累加值数组后四分之1绝对值之和", "forward_min_valid_abs_sum_block4"),
-        
+        ("向前最小有效累加值正加值和", "forward_min_valid_pos_sum"), ("向前最小有效累加值负加值和", "forward_min_valid_neg_sum"),
         
     ]
     return {zh: en for zh, en in abbrs}
@@ -2198,7 +2816,9 @@ def calculate_analysis_result(valid_items):
                     'ops_change': '持有涨跌幅',
                     'daily_change': '日均涨跌幅',
                     'non_nan_mean': '从下往上非空均值',
-                    'with_nan_mean': '从下往上含空均值'
+                    'with_nan_mean': '从下往上含空均值',
+                    'adjust_non_nan_mean': '调幅从下往上非空均值',
+                    'adjust_with_nan_mean': '调幅从下往上含空均值'
                 },
                 ...
             ],
@@ -2209,15 +2829,27 @@ def calculate_analysis_result(valid_items):
                 'mean_adjust_ops_incre_rate': '调天日均涨跌幅均值',
                 'mean_non_nan': '调天从下往上非空均值均值',
                 'mean_with_nan': '调天从下往上含空均值均值',
-                'mean_daily_with_nan': '调天含空值均值',
+                'mean_daily_with_nan': '含空值均值',
                 'max_change': '调天最大值',
                 'min_change': '调天最小值',
                 'mean_adjust_ops_incre_rate': '调幅日均涨跌幅均值',
                 'mean_non_nan_adjust_ops_incre_rate': '调幅从下往上非空均值均值',
                 'mean_with_nan_adjust_ops_incre_rate': '调幅从下往上含空均值均值',
-                'mean_daily_with_nan_adjust_ops_incre_rate': '调幅含空值均值',
                 'max_adjust_ops_incre_rate': '调幅最大值',
                 'min_adjust_ops_incre_rate': '调幅最小值',
+                # 新增：根据N位控件值动态计算的变量
+                'bottom_nth_non_nan1': '从下往上第N1位调天非空均值',
+                'bottom_nth_non_nan2': '从下往上第N2位调天非空均值',
+                'bottom_nth_non_nan3': '从下往上第N3位调天非空均值',
+                'bottom_nth_with_nan1': '从下往上第N1位调天含空均值',
+                'bottom_nth_with_nan2': '从下往上第N2位调天含空均值',
+                'bottom_nth_with_nan3': '从下往上第N3位调天含空均值',
+                'bottom_nth_adjust_non_nan1': '从下往上第N1位调幅非空均值',
+                'bottom_nth_adjust_non_nan2': '从下往上第N2位调幅非空均值',
+                'bottom_nth_adjust_non_nan3': '从下往上第N3位调幅非空均值',
+                'bottom_nth_adjust_with_nan1': '从下往上第N1位调幅含空均值',
+                'bottom_nth_adjust_with_nan2': '从下往上第N2位调幅含空均值',
+                'bottom_nth_adjust_with_nan3': '从下往上第N3位调幅含空均值',
             }
         }
     """
@@ -2244,6 +2876,76 @@ def calculate_analysis_result(valid_items):
                 return ''
             val = sum(vals) / len(vals)
         return float(Decimal(str(val)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
+
+    # 获取N位控件值 - 从主窗口状态中读取
+    n_values = {}
+    try:
+        # 使用QApplication查找主窗口实例
+        from PyQt5.QtWidgets import QApplication
+        app = QApplication.instance()
+        main_window = None
+        
+        if app:
+            # 遍历所有顶级窗口
+            for widget in app.topLevelWidgets():
+                try:
+                    if hasattr(widget, 'component_analysis_n_values'):
+                        main_window = widget
+                        break
+                except:
+                    continue
+        
+        # 如果还是没找到，尝试从全局变量中查找
+        if not main_window:
+            import sys
+            for module_name, module in sys.modules.items():
+                if module and hasattr(module, '__dict__'):
+                    for name, obj in module.__dict__.items():
+                        try:
+                            if hasattr(obj, 'component_analysis_n_values'):
+                                main_window = obj
+                                break
+                        except:
+                            continue
+                if main_window:
+                    break
+        
+        # 从主窗口读取N位控件值
+        if main_window and hasattr(main_window, 'component_analysis_n_values'):
+            n_values = main_window.component_analysis_n_values
+        else:
+            # 备用方案：从last_formula_select_state中读取
+            if main_window and hasattr(main_window, 'last_formula_select_state'):
+                last_state = main_window.last_formula_select_state
+                if last_state and 'n_values' in last_state:
+                    n_values = last_state['n_values']
+                    print(f"从last_formula_select_state读取到N位控件值: {n_values}")
+                else:
+                    # 使用默认值
+                    n_vars = ['bottom_nth_non_nan1', 'bottom_nth_non_nan2', 'bottom_nth_non_nan3',
+                             'bottom_nth_with_nan1', 'bottom_nth_with_nan2', 'bottom_nth_with_nan3',
+                             'bottom_nth_adjust_non_nan1', 'bottom_nth_adjust_non_nan2', 'bottom_nth_adjust_non_nan3',
+                             'bottom_nth_adjust_with_nan1', 'bottom_nth_adjust_with_nan2', 'bottom_nth_adjust_with_nan3']
+                    n_values = {var: 1 for var in n_vars}
+                    print(f"使用默认N位控件值: {n_values}")
+            else:
+                # 使用默认值
+                n_vars = ['bottom_nth_non_nan1', 'bottom_nth_non_nan2', 'bottom_nth_non_nan3',
+                         'bottom_nth_with_nan1', 'bottom_nth_with_nan2', 'bottom_nth_with_nan3',
+                         'bottom_nth_adjust_non_nan1', 'bottom_nth_adjust_non_nan2', 'bottom_nth_adjust_non_nan3',
+                         'bottom_nth_adjust_with_nan1', 'bottom_nth_adjust_with_nan2', 'bottom_nth_adjust_with_nan3']
+                n_values = {var: 1 for var in n_vars}
+                print(f"使用默认N位控件值: {n_values}")
+                
+    except Exception as e:
+        print(f"获取N位控件值时出错: {e}")
+        # 使用默认值
+        n_vars = ['bottom_nth_non_nan1', 'bottom_nth_non_nan2', 'bottom_nth_non_nan3',
+                 'bottom_nth_with_nan1', 'bottom_nth_with_nan2', 'bottom_nth_with_nan3',
+                 'bottom_nth_adjust_non_nan1', 'bottom_nth_adjust_non_nan2', 'bottom_nth_adjust_non_nan3',
+                 'bottom_nth_adjust_with_nan1', 'bottom_nth_adjust_with_nan2', 'bottom_nth_adjust_with_nan3']
+        n_values = {var: 1 for var in n_vars}
+        print(f"出错后使用默认N位控件值: {n_values}")
 
     # 存储每个日期的详细数据
     items = []
@@ -2474,8 +3176,63 @@ def calculate_analysis_result(valid_items):
         'adjust_bottom_third_non_nan': items[-3]['adjust_non_nan_mean'] if len(items) > 2 else None,
         'adjust_bottom_fourth_non_nan': items[-4]['adjust_non_nan_mean'] if len(items) > 3 else None
     }
+    
+    # 新增：根据N位控件值动态计算从下往上第N位的值
+    if items:
+        # 调天非空均值
+        for i in range(1, 4):
+            var_name = f'bottom_nth_non_nan{i}'
+            n = n_values.get(var_name, 1)
+            if n > 0 and n <= len(items):
+                summary[var_name] = items[-n]['non_nan_mean']
+            else:
+                summary[var_name] = None
+        
+        # 调天含空均值
+        for i in range(1, 4):
+            var_name = f'bottom_nth_with_nan{i}'
+            n = n_values.get(var_name, 1)
+            if n > 0 and n <= len(items):
+                summary[var_name] = items[-n]['with_nan_mean']
+            else:
+                summary[var_name] = None
+        
+        # 调幅非空均值
+        for i in range(1, 4):
+            var_name = f'bottom_nth_adjust_non_nan{i}'
+            n = n_values.get(var_name, 1)
+            if n > 0 and n <= len(items):
+                summary[var_name] = items[-n]['adjust_non_nan_mean']
+            else:
+                summary[var_name] = None
+        
+        # 调幅含空均值
+        for i in range(1, 4):
+            var_name = f'bottom_nth_adjust_with_nan{i}'
+            n = n_values.get(var_name, 1)
+            if n > 0 and n <= len(items):
+                summary[var_name] = items[-n]['adjust_with_nan_mean']
+            else:
+                summary[var_name] = None
 
     return {
         'items': items,
         'summary': summary
     }
+
+def get_component_analysis_variables():
+    """获取组合分析元件变量列表"""
+    return [
+        'bottom_nth_non_nan1',
+        'bottom_nth_non_nan2', 
+        'bottom_nth_non_nan3',
+        'bottom_nth_with_nan1',
+        'bottom_nth_with_nan2',
+        'bottom_nth_with_nan3',
+        'bottom_nth_adjust_non_nan1',
+        'bottom_nth_adjust_non_nan2',
+        'bottom_nth_adjust_non_nan3',
+        'bottom_nth_adjust_with_nan1',
+        'bottom_nth_adjust_with_nan2',
+        'bottom_nth_adjust_with_nan3',
+    ]
