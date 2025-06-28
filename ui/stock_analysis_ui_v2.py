@@ -21,6 +21,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from multiprocessing import cpu_count
 from datetime import datetime
 from ui.component_analysis_ui import ComponentAnalysisWidget
+from ui.trading_plan_ui import TradingPlanWidget
 
 class Tab4SpaceTextEdit(QTextEdit):
     def keyPressEvent(self, event):
@@ -972,6 +973,8 @@ class StockAnalysisApp(QWidget):
         self.op_stat_btn.setFixedSize(100, 50)
         self.component_analysis_btn = QPushButton("组合分析")
         self.component_analysis_btn.setFixedSize(100, 50)
+        self.trading_plan_btn = QPushButton("操盘方案")
+        self.trading_plan_btn.setFixedSize(100, 50)
         btn_layout = QHBoxLayout()
         btn_layout.addWidget(self.continuous_sum_btn)
         btn_layout.addWidget(self.param_show_btn)
@@ -979,6 +982,7 @@ class StockAnalysisApp(QWidget):
         btn_layout.addWidget(self.auto_analysis_btn)
         btn_layout.addWidget(self.op_stat_btn)
         btn_layout.addWidget(self.component_analysis_btn)
+        btn_layout.addWidget(self.trading_plan_btn)
         btn_layout.addStretch()  # 按钮靠左
         main_layout.addLayout(btn_layout)
 
@@ -1008,6 +1012,7 @@ class StockAnalysisApp(QWidget):
         self.auto_analysis_btn.clicked.connect(self.on_auto_analysis_btn_clicked)
         self.op_stat_btn.clicked.connect(self.on_op_stat_btn_clicked)
         self.component_analysis_btn.clicked.connect(self.on_component_analysis_btn_clicked)
+        self.trading_plan_btn.clicked.connect(self.show_trading_plan_interface)
 
     def on_query_param(self):
         # 查询参数信息
@@ -2216,8 +2221,7 @@ class StockAnalysisApp(QWidget):
             'new_after_low_flag': self.new_after_low_flag_checkbox.isChecked(),
             'new_after_low2_flag': self.new_after_low2_flag_checkbox.isChecked(),
             # 新增：组合分析界面勾选框状态
-            'component_continuous_sum_logic': getattr(self, 'last_component_continuous_sum_logic', False),
-            'component_valid_sum_logic': getattr(self, 'last_component_valid_sum_logic', False),
+            'component_generate_trading_plan': getattr(self, 'last_component_generate_trading_plan', False),
         }
         # 保存公式选股控件状态
         if hasattr(self, 'formula_widget') and self.formula_widget is not None:
@@ -2233,6 +2237,16 @@ class StockAnalysisApp(QWidget):
             results = self.component_widget.get_cached_analysis_results()
             if results:
                 config['component_analysis_results'] = base64.b64encode(pickle.dumps(results)).decode('utf-8')
+        # 保存操盘方案列表
+        if hasattr(self, 'trading_plan_list'):
+            from ui.trading_plan_ui import TradingPlanWidget
+            TradingPlanWidget.clean_plan_for_save(self.trading_plan_list)
+            config['trading_plan_list'] = self.trading_plan_list
+        # 保存trading_plan_end_date
+        if hasattr(self, 'last_trading_plan_end_date'):
+            config['trading_plan_end_date'] = self.last_trading_plan_end_date
+        elif hasattr(self, 'trading_plan_widget'):
+            config['trading_plan_end_date'] = self.trading_plan_widget.end_date_picker.date().toString("yyyy-MM-dd")
         try:
             with open('config.json', 'w', encoding='utf-8') as f:
                 json.dump(config, f, ensure_ascii=False, indent=2)
@@ -2415,6 +2429,14 @@ class StockAnalysisApp(QWidget):
                         self._pending_component_analysis_results = results
                 except Exception as e:
                     print(f'恢复组合分析结果失败: {e}')
+            # 恢复操盘方案列表
+            if 'trading_plan_list' in config:
+                self.trading_plan_list = config['trading_plan_list']
+            if 'component_generate_trading_plan' in config:
+                self.last_component_generate_trading_plan = config['component_generate_trading_plan']
+            # 恢复trading_plan_end_date
+            if 'trading_plan_end_date' in config:
+                self.last_trading_plan_end_date = config['trading_plan_end_date']
         except Exception as e:
             print(f"加载配置失败: {e}")
 
@@ -2433,3 +2455,13 @@ class StockAnalysisApp(QWidget):
             self.date_picker.setDate(min_date)
         elif cur_date > max_date:
             self.date_picker.setDate(max_date)
+
+    def show_trading_plan_interface(self):
+        """显示操盘方案界面"""
+        from ui.trading_plan_ui import TradingPlanWidget
+        trading_plan_widget = TradingPlanWidget(self)
+        trading_plan_widget.setMinimumSize(1200, 600)
+        self.trading_plan_widget = trading_plan_widget
+        self.table_widget = trading_plan_widget
+        self.output_stack.addWidget(trading_plan_widget)
+        self.output_stack.setCurrentWidget(trading_plan_widget)

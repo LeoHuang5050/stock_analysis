@@ -1245,12 +1245,14 @@ def show_formula_select_table_result(parent, result, price_data=None, output_edi
         return val
     for row_idx, stock in enumerate(stocks):
         stock_idx = stock.get('stock_idx', None)
-        if price_data is not None and stock_idx is not None:
+        # 优先从stock获取name，没有再查price_data
+        code = stock.get('code', stock.get('stock_idx', ''))
+        name = stock.get('name', None)
+        if (not name) and price_data is not None and stock_idx is not None:
             code = price_data.iloc[stock_idx, 0]
             name = price_data.iloc[stock_idx, 1]
-        else:
-            code = stock.get('code', stock.get('stock_idx', ''))
-            name = stock.get('name', '')
+        if name is None:
+            name = ''
         hold_days = safe_val(stock.get('hold_days', ''))
         ops_change = safe_val(stock.get('ops_change', ''))
         ops_incre_rate = safe_val(stock.get('ops_incre_rate', ''))

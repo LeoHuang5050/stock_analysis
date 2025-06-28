@@ -242,6 +242,7 @@ class CalculateThread(QThread):
         sort_mode = params.get('sort_mode', '最大值排序')
         only_show_selected = params.get('only_show_selected', False)
         max_cores = params.get('max_cores', 1)  # 从参数中获取最大核心数
+        
         if only_show_selected:
             n_proc = max_cores  # 使用UI中设置的核心数
         else:
