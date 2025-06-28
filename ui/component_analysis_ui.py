@@ -11,6 +11,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt, QDate, QTimer
 from PyQt5.QtGui import QFont
 import pandas as pd
+from datetime import datetime
 from function.stock_functions import show_formula_select_table, calculate_analysis_result, get_abbr_map, get_abbr_logic_map, get_abbr_round_map, FormulaSelectWidget
 from ui.common_widgets import CopyableTableWidget
 
@@ -27,6 +28,7 @@ class ComponentAnalysisWidget(QWidget):
         # 连接勾选框状态改变信号
         self.continuous_sum_logic_checkbox.stateChanged.connect(self._on_continuous_sum_logic_changed)
         self.valid_sum_logic_checkbox.stateChanged.connect(self._on_valid_sum_logic_changed)
+        self.generate_trading_plan_checkbox.stateChanged.connect(self._on_generate_trading_plan_changed)
         
     def init_ui(self):
         """初始化UI"""
@@ -40,18 +42,18 @@ class ComponentAnalysisWidget(QWidget):
         self.start_date_picker = QDateEdit(calendarPopup=True)
         
         # 使用保存的日期值或默认值
-        if hasattr(self.main_window, 'component_analysis_start_date'):
+        if hasattr(self.main_window, 'last_component_analysis_start_date'):
             self.start_date_picker.setDate(QDate.fromString(
-                self.main_window.component_analysis_start_date, "yyyy-MM-dd"))
+                self.main_window.last_component_analysis_start_date, "yyyy-MM-dd"))
         else:
             self.start_date_picker.setDate(self.main_window.date_picker.date())
             
         self.end_date_label = QLabel("结束日期结束日:")
         self.end_date_picker = QDateEdit(calendarPopup=True)
         
-        if hasattr(self.main_window, 'component_analysis_end_date'):
+        if hasattr(self.main_window, 'last_component_analysis_end_date'):
             self.end_date_picker.setDate(QDate.fromString(
-                self.main_window.component_analysis_end_date, "yyyy-MM-dd"))
+                self.main_window.last_component_analysis_end_date, "yyyy-MM-dd"))
         else:
             self.end_date_picker.setDate(self.main_window.date_picker.date())
             
@@ -82,6 +84,14 @@ class ComponentAnalysisWidget(QWidget):
         self.import_csv_btn = QPushButton("导入CSV")
         self.import_csv_btn.clicked.connect(self.on_import_csv)
         
+        # 生成操盘方案勾选框
+        self.generate_trading_plan_checkbox = QCheckBox("生成操盘方案")
+        self.generate_trading_plan_checkbox.setChecked(False)  # 默认不勾选
+        
+        # 恢复生成操盘方案勾选框状态
+        if hasattr(self.main_window, 'last_component_generate_trading_plan'):
+            self.generate_trading_plan_checkbox.setChecked(self.main_window.last_component_generate_trading_plan)
+        
         # 添加控件到布局
         row_layout.addWidget(self.start_date_label)
         row_layout.addWidget(self.start_date_picker)
@@ -94,6 +104,7 @@ class ComponentAnalysisWidget(QWidget):
         row_layout.addWidget(self.export_csv_btn)
         row_layout.addWidget(self.import_excel_btn)
         row_layout.addWidget(self.import_csv_btn)
+        row_layout.addWidget(self.generate_trading_plan_checkbox)
         row_layout.addStretch()
         
         layout.addLayout(row_layout)
@@ -121,8 +132,8 @@ class ComponentAnalysisWidget(QWidget):
         
     def _on_analysis_date_changed_save(self):
         """保存日期变更"""
-        self.main_window.component_analysis_start_date = self.start_date_picker.date().toString("yyyy-MM-dd")
-        self.main_window.component_analysis_end_date = self.end_date_picker.date().toString("yyyy-MM-dd")
+        self.main_window.last_component_analysis_start_date = self.start_date_picker.date().toString("yyyy-MM-dd")
+        self.main_window.last_component_analysis_end_date = self.end_date_picker.date().toString("yyyy-MM-dd")
         
     def on_analyze_clicked(self):
         
@@ -133,6 +144,18 @@ class ComponentAnalysisWidget(QWidget):
         # 获取勾选框状态
         continuous_sum_logic = self.continuous_sum_logic_checkbox.isChecked()
         valid_sum_logic = self.valid_sum_logic_checkbox.isChecked()
+        generate_trading_plan = self.generate_trading_plan_checkbox.isChecked()
+        
+        # 如果勾选了生成操盘方案，检查列表长度
+        if generate_trading_plan:
+            # 确保主窗口有trading_plan_list属性
+            if not hasattr(self.main_window, 'trading_plan_list'):
+                self.main_window.trading_plan_list = []
+            
+            # 检查列表长度是否小于6
+            if len(self.main_window.trading_plan_list) >= 6:
+                QMessageBox.warning(self, "提示", "操盘方案已满（最多6个），请先进行删除！")
+                return
         
         # 生成组合公式列表
         formula_list = []
@@ -300,6 +323,10 @@ class ComponentAnalysisWidget(QWidget):
         if self.current_analysis_index >= self.total_analyses:
             # 所有分析完成
             self.show_analysis_results(self.all_analysis_results)
+            # 只在分析全部完成后，且勾选生成操盘方案时，添加一次方案
+            if self.generate_trading_plan_checkbox.isChecked() and self.cached_analysis_results:
+                top_one = self.cached_analysis_results[0]
+                self._add_top_result_to_trading_plan(top_one)
             return
         
         # 如果是第一次分析，直接执行
@@ -651,6 +678,7 @@ class ComponentAnalysisWidget(QWidget):
         # 缓存top_three用于保存和恢复
         self.cached_analysis_results = top_three
         self.main_window.cached_component_analysis_results = top_three
+        
         # 清理旧内容
         for i in reversed(range(self.result_layout.count())):
             widget = self.result_layout.itemAt(i).widget()
@@ -893,12 +921,12 @@ class ComponentAnalysisWidget(QWidget):
                         v = self.main_window.width_spin.value()
                         print(f"找到特殊控件: width_spin = {v}")
                     # 特殊处理：组合分析日期参数
-                    elif k == 'component_analysis_start_date' and hasattr(self.main_window, 'component_analysis_start_date'):
-                        v = getattr(self.main_window, 'component_analysis_start_date', '')
-                        print(f"找到特殊属性: component_analysis_start_date = {v}")
-                    elif k == 'component_analysis_end_date' and hasattr(self.main_window, 'component_analysis_end_date'):
-                        v = getattr(self.main_window, 'component_analysis_end_date', '')
-                        print(f"找到特殊属性: component_analysis_end_date = {v}")
+                    elif k == 'component_analysis_start_date' and hasattr(self.main_window, 'last_component_analysis_start_date'):
+                        v = getattr(self.main_window, 'last_component_analysis_start_date', '')
+                        print(f"找到特殊属性: last_component_analysis_start_date = {v}")
+                    elif k == 'component_analysis_end_date' and hasattr(self.main_window, 'last_component_analysis_end_date'):
+                        v = getattr(self.main_window, 'last_component_analysis_end_date', '')
+                        print(f"找到特殊属性: last_component_analysis_end_date = {v}")
                     # LineEdit - 优先处理，避免被当作直接控件名
                     elif hasattr(self.main_window, k + '_edit'):
                         edit_name = k + '_edit'
@@ -1021,12 +1049,12 @@ class ComponentAnalysisWidget(QWidget):
                         v = self.main_window.width_spin.value()
                         print(f"找到特殊控件: width_spin = {v}")
                     # 特殊处理：组合分析日期参数
-                    elif k == 'component_analysis_start_date' and hasattr(self.main_window, 'component_analysis_start_date'):
-                        v = getattr(self.main_window, 'component_analysis_start_date', '')
-                        print(f"找到特殊属性: component_analysis_start_date = {v}")
-                    elif k == 'component_analysis_end_date' and hasattr(self.main_window, 'component_analysis_end_date'):
-                        v = getattr(self.main_window, 'component_analysis_end_date', '')
-                        print(f"找到特殊属性: component_analysis_end_date = {v}")
+                    elif k == 'component_analysis_start_date' and hasattr(self.main_window, 'last_component_analysis_start_date'):
+                        v = getattr(self.main_window, 'last_component_analysis_start_date', '')
+                        print(f"找到特殊属性: last_component_analysis_start_date = {v}")
+                    elif k == 'component_analysis_end_date' and hasattr(self.main_window, 'last_component_analysis_end_date'):
+                        v = getattr(self.main_window, 'last_component_analysis_end_date', '')
+                        print(f"找到特殊属性: last_component_analysis_end_date = {v}")
                     # LineEdit - 优先处理，避免被当作直接控件名
                     elif hasattr(self.main_window, k + '_edit'):
                         edit_name = k + '_edit'
@@ -1311,12 +1339,12 @@ class ComponentAnalysisWidget(QWidget):
                         print(f"width参数恢复失败: {e}")
                 # 组合分析日期参数
                 elif k == 'component_analysis_start_date':
-                    setattr(self.main_window, 'component_analysis_start_date', v)
-                    print(f"恢复日期参数: component_analysis_start_date = {v}")
+                    setattr(self.main_window, 'last_component_analysis_start_date', v)
+                    print(f"恢复日期参数: last_component_analysis_start_date = {v}")
                 elif k == 'component_analysis_end_date':
-                    setattr(self.main_window, 'component_analysis_end_date', v)
-                    print(f"恢复日期参数: component_analysis_end_date = {v}")
-                    print(f"调试：设置后立即检查值: {getattr(self.main_window, 'component_analysis_end_date', 'NOT_FOUND')}")
+                    setattr(self.main_window, 'last_component_analysis_end_date', v)
+                    print(f"恢复日期参数: last_component_analysis_end_date = {v}")
+                    print(f"调试：设置后立即检查值: {getattr(self.main_window, 'last_component_analysis_end_date', 'NOT_FOUND')}")
                 # 特殊处理：after_gt_end_edit 和 after_gt_prev_edit
                 elif k == 'after_gt_end_edit' and hasattr(self.main_window, 'after_gt_end_edit'):
                     try:
@@ -1463,8 +1491,8 @@ class ComponentAnalysisWidget(QWidget):
                     print("没有组合分析结束日期")
             else:
                 # 兼容旧方式：从主窗口属性获取（用于其他场景）
-                if hasattr(self.main_window, 'component_analysis_start_date'):
-                    start_date_val = getattr(self.main_window, 'component_analysis_start_date', '')
+                if hasattr(self.main_window, 'last_component_analysis_start_date'):
+                    start_date_val = getattr(self.main_window, 'last_component_analysis_start_date', '')
                     if not callable(start_date_val) and start_date_val and start_date_val != '2000-01-01':
                         try:
                             qdate = QDate.fromString(str(start_date_val), "yyyy-MM-dd")
@@ -1474,8 +1502,8 @@ class ComponentAnalysisWidget(QWidget):
                         except Exception as e:
                             print(f"更新组合分析开始日期失败: {e}")
                             
-                if hasattr(self.main_window, 'component_analysis_end_date'):
-                    end_date_val = getattr(self.main_window, 'component_analysis_end_date', '')
+                if hasattr(self.main_window, 'last_component_analysis_end_date'):
+                    end_date_val = getattr(self.main_window, 'last_component_analysis_end_date', '')
                     if not callable(end_date_val) and end_date_val and end_date_val != '2000-01-01':
                         try:
                             qdate = QDate.fromString(str(end_date_val), "yyyy-MM-dd")
@@ -1578,4 +1606,253 @@ class ComponentAnalysisWidget(QWidget):
         # 同步到主窗口
         self.main_window.cached_component_analysis_results = results
         if results:
-            self.show_analysis_results(results) 
+            self.show_analysis_results(results)
+            
+    def on_generate_trading_plan(self):
+        """生成操盘方案"""
+        if not self.cached_analysis_results:
+            QMessageBox.warning(self, "提示", "请先执行组合分析，生成分析结果后再生成操盘方案！")
+            return
+            
+        try:
+            # 生成操盘方案列表
+            trading_plan_list = self._generate_trading_plan_list()
+            
+            # 保存到主窗口
+            self.main_window.trading_plan_list = trading_plan_list
+            
+            # 显示操盘方案
+            self._show_trading_plan(trading_plan_list)
+            
+            QMessageBox.information(self, "成功", f"已生成 {len(trading_plan_list)} 个操盘方案！")
+            
+        except Exception as e:
+            QMessageBox.critical(self, "错误", f"生成操盘方案失败：{e}")
+            
+    def _generate_trading_plan_list(self):
+        """根据组合分析结果生成操盘方案列表"""
+        trading_plan_list = []
+        
+        for i, result in enumerate(self.cached_analysis_results):
+            analysis = result['analysis']
+            
+            # 收集所有控件参数
+            params = self._collect_all_control_params()
+            
+            # 将特定参数添加到params中
+            params.update({
+                'width': analysis.get('width', ''),
+                'sort_mode': analysis.get('sort_mode', ''),
+                'op_days': analysis.get('op_days', ''),
+                'increment_rate': analysis.get('increment_rate', '')
+            })
+            
+            # 创建操盘方案
+            trading_plan = {
+                'plan_id': i + 1,
+                'formula': analysis.get('formula', ''),
+                'params': params,
+                'adjusted_value': result.get('adjusted_value', 0),
+                'total_sum': result.get('total_sum', 0),
+                'valid_count': result.get('valid_count', 0),
+                'avg_sum': result.get('avg_sum', 0),
+                'generate_time': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                'description': f"操盘方案{i+1}：基于{analysis.get('sort_mode', '')}排序，日期宽度{analysis.get('width', '')}，操作天数{analysis.get('op_days', '')}，递增率{analysis.get('increment_rate', '')}%"
+            }
+            
+            trading_plan_list.append(trading_plan)
+            
+        return trading_plan_list
+        
+    def _show_trading_plan(self, trading_plan_list):
+        """显示操盘方案"""
+        # 清理旧内容
+        for i in reversed(range(self.result_layout.count())):
+            widget = self.result_layout.itemAt(i).widget()
+            if widget is not None:
+                widget.setParent(None)
+                
+        # 创建操盘方案表格
+        from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem
+        from PyQt5.QtCore import Qt
+        
+        headers = ["方案ID", "排序方式", "日期宽度", "操作天数", "递增率", "调整值", "总分", "有效数", "平均分", "生成时间", "描述"]
+        table = QTableWidget(len(trading_plan_list), len(headers), self.result_area)
+        table.setHorizontalHeaderLabels(headers)
+        
+        for row, plan in enumerate(trading_plan_list):
+            params = plan.get('params', {})
+            table.setItem(row, 0, QTableWidgetItem(str(plan['plan_id'])))
+            table.setItem(row, 1, QTableWidgetItem(str(params.get('sort_mode', ''))))
+            table.setItem(row, 2, QTableWidgetItem(str(params.get('width', ''))))
+            table.setItem(row, 3, QTableWidgetItem(str(params.get('op_days', ''))))
+            table.setItem(row, 4, QTableWidgetItem(f"{params.get('increment_rate', '')}%"))
+            table.setItem(row, 5, QTableWidgetItem(f"{plan['adjusted_value']:.2f}"))
+            table.setItem(row, 6, QTableWidgetItem(f"{plan['total_sum']:.2f}"))
+            table.setItem(row, 7, QTableWidgetItem(str(plan['valid_count'])))
+            table.setItem(row, 8, QTableWidgetItem(f"{plan['avg_sum']:.2f}"))
+            table.setItem(row, 9, QTableWidgetItem(str(plan['generate_time'])))
+            
+            # 描述列需要特殊处理，因为可能很长
+            desc_item = QTableWidgetItem(str(plan['description']))
+            desc_item.setToolTip(plan['description'])
+            table.setItem(row, 10, desc_item)
+            
+        table.resizeColumnsToContents()
+        # 自动调整行高
+        for row in range(table.rowCount()):
+            table.resizeRowToContents(row)
+            
+        self.result_layout.addWidget(table)
+        
+        # 添加保存操盘方案按钮
+        save_plan_btn = QPushButton("保存操盘方案")
+        save_plan_btn.clicked.connect(self._save_trading_plan)
+        self.result_layout.addWidget(save_plan_btn)
+        
+    def _save_trading_plan(self):
+        """保存操盘方案到文件"""
+        if not hasattr(self.main_window, 'trading_plan_list') or not self.main_window.trading_plan_list:
+            QMessageBox.warning(self, "提示", "没有可保存的操盘方案！")
+            return
+            
+        file_path, _ = QFileDialog.getSaveFileName(self, "保存操盘方案", "", "JSON Files (*.json)")
+        if not file_path:
+            return
+            
+        if not file_path.endswith('.json'):
+            file_path += '.json'
+            
+        try:
+            import json
+            with open(file_path, 'w', encoding='utf-8') as f:
+                json.dump(self.main_window.trading_plan_list, f, ensure_ascii=False, indent=2)
+            QMessageBox.information(self, "成功", f"操盘方案已保存到 {file_path}")
+        except Exception as e:
+            QMessageBox.critical(self, "错误", f"保存操盘方案失败：{e}")
+
+    def _add_top_result_to_trading_plan(self, top_result):
+        """将排序第一的结果添加到操盘方案列表"""
+        try:
+            # 确保主窗口有trading_plan_list属性
+            if not hasattr(self.main_window, 'trading_plan_list'):
+                self.main_window.trading_plan_list = []
+            
+            # 从top_result中获取数据
+            analysis = top_result['analysis']
+            
+            # 收集所有控件参数
+            params = self._collect_all_control_params()
+            
+            # 将特定参数添加到params中
+            params.update({
+                'width': analysis.get('width', ''),
+                'sort_mode': analysis.get('sort_mode', ''),
+                'op_days': analysis.get('op_days', ''),
+                'increment_rate': analysis.get('increment_rate', '')
+            })
+            
+            # 创建操盘方案
+            trading_plan = {
+                'plan_id': len(self.main_window.trading_plan_list) + 1,
+                'formula': analysis.get('formula', ''),
+                'params': params,
+                'adjusted_value': top_result.get('adjusted_value', 0),
+                'total_sum': top_result.get('total_sum', 0),
+                'valid_count': top_result.get('valid_count', 0),
+                'avg_sum': top_result.get('avg_sum', 0),
+                'generate_time': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                'description': f"操盘方案{len(self.main_window.trading_plan_list) + 1}：基于{analysis.get('sort_mode', '')}排序，日期宽度{analysis.get('width', '')}，操作天数{analysis.get('op_days', '')}，递增率{analysis.get('increment_rate', '')}%"
+            }
+            
+            # 添加到操盘方案列表
+            self.main_window.trading_plan_list.append(trading_plan)
+            
+            print(f"已添加操盘方案：{trading_plan['description']}")
+            print(f"当前操盘方案数量：{len(self.main_window.trading_plan_list)}")
+            
+        except Exception as e:
+            print(f"添加操盘方案失败：{e}")
+            
+    def _collect_all_control_params(self):
+        """收集所有控件参数"""
+        params = {}
+        
+        # 参考导出功能的config_keys，排除不需要的参数
+        config_keys = [
+            'date', 'width', 'start_option', 'shift', 'inc_rate', 'op_days', 'after_gt_end_edit',
+            'after_gt_prev_edit', 'n_days', 'n_days_max', 'range_value', 'continuous_abs_threshold',
+            'ops_change', 'expr', 'last_select_count', 'last_sort_mode', 'direction',
+            'analysis_start_date', 'analysis_end_date', 'component_analysis_start_date',
+            'component_analysis_end_date', 'cpu_cores',
+            'trade_mode',
+            'new_before_high_start', 'new_before_high_range', 'new_before_high_span',
+            'new_before_low_start', 'new_before_low_range', 'new_before_low_span',
+            'valid_abs_sum_threshold', 'new_before_high_logic', 'new_before_high2_start',
+            'new_before_high2_range', 'new_before_high2_span', 'new_before_high2_logic',
+            'new_after_high_start', 'new_after_high_range', 'new_after_high_span', 'new_after_high_logic',
+            'new_after_high2_start', 'new_after_high2_range', 'new_after_high2_span', 'new_after_high2_logic',
+            'new_before_low_start', 'new_before_low_range', 'new_before_low_span', 'new_before_low_logic',
+            'new_before_low2_start', 'new_before_low2_range', 'new_before_low2_span', 'new_before_low2_logic',
+            'new_after_low_start', 'new_after_low_range', 'new_after_low_span', 'new_after_low_logic',
+            'new_after_low2_start', 'new_after_low2_range', 'new_after_low2_span', 'new_after_low2_logic',
+            'new_before_high_flag', 'new_before_high2_flag', 'new_after_high_flag', 'new_after_high2_flag',
+            'new_before_low_flag', 'new_before_low2_flag', 'new_after_low_flag', 'new_after_low2_flag'
+        ]
+        
+        for k in config_keys:
+            try:
+                v = None
+                # 特殊处理：width 参数直接查找 width_spin 控件
+                if k == 'width' and hasattr(self.main_window, 'width_spin'):
+                    v = self.main_window.width_spin.value()
+                # 特殊处理：组合分析日期参数
+                elif k == 'component_analysis_start_date' and hasattr(self.main_window, 'last_component_analysis_start_date'):
+                    v = getattr(self.main_window, 'last_component_analysis_start_date', '')
+                elif k == 'component_analysis_end_date' and hasattr(self.main_window, 'last_component_analysis_end_date'):
+                    v = getattr(self.main_window, 'last_component_analysis_end_date', '')
+                # LineEdit - 优先处理，避免被当作直接控件名
+                elif hasattr(self.main_window, k + '_edit'):
+                    edit_name = k + '_edit'
+                    v = getattr(self.main_window, edit_name).text()
+                # SpinBox
+                elif hasattr(self.main_window, k + '_spin'):
+                    spin_name = k + '_spin'
+                    v = getattr(self.main_window, spin_name).value()
+                # ComboBox
+                elif hasattr(self.main_window, k + '_combo'):
+                    combo_name = k + '_combo'
+                    v = getattr(self.main_window, combo_name).currentText()
+                # CheckBox
+                elif hasattr(self.main_window, k + '_checkbox'):
+                    checkbox_name = k + '_checkbox'
+                    v = getattr(self.main_window, checkbox_name).isChecked()
+                # 直接控件名（如 after_gt_end_edit）
+                elif hasattr(self.main_window, k):
+                    attr_value = getattr(self.main_window, k)
+                    # 检查是否是控件对象，获取其值
+                    if hasattr(attr_value, 'text'):
+                        v = attr_value.text()
+                    elif hasattr(attr_value, 'value'):
+                        v = attr_value.value()
+                    elif hasattr(attr_value, 'currentText'):
+                        v = attr_value.currentText()
+                    elif hasattr(attr_value, 'isChecked'):
+                        v = attr_value.isChecked()
+                    else:
+                        # 不是控件对象，是普通属性
+                        v = attr_value
+                
+                # 确保v不是方法对象
+                if v is not None and not callable(v):
+                    params[k] = v
+                    
+            except Exception as e:
+                print(f"收集参数 {k} 失败: {e}")
+                continue
+                
+        return params
+
+    def _on_generate_trading_plan_changed(self, state):
+        """生成操盘方案勾选框状态改变"""
+        self.main_window.last_component_generate_trading_plan = (state == Qt.Checked)
