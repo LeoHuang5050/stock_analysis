@@ -1,5 +1,6 @@
 from PyQt5.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QDateEdit, QPushButton, QFrame, QSizePolicy, QCheckBox, QMainWindow
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QDateEdit, QPushButton, QFrame, QSizePolicy, QCheckBox, QMainWindow,
+    QDialog, QLineEdit, QMessageBox, QHeaderView
 )
 from PyQt5.QtCore import Qt, QDate, QEvent
 from function.attribute_mapping import get_chinese_alias
@@ -49,7 +50,7 @@ class TradingPlanWidget(QWidget):
         layout.addLayout(top_layout)
 
         # 下方方案卡片区
-        self.cards_layout = QHBoxLayout()
+        self.cards_layout = QVBoxLayout()
         self.cards_layout.setSpacing(10)
         self.cards_layout.setContentsMargins(10, 0, 10, 0)
         self.cards_layout.setAlignment(Qt.AlignLeft | Qt.AlignTop)
@@ -71,40 +72,60 @@ class TradingPlanWidget(QWidget):
                 widget.deleteLater()
         # 获取方案列表
         plan_list = getattr(self.main_window, 'trading_plan_list', [])
-        plan_list = sorted(plan_list, key=lambda x: float(x.get('adjusted_value', 0)), reverse=True)
-        max_cards = 6
-        total_width = self.width() if self.width() > 0 else 1200
-        card_width = int(total_width / max_cards)
-        for idx, plan in enumerate(plan_list[:max_cards]):
-            # 检查是否参与实操，如果未勾选且用户未手动设置过状态则自动最小化
-            is_min = self.card_states.get(idx, None)
-            if is_min is None:  # 用户未手动设置过状态
-                if not plan.get('real_trade', False):
-                    is_min = True
-                    self.card_states[idx] = True
+        # 保存排序后的列表到主窗口，确保索引一致
+        sorted_plan_list = sorted(plan_list, key=lambda x: float(x.get('adjusted_value', 0)), reverse=True)
+        self.main_window.sorted_trading_plan_list = sorted_plan_list
+        
+        # 计算每行显示3个卡片
+        cards_per_row = 3
+        card_width = 600  # 固定卡片宽度为550px
+        
+        # 按行分组显示卡片
+        for row_start in range(0, len(sorted_plan_list), cards_per_row):
+            # 创建一行
+            row_layout = QHBoxLayout()
+            row_layout.setSpacing(10)
+            row_layout.setContentsMargins(0, 0, 0, 0)
+            row_layout.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+            
+            # 在这一行中添加卡片
+            for col in range(cards_per_row):
+                idx = row_start + col
+                if idx < len(sorted_plan_list):
+                    plan = sorted_plan_list[idx]
+                    # 检查是否参与实操，如果未勾选且用户未手动设置过状态则自动最小化
+                    is_min = self.card_states.get(idx, None)
+                    if is_min is None:  # 用户未手动设置过状态
+                        if not plan.get('real_trade', False):
+                            is_min = True
+                            self.card_states[idx] = True
+                        else:
+                            is_min = False
+                            self.card_states[idx] = False
+                    card = self.create_plan_card(idx, plan, card_width, is_min)
+                    # 关键：最小化卡片不被拉伸，最大化卡片根据内容自动调整
+                    if is_min:
+                        card.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Minimum)
+                    else:
+                        card.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
+                    # 外包一层垂直布局，保证顶部对齐
+                    wrapper = QWidget()
+                    vbox = QVBoxLayout(wrapper)
+                    vbox.setContentsMargins(0, 0, 0, 0)
+                    vbox.setSpacing(0)
+                    vbox.setAlignment(Qt.AlignTop)
+                    vbox.addWidget(card)
+                    row_layout.addWidget(wrapper)
                 else:
-                    is_min = False
-                    self.card_states[idx] = False
-            card = self.create_plan_card(idx, plan, card_width, is_min)
-            # 关键：最小化卡片不被拉伸
-            if is_min:
-                card.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Minimum)
-            else:
-                card.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-            # 外包一层垂直布局，保证顶部对齐
-            wrapper = QWidget()
-            vbox = QVBoxLayout(wrapper)
-            vbox.setContentsMargins(0, 0, 0, 0)
-            vbox.setSpacing(0)
-            vbox.setAlignment(Qt.AlignTop)
-            vbox.addWidget(card)
-            self.cards_layout.addWidget(wrapper)
-        # 补空白
-        for _ in range(max_cards - len(plan_list)):
-            spacer = QWidget()
-            spacer.setFixedWidth(card_width)
-            spacer.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-            self.cards_layout.addWidget(spacer)
+                    # 补空白
+                    spacer = QWidget()
+                    spacer.setFixedWidth(card_width)
+                    spacer.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+                    row_layout.addWidget(spacer)
+            
+            # 添加这一行到主布局
+            self.cards_layout.addLayout(row_layout)
+        
         # 关键：让所有卡片都靠上
         self.cards_layout.addStretch()
 
@@ -119,10 +140,14 @@ class TradingPlanWidget(QWidget):
             hbox = QHBoxLayout(card)
             hbox.setContentsMargins(6, 0, 6, 0)
             hbox.setSpacing(4)
-            label_title = QLabel(f"操盘方案 {idx+1}")
+            label_title = QLabel(plan.get('plan_name', "操盘方案"))
             label_title.setStyleSheet("font-size:14px;font-weight:bold;")
             hbox.addWidget(label_title)
             hbox.addStretch()
+            edit_btn = QPushButton("✎")
+            edit_btn.setFixedSize(20, 20)
+            edit_btn.setStyleSheet("font-weight:bold;border:none;background:transparent;color:blue;")
+            edit_btn.clicked.connect(lambda _, i=idx: self.edit_plan_name(i))
             btn_max = QPushButton("□")
             btn_max.setFixedSize(20, 20)
             btn_max.setStyleSheet("font-weight:bold;border:none;background:transparent;")
@@ -131,69 +156,82 @@ class TradingPlanWidget(QWidget):
             del_btn.setFixedSize(20, 20)
             del_btn.setStyleSheet("color:red;font-weight:bold;border:none;background:transparent;")
             del_btn.clicked.connect(lambda _, i=idx: self.delete_plan(i))
+            hbox.addWidget(edit_btn)
             hbox.addWidget(btn_max)
             hbox.addWidget(del_btn)
             return card
         # 最大化内容（原有内容）
-        card.setMinimumHeight(350)
-        card.setMaximumHeight(350)
+        card.setMinimumHeight(600)
+        # 移除最大高度限制，让卡片根据内容自动调整
         card.setStyleSheet("background:#fff;")
         vbox = QVBoxLayout(card)
-        vbox.setContentsMargins(10, 10, 10, 10)
-        vbox.setSpacing(6)
+        vbox.setContentsMargins(6, 6, 6, 6)
+        vbox.setSpacing(3)
         vbox.setAlignment(Qt.AlignLeft | Qt.AlignTop)
         # 右上角按钮区
         btn_min = QPushButton("-")
         btn_min.setFixedSize(20, 20)
         btn_min.setStyleSheet("font-weight:bold;border:none;background:transparent;")
         btn_min.clicked.connect(lambda _, i=idx: self.set_card_minimized(i, True))
+        edit_btn = QPushButton("✎")
+        edit_btn.setFixedSize(20, 20)
+        edit_btn.setStyleSheet("font-weight:bold;border:none;background:transparent;color:blue;")
+        edit_btn.clicked.connect(lambda _, i=idx: self.edit_plan_name(i))
         del_btn = QPushButton("×")
         del_btn.setFixedSize(20, 20)
         del_btn.setStyleSheet("color:red;font-weight:bold;border:none;background:transparent;")
         del_btn.clicked.connect(lambda _, i=idx: self.delete_plan(i))
         hbox_btn = QHBoxLayout()
         hbox_btn.addStretch()
+        hbox_btn.addWidget(edit_btn)
         hbox_btn.addWidget(btn_min)
         hbox_btn.addWidget(del_btn)
         vbox.addLayout(hbox_btn)
         # 标题
-        label_title = QLabel(f"操盘方案 {idx+1}")
-        label_title.setStyleSheet("font-weight:bold;font-size:15px;")
+        label_title = QLabel(plan.get('plan_name', "操盘方案"))
+        label_title.setStyleSheet("font-weight:bold;font-size:14px;")
         label_title.setAlignment(Qt.AlignLeft)
         vbox.addWidget(label_title)
-        # 第二行：组合分析排序输出值
-        adjusted_value = plan.get('adjusted_value', '')
-        try:
-            adjusted_value_str = f"{float(adjusted_value):.2f}"
-        except Exception:
-            adjusted_value_str = str(adjusted_value)
-        label_adj = QLabel(f"组合分析排序输出值: {adjusted_value_str}")
-        label_adj.setAlignment(Qt.AlignLeft)
-        vbox.addWidget(label_adj)
-        # 全局变量
+        
+        # 显示选股公式
+        formula = plan.get('formula', '')
+        if formula:
+            label_formula = QLabel(f"选股公式：\n{formula}")
+            label_formula.setStyleSheet("font-size:12px;")
+            label_formula.setAlignment(Qt.AlignLeft)
+            vbox.addWidget(label_formula)
+        
+        # 显示参加组合排序的参数名
         params = plan.get('params', {})
-        for key in ['width', 'op_days', 'increment_rate']:
-            label = QLabel(f"{get_chinese_alias(key)}: {params.get(key, '')}")
-            label.setStyleSheet("font-size:13px;")
-            label.setAlignment(Qt.AlignLeft)
-            vbox.addWidget(label)
+        selected_vars = params.get('selected_vars', [])
+        if selected_vars:
+            # 构建参数显示文本
+            param_lines = ["参加组合排序参数："]
+            
+            for var in selected_vars:
+                chinese_name = get_chinese_alias(var)
+                param_lines.append(chinese_name)
+            
+            # 添加组合排序输出值
+            adjusted_value = plan.get('adjusted_value', 0)
+            if adjusted_value:
+                try:
+                    adjusted_value = float(adjusted_value)
+                    param_lines.append(f"组合排序输出值: {adjusted_value:.2f}")
+                except (ValueError, TypeError):
+                    param_lines.append("组合排序输出值: 0.00")
+            
+            label_vars = QLabel("\n".join(param_lines))
+            label_vars.setStyleSheet("font-size:12px;")
+            label_vars.setAlignment(Qt.AlignLeft)
+            vbox.addWidget(label_vars)
+        
         # 分割线
         line1 = QFrame()
         line1.setFrameShape(QFrame.HLine)
         line1.setStyleSheet("color:#ccc;")
         vbox.addWidget(line1)
-        # 第三行：公式
-        formula = plan.get('formula', '')
-        label_formula = QLabel(f"公式:\n {formula}")
-        label_formula.setWordWrap(True)
-        label_formula.setStyleSheet("font-size:13px;")
-        label_formula.setAlignment(Qt.AlignLeft)
-        vbox.addWidget(label_formula)
-        # 分割线
-        line2 = QFrame()
-        line2.setFrameShape(QFrame.HLine)
-        line2.setStyleSheet("color:#ccc;")
-        vbox.addWidget(line2)
+        
         # 第四行：是否参与实操（勾选框）
         real_trade_widget = QWidget()
         real_trade_layout = QHBoxLayout(real_trade_widget)
@@ -209,87 +247,71 @@ class TradingPlanWidget(QWidget):
         real_trade_layout.addStretch()
         vbox.addWidget(real_trade_widget)
         
-        # 第五行：选股结果按钮
-        result_btn = QPushButton("选股结果")
-        result_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #4A90E2;
-                color: white;
-                border: none;
-                border-radius: 4px;
-                font-weight: bold;
-                padding: 4px 8px;
-                font-size: 12px;
-            }
-            QPushButton:hover {
-                background-color: #357ABD;
-            }
-            QPushButton:pressed {
-                background-color: #2D6DA3;
-                padding-top: 6px;
-                padding-left: 10px;
-            }
-        """)
-        result_btn.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        # 选股结果分割线
+        result_line = QFrame()
+        result_line.setFrameShape(QFrame.HLine)
+        result_line.setStyleSheet("color:#4A90E2;border-width:2px;")
+        vbox.addWidget(result_line)
         
-        # 绑定按钮点击事件
-        def on_result_btn_clicked():
-            result = plan.get('result', None)
-            if result and isinstance(result, dict):
-                try:
-                    # 为每个卡片创建独立的窗口实例
-                    if 'result_window' not in plan or plan['result_window'] is None:
-                        result_window = QMainWindow()
-                        result_window.setWindowTitle(f"操盘方案 {idx+1} 选股结果")
-                        flags = result_window.windowFlags()
-                        flags &= ~Qt.WindowStaysOnTopHint  # 移除置顶标志
-                        flags &= ~Qt.WindowContextHelpButtonHint  # 移除问号按钮
-                        result_window.setWindowFlags(flags)
-                        
-                        # 添加窗口关闭事件处理
-                        def on_window_closed():
-                            plan['result_window'] = None
-                            plan['result_table'] = None
-                        result_window.destroyed.connect(on_window_closed)
-                        
-                        plan['result_window'] = result_window
-                    else:
-                        result_window = plan['result_window']
-                        # 如果窗口最小化，则恢复显示
-                        if result_window.isMinimized():
-                            result_window.showNormal()
-                        # 确保窗口在最前面
-                        result_window.raise_()
-                        result_window.activateWindow()
+        # 选股结果标题
+        result_title = QLabel("====选股结果====")
+        result_title.setStyleSheet("font-weight:bold;font-size:12px;color:#4A90E2;text-align:center;")
+        result_title.setAlignment(Qt.AlignCenter)
+        vbox.addWidget(result_title)
+        
+        # 选股结果表格区域
+        result_area = QWidget()
+        result_area.setStyleSheet("border:1px solid #ddd;background:#f9f9f9;")
+        result_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        # 设置选股结果区域占用更多空间
+        vbox.addWidget(result_area, 1)  # 添加拉伸因子1，让它占用更多空间
+        
+        # 如果有选股结果，显示表格
+        result = plan.get('result', None)
+        if result and isinstance(result, dict):
+            try:
+                result_table = show_formula_select_table_result(
+                    parent=result_area,
+                    result=result,
+                    price_data=getattr(self.main_window.init, 'price_data', None),
+                    is_select_action=False
+                )
+                if result_table:
+                    # 设置表格完全展示，不限制高度
+                    result_table.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+                    result_table.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+                    # 恢复正常字体大小
+                    result_table.setStyleSheet("font-size:12px;")
+                    # 列宽自适应内容
+                    result_table.resizeColumnsToContents()
+                    # 设置"选股公式输出值"列根据列名自适应宽度，不拉伸
+                    result_table.horizontalHeader().setStretchLastSection(False)
+                    # 手动设置最后一列的宽度，让它只根据列名自适应
+                    last_col_width = result_table.horizontalHeader().sectionSizeHint(6)  # 第7列（索引6）是"选股公式输出值"
+                    result_table.setColumnWidth(6, last_col_width)
+                    # 设置合适的行高
+                    result_table.verticalHeader().setDefaultSectionSize(25)
+                    result_table.verticalHeader().setSectionResizeMode(QHeaderView.Fixed)
                     
-                    result_table = show_formula_select_table_result(
-                        parent=result_window,
-                        result=result,
-                        price_data=getattr(self.main_window.init, 'price_data', None),
-                        is_select_action=False
-                    )
-                    if result_table:
-                        # 替换内容
-                        central_widget = QWidget()
-                        layout = QVBoxLayout(central_widget)
-                        layout.addWidget(result_table)
-                        result_window.setCentralWidget(central_widget)
-                        result_window.resize(580, 450)
-                        result_window.show()
-                        plan['result_window'] = result_window
-                        plan['result_table'] = result_table
-                except Exception as e:
-                    from PyQt5.QtWidgets import QMessageBox
-                    QMessageBox.critical(self, "错误", f"选股结果加载失败: {e}")
-            else:
-                from PyQt5.QtWidgets import QMessageBox
-                QMessageBox.information(self, "提示", "暂无选股结果")
+                    # 将表格添加到结果区域
+                    result_layout = QVBoxLayout(result_area)
+                    result_layout.setContentsMargins(1, 1, 1, 1)
+                    result_layout.addWidget(result_table)
+                    # 设置表格大小策略，让它能够根据内容自动调整
+                    result_table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+            except Exception as e:
+                error_label = QLabel(f"选股结果加载失败: {e}")
+                error_label.setStyleSheet("color:red;font-size:10px;")
+                error_label.setAlignment(Qt.AlignCenter)
+                result_layout = QVBoxLayout(result_area)
+                result_layout.addWidget(error_label)
+        else:
+            no_result_label = QLabel("暂无选股结果")
+            no_result_label.setStyleSheet("color:#999;font-size:12px;")
+            no_result_label.setAlignment(Qt.AlignCenter)
+            result_layout = QVBoxLayout(result_area)
+            result_layout.addWidget(no_result_label)
         
-        result_btn.clicked.connect(on_result_btn_clicked)
-        
-        vbox.addWidget(result_btn)
-        
-        vbox.addStretch()
         return card
 
     def set_card_minimized(self, idx, minimized):
@@ -297,9 +319,16 @@ class TradingPlanWidget(QWidget):
         self.refresh_cards()
 
     def delete_plan(self, idx):
-        plan_list = getattr(self.main_window, 'trading_plan_list', [])
-        if 0 <= idx < len(plan_list):
-            plan_list.pop(idx)
+        # 使用排序后的列表来获取正确的plan
+        sorted_plan_list = getattr(self.main_window, 'sorted_trading_plan_list', [])
+        if 0 <= idx < len(sorted_plan_list):
+            plan_to_delete = sorted_plan_list[idx]
+            plan_id = plan_to_delete.get('plan_id')
+            
+            # 从原始列表中删除对应的plan
+            plan_list = getattr(self.main_window, 'trading_plan_list', [])
+            plan_list = [plan for plan in plan_list if plan.get('plan_id') != plan_id]
+            
             self.clean_plan_for_save(plan_list)
             self.main_window.trading_plan_list = plan_list
             self.refresh_cards()
@@ -332,6 +361,18 @@ class TradingPlanWidget(QWidget):
             
             # 将结束日期添加到params中
             end_date = self.end_date_picker.date().toString("yyyy-MM-dd")
+            
+            # 检查结束日期是否为交易日
+            if hasattr(self.main_window.init, 'workdays_str'):
+                if not self.main_window.init.workdays_str:
+                    from PyQt5.QtWidgets import QMessageBox
+                    QMessageBox.warning(self, "提示", "请先上传数据文件！")
+                    return
+                if end_date not in self.main_window.init.workdays_str:
+                    from PyQt5.QtWidgets import QMessageBox
+                    QMessageBox.warning(self, "提示", "只能选择交易日！")
+                    return
+            
             params['end_date_start'] = end_date
             params['end_date_end'] = end_date
             params['max_cores'] = 1
@@ -413,6 +454,73 @@ class TradingPlanWidget(QWidget):
         """
         if hasattr(self, 'end_date_picker'):
             self.main_window.last_trading_plan_end_date = self.end_date_picker.date().toString("yyyy-MM-dd")
+
+    def edit_plan_name(self, idx):
+        """编辑操盘方案名称"""
+        # 使用排序后的列表来获取正确的plan
+        sorted_plan_list = getattr(self.main_window, 'sorted_trading_plan_list', [])
+        if 0 <= idx < len(sorted_plan_list):
+            plan = sorted_plan_list[idx]
+            dialog = PlanNameEditDialog(plan, self)
+            if dialog.exec_() == QDialog.Accepted:
+                # 更新方案名称
+                new_name = dialog.get_plan_name()
+                plan['plan_name'] = new_name
+                
+                # 更新对应的选股结果窗口标题
+                if 'result_window' in plan and plan['result_window'] is not None:
+                    plan['result_window'].setWindowTitle(f"{new_name} 选股结果")
+                
+                # 更新原始列表中的plan
+                plan_list = getattr(self.main_window, 'trading_plan_list', [])
+                # 找到对应的plan并更新
+                for original_plan in plan_list:
+                    if original_plan.get('plan_id') == plan.get('plan_id'):
+                        original_plan['plan_name'] = new_name
+                        break
+                
+                self.main_window.trading_plan_list = plan_list
+                self.refresh_cards()
+                QMessageBox.information(self, "成功", "方案名称已更新！")
+
+class PlanNameEditDialog(QDialog):
+    """操盘方案名称编辑对话框"""
+    def __init__(self, plan, parent=None):
+        super().__init__(parent)
+        self.plan = plan
+        self.init_ui()
+        
+    def init_ui(self):
+        self.setWindowTitle("编辑方案名称")
+        self.setFixedSize(300, 120)
+        
+        layout = QVBoxLayout(self)
+        
+        # 当前方案信息
+        current_name = self.plan.get('plan_name', "操盘方案")
+        info_label = QLabel(f"当前方案: {current_name}")
+        layout.addWidget(info_label)
+        
+        # 名称输入
+        layout.addWidget(QLabel("新方案名称:"))
+        self.name_edit = QLineEdit()
+        self.name_edit.setText(current_name)
+        self.name_edit.selectAll()  # 自动选中文本
+        layout.addWidget(self.name_edit)
+        
+        # 按钮
+        button_layout = QHBoxLayout()
+        save_btn = QPushButton("保存")
+        save_btn.clicked.connect(self.accept)
+        cancel_btn = QPushButton("取消")
+        cancel_btn.clicked.connect(self.reject)
+        button_layout.addWidget(save_btn)
+        button_layout.addWidget(cancel_btn)
+        layout.addLayout(button_layout)
+        
+    def get_plan_name(self):
+        """获取编辑后的方案名称"""
+        return self.name_edit.text().strip()
 
 # 用法示例：
 # TradingPlanWidget.clean_plan_for_save(trading_plan_list)  # 在save_config等保存前调用

@@ -1364,11 +1364,11 @@ class StockAnalysisApp(QWidget):
             formula = ''
         formula = formula.strip()
         row_count = len(valid_items)
-        table = CopyableTableWidget(row_count + 2, 14, self.analysis_widget)  # 修正为14列
+        table = CopyableTableWidget(row_count + 2, 15, self.analysis_widget)  # 修正为14列
         table.setHorizontalHeaderLabels([
             "结束日期", "操作天数", "持有涨跌幅", 
-            "调天日均涨跌幅", "调天从下往上非空均值", "调天从下往上含空均值", "含空值均值", "调天最大值", "调天最小值",
-            "调幅日均涨跌幅", "调幅从下往上非空均值", "调幅从下往上含空均值", "调幅最大值", "调幅最小值"
+            "调天日均涨跌幅", "调天从下往上非空均值", "调天从下往上含空均值", "调天含空值均值", "调天最大值", "调天最小值",
+            "调幅日均涨跌幅", "调幅从下往上非空均值", "调幅从下往上含空均值", "调幅含空值均值", "调幅最大值", "调幅最小值"
         ])
         table.setSelectionBehavior(QTableWidget.SelectItems)
         table.setSelectionMode(QTableWidget.ExtendedSelection)
@@ -1390,8 +1390,9 @@ class StockAnalysisApp(QWidget):
         table.setItem(0, 9, QTableWidgetItem(f"{summary['mean_adjust_ops_incre_rate']}%" if summary['mean_adjust_ops_incre_rate'] != '' else ''))
         table.setItem(0, 10, QTableWidgetItem(f"{summary['mean_adjust_non_nan']}%" if summary['mean_adjust_non_nan'] != '' else ''))
         table.setItem(0, 11, QTableWidgetItem(f"{summary['mean_adjust_with_nan']}%" if summary['mean_adjust_with_nan'] != '' else ''))
-        table.setItem(0, 12, QTableWidgetItem(f"{summary['max_adjust_ops_incre_rate']}%" if summary['max_adjust_ops_incre_rate'] != '' else ''))
-        table.setItem(0, 13, QTableWidgetItem(f"{summary['min_adjust_ops_incre_rate']}%" if summary['min_adjust_ops_incre_rate'] != '' else ''))
+        table.setItem(0, 12, QTableWidgetItem(f"{summary['mean_adjust_daily_with_nan']}%" if summary.get('mean_adjust_daily_with_nan', '') != '' else ''))
+        table.setItem(0, 13, QTableWidgetItem(f"{summary['max_adjust_ops_incre_rate']}%" if summary['max_adjust_ops_incre_rate'] != '' else ''))
+        table.setItem(0, 14, QTableWidgetItem(f"{summary['min_adjust_ops_incre_rate']}%" if summary['min_adjust_ops_incre_rate'] != '' else ''))
 
         # 设置每行的数据
         for row_idx, item in enumerate(result['items']):
@@ -1401,15 +1402,15 @@ class StockAnalysisApp(QWidget):
             table.setItem(row_idx + 2, 3, QTableWidgetItem(f"{item['daily_change']}%" if item['daily_change'] != '' else ''))
             table.setItem(row_idx + 2, 4, QTableWidgetItem(f"{round(item['non_nan_mean'],2)}%" if not math.isnan(item['non_nan_mean']) else ''))
             table.setItem(row_idx + 2, 5, QTableWidgetItem(f"{round(item['with_nan_mean'],2)}%" if not math.isnan(item['with_nan_mean']) else ''))
-            # 修正：移除不存在的字段，使用正确的字段名
             table.setItem(row_idx + 2, 6, QTableWidgetItem(""))  # 含空值均值在summary中，这里暂时留空
             table.setItem(row_idx + 2, 7, QTableWidgetItem(""))  # 最大值在summary中，这里暂时留空
             table.setItem(row_idx + 2, 8, QTableWidgetItem(""))  # 最小值在summary中，这里暂时留空
             table.setItem(row_idx + 2, 9, QTableWidgetItem(f"{item['adjust_daily_change']}%" if item['adjust_daily_change'] != '' else ''))
             table.setItem(row_idx + 2, 10, QTableWidgetItem(f"{round(item['adjust_non_nan_mean'],2)}%" if not math.isnan(item['adjust_non_nan_mean']) else ''))
             table.setItem(row_idx + 2, 11, QTableWidgetItem(f"{round(item['adjust_with_nan_mean'],2)}%" if not math.isnan(item['adjust_with_nan_mean']) else ''))
-            table.setItem(row_idx + 2, 12, QTableWidgetItem(""))  # 调幅最大值在summary中，这里暂时留空
-            table.setItem(row_idx + 2, 13, QTableWidgetItem(""))  # 调幅最小值在summary中，这里暂时留空
+            table.setItem(row_idx + 2, 12, QTableWidgetItem(""))  # 调幅含空值均值只在均值行
+            table.setItem(row_idx + 2, 13, QTableWidgetItem(""))  # 调幅最大值只在均值行
+            table.setItem(row_idx + 2, 14, QTableWidgetItem(""))  # 调幅最小值只在均值行
 
         table.horizontalHeader().setFixedHeight(40)
         table.horizontalHeader().setStyleSheet("font-size: 12px;")
@@ -2222,6 +2223,17 @@ class StockAnalysisApp(QWidget):
             'new_after_low2_flag': self.new_after_low2_flag_checkbox.isChecked(),
             # 新增：组合分析界面勾选框状态
             'component_generate_trading_plan': getattr(self, 'last_component_generate_trading_plan', False),
+            'component_only_better_trading_plan': getattr(self, 'last_component_only_better_trading_plan', False),
+            # 新增：组合分析次数
+            'component_analysis_count': getattr(self, 'last_component_analysis_count', 1),
+            # 新增：组合输出锁定状态
+            'last_lock_output': getattr(self, 'last_lock_output', False),
+            # 新增保存组合分析总耗时
+            'last_component_total_elapsed_time': getattr(self, 'last_component_total_elapsed_time', None),
+            # 新增保存组合分析组合次数
+            'last_component_total_combinations': getattr(self, 'last_component_total_combinations', None),
+            # 新增保存last_adjusted_value
+            'last_adjusted_value': getattr(self, 'last_adjusted_value', None),
         }
         # 保存公式选股控件状态
         if hasattr(self, 'formula_widget') and self.formula_widget is not None:
@@ -2434,9 +2446,26 @@ class StockAnalysisApp(QWidget):
                 self.trading_plan_list = config['trading_plan_list']
             if 'component_generate_trading_plan' in config:
                 self.last_component_generate_trading_plan = config['component_generate_trading_plan']
+            if 'component_only_better_trading_plan' in config:
+                self.last_component_only_better_trading_plan = config['component_only_better_trading_plan']
             # 恢复trading_plan_end_date
             if 'trading_plan_end_date' in config:
                 self.last_trading_plan_end_date = config['trading_plan_end_date']
+            # 新增：恢复组合输出锁定状态
+            if 'last_lock_output' in config:
+                self.last_lock_output = config['last_lock_output']
+            # 恢复组合分析总耗时
+            if 'last_component_total_elapsed_time' in config:
+                self.last_component_total_elapsed_time = config['last_component_total_elapsed_time']
+            # 新增：恢复组合分析组合次数
+            if 'last_component_total_combinations' in config:
+                self.last_component_total_combinations = config['last_component_total_combinations']
+            # 新增：恢复last_adjusted_value
+            if 'last_adjusted_value' in config:
+                self.last_adjusted_value = config['last_adjusted_value']
+            # 恢复组合分析次数
+            if 'component_analysis_count' in config:
+                self.last_component_analysis_count = config['component_analysis_count']
         except Exception as e:
             print(f"加载配置失败: {e}")
 
