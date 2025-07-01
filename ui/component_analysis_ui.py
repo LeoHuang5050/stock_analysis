@@ -618,7 +618,7 @@ class ComponentAnalysisWidget(QWidget):
         self.current_analysis_index += 1
         
         # 使用QTimer延迟执行下一次分析，确保当前分析完全完成
-        QTimer.singleShot(1000, self.execute_next_analysis)  # 3秒后执行下一次分析
+        QTimer.singleShot(500, self.execute_next_analysis)  # 3秒后执行下一次分析
     
     def _execute_component_analysis_single(self, formula, width, op_days, increment_rate, sort_mode):
         """
