@@ -1,11 +1,23 @@
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QDateEdit, QPushButton, QFrame, QSizePolicy, QCheckBox, QMainWindow,
-    QDialog, QLineEdit, QMessageBox, QHeaderView
+    QDialog, QLineEdit, QMessageBox, QHeaderView, QScrollArea, QDesktopWidget
 )
 from PyQt5.QtCore import Qt, QDate, QEvent
 from function.attribute_mapping import get_chinese_alias
 from function.base_param import CalculateThread
 from function.stock_functions import show_formula_select_table_result
+
+def clear_layout(layout):
+    if layout is not None:
+        while layout.count():
+            item = layout.takeAt(0)
+            widget = item.widget()
+            child_layout = item.layout()
+            if widget is not None:
+                widget.setParent(None)
+                widget.deleteLater()
+            elif child_layout is not None:
+                clear_layout(child_layout)
 
 class TradingPlanWidget(QWidget):
     """操盘方案界面"""
@@ -49,14 +61,21 @@ class TradingPlanWidget(QWidget):
         top_layout.addStretch()
         layout.addLayout(top_layout)
 
-        # 下方方案卡片区
-        self.cards_layout = QVBoxLayout()
+        # 卡片区用QWidget+QVBoxLayout
+        self.cards_container = QWidget()
+        self.cards_layout = QVBoxLayout(self.cards_container)
         self.cards_layout.setSpacing(10)
         self.cards_layout.setContentsMargins(10, 0, 10, 0)
         self.cards_layout.setAlignment(Qt.AlignLeft | Qt.AlignTop)
-        layout.addLayout(self.cards_layout)
+        self.cards_container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
+
+        # 用QScrollArea包裹卡片区
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(self.cards_container)
+        layout.addWidget(scroll, 1)  # 让scroll占据剩余空间
+
         self.refresh_cards()
-        layout.addStretch()
 
     def eventFilter(self, obj, event):
         if event.type() == QEvent.Resize:
@@ -64,38 +83,29 @@ class TradingPlanWidget(QWidget):
         return super().eventFilter(obj, event)
 
     def refresh_cards(self):
-        # 清空旧卡片
-        while self.cards_layout.count():
-            item = self.cards_layout.takeAt(0)
-            widget = item.widget()
-            if widget:
-                widget.deleteLater()
+        # 递归清理所有旧内容和嵌套布局，防止重影
+        clear_layout(self.cards_layout)
         # 获取方案列表
         plan_list = getattr(self.main_window, 'trading_plan_list', [])
         # 保存排序后的列表到主窗口，确保索引一致
         sorted_plan_list = sorted(plan_list, key=lambda x: float(x.get('adjusted_value', 0)), reverse=True)
         self.main_window.sorted_trading_plan_list = sorted_plan_list
         
-        # 计算每行显示3个卡片
+        # 固定每行3个卡片，宽度600
         cards_per_row = 3
-        card_width = 600  # 固定卡片宽度为550px
-        
+        card_width = 600
         # 按行分组显示卡片
         for row_start in range(0, len(sorted_plan_list), cards_per_row):
-            # 创建一行
             row_layout = QHBoxLayout()
             row_layout.setSpacing(10)
             row_layout.setContentsMargins(0, 0, 0, 0)
             row_layout.setAlignment(Qt.AlignLeft | Qt.AlignTop)
-            
-            # 在这一行中添加卡片
             for col in range(cards_per_row):
                 idx = row_start + col
                 if idx < len(sorted_plan_list):
                     plan = sorted_plan_list[idx]
-                    # 检查是否参与实操，如果未勾选且用户未手动设置过状态则自动最小化
                     is_min = self.card_states.get(idx, None)
-                    if is_min is None:  # 用户未手动设置过状态
+                    if is_min is None:
                         if not plan.get('real_trade', False):
                             is_min = True
                             self.card_states[idx] = True
@@ -103,13 +113,12 @@ class TradingPlanWidget(QWidget):
                             is_min = False
                             self.card_states[idx] = False
                     card = self.create_plan_card(idx, plan, card_width, is_min)
-                    # 关键：最小化卡片不被拉伸，最大化卡片根据内容自动调整
                     if is_min:
                         card.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Minimum)
                     else:
                         card.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
-                    # 外包一层垂直布局，保证顶部对齐
                     wrapper = QWidget()
+                    wrapper.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
                     vbox = QVBoxLayout(wrapper)
                     vbox.setContentsMargins(0, 0, 0, 0)
                     vbox.setSpacing(0)
@@ -117,17 +126,16 @@ class TradingPlanWidget(QWidget):
                     vbox.addWidget(card)
                     row_layout.addWidget(wrapper)
                 else:
-                    # 补空白
                     spacer = QWidget()
                     spacer.setFixedWidth(card_width)
                     spacer.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
                     row_layout.addWidget(spacer)
-            
-            # 添加这一行到主布局
             self.cards_layout.addLayout(row_layout)
-        
-        # 关键：让所有卡片都靠上
         self.cards_layout.addStretch()
+        # 强制重绘，防止重影
+        self.cards_layout.update()
+        self.update()
+        self.cards_container.adjustSize()
 
     def create_plan_card(self, idx, plan, card_width, is_minimized):
         card = QFrame()
@@ -161,8 +169,7 @@ class TradingPlanWidget(QWidget):
             hbox.addWidget(del_btn)
             return card
         # 最大化内容（原有内容）
-        card.setMinimumHeight(600)
-        # 移除最大高度限制，让卡片根据内容自动调整
+        card.setFixedHeight(640)
         card.setStyleSheet("background:#fff;")
         vbox = QVBoxLayout(card)
         vbox.setContentsMargins(6, 6, 6, 6)
