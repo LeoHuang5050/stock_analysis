@@ -6,7 +6,7 @@
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QDateEdit, QPushButton, 
     QTextEdit, QTableWidget, QTableWidgetItem, QHeaderView, QMessageBox,
-    QFileDialog, QCheckBox, QTabWidget
+    QFileDialog, QCheckBox, QTabWidget, QSpinBox, QDialog, QScrollArea, QMainWindow
 )
 from PyQt5.QtCore import Qt, QDate, QTimer
 from PyQt5.QtGui import QFont
@@ -14,6 +14,8 @@ import pandas as pd
 from datetime import datetime
 from function.stock_functions import show_formula_select_table, calculate_analysis_result, get_abbr_map, get_abbr_logic_map, get_abbr_round_map, FormulaSelectWidget
 from ui.common_widgets import CopyableTableWidget
+import time
+import re
 
 
 class ComponentAnalysisWidget(QWidget):
@@ -23,12 +25,14 @@ class ComponentAnalysisWidget(QWidget):
         super().__init__()
         self.main_window = main_window
         self.cached_analysis_results = None
+        self.analysis_terminated = False  # 添加终止标志
         self.init_ui()
         
         # 连接勾选框状态改变信号
         self.continuous_sum_logic_checkbox.stateChanged.connect(self._on_continuous_sum_logic_changed)
         self.valid_sum_logic_checkbox.stateChanged.connect(self._on_valid_sum_logic_changed)
         self.generate_trading_plan_checkbox.stateChanged.connect(self._on_generate_trading_plan_changed)
+        self.only_better_trading_plan_checkbox.stateChanged.connect(self._on_only_better_trading_plan_changed)
         
     def init_ui(self):
         """初始化UI"""
@@ -68,9 +72,28 @@ class ComponentAnalysisWidget(QWidget):
         self.valid_sum_logic_checkbox = QCheckBox("有效累加值正负相加值含逻辑")
         self.valid_sum_logic_checkbox.setChecked(False)  # 默认不勾选
         
+        # 组合分析次数设置控件
+        self.analysis_count_label = QLabel("组合分析次数:")
+        self.analysis_count_spin = QSpinBox()
+        self.analysis_count_spin.setMinimum(1)
+        self.analysis_count_spin.setMaximum(1000)
+        self.analysis_count_spin.setValue(1)  # 默认1次
+        self.analysis_count_spin.setFixedWidth(45)
+        
+        # 恢复保存的分析次数
+        if hasattr(self.main_window, 'last_component_analysis_count'):
+            self.analysis_count_spin.setValue(self.main_window.last_component_analysis_count)
+        
+        # 绑定信号，变更时同步变量
+        self.analysis_count_spin.valueChanged.connect(self._on_analysis_count_changed_save)
+        
         # 功能按钮
         self.analyze_btn = QPushButton("点击分析")
         self.analyze_btn.clicked.connect(self.on_analyze_clicked)
+        
+        self.terminate_btn = QPushButton("终止分析")
+        self.terminate_btn.clicked.connect(self.on_terminate_clicked)
+        self.terminate_btn.setEnabled(False)  # 初始状态禁用
         
         self.export_excel_btn = QPushButton("导出Excel")
         self.export_excel_btn.clicked.connect(self.on_export_excel)
@@ -92,19 +115,41 @@ class ComponentAnalysisWidget(QWidget):
         if hasattr(self.main_window, 'last_component_generate_trading_plan'):
             self.generate_trading_plan_checkbox.setChecked(self.main_window.last_component_generate_trading_plan)
         
+        # 大于上次最优值才生成操盘方案勾选框
+        self.only_better_trading_plan_checkbox = QCheckBox("大于上次最优值才生成操盘方案")
+        self.only_better_trading_plan_checkbox.setChecked(False)  # 默认不勾选
+        
+        # 恢复大于上次最优值才生成操盘方案勾选框状态
+        if hasattr(self.main_window, 'last_component_only_better_trading_plan'):
+            self.only_better_trading_plan_checkbox.setChecked(self.main_window.last_component_only_better_trading_plan)
+        
+        # 上次最优值显示标签
+        self.last_best_value_label = QLabel("上次最优值：")
+        self.last_best_value_display = QLabel("无")
+        self.last_best_value_display.setStyleSheet("color: #2196F3; font-weight: bold;")
+        
+        # 更新上次最优值显示
+        self._update_last_best_value_display()
+        
         # 添加控件到布局
-        row_layout.addWidget(self.start_date_label)
-        row_layout.addWidget(self.start_date_picker)
-        row_layout.addWidget(self.end_date_label)
-        row_layout.addWidget(self.end_date_picker)
+        # row_layout.addWidget(self.start_date_label)
+        # row_layout.addWidget(self.start_date_picker)
+        # row_layout.addWidget(self.end_date_label)
+        # row_layout.addWidget(self.end_date_picker)
         # row_layout.addWidget(self.continuous_sum_logic_checkbox)
         # row_layout.addWidget(self.valid_sum_logic_checkbox)
+        row_layout.addWidget(self.analysis_count_label)
+        row_layout.addWidget(self.analysis_count_spin)
         row_layout.addWidget(self.analyze_btn)
-        row_layout.addWidget(self.export_excel_btn)
-        row_layout.addWidget(self.export_csv_btn)
-        row_layout.addWidget(self.import_excel_btn)
-        row_layout.addWidget(self.import_csv_btn)
+        row_layout.addWidget(self.terminate_btn)
+        # row_layout.addWidget(self.export_excel_btn)
+        # row_layout.addWidget(self.export_csv_btn)
+        # row_layout.addWidget(self.import_excel_btn)
+        # row_layout.addWidget(self.import_csv_btn)
         row_layout.addWidget(self.generate_trading_plan_checkbox)
+        row_layout.addWidget(self.only_better_trading_plan_checkbox)
+        row_layout.addWidget(self.last_best_value_label)
+        row_layout.addWidget(self.last_best_value_display)
         row_layout.addStretch()
         
         layout.addLayout(row_layout)
@@ -130,16 +175,49 @@ class ComponentAnalysisWidget(QWidget):
         else:
             print("没有缓存结果")
         
+        # 更新上次最优值显示
+        self._update_last_best_value_display()
+        
     def _on_analysis_date_changed_save(self):
         """保存日期变更"""
         self.main_window.last_component_analysis_start_date = self.start_date_picker.date().toString("yyyy-MM-dd")
         self.main_window.last_component_analysis_end_date = self.end_date_picker.date().toString("yyyy-MM-dd")
         
+    def _on_analysis_count_changed_save(self):
+        """保存分析次数变更"""
+        self.main_window.last_component_analysis_count = self.analysis_count_spin.value()
+        
     def on_analyze_clicked(self):
         
-        # 获取日期范围
-        start_date = self.start_date_picker.date().toString("yyyy-MM-dd")
-        end_date = self.end_date_picker.date().toString("yyyy-MM-dd")
+        # 获取组合分析次数
+        analysis_count = self.analysis_count_spin.value()
+        
+        # 获取结束日期（使用主界面的date_picker）
+        end_date = self.main_window.date_picker.date().toString("yyyy-MM-dd")
+        
+        # 根据组合分析次数计算开始日期
+        workdays = getattr(self.main_window.init, 'workdays_str', None)
+        if not workdays:
+            QMessageBox.warning(self, "数据错误", "没有可用的日期范围，请先上传数据文件！")
+            return
+            
+        try:
+            # 获取结束日期在workdays中的索引
+            end_date_idx = workdays.index(end_date)
+            # 根据分析次数计算开始日期索引
+            start_date_idx = end_date_idx - (analysis_count - 1)
+            
+            # 检查索引是否有效
+            if start_date_idx < 0:
+                QMessageBox.warning(self, "数据错误", f"组合分析次数 {analysis_count} 超出可用日期范围！\n当前结束日期索引: {end_date_idx}，需要开始日期索引: {start_date_idx}")
+                return
+                
+            # 获取开始日期
+            start_date = workdays[start_date_idx]
+            
+        except ValueError:
+            QMessageBox.warning(self, "日期错误", f"结束日期 {end_date} 不在交易日列表中！")
+            return
         
         # 获取勾选框状态
         continuous_sum_logic = self.continuous_sum_logic_checkbox.isChecked()
@@ -243,6 +321,13 @@ class ComponentAnalysisWidget(QWidget):
                 QMessageBox.warning(self, "数据错误", "没有可用的日期范围，请先上传数据文件！")
                 return
             
+            # 重置终止标志
+            self.analysis_terminated = False
+            
+            # 切换按钮状态
+            self.analyze_btn.setEnabled(False)
+            self.terminate_btn.setEnabled(True)
+            
             # 开始执行组合分析
             self.execute_component_analysis(formula_list, special_params_combinations, start_date, end_date)
         else:
@@ -251,6 +336,15 @@ class ComponentAnalysisWidget(QWidget):
             
         # 显示组合分析界面
         # self.show_component_analysis_interface()
+        
+    def on_terminate_clicked(self):
+        """终止分析按钮点击处理"""
+        self.analysis_terminated = True
+        self.show_message("分析已终止")
+        
+        # 切换按钮状态
+        self.analyze_btn.setEnabled(True)
+        self.terminate_btn.setEnabled(False)
         
     def _set_logic_states(self, formula_widget, continuous_sum_logic, valid_sum_logic):
         """设置逻辑状态到公式控件"""
@@ -283,6 +377,9 @@ class ComponentAnalysisWidget(QWidget):
         使用异步方式，等待上一次分析完成后再执行下一次
         """
         try:
+            # 记录开始时间
+            self.analysis_start_time = time.time()
+            
             # 计算总的分析次数（考虑排序方式）
             total_analyses = len(formula_list) * len(special_params_combinations)
             current_analysis = 0
@@ -320,13 +417,86 @@ class ComponentAnalysisWidget(QWidget):
         """
         执行下一次分析
         """
+        # 检查是否被终止
+        if self.analysis_terminated:
+            # 恢复按钮状态
+            self.analyze_btn.setEnabled(True)
+            self.terminate_btn.setEnabled(False)
+            return
+            
         if self.current_analysis_index >= self.total_analyses:
             # 所有分析完成
             self.show_analysis_results(self.all_analysis_results)
+            
+            # 检查是否有更优结果（用于弹框提示，独立于勾选框状态）
+            if self.cached_analysis_results:
+                top_one = self.cached_analysis_results[0]
+                new_value = top_one.get('adjusted_value', None)
+                last_value = getattr(self.main_window, 'last_adjusted_value', None)
+                
+                if new_value is not None and last_value is not None:
+                    try:
+                        new_value_float = float(new_value)
+                        last_value_float = float(last_value)
+                        if new_value_float > last_value_float:
+                            QMessageBox.information(self, "最优方案提示", f"有最优方案出现！当前最优组合排序输出值：{new_value_float:.2f}，上次最优：{last_value_float:.2f}")
+                    except Exception:
+                        pass  # 转换失败时不处理
+            
             # 只在分析全部完成后，且勾选生成操盘方案时，添加一次方案
             if self.generate_trading_plan_checkbox.isChecked() and self.cached_analysis_results:
                 top_one = self.cached_analysis_results[0]
-                self._add_top_result_to_trading_plan(top_one)
+                # 比较top_one的adjusted_value与上次的last_adjusted_value
+                new_value = top_one.get('adjusted_value', None)
+                last_value = getattr(self.main_window, 'last_adjusted_value', None)
+                
+                # 第一步：判断是否要生成操盘方案
+                should_generate = True
+                
+                # 第二步：如果勾选了"更优才生成"，则进一步判断是否更优
+                if self.only_better_trading_plan_checkbox.isChecked():
+                    if new_value is not None and last_value is not None:
+                        try:
+                            new_value_float = float(new_value)
+                            last_value_float = float(last_value)
+                            should_generate = new_value_float > last_value_float
+                        except Exception:
+                            should_generate = True  # 转换失败时默认生成
+                    elif new_value is not None and last_value is None:
+                        # 第一次生成时，直接生成
+                        should_generate = True
+                    else:
+                        should_generate = False
+                # 如果没有勾选"更优才生成"，则直接生成（should_generate保持为True）
+                
+                # 根据should_generate决定是否生成操盘方案
+                if should_generate:
+                    # 生成操盘方案
+                    self._add_top_result_to_trading_plan(top_one)
+                    # 更新上次最优值显示
+                    self._update_last_best_value_display()
+                
+                # 更新last_adjusted_value（只有在新的值大于上次的值时才更新）
+                if new_value is not None:
+                    try:
+                        new_value_float = float(new_value)
+                        last_value_float = float(last_value) if last_value is not None else None
+                        
+                        # 只有当新值大于上次值时才更新
+                        if last_value_float is None or new_value_float > last_value_float:
+                            self.main_window.last_adjusted_value = new_value_float
+                            # 更新上次最优值显示
+                            self._update_last_best_value_display()
+                    except Exception:
+                        # 转换失败时，如果last_value为None则设置，否则保持原值
+                        if last_value is None:
+                            self.main_window.last_adjusted_value = new_value
+                            # 更新上次最优值显示
+                            self._update_last_best_value_display()
+            
+            # 恢复按钮状态
+            self.analyze_btn.setEnabled(True)
+            self.terminate_btn.setEnabled(False)
             return
         
         # 如果是第一次分析，直接执行
@@ -345,6 +515,10 @@ class ComponentAnalysisWidget(QWidget):
         """
         执行单次分析
         """
+        # 检查是否被终止
+        if self.analysis_terminated:
+            return
+            
         # 计算当前公式和参数索引
         formula_idx = self.current_analysis_index // len(self.special_params_combinations)
         param_idx = self.current_analysis_index % len(self.special_params_combinations)
@@ -393,6 +567,10 @@ class ComponentAnalysisWidget(QWidget):
             # 执行组合分析专用方法
             result = self._execute_component_analysis_single(formula, width, op_days, increment_rate, sort_mode)
             
+            # 再次检查是否被终止
+            if self.analysis_terminated:
+                return
+            
             if result and not result.get('error', False):
                 # 直接从result中获取valid_items用于计算统计结果
                 merged_results = result.get('dates', {}) if result else {}
@@ -400,6 +578,9 @@ class ComponentAnalysisWidget(QWidget):
                 
                 # 调用calculate_analysis_result计算统计结果
                 analysis_stats = calculate_analysis_result(valid_items)
+                
+                # 获取选股数量
+                select_count = getattr(self.main_window, 'last_select_count', 10)
                 
                 # 收集分析结果
                 analysis_info = {
@@ -410,6 +591,7 @@ class ComponentAnalysisWidget(QWidget):
                     'width': width,
                     'op_days': op_days,
                     'increment_rate': increment_rate,
+                    'select_count': select_count,  # 添加选股数量
                     'result': result,
                     'valid_items': valid_items,
                     'analysis_stats': analysis_stats  # 添加统计结果
@@ -436,7 +618,7 @@ class ComponentAnalysisWidget(QWidget):
         self.current_analysis_index += 1
         
         # 使用QTimer延迟执行下一次分析，确保当前分析完全完成
-        QTimer.singleShot(3000, self.execute_next_analysis)  # 3秒后执行下一次分析
+        QTimer.singleShot(1000, self.execute_next_analysis)  # 3秒后执行下一次分析
     
     def _execute_component_analysis_single(self, formula, width, op_days, increment_rate, sort_mode):
         """
@@ -446,9 +628,9 @@ class ComponentAnalysisWidget(QWidget):
         from PyQt5.QtWidgets import QMessageBox
         from datetime import datetime
         
-        # 获取日期范围
-        start_date = self.start_date_picker.date().toString("yyyy-MM-dd")
-        end_date = self.end_date_picker.date().toString("yyyy-MM-dd")
+        # 使用传入的日期范围，而不是从控件获取
+        start_date = self.start_date
+        end_date = self.end_date
         
         # 校验日期是否在范围内
         workdays = getattr(self.main_window.init, 'workdays_str', None)
@@ -663,6 +845,11 @@ class ComponentAnalysisWidget(QWidget):
                         except (ValueError, TypeError):
                             op_days = 1
                         adjusted_value = total_sum / (1 + (op_days - 1) / 100)
+                        # 将selected_vars和n_values添加到analysis中
+                        analysis['selected_vars'] = selected_vars
+                        # 获取n_values
+                        n_values = getattr(self.main_window, 'component_analysis_n_values', {})
+                        analysis['n_values'] = n_values
                         analysis_with_sum.append({
                             'index': i,
                             'analysis': analysis,
@@ -684,43 +871,624 @@ class ComponentAnalysisWidget(QWidget):
             widget = self.result_layout.itemAt(i).widget()
             if widget is not None:
                 widget.setParent(None)
-        # 计算组合次数和总耗时
+        # 计算组合次数和真实耗时
         total_combinations = len(getattr(self.main_window, 'component_analysis_formula_list', [])) * len(getattr(self.main_window, 'component_analysis_special_params_combinations', []))
-        estimated_time_per_analysis = 3  # 秒
-        total_estimated_time = total_combinations * estimated_time_per_analysis
-        if total_estimated_time < 60:
-            time_str = f"{total_estimated_time}秒"
-        elif total_estimated_time < 3600:
-            minutes = total_estimated_time // 60
-            seconds = total_estimated_time % 60
-            time_str = f"{minutes}分{seconds}秒"
+        
+        # 计算真实耗时
+        if hasattr(self, 'analysis_start_time'):
+            real_time = time.time() - self.analysis_start_time
+            if real_time < 60:
+                time_str = f"{real_time:.1f}秒"
+            elif real_time < 3600:
+                minutes = int(real_time // 60)
+                seconds = int(real_time % 60)
+                time_str = f"{minutes}分{seconds}秒"
+            else:
+                hours = int(real_time // 3600)
+                minutes = int((real_time % 3600) // 60)
+                time_str = f"{hours}小时{minutes}分"
+                # 保存格式化后的时间字符串和组合次数到主窗口
+                self.main_window.last_component_total_elapsed_time = time_str
+                self.main_window.last_component_total_combinations = total_combinations
         else:
-            hours = total_estimated_time // 3600
-            minutes = (total_estimated_time % 3600) // 60
-            time_str = f"{hours}小时{minutes}分"
+            # 没有计算，从主窗口恢复总耗时和组合次数
+            if hasattr(self.main_window, 'last_component_total_elapsed_time') and self.main_window.last_component_total_elapsed_time:
+                time_str = self.main_window.last_component_total_elapsed_time
+            else:
+                time_str = "未知"
+            if hasattr(self.main_window, 'last_component_total_combinations') and self.main_window.last_component_total_combinations:
+                total_combinations = self.main_window.last_component_total_combinations
+        
         info_label = QLabel(f"组合合计: {total_combinations} | 总耗时: {time_str}")
         info_label.setStyleSheet("font-size: 13px; color: #333; padding: 6px 10px; background-color: #f5f5f5; border: 1px solid #ddd; border-radius: 3px;")
         self.result_layout.addWidget(info_label)
         # 输出top_three的单页表格
-        from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem
+        from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QPushButton, QVBoxLayout, QDialog, QScrollArea
         from PyQt5.QtCore import Qt
-        table = QTableWidget(len(top_three), 6, self.result_area)
+        table = QTableWidget(len(top_three), 8, self.result_area)  # 增加一列用于恢复按钮
         table.setHorizontalHeaderLabels([
-            "组合分析排序输出值", "公式", "日期宽度", "操作天数", "递增率", "排序方式"
+            "组合分析排序输出值", "输出参数", "日期宽度", "操作天数", "递增率", "排序方式", "", ""
         ])
+        
+        def show_analysis_detail(analysis_data, idx=None):
+            if idx is None:
+                idx = 0
+            window = AnalysisDetailWindow(analysis_data, self.create_component_result_table, idx)
+            window.show()
+            if not hasattr(self, 'detail_windows'):
+                self.detail_windows = []
+            self.detail_windows.append(window)
+            # 修复lambda函数中的self引用问题
+            def remove_window():
+                if hasattr(self, 'detail_windows') and window in self.detail_windows:
+                    self.detail_windows.remove(window)
+            window.destroyed.connect(remove_window)
+        
+        def restore_formula_params(analysis_data):
+            """恢复选股参数到选股控件"""
+            try:
+                # 获取当前组合的公式和参数
+                formula = analysis_data.get('formula', '')
+                width = analysis_data.get('width', '')
+                op_days = analysis_data.get('op_days', '')
+                increment_rate = analysis_data.get('increment_rate', '')
+                sort_mode = analysis_data.get('sort_mode', '')
+                select_count = analysis_data.get('select_count', 10)  # 获取选股数量
+                
+                print(f"开始恢复公式: {formula}")
+                print(f"选股数量: {select_count}")
+                
+                # 创建临时的公式选股控件
+                from function.stock_functions import get_abbr_map, get_abbr_logic_map, get_abbr_round_map, FormulaSelectWidget
+                abbr_map = get_abbr_map()
+                logic_map = get_abbr_logic_map()
+                round_map = get_abbr_round_map()
+                
+                temp_formula_widget = FormulaSelectWidget(abbr_map, logic_map, round_map, self.main_window)
+                
+                # 打印所有可用的变量控件
+                print(f"可用的变量控件: {list(temp_formula_widget.var_widgets.keys())}")
+                
+                # 特别检查continuous_end_value控件的结构
+                if 'continuous_end_value' in temp_formula_widget.var_widgets:
+                    continuous_widgets = temp_formula_widget.var_widgets['continuous_end_value']
+                    print(f"continuous_end_value控件结构: {list(continuous_widgets.keys())}")
+                    for key, widget in continuous_widgets.items():
+                        print(f"  {key}: {type(widget).__name__}")
+                else:
+                    print("continuous_end_value控件不存在")
+                
+                # 检查其他几个变量控件的结构作为对比
+                for var_name in ['end_value', 'start_value', 'high_value', 'low_value']:
+                    if var_name in temp_formula_widget.var_widgets:
+                        widgets = temp_formula_widget.var_widgets[var_name]
+                        print(f"{var_name}控件结构: {list(widgets.keys())}")
+                    else:
+                        print(f"{var_name}控件不存在")
+                
+                # 获取get_abbr_round_only_map中的变量名列表，用于排除重置
+                from function.stock_functions import get_abbr_round_only_map
+                round_only_vars = set()
+                for (zh, en), en_val in get_abbr_round_only_map().items():
+                    round_only_vars.add(en_val)
+                
+                # 重置所有控件状态（但不包括get_abbr_round_only_map的勾选状态）
+                for var_name, widgets in temp_formula_widget.var_widgets.items():
+                    print(f"重置变量控件: {var_name}")
+                    
+                    # 取消勾选所有复选框（但不包括round_checkbox，即get_abbr_round_only_map）
+                    if 'checkbox' in widgets:
+                        widgets['checkbox'].setChecked(False)
+                    
+                    # 对于get_abbr_round_only_map中的变量，不清空round_checkbox，保持勾选状态
+                    if var_name in round_only_vars:
+                        print(f"  跳过重置get_abbr_round_only_map变量: {var_name}")
+                        continue
+                    
+                    # 清空round_checkbox（非get_abbr_round_only_map变量）
+                    if 'round_checkbox' in widgets:
+                        widgets['round_checkbox'].setChecked(False)
+                        print(f"  重置round_checkbox: {var_name}")
+                    
+                    # 清空输入框
+                    if 'lower' in widgets:
+                        widgets['lower'].setText('')
+                    if 'upper' in widgets:
+                        widgets['upper'].setText('')
+                    if 'lower_input' in widgets:
+                        widgets['lower_input'].setText('')
+                    if 'upper_input' in widgets:
+                        widgets['upper_input'].setText('')
+                    
+                    # 清空其他输入框
+                    if 'step' in widgets:
+                        widgets['step'].setText('')
+                    if 'n_input' in widgets:
+                        widgets['n_input'].setText('')
+                    
+                    print(f"  已重置控件: {var_name}")
+                
+                # 重置比较控件状态
+                print("重置比较控件状态")
+                for comp in temp_formula_widget.comparison_widgets:
+                    print(f"重置比较控件")
+                    # 取消勾选复选框
+                    if 'checkbox' in comp:
+                        comp['checkbox'].setChecked(False)
+                    # 清空输入框
+                    if 'lower' in comp:
+                        comp['lower'].setText('')
+                    if 'upper' in comp:
+                        comp['upper'].setText('')
+                    if 'step' in comp:
+                        comp['step'].setText('')
+                    # 重置下拉框到默认值
+                    if 'var1' in comp and comp['var1'].count() > 0:
+                        comp['var1'].setCurrentIndex(0)
+                    if 'var2' in comp and comp['var2'].count() > 0:
+                        comp['var2'].setCurrentIndex(0)
+                    if 'direction' in comp and comp['direction'].count() > 0:
+                        comp['direction'].setCurrentIndex(0)
+                    # 取消勾选逻辑复选框
+                    if 'logic_check' in comp:
+                        comp['logic_check'].setChecked(False)
+                    print(f"  已重置比较控件")
+                
+                # 重置forward_param_state中的向前参数控件状态
+                if hasattr(self.main_window, 'forward_param_state') and self.main_window.forward_param_state:
+                    print(f"重置forward_param_state: {self.main_window.forward_param_state}")
+                    for var_name, var_state in self.main_window.forward_param_state.items():
+                        if isinstance(var_state, dict):
+                            # 重置enable复选框状态
+                            var_state['enable'] = False
+                            # 重置round圆框状态
+                            var_state['round'] = False
+                            # 清空上下限值
+                            var_state['lower'] = ''
+                            var_state['upper'] = ''
+                            print(f"重置向前参数: {var_name}")
+                        elif isinstance(var_state, bool):
+                            # 如果只是布尔值，重置为False
+                            self.main_window.forward_param_state[var_name] = False
+                            print(f"重置向前参数布尔值: {var_name} = False")
+                
+                # 恢复forward_param_state中的向前参数控件状态
+                if hasattr(self.main_window, 'forward_param_state') and self.main_window.forward_param_state:
+                    print(f"恢复forward_param_state: {self.main_window.forward_param_state}")
+                    for var_name, var_state in self.main_window.forward_param_state.items():
+                        if var_name in temp_formula_widget.var_widgets:
+                            widgets = temp_formula_widget.var_widgets[var_name]
+                            if isinstance(var_state, dict):
+                                # 恢复enable复选框状态
+                                if 'enable' in var_state and 'checkbox' in widgets:
+                                    widgets['checkbox'].setChecked(var_state['enable'])
+                                    print(f"恢复向前参数复选框: {var_name} = {var_state['enable']}")
+                                # 恢复round圆框状态
+                                if 'round' in var_state and 'round_checkbox' in widgets:
+                                    widgets['round_checkbox'].setChecked(var_state['round'])
+                                    print(f"恢复向前参数圆框: {var_name} = {var_state['round']}")
+                                # 恢复上下限值
+                                if 'lower' in var_state and 'lower' in widgets:
+                                    widgets['lower'].setText(str(var_state['lower']))
+                                    print(f"恢复向前参数下限: {var_name} = {var_state['lower']}")
+                                if 'upper' in var_state and 'upper' in widgets:
+                                    widgets['upper'].setText(str(var_state['upper']))
+                                    print(f"恢复向前参数上限: {var_name} = {var_state['upper']}")
+                            elif isinstance(var_state, bool) and 'checkbox' in widgets:
+                                # 如果只是布尔值，直接设置复选框
+                                widgets['checkbox'].setChecked(var_state)
+                                print(f"恢复向前参数复选框: {var_name} = {var_state}")
+                
+                # 解析公式并设置控件状态
+                
+                # 先找出所有比较控件的变量，避免被当作普通上下限处理
+                comparison_vars = set()
+                for m in re.finditer(r'([a-zA-Z0-9_]+)\s*>=\s*([\-\d\.]+)\s*\*\s*([a-zA-Z0-9_]+)', formula):
+                    var1, lower, var2 = m.group(1), m.group(2), m.group(3)
+                    comparison_vars.add(var1)
+                    comparison_vars.add(var2)
+                    print(f"找到比较控件: {var1} >= {lower} * {var2}")
+                
+                for m in re.finditer(r'([a-zA-Z0-9_]+)\s*<=\s*([\-\d\.]+)\s*\*\s*([a-zA-Z0-9_]+)', formula):
+                    var1, upper, var2 = m.group(1), m.group(2), m.group(3)
+                    comparison_vars.add(var1)
+                    comparison_vars.add(var2)
+                    print(f"找到比较控件: {var1} <= {upper} * {var2}")
+                
+                # 记录已处理的变量，避免重复处理
+                processed_vars = set()
+                
+                # 获取forward_param_state中的控件列表
+                forward_widgets = {}
+                if hasattr(self.main_window, 'forward_param_state') and self.main_window.forward_param_state:
+                    forward_widgets = self.main_window.forward_param_state
+                    print(f"forward_param_state中的控件: {list(forward_widgets.keys())}")
+                
+                # 1. 匹配 xxx >= a（排除比较控件的变量）
+                for m in re.finditer(r'([a-zA-Z0-9_]+)\s*>=\s*([\-\d\.]+)', formula):
+                    var, lower = m.group(1), m.group(2)
+                    # 检查是否是比较控件的变量
+                    if var not in comparison_vars:
+                        print(f"找到下限条件: {var} >= {lower}")
+                        # 先检查是否在普通控件列表中
+                        if var in temp_formula_widget.var_widgets:
+                            widgets = temp_formula_widget.var_widgets[var]
+                            # 直接设置控件状态，但需要检查键是否存在
+                            if 'checkbox' in widgets:
+                                widgets['checkbox'].setChecked(True)
+                                print(f"勾选变量控件: {var}")
+                            if 'lower' in widgets:
+                                widgets['lower'].setText(str(lower))
+                                print(f"设置下限值: {var} = {lower}")
+                                # 验证设置是否成功
+                                actual_value = widgets['lower'].text()
+                                print(f"验证下限值设置: {var} 实际值 = '{actual_value}'")
+                            processed_vars.add(var)  # 标记为已处理
+                        # 再检查是否在forward_param_state中
+                        elif var in forward_widgets:
+                            print(f"找到forward_param_state中的下限条件: {var} >= {lower}")
+                            var_state = forward_widgets[var]
+                            if isinstance(var_state, dict):
+                                # 对于条件变量，enable直接设为true
+                                print(f"设置forward_param_state下限复选框为true: {var}")
+                                # 实际设置需要在主窗口的forward_param_state中更新
+                                if hasattr(self.main_window, 'forward_param_state') and var in self.main_window.forward_param_state:
+                                    if isinstance(self.main_window.forward_param_state[var], dict):
+                                        self.main_window.forward_param_state[var]['enable'] = True
+                                        self.main_window.forward_param_state[var]['lower'] = lower
+                                        print(f"已更新forward_param_state下限: {var} enable=True, lower={lower}")
+                            elif isinstance(var_state, bool):
+                                print(f"forward_param_state布尔值下限变量: {var} = {var_state}")
+                            processed_vars.add(var)  # 标记为已处理
+                        else:
+                            print(f"变量 {var} 不在控件列表中")
+                    else:
+                        print(f"跳过比较控件变量的下限条件: {var} >= {lower}")
+                
+                # 2. 匹配 xxx <= b（排除比较控件的变量）
+                for m in re.finditer(r'([a-zA-Z0-9_]+)\s*<=\s*([\-\d\.]+)', formula):
+                    var, upper = m.group(1), m.group(2)
+                    # 检查是否是比较控件的变量
+                    if var not in comparison_vars:
+                        print(f"找到上限条件: {var} <= {upper}")
+                        # 先检查是否在普通控件列表中
+                        if var in temp_formula_widget.var_widgets:
+                            widgets = temp_formula_widget.var_widgets[var]
+                            # 直接设置控件状态，但需要检查键是否存在
+                            if 'checkbox' in widgets:
+                                widgets['checkbox'].setChecked(True)
+                                print(f"勾选变量控件: {var}")
+                            if 'upper' in widgets:
+                                widgets['upper'].setText(str(upper))
+                                print(f"设置上限值: {var} = {upper}")
+                                # 验证设置是否成功
+                                actual_value = widgets['upper'].text()
+                                print(f"验证上限值设置: {var} 实际值 = '{actual_value}'")
+                            processed_vars.add(var)  # 标记为已处理
+                        # 再检查是否在forward_param_state中
+                        elif var in forward_widgets:
+                            print(f"找到forward_param_state中的上限条件: {var} <= {upper}")
+                            var_state = forward_widgets[var]
+                            if isinstance(var_state, dict):
+                                # 对于条件变量，enable直接设为true
+                                print(f"设置forward_param_state上限复选框为true: {var}")
+                                # 实际设置需要在主窗口的forward_param_state中更新
+                                if hasattr(self.main_window, 'forward_param_state') and var in self.main_window.forward_param_state:
+                                    if isinstance(self.main_window.forward_param_state[var], dict):
+                                        self.main_window.forward_param_state[var]['enable'] = True
+                                        self.main_window.forward_param_state[var]['upper'] = upper
+                                        print(f"已更新forward_param_state上限: {var} enable=True, upper={upper}")
+                            elif isinstance(var_state, bool):
+                                print(f"forward_param_state布尔值上限变量: {var} = {var_state}")
+                            processed_vars.add(var)  # 标记为已处理
+                        else:
+                            print(f"变量 {var} 不在控件列表中")
+                    else:
+                        print(f"跳过比较控件变量的上限条件: {var} <= {upper}")
+                
+                # 3. 匹配逻辑变量（if ... and VAR ...）
+                if_match = re.search(r'if\s*(.*?):', formula)
+                if if_match:
+                    condition_text = if_match.group(1)
+                    print(f"if条件文本: {condition_text}")
+                    logic_vars = re.findall(r'\b([a-zA-Z_][a-zA-Z0-9_]*)\b', condition_text)
+                    print(f"从if条件中提取的变量: {logic_vars}")
+                    
+                    for var in logic_vars:
+                        print(f"处理if条件中的变量: {var}")
+                        
+                        # 先检查是否是比较控件变量
+                        if var in comparison_vars:
+                            print(f"跳过比较控件变量作为逻辑变量: {var}")
+                            continue
+                        
+                        # 再检查是否是关键字
+                        if var in {'if', 'else', 'result', 'and', 'or', 'not'}:
+                            print(f"跳过关键字: {var}")
+                            continue
+                        
+                        # 检查是否已经通过上下限处理过
+                        if var in processed_vars:
+                            print(f"跳过已处理的变量控件: {var}")
+                            continue
+                        
+                        # 最后检查是否是有效的控件变量
+                        if var in temp_formula_widget.var_widgets:
+                            print(f"找到逻辑变量: {var}")
+                            widgets = temp_formula_widget.var_widgets[var]
+                            # 直接设置控件状态，但需要检查键是否存在
+                            if 'checkbox' in widgets:
+                                widgets['checkbox'].setChecked(True)
+                                print(f"勾选逻辑变量控件: {var}")
+                        # 检查是否在forward_param_state中
+                        elif var in forward_widgets:
+                            print(f"找到forward_param_state中的逻辑变量: {var}")
+                            var_state = forward_widgets[var]
+                            if isinstance(var_state, dict):
+                                # 对于条件变量，enable直接设为true
+                                print(f"设置forward_param_state逻辑变量复选框为true: {var}")
+                                # 实际设置需要在主窗口的forward_param_state中更新
+                                if hasattr(self.main_window, 'forward_param_state') and var in self.main_window.forward_param_state:
+                                    if isinstance(self.main_window.forward_param_state[var], dict):
+                                        self.main_window.forward_param_state[var]['enable'] = True
+                                        print(f"已更新forward_param_state逻辑变量: {var} enable=True")
+                            elif isinstance(var_state, bool):
+                                print(f"forward_param_state布尔值逻辑变量: {var} = {var_state}")
+                        else:
+                            print(f"跳过非控件变量: {var}")
+                
+                # 4. 匹配 result = xxx + yyy
+                m = re.search(r'result\s*=\s*([a-zA-Z0-9_]+(?:\s*\+\s*[a-zA-Z0-9_]+)*)', formula)
+                if m:
+                    result_text = m.group(1)
+                    print(f"result表达式: {result_text}")
+                    result_vars = re.findall(r'[a-zA-Z0-9_]+', result_text)
+                    print(f"从result中提取的变量: {result_vars}")
+                    
+                    for var in result_vars:
+                        print(f"处理result变量: {var}")
+                        # 先检查是否在普通控件列表中
+                        if var in temp_formula_widget.var_widgets:
+                            widgets = temp_formula_widget.var_widgets[var]
+                            # 直接设置圆框控件状态，但需要检查键是否存在
+                            if 'round_checkbox' in widgets:
+                                widgets['round_checkbox'].setChecked(True)
+                                print(f"勾选圆框控件: {var}")
+                        # 再检查是否在forward_param_state中
+                        elif var in forward_widgets:
+                            print(f"找到forward_param_state中的变量: {var}")
+                            var_state = forward_widgets[var]
+                            if isinstance(var_state, dict):
+                                # 对于result变量，round直接设为true
+                                print(f"设置forward_param_state圆框为true: {var}")
+                                # 这里应该直接设置round为true，而不是读取现有值
+                                # 实际设置需要在主窗口的forward_param_state中更新
+                                if hasattr(self.main_window, 'forward_param_state') and var in self.main_window.forward_param_state:
+                                    if isinstance(self.main_window.forward_param_state[var], dict):
+                                        self.main_window.forward_param_state[var]['round'] = True
+                                        print(f"已更新forward_param_state圆框: {var} = True")
+                            elif isinstance(var_state, bool):
+                                print(f"forward_param_state布尔值变量: {var} = {var_state}")
+                        else:
+                            print(f"result变量 {var} 不在控件列表中")
+                
+                # 5. 处理比较控件
+                comparison_configs = []
+                for m in re.finditer(r'([a-zA-Z0-9_]+)\s*>=\s*([\-\d\.]+)\s*\*\s*([a-zA-Z0-9_]+)', formula):
+                    var1, lower, var2 = m.group(1), m.group(2), m.group(3)
+                    comparison_configs.append({
+                        'var1': var1,
+                        'lower': lower,
+                        'upper': '',
+                        'var2': var2
+                    })
+                    print(f"处理比较控件下限: {var1} >= {lower} * {var2}")
+                
+                for m in re.finditer(r'([a-zA-Z0-9_]+)\s*<=\s*([\-\d\.]+)\s*\*\s*([a-zA-Z0-9_]+)', formula):
+                    var1, upper, var2 = m.group(1), m.group(2), m.group(3)
+                    # 查找是否已有该变量的配置
+                    existing_config = None
+                    for config in comparison_configs:
+                        if config['var1'] == var1 and config['var2'] == var2:
+                            existing_config = config
+                            break
+                    
+                    if existing_config:
+                        existing_config['upper'] = upper
+                        print(f"更新比较控件上限: {var1} <= {upper} * {var2}")
+                    else:
+                        comparison_configs.append({
+                            'var1': var1,
+                            'lower': '',
+                            'upper': upper,
+                            'var2': var2
+                        })
+                        print(f"处理比较控件上限: {var1} <= {upper} * {var2}")
+                
+                # 将比较控件配置保存到状态中
+                if comparison_configs:
+                    # 这里需要将比较控件配置保存到临时控件的状态中
+                    # 由于比较控件的处理比较复杂，暂时保存到主窗口的状态中
+                    comparison_state = {
+                        'comparison_widgets': comparison_configs
+                    }
+                    print(f"保存比较控件配置: {comparison_state}")
+                
+                # 获取当前状态
+                current_state = temp_formula_widget.get_state()
+                #print(f"获取到的状态: {current_state}")
+                
+                # 检查状态中是否包含变量控件的上下限
+                #for var_name, var_state in current_state.items():
+                    #if isinstance(var_state, dict) and 'lower' in var_state:
+                        #print(f"状态中的下限: {var_name} = {var_state['lower']}")
+                    #if isinstance(var_state, dict) and 'upper' in var_state:
+                        #print(f"状态中的上限: {var_name} = {var_state['upper']}")
+                
+                # 如果有比较控件配置，添加到状态中
+                if comparison_configs:
+                    current_state['comparison_widgets'] = comparison_configs
+                    print(f"添加比较控件配置到状态中")
+                
+                # 更新主窗口的last_formula_select_state
+                self.main_window.last_formula_select_state = current_state
+                print(f"已保存状态到主窗口: {len(current_state)} 个变量")
+                
+                # 验证状态是否正确保存
+                saved_state = getattr(self.main_window, 'last_formula_select_state', {})
+                
+                # 更新主窗口的排序方式
+                self.main_window.last_sort_mode = sort_mode
+                
+                # 更新主窗口的参数
+                if width:
+                    try:
+                        self.main_window.width_spin.setValue(int(float(width)))
+                        print(f"设置日期宽度: {width}")
+                    except:
+                        pass
+                if op_days:
+                    try:
+                        self.main_window.op_days_edit.setText(str(op_days))
+                        print(f"设置操作天数: {op_days}")
+                    except:
+                        pass
+                if increment_rate:
+                    try:
+                        self.main_window.inc_rate_edit.setText(str(increment_rate))
+                        print(f"设置递增率: {increment_rate}")
+                    except:
+                        pass
+                
+                # 恢复选股数量
+                if select_count:
+                    try:
+                        self.main_window.last_select_count = int(select_count)
+                        print(f"设置选股数量: {select_count}")
+                    except:
+                        pass
+                
+                # 清理临时控件
+                temp_formula_widget.deleteLater()
+                
+                QMessageBox.information(self, "恢复成功", f"已成功恢复选股参数！\n公式: {formula}\n排序方式: {sort_mode}\n日期宽度: {width}\n操作天数: {op_days}\n递增率: {increment_rate}\n选股数量: {select_count}")
+                
+            except Exception as e:
+                QMessageBox.critical(self, "恢复失败", f"恢复选股参数失败：{e}")
+                print(f"恢复失败详细错误: {e}")
+                import traceback
+                traceback.print_exc()
+        
         for row, item in enumerate(top_three):
             analysis = item['analysis']
             table.setItem(row, 0, QTableWidgetItem(f"{item['adjusted_value']:.2f}"))
-            # 公式多行完整显示
-            formula_item = QTableWidgetItem(str(analysis.get('formula', '')))
-            formula_item.setTextAlignment(Qt.AlignLeft | Qt.AlignTop)
-            formula_item.setToolTip(formula_item.text())
-            table.setItem(row, 1, formula_item)
+            # 输出参数：显示勾选的get_abbr_round_only_map控件名称
+            selected_vars = analysis.get('selected_vars', [])
+            print(f"selected_vars: {selected_vars}")
+            if selected_vars:
+                from function.stock_functions import get_abbr_round_only_map
+                abbr_map = get_abbr_round_only_map()
+                # 获取n_values用于替换第N位
+                n_values = analysis.get('n_values', {})
+                print(f"n_values: {n_values}")
+                # 从字典的键中提取中文名称，并显示参数值
+                output_params = []
+                output_params_sum = 0
+                for var_name in selected_vars:
+                    for (zh, en) in abbr_map.keys():
+                        if en == var_name:
+                            # 处理第N位变量
+                            if "第N位" in zh:
+                                n_value = n_values.get(var_name, "N")
+                                zh_display = zh.replace("第N位", f"第{n_value}位")
+                            else:
+                                zh_display = zh
+                            
+                            # 获取该参数的数值
+                            value = None
+                            summary = analysis.get('analysis_stats', {}).get('summary', {})
+                            if var_name in summary:
+                                try:
+                                    value = float(summary[var_name])
+                                    output_params_sum += value
+                                    # 显示参数名称和数值
+                                    output_params.append(f"{zh_display}: {value:.2f}")
+                                except Exception:
+                                    # 如果无法转换为数值，显示默认值0
+                                    output_params.append(f"{zh_display}: 0.00")
+                            else:
+                                # 如果没有数值，显示默认值0
+                                output_params.append(f"{zh_display}: 0.00")
+                            break
+                # 输出参数文本
+                output_params_text = "\n".join(output_params)
+                # 在最后一行加上总和
+                if output_params:
+                    output_params_text += f"\n总和: {output_params_sum:.2f}"
+                else:
+                    output_params_text = "无勾选参数"
+                output_params_item = QTableWidgetItem(output_params_text)
+                output_params_item.setTextAlignment(Qt.AlignLeft | Qt.AlignTop)
+                output_params_item.setToolTip(output_params_text)
+                table.setItem(row, 1, output_params_item)
+            else:
+                output_params_text = "无勾选参数"
+            
+            output_params_item = QTableWidgetItem(output_params_text)
+            output_params_item.setTextAlignment(Qt.AlignLeft | Qt.AlignTop)
+            output_params_item.setToolTip(output_params_text)
+            table.setItem(row, 1, output_params_item)
             table.setItem(row, 2, QTableWidgetItem(str(analysis.get('width', ''))))
             table.setItem(row, 3, QTableWidgetItem(str(analysis.get('op_days', ''))))
             table.setItem(row, 4, QTableWidgetItem(str(analysis.get('increment_rate', ''))))
             table.setItem(row, 5, QTableWidgetItem(str(analysis.get('sort_mode', ''))))
+            
+            # 添加查看分析结果按钮（第6列，列名为空）
+            view_btn = QPushButton("查看详情")
+            view_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #4CAF50;
+                    color: white;
+                    border: none;
+                    padding: 5px 10px;
+                    border-radius: 3px;
+                    font-size: 12px;
+                }
+                QPushButton:hover {
+                    background-color: #45a049;
+                }
+                QPushButton:pressed {
+                    background-color: #3d8b40;
+                }
+            """)
+            view_btn.clicked.connect(lambda checked, data=analysis, idx=row: show_analysis_detail(data, idx))
+            table.setCellWidget(row, 6, view_btn)
+            
+            # 添加恢复参数按钮（第7列）
+            restore_btn = QPushButton("恢复参数")
+            restore_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #2196F3;
+                    color: white;
+                    border: none;
+                    padding: 5px 10px;
+                    border-radius: 3px;
+                    font-size: 12px;
+                }
+                QPushButton:hover {
+                    background-color: #1976D2;
+                }
+                QPushButton:pressed {
+                    background-color: #0D47A1;
+                }
+            """)
+            restore_btn.clicked.connect(lambda checked, data=analysis: restore_formula_params(data))
+            table.setCellWidget(row, 7, restore_btn)
+            
         table.resizeColumnsToContents()
+        # 设置按钮列的固定宽度
+        table.setColumnWidth(6, 100)  # 查看详情按钮列宽度
+        table.setColumnWidth(7, 100)  # 恢复参数按钮列宽度
         # 自动调整行高以适配多行公式
         for row in range(table.rowCount()):
             table.resizeRowToContents(row)
@@ -731,58 +1499,80 @@ class ComponentAnalysisWidget(QWidget):
         """为单个组合分析结果创建类似主界面的表格"""
         import math
         from PyQt5.QtCore import Qt
-        from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView
+        from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView, QLabel
         from ui.common_widgets import CopyableTableWidget
         
         result = analysis.get('analysis_stats')
         if not result:
-            return QLabel("无分析结果")
+            error_label = QLabel("无分析结果数据")
+            error_label.setStyleSheet("color: red; font-size: 14px; padding: 20px;")
+            return error_label
+
+        # 检查result的结构
+        if not isinstance(result, dict):
+            error_label = QLabel(f"分析结果数据格式错误: {type(result)}")
+            error_label.setStyleSheet("color: red; font-size: 14px; padding: 20px;")
+            return error_label
+
+        items = result.get('items', [])
+        summary = result.get('summary', {})
+        
+        if not items and not summary:
+            error_label = QLabel("分析结果数据为空")
+            error_label.setStyleSheet("color: red; font-size: 14px; padding: 20px;")
+            return error_label
 
         formula = analysis.get('formula', '')
-        row_count = len(result.get('items', []))
+        row_count = len(items)
         
-        table = CopyableTableWidget(row_count + 2, 14, self.result_area)
+        table = CopyableTableWidget(row_count + 2, 15, self.result_area)
         table.setHorizontalHeaderLabels([
             "结束日期", "操作天数", "持有涨跌幅", 
-            "调天日均涨跌幅", "调天从下往上非空均值", "调天从下往上含空均值", "含空值均值", "调天最大值", "调天最小值",
-            "调幅日均涨跌幅", "调幅从下往上非空均值", "调幅从下往上含空均值", "调幅最大值", "调幅最小值"
+            "调天日均涨跌幅", "调天从下往上非空均值", "调天从下往上含空均值", "调天含空值均值", "调天最大值", "调天最小值",
+            "调幅日均涨跌幅", "调幅从下往上非空均值", "调幅从下往上含空均值", "调幅含空值均值", "调幅最大值", "调幅最小值", "调幅含空值均值"
         ])
         table.setSelectionBehavior(QTableWidget.SelectItems)
         table.setSelectionMode(QTableWidget.ExtendedSelection)
         table.setEditTriggers(QTableWidget.NoEditTriggers)
 
         # 设置第一行的均值数据
-        summary = result['summary']
-        table.setItem(0, 1, QTableWidgetItem(str(summary['mean_hold_days'])))
-        table.setItem(0, 2, QTableWidgetItem(f"{summary['mean_ops_change']}%" if summary['mean_ops_change'] != '' else ''))
-        table.setItem(0, 3, QTableWidgetItem(f"{summary['mean_daily_change']}%" if summary['mean_daily_change'] != '' else ''))
-        table.setItem(0, 4, QTableWidgetItem(f"{summary['mean_non_nan']}%" if summary['mean_non_nan'] != '' else ''))
-        table.setItem(0, 5, QTableWidgetItem(f"{summary['mean_with_nan']}%" if summary['mean_with_nan'] != '' else ''))
-        table.setItem(0, 6, QTableWidgetItem(f"{summary['mean_daily_with_nan']}%" if summary['mean_daily_with_nan'] != '' else ''))
-        table.setItem(0, 7, QTableWidgetItem(f"{summary['max_change']}%" if summary['max_change'] != '' else ''))
-        table.setItem(0, 8, QTableWidgetItem(f"{summary['min_change']}%" if summary['min_change'] != '' else ''))
-        table.setItem(0, 9, QTableWidgetItem(f"{summary['mean_adjust_ops_incre_rate']}%" if summary['mean_adjust_ops_incre_rate'] != '' else ''))
-        table.setItem(0, 10, QTableWidgetItem(f"{summary['mean_adjust_non_nan']}%" if summary['mean_adjust_non_nan'] != '' else ''))
-        table.setItem(0, 11, QTableWidgetItem(f"{summary['mean_adjust_with_nan']}%" if summary['mean_adjust_with_nan'] != '' else ''))
-        table.setItem(0, 12, QTableWidgetItem(f"{summary['max_adjust_ops_incre_rate']}%" if summary['max_adjust_ops_incre_rate'] != '' else ''))
-        table.setItem(0, 13, QTableWidgetItem(f"{summary['min_adjust_ops_incre_rate']}%" if summary['min_adjust_ops_incre_rate'] != '' else ''))
+        if summary:
+            table.setItem(0, 1, QTableWidgetItem(str(summary.get('mean_hold_days', ''))))
+            table.setItem(0, 2, QTableWidgetItem(f"{summary.get('mean_ops_change', '')}%" if summary.get('mean_ops_change', '') != '' else ''))
+            table.setItem(0, 3, QTableWidgetItem(f"{summary.get('mean_daily_change', '')}%" if summary.get('mean_daily_change', '') != '' else ''))
+            table.setItem(0, 4, QTableWidgetItem(f"{summary.get('mean_non_nan', '')}%" if summary.get('mean_non_nan', '') != '' else ''))
+            table.setItem(0, 5, QTableWidgetItem(f"{summary.get('mean_with_nan', '')}%" if summary.get('mean_with_nan', '') != '' else ''))
+            table.setItem(0, 6, QTableWidgetItem(f"{summary.get('mean_daily_with_nan', '')}%" if summary.get('mean_daily_with_nan', '') != '' else ''))
+            table.setItem(0, 7, QTableWidgetItem(f"{summary.get('max_change', '')}%" if summary.get('max_change', '') != '' else ''))
+            table.setItem(0, 8, QTableWidgetItem(f"{summary.get('min_change', '')}%" if summary.get('min_change', '') != '' else ''))
+            table.setItem(0, 9, QTableWidgetItem(f"{summary.get('mean_adjust_ops_incre_rate', '')}%" if summary.get('mean_adjust_ops_incre_rate', '') != '' else ''))
+            table.setItem(0, 10, QTableWidgetItem(f"{summary.get('mean_adjust_non_nan', '')}%" if summary.get('mean_adjust_non_nan', '') != '' else ''))
+            table.setItem(0, 11, QTableWidgetItem(f"{summary.get('mean_adjust_with_nan', '')}%" if summary.get('mean_adjust_with_nan', '') != '' else ''))
+            table.setItem(0, 12, QTableWidgetItem(f"{summary.get('mean_adjust_daily_with_nan', '')}%" if summary.get('mean_adjust_daily_with_nan', '') != '' else ''))
+            table.setItem(0, 13, QTableWidgetItem(f"{summary.get('max_adjust_ops_incre_rate', '')}%" if summary.get('max_adjust_ops_incre_rate', '') != '' else ''))
+            table.setItem(0, 14, QTableWidgetItem(f"{summary.get('min_adjust_ops_incre_rate', '')}%" if summary.get('min_adjust_ops_incre_rate', '') != '' else ''))
 
         # 设置每行的数据
-        for row_idx, item in enumerate(result['items']):
-            table.setItem(row_idx + 2, 0, QTableWidgetItem(item['date']))
-            table.setItem(row_idx + 2, 1, QTableWidgetItem(str(item['hold_days'])))
-            table.setItem(row_idx + 2, 2, QTableWidgetItem(f"{item['ops_change']}%" if item['ops_change'] != '' else ''))
-            table.setItem(row_idx + 2, 3, QTableWidgetItem(f"{item['daily_change']}%" if item['daily_change'] != '' else ''))
-            table.setItem(row_idx + 2, 4, QTableWidgetItem(f"{round(item['non_nan_mean'],2)}%" if not math.isnan(item['non_nan_mean']) else ''))
-            table.setItem(row_idx + 2, 5, QTableWidgetItem(f"{round(item['with_nan_mean'],2)}%" if not math.isnan(item['with_nan_mean']) else ''))
+        for row_idx, item in enumerate(items):
+            table.setItem(row_idx + 2, 0, QTableWidgetItem(str(item.get('date', ''))))
+            table.setItem(row_idx + 2, 1, QTableWidgetItem(str(item.get('hold_days', ''))))
+            table.setItem(row_idx + 2, 2, QTableWidgetItem(f"{item.get('ops_change', '')}%" if item.get('ops_change', '') != '' else ''))
+            table.setItem(row_idx + 2, 3, QTableWidgetItem(f"{item.get('daily_change', '')}%" if item.get('daily_change', '') != '' else ''))
+            non_nan_mean = item.get('non_nan_mean', '')
+            table.setItem(row_idx + 2, 4, QTableWidgetItem(f"{round(non_nan_mean, 2)}%" if non_nan_mean != '' and not (isinstance(non_nan_mean, float) and math.isnan(non_nan_mean)) else ''))
+            with_nan_mean = item.get('with_nan_mean', '')
+            table.setItem(row_idx + 2, 5, QTableWidgetItem(f"{round(with_nan_mean, 2)}%" if with_nan_mean != '' and not (isinstance(with_nan_mean, float) and math.isnan(with_nan_mean)) else ''))
             table.setItem(row_idx + 2, 6, QTableWidgetItem(""))
             table.setItem(row_idx + 2, 7, QTableWidgetItem(""))
             table.setItem(row_idx + 2, 8, QTableWidgetItem(""))
-            table.setItem(row_idx + 2, 9, QTableWidgetItem(f"{item['adjust_daily_change']}%" if 'adjust_daily_change' in item and item['adjust_daily_change'] != '' else ''))
-            table.setItem(row_idx + 2, 10, QTableWidgetItem(f"{round(item['adjust_non_nan_mean'],2)}%" if 'adjust_non_nan_mean' in item and not math.isnan(item['adjust_non_nan_mean']) else ''))
-            table.setItem(row_idx + 2, 11, QTableWidgetItem(f"{round(item['adjust_with_nan_mean'],2)}%" if 'adjust_with_nan_mean' in item and not math.isnan(item['adjust_with_nan_mean']) else ''))
+            table.setItem(row_idx + 2, 9, QTableWidgetItem(f"{item.get('adjust_daily_change', '')}%" if item.get('adjust_daily_change', '') != '' else ''))
+            adjust_non_nan_mean = item.get('adjust_non_nan_mean', '')
+            table.setItem(row_idx + 2, 10, QTableWidgetItem(f"{round(adjust_non_nan_mean, 2)}%" if adjust_non_nan_mean != '' and not (isinstance(adjust_non_nan_mean, float) and math.isnan(adjust_non_nan_mean)) else ''))
+            adjust_with_nan_mean = item.get('adjust_with_nan_mean', '')
+            table.setItem(row_idx + 2, 11, QTableWidgetItem(f"{round(adjust_with_nan_mean, 2)}%" if adjust_with_nan_mean != '' and not (isinstance(adjust_with_nan_mean, float) and math.isnan(adjust_with_nan_mean)) else ''))
             table.setItem(row_idx + 2, 12, QTableWidgetItem(""))
             table.setItem(row_idx + 2, 13, QTableWidgetItem(""))
+            table.setItem(row_idx + 2, 14, QTableWidgetItem(""))
 
         table.horizontalHeader().setFixedHeight(40)
         table.horizontalHeader().setStyleSheet("font-size: 12px;")
@@ -799,26 +1589,24 @@ class ComponentAnalysisWidget(QWidget):
             table.setWordWrap(True)
             table.resizeRowToContents(row)
 
-        # 插入参数输出
-        row = table.rowCount()
-        params = [
-            ("日期宽度", str(analysis['width'])),
-            ("操作天数", str(analysis['op_days'])),
-            ("递增率", f"{analysis['increment_rate']}%"),
-            ("排序方式", analysis['sort_mode'])
-        ]
-        for i, (label, value) in enumerate(params):
-            table.insertRow(row + i)
-            table.setItem(row + i, 0, QTableWidgetItem(label))
-            table.setItem(row + i, 1, QTableWidgetItem(value))
+        # 不再插入参数输出行
+        # row = table.rowCount()
+        # params = [
+        #     ("日期宽度", str(analysis.get('width', ''))),
+        #     ("操作天数", str(analysis.get('op_days', ''))),
+        #     ("递增率", f"{analysis.get('increment_rate', '')}%"),
+        #     ("排序方式", analysis.get('sort_mode', ''))
+        # ]
+        # for i, (label, value) in enumerate(params):
+        #     table.insertRow(row + i)
+        #     table.setItem(row + i, 0, QTableWidgetItem(label))
+        #     table.setItem(row + i, 1, QTableWidgetItem(value))
 
         header = table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.Fixed)
         table.setColumnWidth(0, 150)
-        
         for i in range(1, table.columnCount()):
             header.setSectionResizeMode(i, QHeaderView.ResizeToContents)
-        
         return table
         
     def show_component_analysis_interface(self):
@@ -1489,6 +2277,16 @@ class ComponentAnalysisWidget(QWidget):
                         print(f"更新组合分析结束日期失败: {e}")
                 else:
                     print("没有组合分析结束日期")
+                    
+                # 恢复组合分析次数
+                analysis_count_val = param_map.get('component_analysis_count', '')
+                if analysis_count_val:
+                    try:
+                        count_val = int(float(analysis_count_val))
+                        self.analysis_count_spin.setValue(count_val)
+                        print(f"更新组合分析次数: {count_val}")
+                    except Exception as e:
+                        print(f"更新组合分析次数失败: {e}")
             else:
                 # 兼容旧方式：从主窗口属性获取（用于其他场景）
                 if hasattr(self.main_window, 'last_component_analysis_start_date'):
@@ -1605,8 +2403,13 @@ class ComponentAnalysisWidget(QWidget):
         self.cached_analysis_results = results
         # 同步到主窗口
         self.main_window.cached_component_analysis_results = results
+        # 保存总耗时到主窗口
+        if results and isinstance(results, dict) and 'total_elapsed_time' in results:
+            self.main_window.last_component_total_elapsed_time = results['total_elapsed_time']
         if results:
             self.show_analysis_results(results)
+        # 更新上次最优值显示
+        self._update_last_best_value_display()
             
     def on_generate_trading_plan(self):
         """生成操盘方案"""
@@ -1644,7 +2447,8 @@ class ComponentAnalysisWidget(QWidget):
                 'width': analysis.get('width', ''),
                 'sort_mode': analysis.get('sort_mode', ''),
                 'op_days': analysis.get('op_days', ''),
-                'increment_rate': analysis.get('increment_rate', '')
+                'increment_rate': analysis.get('increment_rate', ''),
+                'selected_vars': analysis.get('selected_vars', [])
             })
             
             # 创建操盘方案
@@ -1662,7 +2466,13 @@ class ComponentAnalysisWidget(QWidget):
             
             trading_plan_list.append(trading_plan)
             
-        return trading_plan_list
+        # 排序后设置plan_name，确保索引一致
+        sorted_plan_list = sorted(trading_plan_list, key=lambda x: float(x.get('adjusted_value', 0)), reverse=True)
+        for plan in sorted_plan_list:
+            if 'plan_name' not in plan:
+                plan['plan_name'] = "操盘方案"
+        
+        return sorted_plan_list
         
     def _show_trading_plan(self, trading_plan_list):
         """显示操盘方案"""
@@ -1699,7 +2509,9 @@ class ComponentAnalysisWidget(QWidget):
             table.setItem(row, 10, desc_item)
             
         table.resizeColumnsToContents()
-        # 自动调整行高
+        # 设置最后一列（按钮列）的固定宽度
+        table.setColumnWidth(6, 100)  # 按钮列宽度设为100px
+        # 自动调整行高以适配多行公式
         for row in range(table.rowCount()):
             table.resizeRowToContents(row)
             
@@ -1749,7 +2561,8 @@ class ComponentAnalysisWidget(QWidget):
                 'width': analysis.get('width', ''),
                 'sort_mode': analysis.get('sort_mode', ''),
                 'op_days': analysis.get('op_days', ''),
-                'increment_rate': analysis.get('increment_rate', '')
+                'increment_rate': analysis.get('increment_rate', ''),
+                'selected_vars': analysis.get('selected_vars', [])
             })
             
             # 创建操盘方案
@@ -1767,6 +2580,14 @@ class ComponentAnalysisWidget(QWidget):
             
             # 添加到操盘方案列表
             self.main_window.trading_plan_list.append(trading_plan)
+            
+            # 重新排序并更新所有plan_name
+            sorted_plan_list = sorted(self.main_window.trading_plan_list, key=lambda x: float(x.get('adjusted_value', 0)), reverse=True)
+            for plan in sorted_plan_list:
+                if 'plan_name' not in plan:
+                    plan['plan_name'] = "操盘方案"
+            
+            self.main_window.trading_plan_list = sorted_plan_list
             
             print(f"已添加操盘方案：{trading_plan['description']}")
             print(f"当前操盘方案数量：{len(self.main_window.trading_plan_list)}")
@@ -1851,8 +2672,49 @@ class ComponentAnalysisWidget(QWidget):
                 print(f"收集参数 {k} 失败: {e}")
                 continue
                 
+        # 添加forward_param_state
+        if hasattr(self.main_window, 'forward_param_state'):
+            params['forward_param_state'] = self.main_window.forward_param_state
+                
         return params
 
     def _on_generate_trading_plan_changed(self, state):
         """生成操盘方案勾选框状态改变"""
         self.main_window.last_component_generate_trading_plan = (state == Qt.Checked)
+        
+    def _on_only_better_trading_plan_changed(self, state):
+        """大于上次最优值才生成操盘方案勾选框状态改变"""
+        self.main_window.last_component_only_better_trading_plan = (state == Qt.Checked)
+        
+    def _update_last_best_value_display(self):
+        """更新上次最优值显示"""
+        last_value = getattr(self.main_window, 'last_adjusted_value', None)
+        if last_value is not None:
+            try:
+                # 尝试转换为浮点数并格式化显示
+                last_value_float = float(last_value)
+                self.last_best_value_display.setText(f"{last_value_float:.2f}")
+            except (ValueError, TypeError):
+                # 如果转换失败，直接显示原值
+                self.last_best_value_display.setText(str(last_value))
+        else:
+            self.last_best_value_display.setText("无")
+
+
+class AnalysisDetailWindow(QMainWindow):
+    def __init__(self, analysis_data, create_table_func, idx):
+        super().__init__(None)
+        self.setWindowTitle(f"组合分析结果详情 - 第{idx+1}行")
+        self.setMinimumSize(1570, 800)
+        flags = self.windowFlags()
+        flags &= ~Qt.WindowStaysOnTopHint
+        flags |= Qt.WindowMinimizeButtonHint
+        self.setWindowFlags(flags)
+        scroll_area = QScrollArea()
+        scroll_widget = QWidget()
+        scroll_layout = QVBoxLayout(scroll_widget)
+        detail_table = create_table_func(analysis_data)
+        scroll_layout.addWidget(detail_table)
+        scroll_area.setWidget(scroll_widget)
+        scroll_area.setWidgetResizable(True)
+        self.setCentralWidget(scroll_area)

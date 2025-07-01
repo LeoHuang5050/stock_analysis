@@ -297,6 +297,8 @@ def calculate_batch_cy(
     
     # 单线程处理每个股票
     for i in range(stock_idx_arr_view.shape[0]):
+        if stock_idx == 0:
+            printf(b"Calculating stock_idx=%d\n", stock_idx)
         stock_idx = stock_idx_arr_view[i]
         for idx in range(end_date_start_idx, end_date_end_idx-1, -1):
             try:
@@ -802,16 +804,6 @@ def calculate_batch_cy(
                     cont_sum_pos_sum = round_to_2_nan(cont_sum_pos_sum)
                     cont_sum_neg_sum = round_to_2_nan(cont_sum_neg_sum)
 
-                    #计算向前最大最小连续累加值正加和与负加和
-                    calc_pos_neg_sum(forward_max_result_c, &forwar_max_cont_sum_pos_sum, &forwar_max_cont_sum_neg_sum)
-                    forwar_max_cont_sum_pos_sum = round_to_2_nan(forwar_max_cont_sum_pos_sum)
-                    forwar_max_cont_sum_neg_sum = round_to_2_nan(forwar_max_cont_sum_neg_sum)
-
-                    calc_pos_neg_sum(forward_min_result_c, &forwar_min_cont_sum_pos_sum, &forwar_min_cont_sum_neg_sum)
-                    forwar_min_cont_sum_pos_sum = round_to_2_nan(forwar_min_cont_sum_pos_sum)
-                    forwar_min_cont_sum_neg_sum = round_to_2_nan(forwar_min_cont_sum_neg_sum)
-                    
-
                     # 计算向前最大连续累加值
                     if is_forward and actual_idx > 0:
                         forward_max_price = -1e308
@@ -851,6 +843,15 @@ def calculate_batch_cy(
                     else:
                         forward_max_result_c.clear()
                         forward_min_result_c.clear()
+
+                    #计算向前最大最小连续累加值正加和与负加和
+                    calc_pos_neg_sum(forward_max_result_c, &forward_max_cont_sum_pos_sum, &forward_max_cont_sum_neg_sum)
+                    forward_max_cont_sum_pos_sum = round_to_2_nan(forward_max_cont_sum_pos_sum)
+                    forward_max_cont_sum_neg_sum = round_to_2_nan(forward_max_cont_sum_neg_sum)
+
+                    calc_pos_neg_sum(forward_min_result_c, &forward_min_cont_sum_pos_sum, &forward_min_cont_sum_neg_sum)
+                    forward_min_cont_sum_pos_sum = round_to_2_nan(forward_min_cont_sum_pos_sum)
+                    forward_min_cont_sum_neg_sum = round_to_2_nan(forward_min_cont_sum_neg_sum)
 
                     # 递增值计算逻辑
                     increment_value = NAN
@@ -1506,99 +1507,117 @@ def calculate_batch_cy(
                     except Exception:
                         ops_incre_rate = None
 
+                 # 当stock_idx=0时打印相关参数
+                if stock_idx == 0:
+                    print(f"stock_idx={stock_idx}, ops_change={ops_change}, adjust_days={adjust_days}, ops_incre_rate={ops_incre_rate}")
+                    
+
                 # 调幅日均涨幅： 调整涨幅 / 持有天数
                 if adjust_ops_value is not None and not isnan(adjust_ops_value):
-                    adjust_ops_incre_rate = adjust_ops_value / hold_days
+                    adjust_ops_incre_rate = round_to_2(adjust_ops_value / hold_days)
                 else:
-                    adjust_ops_incre_rate = ops_incre_rate
+                    if ops_change is not None and hold_days is not None and hold_days != 0:
+                        adjust_ops_incre_rate = round_to_2(ops_change / hold_days)
+                    else:
+                        adjust_ops_incre_rate = None
+
 
                 # 新增：score 计算
                 score = None
+    
                 if formula_expr is not None:
                     # 预先计算所有需要的变量
+                    def safe_formula_val(val):
+                        import math
+                        if val is None:
+                            return 0
+                        if isinstance(val, float) and (math.isnan(val) or str(val).lower() == 'nan'):
+                            return 0
+                        return val
+
                     formula_vars = {
-                        'max_value': max_price,
+                        'max_value': safe_formula_val(max_price),
                         'max_value_date': max_value_date,
-                        'min_value': min_price,
+                        'min_value': safe_formula_val(min_price),
                         'min_value_date': min_value_date,
-                        'end_value': end_value,
+                        'end_value': safe_formula_val(end_value),
                         'end_value_date': end_value_date,
-                        'start_value': start_value,
+                        'start_value': safe_formula_val(start_value),
                         'start_value_date': start_value_date,
-                        'actual_value': actual_value,
+                        'actual_value': safe_formula_val(actual_value),
                         'actual_value_date': actual_value_date,
-                        'closest_value': closest_value,
+                        'closest_value': safe_formula_val(closest_value),
                         'closest_value_date': closest_value_date,
                         'continuous_results': py_cont_sum,
-                        'continuous_len': continuous_len,
-                        'continuous_start_value': continuous_start_value,
-                        'continuous_start_next_value': continuous_start_next_value,
-                        'continuous_start_next_next_value': continuous_start_next_next_value,
-                        'continuous_end_value': continuous_end_value,
-                        'continuous_end_prev_value': continuous_end_prev_value,
-                        'continuous_end_prev_prev_value': continuous_end_prev_prev_value,
-                        'continuous_abs_sum_first_half': continuous_abs_sum_first_half,
-                        'continuous_abs_sum_second_half': continuous_abs_sum_second_half,
-                        'continuous_abs_sum_block1': continuous_abs_sum_block1,
-                        'continuous_abs_sum_block2': continuous_abs_sum_block2,
-                        'continuous_abs_sum_block3': continuous_abs_sum_block3,
-                        'continuous_abs_sum_block4': continuous_abs_sum_block4,
+                        'continuous_len': safe_formula_val(continuous_len),
+                        'continuous_start_value': safe_formula_val(continuous_start_value),
+                        'continuous_start_next_value': safe_formula_val(continuous_start_next_value),
+                        'continuous_start_next_next_value': safe_formula_val(continuous_start_next_next_value),
+                        'continuous_end_value': safe_formula_val(continuous_end_value),
+                        'continuous_end_prev_value': safe_formula_val(continuous_end_prev_value),
+                        'continuous_end_prev_prev_value': safe_formula_val(continuous_end_prev_prev_value),
+                        'continuous_abs_sum_first_half': safe_formula_val(continuous_abs_sum_first_half),
+                        'continuous_abs_sum_second_half': safe_formula_val(continuous_abs_sum_second_half),
+                        'continuous_abs_sum_block1': safe_formula_val(continuous_abs_sum_block1),
+                        'continuous_abs_sum_block2': safe_formula_val(continuous_abs_sum_block2),
+                        'continuous_abs_sum_block3': safe_formula_val(continuous_abs_sum_block3),
+                        'continuous_abs_sum_block4': safe_formula_val(continuous_abs_sum_block4),
                         'forward_max_result': forward_max_result,
-                        'forward_max_continuous_start_value': forward_max_continuous_start_value,
-                        'forward_max_continuous_start_next_value': forward_max_continuous_start_next_value,
-                        'forward_max_continuous_start_next_next_value': forward_max_continuous_start_next_next_value,
-                        'forward_max_continuous_end_value': forward_max_continuous_end_value,
-                        'forward_max_continuous_end_prev_value': forward_max_continuous_end_prev_value,
-                        'forward_max_continuous_end_prev_prev_value': forward_max_continuous_end_prev_prev_value,
-                        'forward_max_abs_sum_first_half': forward_max_abs_sum_first_half,
-                        'forward_max_abs_sum_second_half': forward_max_abs_sum_second_half,
-                        'forward_max_abs_sum_block1': forward_max_abs_sum_block1,
-                        'forward_max_abs_sum_block2': forward_max_abs_sum_block2,
-                        'forward_max_abs_sum_block3': forward_max_abs_sum_block3,
-                        'forward_max_abs_sum_block4': forward_max_abs_sum_block4,
+                        'forward_max_continuous_start_value': safe_formula_val(forward_max_continuous_start_value),
+                        'forward_max_continuous_start_next_value': safe_formula_val(forward_max_continuous_start_next_value),
+                        'forward_max_continuous_start_next_next_value': safe_formula_val(forward_max_continuous_start_next_next_value),
+                        'forward_max_continuous_end_value': safe_formula_val(forward_max_continuous_end_value),
+                        'forward_max_continuous_end_prev_value': safe_formula_val(forward_max_continuous_end_prev_value),
+                        'forward_max_continuous_end_prev_prev_value': safe_formula_val(forward_max_continuous_end_prev_prev_value),
+                        'forward_max_abs_sum_first_half': safe_formula_val(forward_max_abs_sum_first_half),
+                        'forward_max_abs_sum_second_half': safe_formula_val(forward_max_abs_sum_second_half),
+                        'forward_max_abs_sum_block1': safe_formula_val(forward_max_abs_sum_block1),
+                        'forward_max_abs_sum_block2': safe_formula_val(forward_max_abs_sum_block2),
+                        'forward_max_abs_sum_block3': safe_formula_val(forward_max_abs_sum_block3),
+                        'forward_max_abs_sum_block4': safe_formula_val(forward_max_abs_sum_block4),
                         'forward_min_result': forward_min_result,
-                        'forward_min_continuous_start_value': forward_min_continuous_start_value,
-                        'forward_min_continuous_start_next_value': forward_min_continuous_start_next_value,
-                        'forward_min_continuous_start_next_next_value': forward_min_continuous_start_next_next_value,
-                        'forward_min_continuous_end_value': forward_min_continuous_end_value,
-                        'forward_min_continuous_end_prev_value': forward_min_continuous_end_prev_value,
-                        'forward_min_continuous_end_prev_prev_value': forward_min_continuous_end_prev_prev_value,
-                        'forward_min_abs_sum_first_half': forward_min_abs_sum_first_half,
-                        'forward_min_abs_sum_second_half': forward_min_abs_sum_second_half,
-                        'forward_min_abs_sum_block1': forward_min_abs_sum_block1,
-                        'forward_min_abs_sum_block2': forward_min_abs_sum_block2,
-                        'forward_min_abs_sum_block3': forward_min_abs_sum_block3,
-                        'forward_min_abs_sum_block4': forward_min_abs_sum_block4,
+                        'forward_min_continuous_start_value': safe_formula_val(forward_min_continuous_start_value),
+                        'forward_min_continuous_start_next_value': safe_formula_val(forward_min_continuous_start_next_value),
+                        'forward_min_continuous_start_next_next_value': safe_formula_val(forward_min_continuous_start_next_next_value),
+                        'forward_min_continuous_end_value': safe_formula_val(forward_min_continuous_end_value),
+                        'forward_min_continuous_end_prev_value': safe_formula_val(forward_min_continuous_end_prev_value),
+                        'forward_min_continuous_end_prev_prev_value': safe_formula_val(forward_min_continuous_end_prev_prev_value),
+                        'forward_min_abs_sum_first_half': safe_formula_val(forward_min_abs_sum_first_half),
+                        'forward_min_abs_sum_second_half': safe_formula_val(forward_min_abs_sum_second_half),
+                        'forward_min_abs_sum_block1': safe_formula_val(forward_min_abs_sum_block1),
+                        'forward_min_abs_sum_block2': safe_formula_val(forward_min_abs_sum_block2),
+                        'forward_min_abs_sum_block3': safe_formula_val(forward_min_abs_sum_block3),
+                        'forward_min_abs_sum_block4': safe_formula_val(forward_min_abs_sum_block4),
                         'valid_sum_arr': py_valid_sum_arr,
-                        'valid_sum_len': valid_sum_len,
-                        'valid_pos_sum': valid_pos_sum,
-                        'valid_neg_sum': valid_neg_sum,
+                        'valid_sum_len': safe_formula_val(valid_sum_len),
+                        'valid_pos_sum': safe_formula_val(valid_pos_sum),
+                        'valid_neg_sum': safe_formula_val(valid_neg_sum),
                         'forward_max_valid_sum_arr': forward_max_valid_sum_arr,
-                        'forward_max_valid_sum_len': forward_max_valid_sum_len,
-                        'forward_max_valid_pos_sum': forward_max_valid_pos_sum,
-                        'forward_max_valid_neg_sum': forward_max_valid_neg_sum,
+                        'forward_max_valid_sum_len': safe_formula_val(forward_max_valid_sum_len),
+                        'forward_max_valid_pos_sum': safe_formula_val(forward_max_valid_pos_sum),
+                        'forward_max_valid_neg_sum': safe_formula_val(forward_max_valid_neg_sum),
                         'forward_min_valid_sum_arr': forward_min_valid_sum_arr,
-                        'forward_min_valid_sum_len': forward_min_valid_sum_len,
-                        'forward_min_valid_pos_sum': forward_min_valid_pos_sum,
-                        'forward_min_valid_neg_sum': forward_min_valid_neg_sum,
-                        'valid_abs_sum_first_half': valid_abs_sum_first_half,
-                        'valid_abs_sum_second_half': valid_abs_sum_second_half,
-                        'valid_abs_sum_block1': valid_abs_sum_block1,
-                        'valid_abs_sum_block2': valid_abs_sum_block2,
-                        'valid_abs_sum_block3': valid_abs_sum_block3,
-                        'valid_abs_sum_block4': valid_abs_sum_block4,
-                        'forward_max_valid_abs_sum_first_half': forward_max_valid_abs_sum_first_half,
-                        'forward_max_valid_abs_sum_second_half': forward_max_valid_abs_sum_second_half,
-                        'forward_max_valid_abs_sum_block1': forward_max_valid_abs_sum_block1,
-                        'forward_max_valid_abs_sum_block2': forward_max_valid_abs_sum_block2,
-                        'forward_max_valid_abs_sum_block3': forward_max_valid_abs_sum_block3,
-                        'forward_max_valid_abs_sum_block4': forward_max_valid_abs_sum_block4,
-                        'forward_min_valid_abs_sum_first_half': forward_min_valid_abs_sum_first_half,
-                        'forward_min_valid_abs_sum_second_half': forward_min_valid_abs_sum_second_half,
-                        'forward_min_valid_abs_sum_block1': forward_min_valid_abs_sum_block1,
-                        'forward_min_valid_abs_sum_block2': forward_min_valid_abs_sum_block2,
-                        'forward_min_valid_abs_sum_block3': forward_min_valid_abs_sum_block3,
-                        'forward_min_valid_abs_sum_block4': forward_min_valid_abs_sum_block4,
+                        'forward_min_valid_sum_len': safe_formula_val(forward_min_valid_sum_len),
+                        'forward_min_valid_pos_sum': safe_formula_val(forward_min_valid_pos_sum),
+                        'forward_min_valid_neg_sum': safe_formula_val(forward_min_valid_neg_sum),
+                        'valid_abs_sum_first_half': safe_formula_val(valid_abs_sum_first_half),
+                        'valid_abs_sum_second_half': safe_formula_val(valid_abs_sum_second_half),
+                        'valid_abs_sum_block1': safe_formula_val(valid_abs_sum_block1),
+                        'valid_abs_sum_block2': safe_formula_val(valid_abs_sum_block2),
+                        'valid_abs_sum_block3': safe_formula_val(valid_abs_sum_block3),
+                        'valid_abs_sum_block4': safe_formula_val(valid_abs_sum_block4),
+                        'forward_max_valid_abs_sum_first_half': safe_formula_val(forward_max_valid_abs_sum_first_half),
+                        'forward_max_valid_abs_sum_second_half': safe_formula_val(forward_max_valid_abs_sum_second_half),
+                        'forward_max_valid_abs_sum_block1': safe_formula_val(forward_max_valid_abs_sum_block1),
+                        'forward_max_valid_abs_sum_block2': safe_formula_val(forward_max_valid_abs_sum_block2),
+                        'forward_max_valid_abs_sum_block3': safe_formula_val(forward_max_valid_abs_sum_block3),
+                        'forward_max_valid_abs_sum_block4': safe_formula_val(forward_max_valid_abs_sum_block4),
+                        'forward_min_valid_abs_sum_first_half': safe_formula_val(forward_min_valid_abs_sum_first_half),
+                        'forward_min_valid_abs_sum_second_half': safe_formula_val(forward_min_valid_abs_sum_second_half),
+                        'forward_min_valid_abs_sum_block1': safe_formula_val(forward_min_valid_abs_sum_block1),
+                        'forward_min_valid_abs_sum_block2': safe_formula_val(forward_min_valid_abs_sum_block2),
+                        'forward_min_valid_abs_sum_block3': safe_formula_val(forward_min_valid_abs_sum_block3),
+                        'forward_min_valid_abs_sum_block4': safe_formula_val(forward_min_valid_abs_sum_block4),
                         'forward_max_date': forward_max_date_str,
                         'forward_min_date': forward_min_date_str,
                         'n_max_is_max': n_max_is_max_result,
@@ -1609,31 +1628,31 @@ def calculate_batch_cy(
                         'forward_min_valid_abs_is_less': forward_min_valid_abs_is_less,
                         'forward_max_continuous_abs_is_less': forward_max_continuous_abs_is_less,
                         'forward_max_valid_abs_is_less': forward_max_valid_abs_is_less,
-                        'n_days_max_value': n_days_max_value,
-                        'prev_day_change': prev_day_change,
-                        'end_day_change': end_day_change,
+                        'n_days_max_value': safe_formula_val(n_days_max_value),
+                        'prev_day_change': safe_formula_val(prev_day_change),
+                        'end_day_change': safe_formula_val(end_day_change),
                         'diff_end_value': diff_data_view[stock_idx, end_date_idx],
-                        'increment_value': increment_value,
-                        'after_gt_end_value': after_gt_end_value,
-                        'after_gt_start_value': after_gt_start_value,
-                        'ops_value': ops_value,
-                        'increment_change': increment_change,
-                        'after_gt_end_change': after_gt_end_change,
-                        'after_gt_start_change': after_gt_start_change,
-                        'adjust_ops_value': adjust_ops_value,
-                        'adjust_ops_incre_rate': adjust_ops_incre_rate,
-                        'hold_days': hold_days,
-                        'ops_change': ops_change,
-                        'adjust_days': adjust_days,
-                        'ops_incre_rate': ops_incre_rate,
-                        'forward_max_result_len': forward_max_result_len,
-                        'forward_min_result_len': forward_min_result_len,
-                        'cont_sum_pos_sum': cont_sum_pos_sum,
-                        'cont_sum_neg_sum': cont_sum_neg_sum,
-                        'forward_max_cont_sum_pos_sum': forward_max_cont_sum_pos_sum,
-                        'forward_max_cont_sum_neg_sum': forward_max_cont_sum_neg_sum,
-                        'forward_min_cont_sum_pos_sum': forward_min_cont_sum_pos_sum,
-                        'forward_min_cont_sum_neg_sum': forward_min_cont_sum_neg_sum,
+                        'increment_value': safe_formula_val(increment_value),
+                        'after_gt_end_value': safe_formula_val(after_gt_end_value),
+                        'after_gt_start_value': safe_formula_val(after_gt_start_value),
+                        'ops_value': safe_formula_val(ops_value),
+                        'increment_change': safe_formula_val(increment_change),
+                        'after_gt_end_change': safe_formula_val(after_gt_end_change),
+                        'after_gt_start_change': safe_formula_val(after_gt_start_change),
+                        'adjust_ops_value': safe_formula_val(adjust_ops_value),
+                        'adjust_ops_incre_rate': safe_formula_val(adjust_ops_incre_rate),
+                        'hold_days': safe_formula_val(hold_days),
+                        'ops_change': safe_formula_val(ops_change),
+                        'adjust_days': safe_formula_val(adjust_days),
+                        'ops_incre_rate': safe_formula_val(ops_incre_rate),
+                        'forward_max_result_len': safe_formula_val(forward_max_result_len),
+                        'forward_min_result_len': safe_formula_val(forward_min_result_len),
+                        'cont_sum_pos_sum': safe_formula_val(cont_sum_pos_sum),
+                        'cont_sum_neg_sum': safe_formula_val(cont_sum_neg_sum),
+                        'forward_max_cont_sum_pos_sum': safe_formula_val(forward_max_cont_sum_pos_sum),
+                        'forward_max_cont_sum_neg_sum': safe_formula_val(forward_max_cont_sum_neg_sum),
+                        'forward_min_cont_sum_pos_sum': safe_formula_val(forward_min_cont_sum_pos_sum),
+                        'forward_min_cont_sum_neg_sum': safe_formula_val(forward_min_cont_sum_neg_sum),
                         'start_with_new_before_high': start_with_new_before_high_py,
                         'start_with_new_before_high2': start_with_new_before_high2_py,
                         'start_with_new_after_high': start_with_new_after_high_py,
@@ -1668,9 +1687,13 @@ def calculate_batch_cy(
                                 
                     except Exception as e:
                         import traceback
-                        print(f"[calculate_batch_cy] 执行公式异常: {e}")
-                        print(traceback.format_exc())
+                        #print(f"[calculate_batch_cy] 执行公式异常: {e}")
+                        #print(f"公式内容: {formula_expr}")
+                        #print(traceback.format_exc())
                         score = None
+                
+                #print(f"stock_idx={stock_idx}, cont_sum_pos_sum={cont_sum_pos_sum}, valid_pos_sum={valid_pos_sum}, forward_min_cont_sum_pos_sum={forward_min_cont_sum_pos_sum}")
+                
                 if only_show_selected:
                     if score is not None and score != 0 and not isnan(end_value) and hold_days != -1:
                         # 根据排序模式过滤score

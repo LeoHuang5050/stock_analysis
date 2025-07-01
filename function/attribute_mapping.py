@@ -87,6 +87,8 @@ class AttributeMapping:
         # 其他参数
         'formula': '公式',
         'plan_id': '方案ID',
+        'plan_name': '方案名称',
+        'selected_vars': '参加组合排序参数',
         'adjusted_value': '调整值',
         'total_sum': '总分',
         'valid_count': '有效数',
