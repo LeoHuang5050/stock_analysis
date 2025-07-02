@@ -891,8 +891,8 @@ class ComponentAnalysisWidget(QWidget):
                 minutes = int((real_time % 3600) // 60)
                 time_str = f"{hours}小时{minutes}分"
                 # 保存格式化后的时间字符串和组合次数到主窗口
-                self.main_window.last_component_total_elapsed_time = time_str
-                self.main_window.last_component_total_combinations = total_combinations
+            self.main_window.last_component_total_elapsed_time = time_str
+            self.main_window.last_component_total_combinations = total_combinations
         else:
             # 没有计算，从主窗口恢复总耗时和组合次数
             if hasattr(self.main_window, 'last_component_total_elapsed_time') and self.main_window.last_component_total_elapsed_time:
