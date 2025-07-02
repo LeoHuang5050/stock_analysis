@@ -3,7 +3,7 @@ from PyQt5.QtWidgets import (
     QDialog, QLineEdit, QMessageBox, QHeaderView, QScrollArea, QDesktopWidget
 )
 from PyQt5.QtCore import Qt, QDate, QEvent
-from function.attribute_mapping import get_chinese_alias
+
 from function.base_param import CalculateThread
 from function.stock_functions import show_formula_select_table_result
 
@@ -208,16 +208,21 @@ class TradingPlanWidget(QWidget):
             label_formula.setAlignment(Qt.AlignLeft)
             vbox.addWidget(label_formula)
         
+        # 添加空行
+        empty_label = QLabel("")
+        empty_label.setFixedHeight(10)
+        vbox.addWidget(empty_label)
+        
         # 显示参加组合排序的参数名
         params = plan.get('params', {})
-        selected_vars = params.get('selected_vars', [])
+        selected_vars = params.get('selected_vars_with_values', [])
+        print(f"trading_plan_ui selected_vars: {selected_vars}")
         if selected_vars:
             # 构建参数显示文本
             param_lines = ["参加组合排序参数："]
             
-            for var in selected_vars:
-                chinese_name = get_chinese_alias(var)
-                param_lines.append(chinese_name)
+            for var_name, value in selected_vars:  # 解包元组
+                param_lines.append(f"{var_name}: {value:.2f}")  # 直接使用中文名称
             
             # 添加组合排序输出值
             adjusted_value = plan.get('adjusted_value', 0)

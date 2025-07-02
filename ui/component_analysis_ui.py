@@ -829,13 +829,16 @@ class ComponentAnalysisWidget(QWidget):
                         continue
                     total_sum = 0
                     valid_count = 0
+                    selected_vars_with_values = []
                     for var_name in selected_vars:
                         if var_name in summary:
                             value = summary[var_name]
                             if value != '' and not (isinstance(value, float) and math.isnan(value)):
                                 try:
-                                    total_sum += float(value)
+                                    value_float = float(value)
+                                    total_sum += value_float
                                     valid_count += 1
+                                    selected_vars_with_values.append((var_name, value_float))
                                 except (ValueError, TypeError):
                                     continue
                     if valid_count > 0:
@@ -845,8 +848,8 @@ class ComponentAnalysisWidget(QWidget):
                         except (ValueError, TypeError):
                             op_days = 1
                         adjusted_value = total_sum / (1 + (op_days - 1) / 100)
-                        # 将selected_vars和n_values添加到analysis中
-                        analysis['selected_vars'] = selected_vars
+                        # 将selected_vars_with_values添加到analysis中
+                        analysis['selected_vars_with_values'] = selected_vars_with_values
                         # 获取n_values
                         n_values = getattr(self.main_window, 'component_analysis_n_values', {})
                         analysis['n_values'] = n_values
@@ -1383,18 +1386,17 @@ class ComponentAnalysisWidget(QWidget):
             analysis = item['analysis']
             table.setItem(row, 0, QTableWidgetItem(f"{item['adjusted_value']:.2f}"))
             # 输出参数：显示勾选的get_abbr_round_only_map控件名称
-            selected_vars = analysis.get('selected_vars', [])
-            print(f"selected_vars: {selected_vars}")
-            if selected_vars:
+            selected_vars_with_values = analysis.get('selected_vars_with_values', [])
+            if selected_vars_with_values:
                 from function.stock_functions import get_abbr_round_only_map
                 abbr_map = get_abbr_round_only_map()
                 # 获取n_values用于替换第N位
                 n_values = analysis.get('n_values', {})
                 print(f"n_values: {n_values}")
-                # 从字典的键中提取中文名称，并显示参数值
+                # 直接使用selected_vars_with_values中的变量名和值
                 output_params = []
                 output_params_sum = 0
-                for var_name in selected_vars:
+                for var_name, value in selected_vars_with_values:
                     for (zh, en) in abbr_map.keys():
                         if en == var_name:
                             # 处理第N位变量
@@ -1404,21 +1406,10 @@ class ComponentAnalysisWidget(QWidget):
                             else:
                                 zh_display = zh
                             
-                            # 获取该参数的数值
-                            value = None
-                            summary = analysis.get('analysis_stats', {}).get('summary', {})
-                            if var_name in summary:
-                                try:
-                                    value = float(summary[var_name])
-                                    output_params_sum += value
-                                    # 显示参数名称和数值
-                                    output_params.append(f"{zh_display}: {value:.2f}")
-                                except Exception:
-                                    # 如果无法转换为数值，显示默认值0
-                                    output_params.append(f"{zh_display}: 0.00")
-                            else:
-                                # 如果没有数值，显示默认值0
-                                output_params.append(f"{zh_display}: 0.00")
+                            # 直接使用预计算的值
+                            output_params_sum += value
+                            # 显示参数名称和数值
+                            output_params.append(f"{zh_display}: {value:.2f}")
                             break
                 # 输出参数文本
                 output_params_text = "\n".join(output_params)
@@ -2448,8 +2439,11 @@ class ComponentAnalysisWidget(QWidget):
                 'sort_mode': analysis.get('sort_mode', ''),
                 'op_days': analysis.get('op_days', ''),
                 'increment_rate': analysis.get('increment_rate', ''),
-                'selected_vars': analysis.get('selected_vars', [])
+                'selected_vars_with_values': analysis.get('selected_vars_with_values', []),
+                'n_values': analysis.get('n_values', [])
             })
+
+            print(f"component_analysis_ui selected_vars_with_values: {params.get('selected_vars_with_values', [])}")
             
             # 创建操盘方案
             trading_plan = {
@@ -2562,7 +2556,8 @@ class ComponentAnalysisWidget(QWidget):
                 'sort_mode': analysis.get('sort_mode', ''),
                 'op_days': analysis.get('op_days', ''),
                 'increment_rate': analysis.get('increment_rate', ''),
-                'selected_vars': analysis.get('selected_vars', [])
+                'selected_vars_with_values': analysis.get('selected_vars_with_values', []),
+                'n_values': analysis.get('n_values', [])
             })
             
             # 创建操盘方案
