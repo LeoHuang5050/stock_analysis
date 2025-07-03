@@ -95,17 +95,11 @@ class ComponentAnalysisWidget(QWidget):
         self.terminate_btn.clicked.connect(self.on_terminate_clicked)
         self.terminate_btn.setEnabled(False)  # 初始状态禁用
         
-        self.export_excel_btn = QPushButton("导出Excel")
-        self.export_excel_btn.clicked.connect(self.on_export_excel)
+        self.export_json_btn = QPushButton("导出最优方案")
+        self.export_json_btn.clicked.connect(self.on_export_json)
         
-        self.export_csv_btn = QPushButton("导出CSV")
-        self.export_csv_btn.clicked.connect(self.on_export_csv)
-        
-        self.import_excel_btn = QPushButton("导入Excel")
-        self.import_excel_btn.clicked.connect(self.on_import_excel)
-        
-        self.import_csv_btn = QPushButton("导入CSV")
-        self.import_csv_btn.clicked.connect(self.on_import_csv)
+        self.import_json_btn = QPushButton("导入方案")
+        self.import_json_btn.clicked.connect(self.on_import_json)
         
         # 生成操盘方案勾选框
         self.generate_trading_plan_checkbox = QCheckBox("生成操盘方案")
@@ -128,6 +122,11 @@ class ComponentAnalysisWidget(QWidget):
         self.last_best_value_display = QLabel("无")
         self.last_best_value_display.setStyleSheet("color: #2196F3; font-weight: bold;")
         
+        # 新增：清空按钮
+        self.clear_best_value_btn = QPushButton("清空")
+        self.clear_best_value_btn.setFixedWidth(40)
+        self.clear_best_value_btn.clicked.connect(self._on_clear_best_value)
+        
         # 更新上次最优值显示
         self._update_last_best_value_display()
         
@@ -142,14 +141,13 @@ class ComponentAnalysisWidget(QWidget):
         row_layout.addWidget(self.analysis_count_spin)
         row_layout.addWidget(self.analyze_btn)
         row_layout.addWidget(self.terminate_btn)
-        # row_layout.addWidget(self.export_excel_btn)
-        # row_layout.addWidget(self.export_csv_btn)
-        # row_layout.addWidget(self.import_excel_btn)
-        # row_layout.addWidget(self.import_csv_btn)
+        row_layout.addWidget(self.export_json_btn)
+        row_layout.addWidget(self.import_json_btn)
         row_layout.addWidget(self.generate_trading_plan_checkbox)
         row_layout.addWidget(self.only_better_trading_plan_checkbox)
         row_layout.addWidget(self.last_best_value_label)
         row_layout.addWidget(self.last_best_value_display)
+        row_layout.addWidget(self.clear_best_value_btn)
         row_layout.addStretch()
         
         layout.addLayout(row_layout)
@@ -251,9 +249,6 @@ class ComponentAnalysisWidget(QWidget):
             if hasattr(self.main_window, 'last_formula_select_state'):
                 temp_formula_widget.set_state(self.main_window.last_formula_select_state)
             
-            # 设置逻辑状态
-            self._set_logic_states(temp_formula_widget, continuous_sum_logic, valid_sum_logic)
-            
             # 获取get_abbr_round_only_map的勾选状态
             selected_round_only_vars = temp_formula_widget.get_round_only_map_selected_vars()
             print(f"获取到的get_abbr_round_only_map勾选变量: {selected_round_only_vars}")
@@ -345,30 +340,6 @@ class ComponentAnalysisWidget(QWidget):
         # 切换按钮状态
         self.analyze_btn.setEnabled(True)
         self.terminate_btn.setEnabled(False)
-        
-    def _set_logic_states(self, formula_widget, continuous_sum_logic, valid_sum_logic):
-        """设置逻辑状态到公式控件"""
-        # 设置连续累加值正负相加值含逻辑
-        if 'cont_sum_pos_sum' in formula_widget.var_widgets:
-            widgets = formula_widget.var_widgets['cont_sum_pos_sum']
-            if 'logic_check' in widgets:
-                widgets['logic_check'].setChecked(continuous_sum_logic)
-        
-        if 'cont_sum_neg_sum' in formula_widget.var_widgets:
-            widgets = formula_widget.var_widgets['cont_sum_neg_sum']
-            if 'logic_check' in widgets:
-                widgets['logic_check'].setChecked(continuous_sum_logic)
-        
-        # 设置有效累加值正负相加值含逻辑
-        if 'valid_pos_sum' in formula_widget.var_widgets:
-            widgets = formula_widget.var_widgets['valid_pos_sum']
-            if 'logic_check' in widgets:
-                widgets['logic_check'].setChecked(valid_sum_logic)
-        
-        if 'valid_neg_sum' in formula_widget.var_widgets:
-            widgets = formula_widget.var_widgets['valid_neg_sum']
-            if 'logic_check' in widgets:
-                widgets['logic_check'].setChecked(valid_sum_logic)
         
     def execute_component_analysis(self, formula_list, special_params_combinations, start_date, end_date):
         """
@@ -526,8 +497,7 @@ class ComponentAnalysisWidget(QWidget):
         formula_obj = self.formula_list[formula_idx]
         formula = formula_obj['formula']
         sort_mode = formula_obj['sort_mode']
-        width, op_days, increment_rate = self.special_params_combinations[param_idx]
-        
+        width, op_days, increment_rate, after_gt_end_ratio, after_gt_start_ratio, stop_loss_inc_rate, stop_loss_after_gt_end_ratio, stop_loss_after_gt_start_ratio = self.special_params_combinations[param_idx]
         # 打印当前执行的公式和参数
         print("正在执行分析，请不要切换界面导致分析中断...")
         print(f"\n{'='*80}")
@@ -538,7 +508,12 @@ class ComponentAnalysisWidget(QWidget):
         print(f"参数组合 {param_idx + 1}/{len(self.special_params_combinations)}:")
         print(f"  日期宽度: {width}")
         print(f"  操作天数: {op_days}")
-        print(f"  递增值: {increment_rate}")
+        print(f"  止盈递增值: {increment_rate}")
+        print(f"  止盈后值大于结束值比例: {after_gt_end_ratio}")
+        print(f"  止盈后值大于开始值比例: {after_gt_start_ratio}")
+        print(f"  止损递增值: {stop_loss_inc_rate}")
+        print(f"  止损后值大于结束值比例: {stop_loss_after_gt_end_ratio}")
+        print(f"  止损后值大于开始值比例: {stop_loss_after_gt_start_ratio}")
         print(f"{'='*80}")
         # 显示当前进度
         progress_msg = f"正在执行分析，请不要切换界面导致分析中断...\n"
@@ -547,25 +522,15 @@ class ComponentAnalysisWidget(QWidget):
         progress_msg += f"{formula}\n"
         progress_msg += f"排序方式: {sort_mode}\n"
         progress_msg += f"参数组合 {param_idx + 1}/{len(self.special_params_combinations)}\n"
-        progress_msg += f"日期宽度={width}, 操作天数={op_days}, 递增值={increment_rate}"
+        progress_msg += f"日期宽度={width}, 操作天数={op_days}, 递增值={increment_rate}, 后值大于结束值比例={after_gt_end_ratio}, 后值大于开始值比例={after_gt_start_ratio}, 止损递增值={stop_loss_inc_rate}, 止损后值大于结束值比例={stop_loss_after_gt_end_ratio}, 止损后值大于开始值比例={stop_loss_after_gt_start_ratio}"
         self.show_message(progress_msg)
         
-        # 临时设置主窗口参数
-        original_width = self.main_window.width_spin.value()
-        original_op_days = self.main_window.op_days_edit.text()
-        original_inc_rate = self.main_window.inc_rate_edit.text()
-        
         try:
-            # 设置当前参数组合
-            self.main_window.width_spin.setValue(int(float(width)))
-            self.main_window.op_days_edit.setText(str(op_days))
-            self.main_window.inc_rate_edit.setText(str(increment_rate))
-            
             # 设置当前公式
             self.main_window.last_formula_expr = formula
             
-            # 执行组合分析专用方法
-            result = self._execute_component_analysis_single(formula, width, op_days, increment_rate, sort_mode)
+            # 执行组合分析专用方法，直接传递参数
+            result = self._execute_component_analysis_single(formula, width, op_days, increment_rate, after_gt_end_ratio, after_gt_start_ratio, stop_loss_inc_rate, stop_loss_after_gt_end_ratio, stop_loss_after_gt_start_ratio, sort_mode)
             
             # 再次检查是否被终止
             if self.analysis_terminated:
@@ -591,6 +556,11 @@ class ComponentAnalysisWidget(QWidget):
                     'width': width,
                     'op_days': op_days,
                     'increment_rate': increment_rate,
+                    'after_gt_end_ratio': after_gt_end_ratio,
+                    'after_gt_start_ratio': after_gt_start_ratio,
+                    'stop_loss_inc_rate': stop_loss_inc_rate,
+                    'stop_loss_after_gt_end_ratio': stop_loss_after_gt_end_ratio,
+                    'stop_loss_after_gt_start_ratio': stop_loss_after_gt_start_ratio,
                     'select_count': select_count,  # 添加选股数量
                     'result': result,
                     'valid_items': valid_items,
@@ -605,11 +575,6 @@ class ComponentAnalysisWidget(QWidget):
                 self.show_message(f"第 {self.current_analysis_index + 1} 次分析失败: {error_msg}")
         except Exception as e:
             print(f"第 {self.current_analysis_index + 1} 次分析出错: {e}")
-        finally:
-            # 恢复原始参数
-            self.main_window.width_spin.setValue(original_width)
-            self.main_window.op_days_edit.setText(original_op_days)
-            self.main_window.inc_rate_edit.setText(original_inc_rate)
         
         # 标记当前分析完成（在索引增加之前）
         self.component_analysis_completed_index = self.current_analysis_index
@@ -620,7 +585,7 @@ class ComponentAnalysisWidget(QWidget):
         # 使用QTimer延迟执行下一次分析，确保当前分析完全完成
         QTimer.singleShot(500, self.execute_next_analysis)  # 3秒后执行下一次分析
     
-    def _execute_component_analysis_single(self, formula, width, op_days, increment_rate, sort_mode):
+    def _execute_component_analysis_single(self, formula, width, op_days, increment_rate, after_gt_end_ratio, after_gt_start_ratio, stop_loss_inc_rate, stop_loss_after_gt_end_ratio, stop_loss_after_gt_start_ratio, sort_mode):
         """
         执行单次组合分析
         专门为组合分析创建的方法，避免依赖自动分析子界面的控件
@@ -778,8 +743,7 @@ class ComponentAnalysisWidget(QWidget):
         
         # 获取选股数量和排序方式
         select_count = getattr(self.main_window, 'last_select_count', 10)
-        
-        # 调用主窗口的计算方法
+        # 调用主窗口的计算方法，直接传递参数
         result = self.main_window.get_or_calculate_result(
             formula_expr=formula, 
             show_main_output=False, 
@@ -788,7 +752,15 @@ class ComponentAnalysisWidget(QWidget):
             select_count=select_count,
             sort_mode=sort_mode,
             end_date_start=start_date,
-            end_date_end=end_date
+            end_date_end=end_date,
+            width=int(float(width)),
+            op_days=op_days,
+            inc_rate=increment_rate,
+            after_gt_end_ratio=after_gt_end_ratio,
+            after_gt_start_ratio=after_gt_start_ratio,
+            stop_loss_inc_rate=stop_loss_inc_rate,
+            stop_loss_after_gt_end_ratio=stop_loss_after_gt_end_ratio,
+            stop_loss_after_gt_start_ratio=stop_loss_after_gt_start_ratio
         )
         
         if result:
@@ -908,9 +880,9 @@ class ComponentAnalysisWidget(QWidget):
         # 输出top_three的单页表格
         from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QPushButton, QVBoxLayout, QDialog, QScrollArea
         from PyQt5.QtCore import Qt
-        table = QTableWidget(len(top_three), 8, self.result_area)  # 增加一列用于恢复按钮
+        table = QTableWidget(len(top_three), 6, self.result_area)  # 修改为6列：输出值、输出参数、选股公式、选股参数、操作1、操作2
         table.setHorizontalHeaderLabels([
-            "组合分析排序输出值", "输出参数", "日期宽度", "操作天数", "递增率", "排序方式", "", ""
+            "组合分析排序输出值", "输出参数", "选股公式", "选股参数", "", ""
         ])
         
         def show_analysis_detail(analysis_data, idx=None):
@@ -921,11 +893,8 @@ class ComponentAnalysisWidget(QWidget):
             if not hasattr(self, 'detail_windows'):
                 self.detail_windows = []
             self.detail_windows.append(window)
-            # 修复lambda函数中的self引用问题
-            def remove_window():
-                if hasattr(self, 'detail_windows') and window in self.detail_windows:
-                    self.detail_windows.remove(window)
-            window.destroyed.connect(remove_window)
+            # 用lambda捕获self和window，避免闭包self引用问题
+            window.destroyed.connect(lambda: self.detail_windows.remove(window) if hasattr(self, 'detail_windows') and window in self.detail_windows else None)
         
         def restore_formula_params(analysis_data):
             """恢复选股参数到选股控件"""
@@ -935,6 +904,11 @@ class ComponentAnalysisWidget(QWidget):
                 width = analysis_data.get('width', '')
                 op_days = analysis_data.get('op_days', '')
                 increment_rate = analysis_data.get('increment_rate', '')
+                after_gt_end_ratio = analysis_data.get('after_gt_end_ratio', '')
+                after_gt_start_ratio = analysis_data.get('after_gt_start_ratio', '')
+                stop_loss_inc_rate = analysis_data.get('stop_loss_inc_rate', '')
+                stop_loss_after_gt_end_ratio = analysis_data.get('stop_loss_after_gt_end_ratio', '')
+                stop_loss_after_gt_start_ratio = analysis_data.get('stop_loss_after_gt_start_ratio', '')
                 sort_mode = analysis_data.get('sort_mode', '')
                 select_count = analysis_data.get('select_count', 10)  # 获取选股数量
                 
@@ -1276,46 +1250,98 @@ class ComponentAnalysisWidget(QWidget):
                             print(f"result变量 {var} 不在控件列表中")
                 
                 # 5. 处理比较控件
+                from function.stock_functions import get_abbr_map
+                abbr_map = get_abbr_map()  # {中文: 英文}
+                en2zh = {en: zh for zh, en in abbr_map.items()}
                 comparison_configs = []
+                # >=
                 for m in re.finditer(r'([a-zA-Z0-9_]+)\s*>=\s*([\-\d\.]+)\s*\*\s*([a-zA-Z0-9_]+)', formula):
                     var1, lower, var2 = m.group(1), m.group(2), m.group(3)
-                    comparison_configs.append({
-                        'var1': var1,
-                        'lower': lower,
-                        'upper': '',
-                        'var2': var2
-                    })
-                    print(f"处理比较控件下限: {var1} >= {lower} * {var2}")
-                
+                    zh_var1 = en2zh.get(var1, var1)
+                    zh_var2 = en2zh.get(var2, var2)
+                    existing = next((c for c in comparison_configs if c['var1'] == zh_var1 and c['var2'] == zh_var2), None)
+                    if existing:
+                        existing['lower'] = lower
+                    else:
+                        comparison_configs.append({'var1': zh_var1, 'lower': lower, 'upper': '', 'var2': zh_var2})
+                # <=
                 for m in re.finditer(r'([a-zA-Z0-9_]+)\s*<=\s*([\-\d\.]+)\s*\*\s*([a-zA-Z0-9_]+)', formula):
                     var1, upper, var2 = m.group(1), m.group(2), m.group(3)
-                    # 查找是否已有该变量的配置
-                    existing_config = None
-                    for config in comparison_configs:
-                        if config['var1'] == var1 and config['var2'] == var2:
-                            existing_config = config
-                            break
-                    
-                    if existing_config:
-                        existing_config['upper'] = upper
-                        print(f"更新比较控件上限: {var1} <= {upper} * {var2}")
+                    zh_var1 = en2zh.get(var1, var1)
+                    zh_var2 = en2zh.get(var2, var2)
+                    existing = next((c for c in comparison_configs if c['var1'] == zh_var1 and c['var2'] == zh_var2), None)
+                    if existing:
+                        existing['upper'] = upper
                     else:
-                        comparison_configs.append({
-                            'var1': var1,
-                            'lower': '',
-                            'upper': upper,
-                            'var2': var2
-                        })
-                        print(f"处理比较控件上限: {var1} <= {upper} * {var2}")
+                        comparison_configs.append({'var1': zh_var1, 'lower': '', 'upper': upper, 'var2': zh_var2})
                 
-                # 将比较控件配置保存到状态中
+                # 将比较控件配置应用到实际的比较控件上
                 if comparison_configs:
-                    # 这里需要将比较控件配置保存到临时控件的状态中
-                    # 由于比较控件的处理比较复杂，暂时保存到主窗口的状态中
+                    print(f"开始应用比较控件配置: {comparison_configs}")
+                    
+                    # 遍历所有比较控件配置
+                    for i, config in enumerate(comparison_configs):
+                        var1 = config['var1']
+                        var2 = config['var2']
+                        lower = config['lower']
+                        upper = config['upper']
+                        
+                        print(f"处理比较控件配置 {i+1}: {var1} vs {var2}, 下限: {lower}, 上限: {upper}")
+                        
+                        # 检查是否有足够的比较控件
+                        if i < len(temp_formula_widget.comparison_widgets):
+                            comp = temp_formula_widget.comparison_widgets[i]
+                            print(f"找到比较控件 {i+1}")
+                            
+                            # 勾选复选框
+                            if 'checkbox' in comp:
+                                comp['checkbox'].setChecked(True)
+                                print(f"  勾选比较控件复选框")
+                            
+                            # 设置下限
+                            if lower and 'lower' in comp:
+                                comp['lower'].setText(str(lower))
+                                print(f"  设置下限: {lower}")
+                            
+                            # 设置上限
+                            if upper and 'upper' in comp:
+                                comp['upper'].setText(str(upper))
+                                print(f"  设置上限: {upper}")
+                            
+                            # 设置var1下拉框
+                            if 'var1' in comp:
+                                var1_combo = comp['var1']
+                                var1_zh = None
+                                for zh, en in abbr_map.items():
+                                    if en == var1:
+                                        var1_zh = zh
+                                        break
+                                if var1_zh:
+                                    var1_combo.setCurrentText(var1_zh)
+                                    print(f"  设置var1: {var1_zh}")
+                                else:
+                                    print(f"  未找到var1的中文名称: {var1}")
+                            # 设置var2下拉框
+                            if 'var2' in comp:
+                                var2_combo = comp['var2']
+                                var2_zh = None
+                                for zh, en in abbr_map.items():
+                                    if en == var2:
+                                        var2_zh = zh
+                                        break
+                                if var2_zh:
+                                    var2_combo.setCurrentText(var2_zh)
+                                    print(f"  设置var2: {var2_zh}")
+                                else:
+                                    print(f"  未找到var2的中文名称: {var2}")
+                        else:
+                            print(f"比较控件 {i+1} 不存在，跳过")
+                    
+                    # 保存比较控件配置到状态中
                     comparison_state = {
                         'comparison_widgets': comparison_configs
                     }
-                    print(f"保存比较控件配置: {comparison_state}")
+                    print(f"保存比较控件配置到状态: {comparison_state}")
                 
                 # 获取当前状态
                 current_state = temp_formula_widget.get_state()
@@ -1359,7 +1385,37 @@ class ComponentAnalysisWidget(QWidget):
                 if increment_rate:
                     try:
                         self.main_window.inc_rate_edit.setText(str(increment_rate))
-                        print(f"设置递增率: {increment_rate}")
+                        print(f"设置止盈递增率: {increment_rate}")
+                    except:
+                        pass
+                if after_gt_end_ratio:
+                    try:
+                        self.main_window.after_gt_end_edit.setText(str(after_gt_end_ratio))
+                        print(f"设置止盈后值大于结束值比例: {after_gt_end_ratio}")
+                    except:
+                        pass
+                if after_gt_start_ratio:
+                    try:
+                        self.main_window.after_gt_prev_edit.setText(str(after_gt_start_ratio))
+                        print(f"设置止盈后值大于前值比例: {after_gt_start_ratio}")
+                    except:
+                        pass
+                if stop_loss_inc_rate:
+                    try:
+                        self.main_window.stop_loss_inc_rate_edit.setText(str(stop_loss_inc_rate))
+                        print(f"设置止损递增率: {stop_loss_inc_rate}")
+                    except:
+                        pass
+                if stop_loss_after_gt_end_ratio:
+                    try:
+                        self.main_window.stop_loss_after_gt_end_edit.setText(str(stop_loss_after_gt_end_ratio))
+                        print(f"设置止损后值大于结束值比例: {stop_loss_after_gt_end_ratio}")
+                    except:
+                        pass
+                if stop_loss_after_gt_start_ratio:
+                    try:
+                        self.main_window.stop_loss_after_gt_start_edit.setText(str(stop_loss_after_gt_start_ratio))
+                        print(f"设置止损后值大于前值比例: {stop_loss_after_gt_start_ratio}")
                     except:
                         pass
                 
@@ -1374,7 +1430,7 @@ class ComponentAnalysisWidget(QWidget):
                 # 清理临时控件
                 temp_formula_widget.deleteLater()
                 
-                QMessageBox.information(self, "恢复成功", f"已成功恢复选股参数！\n公式: {formula}\n排序方式: {sort_mode}\n日期宽度: {width}\n操作天数: {op_days}\n递增率: {increment_rate}\n选股数量: {select_count}")
+                QMessageBox.information(self, "恢复成功", f"已成功恢复选股参数！\n公式: {formula}\n排序方式: {sort_mode}\n 选股数量: {select_count}\n日期宽度: {width}\n操作天数: {op_days}\n止盈递增率: {increment_rate}\n止盈后值大于结束值比例: {after_gt_end_ratio}\n止盈后值大于前值比例: {after_gt_start_ratio}\n止损递增率: {stop_loss_inc_rate}\n止损后值大于结束值比例: {stop_loss_after_gt_end_ratio}\n止损后值大于前值比例: {stop_loss_after_gt_start_ratio}")
                 
             except Exception as e:
                 QMessageBox.critical(self, "恢复失败", f"恢复选股参数失败：{e}")
@@ -1429,12 +1485,33 @@ class ComponentAnalysisWidget(QWidget):
             output_params_item.setTextAlignment(Qt.AlignLeft | Qt.AlignTop)
             output_params_item.setToolTip(output_params_text)
             table.setItem(row, 1, output_params_item)
-            table.setItem(row, 2, QTableWidgetItem(str(analysis.get('width', ''))))
-            table.setItem(row, 3, QTableWidgetItem(str(analysis.get('op_days', ''))))
-            table.setItem(row, 4, QTableWidgetItem(str(analysis.get('increment_rate', ''))))
-            table.setItem(row, 5, QTableWidgetItem(str(analysis.get('sort_mode', ''))))
             
-            # 添加查看分析结果按钮（第6列，列名为空）
+            # 第3列：选股公式
+            formula = analysis.get('formula', '')
+            formula_item = QTableWidgetItem(formula)
+            formula_item.setTextAlignment(Qt.AlignLeft | Qt.AlignTop)
+            formula_item.setToolTip(formula)
+            table.setItem(row, 2, formula_item)
+            
+            # 第4列：选股参数（按指定顺序分行输出）
+            params_text = []
+            params_text.append(f"选股数量: {analysis.get('select_count', 10)}")
+            params_text.append(f"排序方式: {analysis.get('sort_mode', '')}")
+            params_text.append(f"日期宽度: {analysis.get('width', '')}")
+            params_text.append(f"操作天数: {analysis.get('op_days', '')}")
+            params_text.append(f"止盈递增率: {analysis.get('increment_rate', '')}")
+            params_text.append(f"止盈后值大于结束值比例: {analysis.get('after_gt_end_ratio', '')}")
+            params_text.append(f"止盈后值大于前值比例: {analysis.get('after_gt_start_ratio', '')}")
+            params_text.append(f"止损递增率: {analysis.get('stop_loss_inc_rate', '')}")
+            params_text.append(f"止损后值大于结束值比例: {analysis.get('stop_loss_after_gt_end_ratio', '')}")
+            params_text.append(f"止损后值大于前值比例: {analysis.get('stop_loss_after_gt_start_ratio', '')}")
+            
+            params_item = QTableWidgetItem("\n".join(params_text))
+            params_item.setTextAlignment(Qt.AlignLeft | Qt.AlignTop)
+            params_item.setToolTip("\n".join(params_text))
+            table.setItem(row, 3, params_item)
+            
+            # 添加查看分析结果按钮（第5列，列名为空）
             view_btn = QPushButton("查看详情")
             view_btn.setStyleSheet("""
                 QPushButton {
@@ -1453,9 +1530,9 @@ class ComponentAnalysisWidget(QWidget):
                 }
             """)
             view_btn.clicked.connect(lambda checked, data=analysis, idx=row: show_analysis_detail(data, idx))
-            table.setCellWidget(row, 6, view_btn)
+            table.setCellWidget(row, 4, view_btn)
             
-            # 添加恢复参数按钮（第7列）
+            # 添加恢复参数按钮（第6列）
             restore_btn = QPushButton("恢复参数")
             restore_btn.setStyleSheet("""
                 QPushButton {
@@ -1474,17 +1551,24 @@ class ComponentAnalysisWidget(QWidget):
                 }
             """)
             restore_btn.clicked.connect(lambda checked, data=analysis: restore_formula_params(data))
-            table.setCellWidget(row, 7, restore_btn)
+            table.setCellWidget(row, 5, restore_btn)
             
         table.resizeColumnsToContents()
-        # 设置按钮列的固定宽度
-        table.setColumnWidth(6, 100)  # 查看详情按钮列宽度
-        table.setColumnWidth(7, 100)  # 恢复参数按钮列宽度
+        # 设置列宽
+        table.setColumnWidth(0, 150)  # 输出值列宽度
+        table.setColumnWidth(1, 200)  # 输出参数列宽度
+        table.setColumnWidth(2, 300)  # 选股公式列宽度
+        table.setColumnWidth(3, 250)  # 选股参数列宽度
+        table.setColumnWidth(4, 100)  # 查看详情按钮列宽度
+        table.setColumnWidth(5, 100)  # 恢复参数按钮列宽度
         # 自动调整行高以适配多行公式
         for row in range(table.rowCount()):
             table.resizeRowToContents(row)
         self.result_layout.addWidget(table)
         print(f"组合分析完成！输出前三名排序结果。")
+        # 新增：保存最优top1到主窗口缓存
+        if top_three:
+            self.main_window.last_component_analysis_top1 = top_three[0]
 
     def create_component_result_table(self, analysis):
         """为单个组合分析结果创建类似主界面的表格"""
@@ -1585,7 +1669,7 @@ class ComponentAnalysisWidget(QWidget):
         # params = [
         #     ("日期宽度", str(analysis.get('width', ''))),
         #     ("操作天数", str(analysis.get('op_days', ''))),
-        #     ("递增率", f"{analysis.get('increment_rate', '')}%"),
+        #     ("止盈递增率", f"{analysis.get('increment_rate', '')}%"),
         #     ("排序方式", analysis.get('sort_mode', ''))
         # ]
         # for i, (label, value) in enumerate(params):
@@ -1637,320 +1721,40 @@ class ComponentAnalysisWidget(QWidget):
             self.result_layout.removeWidget(self.result_text)
             self.result_layout.addWidget(self.result_text)
         
-    def on_export_excel(self):
-        """导出Excel（表格下方追加控件参数信息，排除结束日期、操作天数、日期宽度、递增率）"""
-        if not self.cached_analysis_results:
-            QMessageBox.warning(self, "提示", "没有可导出的表格数据！")
+    def on_export_json(self):
+        """导出最优方案为json文件"""
+        top1 = getattr(self.main_window, 'last_component_analysis_top1', None)
+        if not top1:
+            QMessageBox.warning(self, "提示", "没有可导出的最优方案数据！")
             return
-        file_path, _ = QFileDialog.getSaveFileName(self, "保存为Excel文件", "", "Excel Files (*.xlsx)")
-        if file_path:
-            if not file_path.endswith('.xlsx'):
-                file_path += '.xlsx'
-            try:
-                import pandas as pd
-                # 表格数据
-                headers = ["组合分析排序输出值", "公式", "日期宽度", "操作天数", "递增率", "排序方式"]
-                data = []
-                for item in self.cached_analysis_results:
-                    analysis = item['analysis']
-                    data.append([
-                        f"{item['adjusted_value']:.2f}",
-                        str(analysis.get('formula', '')),
-                        str(analysis.get('width', '')),
-                        str(analysis.get('op_days', '')),
-                        str(analysis.get('increment_rate', '')),
-                        str(analysis.get('sort_mode', '')),
-                    ])
-                df = pd.DataFrame(data, columns=headers)
-                # 参数信息，参考save_config，排除结束日期、操作天数、日期宽度、递增率
-                exclude_keys = {
-                    'date', 'analysis_start_date', 'analysis_end_date',
-                    'increment_rate', 'last_formula_expr'
-                }
-                config_keys = [
-                    'date', 'width', 'start_option', 'shift', 'inc_rate', 'op_days', 'after_gt_end_edit',
-                    'after_gt_prev_edit', 'n_days', 'n_days_max', 'range_value', 'continuous_abs_threshold',
-                    'ops_change', 'expr', 'last_select_count', 'last_sort_mode', 'direction',
-                    'analysis_start_date', 'analysis_end_date', 'component_analysis_start_date',
-                    'component_analysis_end_date', 'cpu_cores', 'last_formula_select_state',
-                    'trade_mode',
-                    'new_before_high_start', 'new_before_high_range', 'new_before_high_span',
-                    'new_before_low_start', 'new_before_low_range', 'new_before_low_span',
-                    'valid_abs_sum_threshold', 'new_before_high_logic', 'new_before_high2_start',
-                    'new_before_high2_range', 'new_before_high2_span', 'new_before_high2_logic',
-                    'new_after_high_start', 'new_after_high_range', 'new_after_high_span', 'new_after_high_logic',
-                    'new_after_high2_start', 'new_after_high2_range', 'new_after_high2_span', 'new_after_high2_logic',
-                    'new_before_low_start', 'new_before_low_range', 'new_before_low_span', 'new_before_low_logic',
-                    'new_before_low2_start', 'new_before_low2_range', 'new_before_low2_span', 'new_before_low2_logic',
-                    'new_after_low_start', 'new_after_low_range', 'new_after_low_span', 'new_after_low_logic',
-                    'new_after_low2_start', 'new_after_low2_range', 'new_after_low2_span', 'new_after_low2_logic',
-                    'new_before_high_flag', 'new_before_high2_flag', 'new_after_high_flag', 'new_after_high2_flag',
-                    'new_before_low_flag', 'new_before_low2_flag', 'new_after_low_flag', 'new_after_low2_flag',
-                    'formula_select_state', 'forward_param_state'
-                ]
-                param_map = {}
-                for k in config_keys:
-                    if k in exclude_keys:
-                        print(f"跳过排除的参数: {k}")
-                        continue
-                    
-                    v = None
-                    # 特殊处理：width 参数直接查找 width_spin 控件
-                    if k == 'width' and hasattr(self.main_window, 'width_spin'):
-                        v = self.main_window.width_spin.value()
-                        print(f"找到特殊控件: width_spin = {v}")
-                    # 特殊处理：组合分析日期参数
-                    elif k == 'component_analysis_start_date' and hasattr(self.main_window, 'last_component_analysis_start_date'):
-                        v = getattr(self.main_window, 'last_component_analysis_start_date', '')
-                        print(f"找到特殊属性: last_component_analysis_start_date = {v}")
-                    elif k == 'component_analysis_end_date' and hasattr(self.main_window, 'last_component_analysis_end_date'):
-                        v = getattr(self.main_window, 'last_component_analysis_end_date', '')
-                        print(f"找到特殊属性: last_component_analysis_end_date = {v}")
-                    # LineEdit - 优先处理，避免被当作直接控件名
-                    elif hasattr(self.main_window, k + '_edit'):
-                        edit_name = k + '_edit'
-                        v = getattr(self.main_window, edit_name).text()
-                        print(f"找到LineEdit: {edit_name} = {v}")
-                    # SpinBox
-                    elif hasattr(self.main_window, k + '_spin'):
-                        spin_name = k + '_spin'
-                        v = getattr(self.main_window, spin_name).value()
-                        print(f"找到SpinBox: {spin_name} = {v}")
-                    # ComboBox
-                    elif hasattr(self.main_window, k + '_combo'):
-                        combo_name = k + '_combo'
-                        v = getattr(self.main_window, combo_name).currentText()
-                        print(f"找到ComboBox: {combo_name} = {v}")
-                    # CheckBox
-                    elif hasattr(self.main_window, k + '_checkbox'):
-                        checkbox_name = k + '_checkbox'
-                        v = getattr(self.main_window, checkbox_name).isChecked()
-                        print(f"找到CheckBox: {checkbox_name} = {v}")
-                    # 直接控件名（如 after_gt_end_edit）
-                    elif hasattr(self.main_window, k):
-                        attr_value = getattr(self.main_window, k)
-                        # 检查是否是控件对象，获取其值
-                        if hasattr(attr_value, 'text'):
-                            v = attr_value.text()
-                            print(f"找到直接控件: {k} = {v}")
-                        elif hasattr(attr_value, 'value'):
-                            v = attr_value.value()
-                            print(f"找到直接控件: {k} = {v}")
-                        elif hasattr(attr_value, 'currentText'):
-                            v = attr_value.currentText()
-                            print(f"找到直接控件: {k} = {v}")
-                        elif hasattr(attr_value, 'isChecked'):
-                            v = attr_value.isChecked()
-                            print(f"找到直接控件: {k} = {v}")
-                        else:
-                            # 不是控件对象，是普通属性
-                            v = attr_value
-                            print(f"找到直接属性: {k} = {v}")
-                    else:
-                        print(f"未找到任何控件或属性: {k}")
-                    
-                    # 确保v不是方法对象
-                    if v is not None and not callable(v):
-                        param_map[k] = v
-                        print(f"导出参数: {k} = {v}")
-                    else:
-                        print(f"参数值为空或为方法对象: {k}")
-                        
-                print(f"总共导出 {len(param_map)} 个参数")
-                
-                # 追加参数行
-                for k, v in param_map.items():
-                    df.loc[len(df)] = [f"#{k}:{v}"] + [None]*(len(headers)-1)
-                df.to_excel(file_path, index=False)
-                QMessageBox.information(self, "导出成功", f"已成功导出到 {file_path}")
-            except Exception as e:
-                QMessageBox.critical(self, "导出失败", f"导出Excel失败：{e}")
-                
-    def on_export_csv(self):
-        """导出CSV（表格下方追加控件参数信息，排除结束日期、操作天数、日期宽度、递增率）"""
-        if not self.cached_analysis_results:
-            QMessageBox.warning(self, "提示", "没有可导出的表格数据！")
+        file_path, _ = QFileDialog.getSaveFileName(self, "导出最优方案", "", "JSON Files (*.json);;Text Files (*.txt)")
+        if not file_path:
             return
-        file_path, _ = QFileDialog.getSaveFileName(self, "保存为CSV文件", "", "CSV Files (*.csv)")
-        if file_path:
-            if not file_path.endswith('.csv'):
-                file_path += '.csv'
-            try:
-                import csv
-                # 表格数据
-                headers = ["组合分析排序输出值", "公式", "日期宽度", "操作天数", "递增率", "排序方式"]
-                data = []
-                for item in self.cached_analysis_results:
-                    analysis = item['analysis']
-                    data.append([
-                        f"{item['adjusted_value']:.2f}",
-                        str(analysis.get('formula', '')),
-                        str(analysis.get('width', '')),
-                        str(analysis.get('op_days', '')),
-                        str(analysis.get('increment_rate', '')),
-                        str(analysis.get('sort_mode', '')),
-                    ])
-                # 参数信息，参考save_config，排除结束日期、操作天数、日期宽度、递增率
-                exclude_keys = {
-                    'date', 'analysis_start_date', 'analysis_end_date',
-                    'increment_rate', 'last_formula_expr'
-                }
-                config_keys = [
-                    'date', 'width', 'start_option', 'shift', 'inc_rate', 'op_days', 'after_gt_end_edit',
-                    'after_gt_prev_edit', 'n_days', 'n_days_max', 'range_value', 'continuous_abs_threshold',
-                    'ops_change', 'expr', 'last_select_count', 'last_sort_mode', 'direction',
-                    'analysis_start_date', 'analysis_end_date', 'component_analysis_start_date',
-                    'component_analysis_end_date', 'cpu_cores', 'last_formula_select_state',
-                    'trade_mode',
-                    'new_before_high_start', 'new_before_high_range', 'new_before_high_span',
-                    'new_before_low_start', 'new_before_low_range', 'new_before_low_span',
-                    'valid_abs_sum_threshold', 'new_before_high_logic', 'new_before_high2_start',
-                    'new_before_high2_range', 'new_before_high2_span', 'new_before_high2_logic',
-                    'new_after_high_start', 'new_after_high_range', 'new_after_high_span', 'new_after_high_logic',
-                    'new_after_high2_start', 'new_after_high2_range', 'new_after_high2_span', 'new_after_high2_logic',
-                    'new_before_low_start', 'new_before_low_range', 'new_before_low_span', 'new_before_low_logic',
-                    'new_before_low2_start', 'new_before_low2_range', 'new_before_low2_span', 'new_before_low2_logic',
-                    'new_after_low_start', 'new_after_low_range', 'new_after_low_span', 'new_after_low_logic',
-                    'new_after_low2_start', 'new_after_low2_range', 'new_after_low2_span', 'new_after_low2_logic',
-                    'new_before_high_flag', 'new_before_high2_flag', 'new_after_high_flag', 'new_after_high2_flag',
-                    'new_before_low_flag', 'new_before_low2_flag', 'new_after_low_flag', 'new_after_low2_flag',
-                    'formula_select_state', 'forward_param_state'
-                ]
-                param_map = {}
-                for k in config_keys:
-                    if k in exclude_keys:
-                        print(f"跳过排除的参数: {k}")
-                        continue
-                    
-                    v = None
-                    # 特殊处理：width 参数直接查找 width_spin 控件
-                    if k == 'width' and hasattr(self.main_window, 'width_spin'):
-                        v = self.main_window.width_spin.value()
-                        print(f"找到特殊控件: width_spin = {v}")
-                    # 特殊处理：组合分析日期参数
-                    elif k == 'component_analysis_start_date' and hasattr(self.main_window, 'last_component_analysis_start_date'):
-                        v = getattr(self.main_window, 'last_component_analysis_start_date', '')
-                        print(f"找到特殊属性: last_component_analysis_start_date = {v}")
-                    elif k == 'component_analysis_end_date' and hasattr(self.main_window, 'last_component_analysis_end_date'):
-                        v = getattr(self.main_window, 'last_component_analysis_end_date', '')
-                        print(f"找到特殊属性: last_component_analysis_end_date = {v}")
-                    # LineEdit - 优先处理，避免被当作直接控件名
-                    elif hasattr(self.main_window, k + '_edit'):
-                        edit_name = k + '_edit'
-                        v = getattr(self.main_window, edit_name).text()
-                        print(f"找到LineEdit: {edit_name} = {v}")
-                    # SpinBox
-                    elif hasattr(self.main_window, k + '_spin'):
-                        spin_name = k + '_spin'
-                        v = getattr(self.main_window, spin_name).value()
-                        print(f"找到SpinBox: {spin_name} = {v}")
-                    # ComboBox
-                    elif hasattr(self.main_window, k + '_combo'):
-                        combo_name = k + '_combo'
-                        v = getattr(self.main_window, combo_name).currentText()
-                        print(f"找到ComboBox: {combo_name} = {v}")
-                    # CheckBox
-                    elif hasattr(self.main_window, k + '_checkbox'):
-                        checkbox_name = k + '_checkbox'
-                        v = getattr(self.main_window, checkbox_name).isChecked()
-                        print(f"找到CheckBox: {checkbox_name} = {v}")
-                    # 直接控件名（如 after_gt_end_edit）
-                    elif hasattr(self.main_window, k):
-                        attr_value = getattr(self.main_window, k)
-                        # 检查是否是控件对象，获取其值
-                        if hasattr(attr_value, 'text'):
-                            v = attr_value.text()
-                            print(f"找到直接控件: {k} = {v}")
-                        elif hasattr(attr_value, 'value'):
-                            v = attr_value.value()
-                            print(f"找到直接控件: {k} = {v}")
-                        elif hasattr(attr_value, 'currentText'):
-                            v = attr_value.currentText()
-                            print(f"找到直接控件: {k} = {v}")
-                        elif hasattr(attr_value, 'isChecked'):
-                            v = attr_value.isChecked()
-                            print(f"找到直接控件: {k} = {v}")
-                        else:
-                            # 不是控件对象，是普通属性
-                            v = attr_value
-                            print(f"找到直接属性: {k} = {v}")
-                    else:
-                        print(f"未找到任何控件或属性: {k}")
-                    
-                    # 确保v不是方法对象
-                    if v is not None and not callable(v):
-                        param_map[k] = v
-                        print(f"导出参数: {k} = {v}")
-                    else:
-                        print(f"参数值为空或为方法对象: {k}")
-                        
-                print(f"总共导出 {len(param_map)} 个参数")
-                
-                # 写入csv
-                with open(file_path, 'w', encoding='utf-8-sig', newline='') as f:
-                    writer = csv.writer(f)
-                    writer.writerow(headers)
-                    writer.writerows(data)
-                    for k, v in param_map.items():
-                        writer.writerow([f"#{k}:{v}"])
-                QMessageBox.information(self, "导出成功", f"已成功导出到 {file_path}")
-            except Exception as e:
-                QMessageBox.critical(self, "导出失败", f"导出CSV失败：{e}")
-                
-    def on_import_excel(self):
-        """导入Excel并自动恢复控件参数"""
-        file_path, _ = QFileDialog.getOpenFileName(self, "导入Excel文件", "", "Excel Files (*.xlsx *.xls)")
+        if not (file_path.endswith('.json') or file_path.endswith('.txt')):
+            file_path += '.json'
+        try:
+            import json
+            with open(file_path, 'w', encoding='utf-8') as f:
+                json.dump(top1, f, ensure_ascii=False, indent=2)
+            QMessageBox.information(self, "导出成功", f"已成功导出最优方案到 {file_path}")
+        except Exception as e:
+            QMessageBox.critical(self, "导出失败", f"导出最优方案失败：{e}")
+
+    def on_import_json(self):
+        """导入最优方案json文件并恢复展示"""
+        file_path, _ = QFileDialog.getOpenFileName(self, "导入最优方案", "", "JSON Files (*.json);;Text Files (*.txt)")
         if not file_path:
             return
         try:
-            import pandas as pd
-            # 添加文件读取的容错处理
-            try:
-                df = pd.read_excel(file_path, dtype=str, header=0)
-            except Exception as read_error:
-                QMessageBox.warning(self, "文件读取错误", 
-                    f"无法读取Excel文件，请检查文件是否损坏或格式不正确！\n错误信息：{read_error}")
-                return
-            
-            # 检查DataFrame是否为空或格式异常
-            if df.empty:
-                QMessageBox.warning(self, "文件内容错误", "Excel文件为空，请检查文件内容！")
-                return
-                
-            if len(df.columns) < 6:
-                QMessageBox.warning(self, "文件格式错误", 
-                    "导入失败，请检查文件是否是组合分析导出文件！")
-                return
-            
-            # 检查文件格式是否符合组合分析导出文件特征
-            if not self._validate_import_file_format(df):
-                QMessageBox.warning(self, "文件格式错误", 
-                    "导入失败，请检查文件是否是组合分析导出文件！")
-                return
-            
-            # 解析参数行
-            param_map = {}
-            data_rows = []
-            for i, row in df.iterrows():
-                first_cell = str(row.iloc[0])
-                if first_cell.startswith('#') and ':' in first_cell:
-                    k, v = first_cell[1:].split(':', 1)
-                    param_map[k.strip()] = v.strip()
-                else:
-                    data_rows.append(row.tolist())
-            
-            print(f"调试：解析到 {len(param_map)} 个参数")
-            print(f"调试：参数映射: {param_map}")
-            
-            # 恢复控件
-            self._restore_main_window_params(param_map)
-            # 更新组合分析界面控件 - 传递param_map参数
-            self._update_main_window_controls(param_map)
-            # 展示表格
-            self._show_imported_analysis_from_data(df.columns.tolist(), data_rows)
+            import json
+            with open(file_path, 'r', encoding='utf-8') as f:
+                top1 = json.load(f)
+            all_analysis_results = [top1]
+            self.show_analysis_results(all_analysis_results)
+            QMessageBox.information(self, "导入成功", "已成功导入最优方案！")
         except Exception as e:
-            QMessageBox.critical(self, "导入失败", f"导入Excel失败：{e}")
-            
+            QMessageBox.critical(self, "导入失败", f"导入最优方案失败：{e}")
+
     def on_import_csv(self):
         """导入CSV并自动恢复控件参数"""
         file_path, _ = QFileDialog.getOpenFileName(self, "导入CSV文件", "", "CSV Files (*.csv)")
@@ -2027,7 +1831,7 @@ class ComponentAnalysisWidget(QWidget):
         try:
             # 检查必需的列是否存在
             required_columns = [
-                "组合分析排序输出值", "公式", "日期宽度", "操作天数", "递增率", "排序方式"
+                "组合分析排序输出值", "公式", "日期宽度", "操作天数", "止盈递增率", "排序方式"
             ]
             
             # 获取DataFrame的列名
@@ -2077,7 +1881,7 @@ class ComponentAnalysisWidget(QWidget):
         try:
             # 检查必需的列是否存在
             required_columns = [
-                "组合分析排序输出值", "公式", "日期宽度", "操作天数", "递增率", "排序方式"
+                "组合分析排序输出值", "公式", "日期宽度", "操作天数", "止盈递增率", "排序方式"
             ]
             
             # 检查是否包含所有必需的列
@@ -2346,7 +2150,7 @@ class ComponentAnalysisWidget(QWidget):
                             formula = row[1]  # 公式
                             width = row[2]  # 日期宽度
                             op_days = row[3]  # 操作天数
-                            increment_rate = row[4]  # 递增率
+                            increment_rate = row[4]  # 止盈递增率
                             sort_mode = row[5]  # 排序方式
                             
                             # 创建符合cached_analysis_results格式的数据
@@ -2455,7 +2259,7 @@ class ComponentAnalysisWidget(QWidget):
                 'valid_count': result.get('valid_count', 0),
                 'avg_sum': result.get('avg_sum', 0),
                 'generate_time': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                'description': f"操盘方案{i+1}：基于{analysis.get('sort_mode', '')}排序，日期宽度{analysis.get('width', '')}，操作天数{analysis.get('op_days', '')}，递增率{analysis.get('increment_rate', '')}%"
+                'description': f"操盘方案{i+1}：基于{analysis.get('sort_mode', '')}排序，日期宽度{analysis.get('width', '')}，操作天数{analysis.get('op_days', '')}，止盈递增率{analysis.get('increment_rate', '')}%"
             }
             
             trading_plan_list.append(trading_plan)
@@ -2480,7 +2284,7 @@ class ComponentAnalysisWidget(QWidget):
         from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem
         from PyQt5.QtCore import Qt
         
-        headers = ["方案ID", "排序方式", "日期宽度", "操作天数", "递增率", "调整值", "总分", "有效数", "平均分", "生成时间", "描述"]
+        headers = ["方案ID", "排序方式", "日期宽度", "操作天数", "止盈递增率", "调整值", "总分", "有效数", "平均分", "生成时间", "描述"]
         table = QTableWidget(len(trading_plan_list), len(headers), self.result_area)
         table.setHorizontalHeaderLabels(headers)
         
@@ -2570,7 +2374,7 @@ class ComponentAnalysisWidget(QWidget):
                 'valid_count': top_result.get('valid_count', 0),
                 'avg_sum': top_result.get('avg_sum', 0),
                 'generate_time': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                'description': f"操盘方案{len(self.main_window.trading_plan_list) + 1}：基于{analysis.get('sort_mode', '')}排序，日期宽度{analysis.get('width', '')}，操作天数{analysis.get('op_days', '')}，递增率{analysis.get('increment_rate', '')}%"
+                'description': f"操盘方案{len(self.main_window.trading_plan_list) + 1}：基于{analysis.get('sort_mode', '')}排序，日期宽度{analysis.get('width', '')}，操作天数{analysis.get('op_days', '')}，止盈递增率{analysis.get('increment_rate', '')}%"
             }
             
             # 添加到操盘方案列表
@@ -2694,6 +2498,11 @@ class ComponentAnalysisWidget(QWidget):
                 self.last_best_value_display.setText(str(last_value))
         else:
             self.last_best_value_display.setText("无")
+
+    def _on_clear_best_value(self):
+        """清空上次最优值"""
+        self.main_window.last_adjusted_value = None
+        self._update_last_best_value_display()
 
 
 class AnalysisDetailWindow(QMainWindow):

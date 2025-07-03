@@ -286,8 +286,8 @@ class StockAnalysisApp(QWidget):
         op_days_widget.setMaximumWidth(90)
         op_days_widget.setLayout(op_days_layout)
 
-        # 递增率
-        self.inc_rate_label = QLabel("递增率")
+        # 止盈递增率
+        self.inc_rate_label = QLabel("止盈递增率")
         self.inc_rate_edit = QLineEdit()
         self.inc_rate_edit.setFixedWidth(30)
         self.inc_rate_unit = QLabel("%")
@@ -296,14 +296,14 @@ class StockAnalysisApp(QWidget):
         inc_rate_layout.setContentsMargins(0, 0, 0, 0)
         inc_rate_layout.setSpacing(0)
         inc_rate_layout.setAlignment(Qt.AlignLeft)
-        inc_rate_layout.addWidget(QLabel("递增率"))
+        inc_rate_layout.addWidget(QLabel("止盈递增率"))
         inc_rate_layout.addWidget(self.inc_rate_edit)
         inc_rate_layout.addWidget(QLabel("%"))
         inc_rate_widget.setLayout(inc_rate_layout)
-        inc_rate_widget.setMaximumWidth(80)
+        inc_rate_widget.setMaximumWidth(100)
 
-        # 后值大于结束值比例
-        self.after_gt_end_label = QLabel("后值大于结束值比例")
+        # 止盈后值大于结束值比例
+        self.after_gt_end_label = QLabel("止盈后值大于结束值比例")
         self.after_gt_end_edit = QLineEdit()
         self.after_gt_end_edit.setFixedWidth(30)
         self.after_gt_end_unit = QLabel("%")
@@ -312,14 +312,14 @@ class StockAnalysisApp(QWidget):
         after_gt_end_layout.setContentsMargins(0, 0, 0, 0)
         after_gt_end_layout.setSpacing(0)
         after_gt_end_layout.setAlignment(Qt.AlignLeft)
-        after_gt_end_layout.addWidget(QLabel("后值大于结束值比例"))
+        after_gt_end_layout.addWidget(QLabel("止盈后值大于结束值比例"))
         after_gt_end_layout.addWidget(self.after_gt_end_edit)
         after_gt_end_layout.addWidget(QLabel("%"))
         after_gt_end_widget.setLayout(after_gt_end_layout)
-        after_gt_end_widget.setMaximumWidth(150)
+        after_gt_end_widget.setMaximumWidth(175)
 
-        # 后值大于前值比例
-        self.after_gt_start_label = QLabel("后值大于前值比例")
+        # 止盈后值大于前值比例
+        self.after_gt_start_label = QLabel("止盈后值大于前值比例")
         self.after_gt_prev_edit = QLineEdit()
         self.after_gt_prev_edit.setFixedWidth(30)
         self.after_gt_prev_unit = QLabel("%")
@@ -332,7 +332,52 @@ class StockAnalysisApp(QWidget):
         after_gt_prev_layout.addWidget(self.after_gt_prev_edit)
         after_gt_prev_layout.addWidget(QLabel("%"))
         after_gt_prev_widget.setLayout(after_gt_prev_layout)
-        after_gt_prev_widget.setMaximumWidth(130)
+        after_gt_prev_widget.setMaximumWidth(155)
+
+        # 止损递增率
+        self.stop_loss_inc_rate_label = QLabel("止损递增率")
+        self.stop_loss_inc_rate_edit = QLineEdit()
+        self.stop_loss_inc_rate_edit.setFixedWidth(30)
+        stop_loss_inc_rate_widget = QWidget()
+        stop_loss_inc_rate_layout = QHBoxLayout()
+        stop_loss_inc_rate_layout.setContentsMargins(0, 0, 0, 0)
+        stop_loss_inc_rate_layout.setSpacing(0)
+        stop_loss_inc_rate_layout.setAlignment(Qt.AlignLeft)
+        stop_loss_inc_rate_layout.addWidget(QLabel("止损递增率"))
+        stop_loss_inc_rate_layout.addWidget(self.stop_loss_inc_rate_edit)
+        stop_loss_inc_rate_layout.addWidget(QLabel("%"))
+        stop_loss_inc_rate_widget.setLayout(stop_loss_inc_rate_layout)
+        stop_loss_inc_rate_widget.setMaximumWidth(100)
+
+        # 止损后值大于结束值比例
+        self.stop_loss_after_gt_end_label = QLabel("止损后值大于结束值比例")
+        self.stop_loss_after_gt_end_edit = QLineEdit()
+        self.stop_loss_after_gt_end_edit.setFixedWidth(30)
+        stop_loss_after_gt_end_widget = QWidget()
+        stop_loss_after_gt_end_layout = QHBoxLayout()
+        stop_loss_after_gt_end_layout.setContentsMargins(0, 0, 0, 0)
+        stop_loss_after_gt_end_layout.setSpacing(0)
+        stop_loss_after_gt_end_layout.setAlignment(Qt.AlignLeft)
+        stop_loss_after_gt_end_layout.addWidget(QLabel("止损后值大于结束值比例"))
+        stop_loss_after_gt_end_layout.addWidget(self.stop_loss_after_gt_end_edit)
+        stop_loss_after_gt_end_layout.addWidget(QLabel("%"))
+        stop_loss_after_gt_end_widget.setLayout(stop_loss_after_gt_end_layout)
+        stop_loss_after_gt_end_widget.setMaximumWidth(175)
+
+        # 止损大于前值比例
+        self.stop_loss_after_gt_start_label = QLabel("止损大于前值比例")
+        self.stop_loss_after_gt_start_edit = QLineEdit()
+        self.stop_loss_after_gt_start_edit.setFixedWidth(30)
+        stop_loss_after_gt_start_widget = QWidget()
+        stop_loss_after_gt_start_layout = QHBoxLayout()
+        stop_loss_after_gt_start_layout.setContentsMargins(0, 0, 0, 0)
+        stop_loss_after_gt_start_layout.setSpacing(0)
+        stop_loss_after_gt_start_layout.setAlignment(Qt.AlignLeft)
+        stop_loss_after_gt_start_layout.addWidget(QLabel("止损大于前值比例"))
+        stop_loss_after_gt_start_layout.addWidget(self.stop_loss_after_gt_start_edit)
+        stop_loss_after_gt_start_layout.addWidget(QLabel("%"))
+        stop_loss_after_gt_start_widget.setLayout(stop_loss_after_gt_start_layout)
+        stop_loss_after_gt_start_widget.setMaximumWidth(155)
 
         # 操作涨幅
         self.ops_change_label = QLabel("操作涨幅")
@@ -349,34 +394,10 @@ class StockAnalysisApp(QWidget):
         ops_change_widget.setLayout(ops_change_layout)
         ops_change_widget.setMaximumWidth(100)
 
-        # 操作值
-        # expr_widget = QWidget()
-        # expr_layout = QHBoxLayout()
-        # expr_layout.setContentsMargins(0, 0, 0, 0)
-        # expr_layout.setSpacing(0)
-        # expr_layout.setAlignment(Qt.AlignLeft)
-        # expr_layout.addWidget(QLabel("操作值"))
-        # self.expr_edit = ValidatedExprEdit()
-        # self.expr_edit.setPlainText(
-        #     "if INC != 0:\n"
-        #     "    result = INC\n"
-        #     "else:\n"
-        #     "    result = 0\n"
-        # )
-        # self.expr_edit.setMinimumHeight(25)
-        # self.expr_edit.setMaximumHeight(120)
-        # def adjust_expr_edit_height():
-        #     doc = self.expr_edit.document()
-        #     line_count = doc.blockCount()
-        #     font_metrics = self.expr_edit.fontMetrics()
-        #     height = font_metrics.lineSpacing() * line_count + 12
-        #     height = max(25, min(height, 120))
-        #     self.expr_edit.setFixedHeight(height)
-        # self.expr_edit.textChanged.connect(adjust_expr_edit_height)
-        # adjust_expr_edit_height()  # 初始化高度
-        # expr_layout.addWidget(self.expr_edit)
-        # expr_widget.setLayout(expr_layout)
-        
+        # 开始日到结束日之间有效累加值绝对值小于
+        self.valid_abs_sum_label = QLabel("开始日到结束日之间有效累加值绝对值小于")
+        self.valid_abs_sum_threshold_edit = QLineEdit()
+
         # 控件位置布局
         top_grid.addWidget(self.n_days_label1, 1, 0)
         top_grid.addWidget(self.n_days_spin, 1, 1)
@@ -388,11 +409,15 @@ class StockAnalysisApp(QWidget):
         top_grid.addWidget(inc_rate_widget, 1, 5)
         top_grid.addWidget(after_gt_end_widget, 1, 6)
         top_grid.addWidget(after_gt_prev_widget, 1, 7)
-        # top_grid.addWidget(expr_widget, 1, 8)
-        top_grid.addWidget(ops_change_widget, 1, 8)
-        top_grid.addWidget(self.valid_abs_sum_label, 1, 9)
-        top_grid.addWidget(self.valid_abs_sum_threshold_edit, 1, 10)
-        top_grid.addWidget(cpu_widget, 1, 11)  # 添加CPU核心数控件
+        top_grid.addWidget(stop_loss_inc_rate_widget, 1, 8)
+        top_grid.addWidget(stop_loss_after_gt_end_widget, 1, 9)
+        top_grid.addWidget(stop_loss_after_gt_start_widget, 1, 10)
+
+        # 第三行：操作涨幅、有效累加值绝对值小于、CPU核心数
+        top_grid.addWidget(ops_change_widget, 2, 8)
+        top_grid.addWidget(self.valid_abs_sum_label, 2, 9)
+        top_grid.addWidget(self.valid_abs_sum_threshold_edit, 2, 10)
+        top_grid.addWidget(cpu_widget, 2, 11)  # 添加CPU核心数控件
 
         # 添加交易方式下拉框
         trade_mode_widget = QWidget()
@@ -409,7 +434,7 @@ class StockAnalysisApp(QWidget):
         trade_mode_widget.setLayout(trade_mode_layout)
         top_grid.addWidget(trade_mode_widget, 0, 8)
 
-        # 第三行：创前新高1和创前新低相关控件
+        # 第四行：创前新高1和创前新低相关控件
         # 创前新高1开始日期天数
         self.new_before_high_flag_checkbox = QCheckBox()
         new_before_high_start_widget = QWidget()
@@ -1157,7 +1182,11 @@ class StockAnalysisApp(QWidget):
             self.last_formula_select_state = state
             # print(f"保存状态: {state}")
 
-    def get_or_calculate_result(self, formula_expr=None, select_count=None, sort_mode=None, show_main_output=True, only_show_selected=None, is_auto_analysis=False, end_date_start=None, end_date_end=None, comparison_vars=None):
+    def get_or_calculate_result(self, formula_expr=None, select_count=None, sort_mode=None, 
+                                show_main_output=True, only_show_selected=None, is_auto_analysis=False, 
+                                end_date_start=None, end_date_end=None, comparison_vars=None, width=None, op_days=None, 
+                                inc_rate=None, after_gt_end_ratio=None, after_gt_start_ratio=None,
+                                stop_loss_inc_rate=None, stop_loss_after_gt_end_ratio=None, stop_loss_after_gt_start_ratio=None):
         # 直接在此处校验创新高/创新低日期范围
         workdays = getattr(self.init, 'workdays_str', None)
         end_date = self.date_picker.date().toString("yyyy-MM-dd")
@@ -1262,7 +1291,8 @@ class StockAnalysisApp(QWidget):
         else:
             params['end_date_start'] = end_date
             params['end_date_end'] = end_date
-        params['width'] = self.width_spin.value()
+        # 使用传入的参数值，如果没有传入则使用控件值
+        params['width'] = width if width is not None else self.width_spin.value()
         params['start_option'] = self.start_option_combo.currentText()
         params['shift_days'] = self.shift_spin.value()
         params['is_forward'] = self.direction_checkbox.isChecked()
@@ -1270,15 +1300,27 @@ class StockAnalysisApp(QWidget):
         params['n_days_max'] = self.n_days_max_spin.value()
         params['range_value'] = self.range_value_edit.text()
         params['continuous_abs_threshold'] = self.continuous_abs_threshold_edit.text()
-        params['op_days'] = self.op_days_edit.text()
-        params['inc_rate'] = self.inc_rate_edit.text()
-        params['after_gt_end_ratio'] = self.after_gt_end_edit.text()
-        params['after_gt_start_ratio'] = self.after_gt_prev_edit.text()
+        params['op_days'] = str(op_days) if op_days is not None else self.op_days_edit.text()
+        params['inc_rate'] = str(inc_rate) if inc_rate is not None else self.inc_rate_edit.text()
+        params['after_gt_end_ratio'] = str(after_gt_end_ratio) if after_gt_end_ratio is not None else self.after_gt_end_edit.text()
+        params['after_gt_start_ratio'] = str(after_gt_start_ratio) if after_gt_start_ratio is not None else self.after_gt_prev_edit.text()
+        # 止损参数取负值，因为是止损
+        stop_loss_inc_rate_val = stop_loss_inc_rate if stop_loss_inc_rate is not None else float(self.stop_loss_inc_rate_edit.text() or 0)
+        stop_loss_after_gt_end_ratio_val = stop_loss_after_gt_end_ratio if stop_loss_after_gt_end_ratio is not None else float(self.stop_loss_after_gt_end_edit.text() or 0)
+        stop_loss_after_gt_start_ratio_val = stop_loss_after_gt_start_ratio if stop_loss_after_gt_start_ratio is not None else float(self.stop_loss_after_gt_start_edit.text() or 0)
+        
+        params['stop_loss_inc_rate'] = str(-stop_loss_inc_rate_val)
+        params['stop_loss_after_gt_end_ratio'] = str(-stop_loss_after_gt_end_ratio_val)
+        params['stop_loss_after_gt_start_ratio'] = str(-stop_loss_after_gt_start_ratio_val)
+        print(f" inc_rate: {params['inc_rate']}, after_gt_end_ratio: {params['after_gt_end_ratio']}, after_gt_start_ratio: {params['after_gt_start_ratio']}")
+        print(f" stop_loss_inc_rate: {params['stop_loss_inc_rate']}, stop_loss_after_gt_end_ratio: {params['stop_loss_after_gt_end_ratio']}, stop_loss_after_gt_start_ratio: {params['stop_loss_after_gt_start_ratio']}")
         params['trade_mode'] = self.trade_mode_combo.currentText()
         # 选股公式、数量、排序方式参数
         params['expr'] = self.last_expr  # 新增：操作值表达式
         params['select_count'] = select_count if select_count is not None else 10
-        params['sort_mode'] = sort_mode if sort_mode is not None else "最大值排序"
+        print(f"sort_mode: {sort_mode}")
+        params['sort_mode'] = sort_mode if sort_mode else self.last_sort_mode
+        print(f"params sort_mode: {params['sort_mode']}")
         params['ops_change'] = self.ops_change_edit.text()
         # 选股计算公式
         params['formula_expr'] = current_formula
@@ -1435,9 +1477,9 @@ class StockAnalysisApp(QWidget):
             ("开始日期值选择", self.start_option_combo.currentText()),
             ("前移天数", str(self.shift_spin.value())),
             ("操作天数", self.op_days_edit.text()),
-            ("递增率", f"{self.inc_rate_edit.text()}%"),
-            ("后值大于结束值比例", f"{self.after_gt_end_edit.text()}%"),
-            ("后值大于前值比例", f"{self.after_gt_prev_edit.text()}%"),
+            ("止盈递增率", f"{self.inc_rate_edit.text()}%"),
+            ("止盈后值大于结束值比例", f"{self.after_gt_end_edit.text()}%"),
+            ("止盈后值大于前值比例", f"{self.after_gt_prev_edit.text()}%"),
             ("操作涨幅", f"{self.ops_change_edit.text()}%")
         ]
         for i, (label, value) in enumerate(params):
@@ -2023,7 +2065,7 @@ class StockAnalysisApp(QWidget):
             for _, row in param_rows.iterrows():
                 if isinstance(row[0], str) and row[0] in [
                     "日期宽度", "开始日期值选择", "前移天数", "操作天数", 
-                    "递增率", "后值大于结束值比例", "后值大于前值比例", "操作涨幅"
+                    "止盈递增率", "止盈后值大于结束值比例", "止盈后值大于前值比例", "操作涨幅"
                 ]:
                     params[row[0]] = row[1]
             df = df.iloc[:-9]
@@ -2034,9 +2076,9 @@ class StockAnalysisApp(QWidget):
             "开始日期值选择": (self.start_option_combo, str),
             "前移天数": (self.shift_spin, int),
             "操作天数": (self.op_days_edit, str),
-            "递增率": (self.inc_rate_edit, lambda v: v.replace('%','')),
-            "后值大于结束值比例": (self.after_gt_end_edit, lambda v: v.replace('%','')),
-            "后值大于前值比例": (self.after_gt_prev_edit, lambda v: v.replace('%','')),
+            "止盈递增率": (self.inc_rate_edit, lambda v: v.replace('%','')),
+            "止盈后值大于结束值比例": (self.after_gt_end_edit, lambda v: v.replace('%','')),
+            "止盈后值大于前值比例": (self.after_gt_prev_edit, lambda v: v.replace('%','')),
             "操作涨幅": (self.ops_change_edit, lambda v: v.replace('%','')),
         }
         print("导入参数：", params)  # 调试用
@@ -2103,9 +2145,9 @@ class StockAnalysisApp(QWidget):
             ("开始日期值选择", self.start_option_combo.currentText()),
             ("前移天数", str(self.shift_spin.value())),
             ("操作天数", self.op_days_edit.text()),
-            ("递增率", f"{self.inc_rate_edit.text()}%"),
-            ("后值大于结束值比例", f"{self.after_gt_end_edit.text()}%"),
-            ("后值大于前值比例", f"{self.after_gt_prev_edit.text()}%"),
+            ("止盈递增率", f"{self.inc_rate_edit.text()}%"),
+            ("止盈后值大于结束值比例", f"{self.after_gt_end_edit.text()}%"),
+            ("止盈后值大于前值比例", f"{self.after_gt_prev_edit.text()}%"),
             ("操作涨幅", f"{self.ops_change_edit.text()}%")
         ]
         for i, (label, value) in enumerate(params):
@@ -2150,6 +2192,9 @@ class StockAnalysisApp(QWidget):
             'op_days': self.op_days_edit.text(),
             'after_gt_end_ratio': self.after_gt_end_edit.text(),
             'after_gt_start_ratio': self.after_gt_prev_edit.text(),
+            'stop_loss_inc_rate': self.stop_loss_inc_rate_edit.text(),
+            'stop_loss_after_gt_end_ratio': self.stop_loss_after_gt_end_edit.text(),
+            'stop_loss_after_gt_start_ratio': self.stop_loss_after_gt_start_edit.text(),
             'n_days': self.n_days_spin.value(),
             'n_days_max': self.n_days_max_spin.value(),
             'range_value': self.range_value_edit.text(),
@@ -2290,6 +2335,12 @@ class StockAnalysisApp(QWidget):
                 self.after_gt_end_edit.setText(config['after_gt_end_ratio'])
             if 'after_gt_start_ratio' in config:
                 self.after_gt_prev_edit.setText(config['after_gt_start_ratio'])
+            if 'stop_loss_inc_rate' in config:
+                self.stop_loss_inc_rate_edit.setText(config['stop_loss_inc_rate'])
+            if 'stop_loss_after_gt_end_ratio' in config:
+                self.stop_loss_after_gt_end_edit.setText(config['stop_loss_after_gt_end_ratio'])
+            if 'stop_loss_after_gt_start_ratio' in config:
+                self.stop_loss_after_gt_start_edit.setText(config['stop_loss_after_gt_start_ratio'])
             if 'n_days' in config:
                 self.n_days_spin.setValue(config['n_days'])
             if 'n_days_max' in config:
