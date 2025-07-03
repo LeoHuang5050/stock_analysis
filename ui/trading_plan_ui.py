@@ -1,8 +1,9 @@
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QDateEdit, QPushButton, QFrame, QSizePolicy, QCheckBox, QMainWindow,
-    QDialog, QLineEdit, QMessageBox, QHeaderView, QScrollArea, QDesktopWidget
+    QDialog, QLineEdit, QMessageBox, QHeaderView, QScrollArea, QDesktopWidget, QTabWidget, QApplication
 )
-from PyQt5.QtCore import Qt, QDate, QEvent
+from PyQt5.QtCore import Qt, QDate, QEvent, QTimer, QPropertyAnimation, QEasingCurve, QRect
+from PyQt5.QtGui import QKeyEvent
 
 from function.base_param import CalculateThread
 from function.stock_functions import show_formula_select_table_result
@@ -25,14 +26,28 @@ class TradingPlanWidget(QWidget):
         super().__init__()
         self.main_window = main_window
         self.card_states = {}  # 记录每个卡片的最小化/最大化状态
+        self.current_page = 0  # 当前页面索引
+        self.cards_per_page = 3  # 每页显示的卡片数量
+        self.tab_enabled = True  # Tab切换功能是否启用
         self.init_ui()
         self.installEventFilter(self)
+        
+        # 确保初始化时Tab切换功能启用
+        QTimer.singleShot(300, lambda: setattr(self, 'tab_enabled', True))
+        
+        # 设置焦点策略，使widget能够接收键盘事件
+        self.setFocusPolicy(Qt.StrongFocus)
+        
+        # 延迟设置焦点和安装事件过滤器
+        QTimer.singleShot(100, lambda: (self.setFocus(), setattr(self, 'tab_enabled', True)))
+        QTimer.singleShot(200, self.install_event_filters)
 
     def init_ui(self):
         layout = QVBoxLayout(self)
         layout.setSpacing(0)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setAlignment(Qt.AlignTop)  # 关键：让所有内容顶部对齐
+        
         # 顶部控件
         top_layout = QHBoxLayout()
         top_layout.setSpacing(6)
@@ -61,6 +76,13 @@ class TradingPlanWidget(QWidget):
         top_layout.addStretch()
         layout.addLayout(top_layout)
 
+        # 书签式标签栏
+        self.tab_bar = QHBoxLayout()
+        self.tab_bar.setSpacing(5)
+        self.tab_bar.setContentsMargins(10, 5, 10, 5)
+        self.tab_buttons = []  # 存储标签按钮
+        layout.addLayout(self.tab_bar)
+
         # 卡片区用QWidget+QVBoxLayout
         self.cards_container = QWidget()
         self.cards_layout = QVBoxLayout(self.cards_container)
@@ -77,46 +99,244 @@ class TradingPlanWidget(QWidget):
 
         self.refresh_cards()
 
+
+
+    def install_event_filters(self):
+        """为主要控件安装事件过滤器"""
+        # 只为主要的输入控件安装事件过滤器
+        if hasattr(self, 'end_date_picker'):
+            self.end_date_picker.installEventFilter(self)
+        if hasattr(self, 'select_btn'):
+            self.select_btn.installEventFilter(self)
+
     def eventFilter(self, obj, event):
         if event.type() == QEvent.Resize:
             self.refresh_cards()
+        elif event.type() == QEvent.KeyPress:
+            # 只在Tab切换功能启用时拦截键盘事件
+            if self.tab_enabled:
+                if event.key() == Qt.Key_Tab:
+                    self.next_page()
+                    return True
+                elif event.key() == Qt.Key_Backtab:
+                    self.prev_page()
+                    return True
+
         return super().eventFilter(obj, event)
+
+    def keyPressEvent(self, event: QKeyEvent):
+        """处理键盘事件"""
+        if self.tab_enabled:
+            if event.key() == Qt.Key_Tab:
+                # Tab键切换页面
+                self.next_page()
+                event.accept()
+            elif event.key() == Qt.Key_Backtab:
+                # Shift+Tab键切换到上一页
+                self.prev_page()
+                event.accept()
+            else:
+                super().keyPressEvent(event)
+        else:
+            super().keyPressEvent(event)
+
+
+
+    def on_focus_out(self, event):
+        """当焦点离开widget时禁用Tab切换功能"""
+        super().focusOutEvent(event)
+        self.tab_enabled = False
+
+    def next_page(self):
+        """切换到下一页"""
+        plan_list = getattr(self.main_window, 'trading_plan_list', [])
+        total_pages = (len(plan_list) + self.cards_per_page - 1) // self.cards_per_page
+        if total_pages > 0:
+            self.current_page = (self.current_page + 1) % total_pages
+            self.refresh_cards()
+            self.update_tab_buttons()
+            # 键盘切换时设置焦点并启用Tab切换
+            self.setFocus()
+            self.tab_enabled = True
+
+    def prev_page(self):
+        """切换到上一页"""
+        plan_list = getattr(self.main_window, 'trading_plan_list', [])
+        total_pages = (len(plan_list) + self.cards_per_page - 1) // self.cards_per_page
+        if total_pages > 0:
+            self.current_page = (self.current_page - 1) % total_pages
+            self.refresh_cards()
+            self.update_tab_buttons()
+            # 键盘切换时设置焦点并启用Tab切换
+            self.setFocus()
+            self.tab_enabled = True
+
+    def create_tab_buttons(self):
+        """创建书签式标签按钮"""
+        # 清除现有按钮
+        for btn in self.tab_buttons:
+            btn.setParent(None)
+            btn.deleteLater()
+        self.tab_buttons.clear()
+        
+        # 清除布局
+        while self.tab_bar.count():
+            item = self.tab_bar.takeAt(0)
+            if item.widget():
+                item.widget().setParent(None)
+
+        plan_list = getattr(self.main_window, 'trading_plan_list', [])
+        total_pages = (len(plan_list) + self.cards_per_page - 1) // self.cards_per_page
+        
+        if total_pages == 0:
+            return
+
+        # 创建标签按钮
+        for i in range(total_pages):
+            start_idx = i * self.cards_per_page
+            end_idx = min(start_idx + self.cards_per_page, len(plan_list))
+            
+            # 创建书签式按钮
+            tab_btn = QPushButton(f"第{start_idx+1}-{end_idx}个方案")
+            tab_btn.setFixedSize(120, 30)
+            tab_btn.setCheckable(True)
+            tab_btn.setChecked(i == self.current_page)
+            
+            # 设置书签样式
+            if i == self.current_page:
+                tab_btn.setStyleSheet("""
+                    QPushButton {
+                        background: #4A90E2;
+                        color: white;
+                        border: 2px solid #4A90E2;
+                        border-radius: 15px;
+                        font-weight: bold;
+                    }
+                    QPushButton:hover {
+                        background: #357ABD;
+                    }
+                """)
+            else:
+                tab_btn.setStyleSheet("""
+                    QPushButton {
+                        background: #f0f0f0;
+                        color: #333;
+                        border: 2px solid #ddd;
+                        border-radius: 15px;
+                    }
+                    QPushButton:hover {
+                        background: #e0e0e0;
+                        border-color: #4A90E2;
+                    }
+                """)
+            
+            # 绑定点击事件
+            tab_btn.clicked.connect(lambda checked, page=i: self.switch_to_page_with_focus(page))
+            
+            self.tab_buttons.append(tab_btn)
+            self.tab_bar.addWidget(tab_btn)
+        
+        # 添加提示信息
+        tip_label = QLabel("(按Tab键切换页面)")
+        tip_label.setStyleSheet("color: #666; font-size: 12px; margin-left: 10px;")
+        self.tab_bar.addWidget(tip_label)
+        
+        self.tab_bar.addStretch()
+
+    def update_tab_buttons(self):
+        """更新标签按钮状态"""
+        for i, btn in enumerate(self.tab_buttons):
+            btn.setChecked(i == self.current_page)
+            if i == self.current_page:
+                btn.setStyleSheet("""
+                    QPushButton {
+                        background: #4A90E2;
+                        color: white;
+                        border: 2px solid #4A90E2;
+                        border-radius: 15px;
+                        font-weight: bold;
+                    }
+                    QPushButton:hover {
+                        background: #357ABD;
+                    }
+                """)
+            else:
+                btn.setStyleSheet("""
+                    QPushButton {
+                        background: #f0f0f0;
+                        color: #333;
+                        border: 2px solid #ddd;
+                        border-radius: 15px;
+                    }
+                    QPushButton:hover {
+                        background: #e0e0e0;
+                        border-color: #4A90E2;
+                    }
+                """)
+
+    def switch_to_page(self, page):
+        """切换到指定页面"""
+        self.current_page = page
+        self.refresh_cards()
+        self.update_tab_buttons()
+
+    def switch_to_page_with_focus(self, page):
+        """切换到指定页面并设置焦点"""
+        self.switch_to_page(page)
+        # 设置焦点到当前widget并启用Tab切换
+        self.setFocus()
+        self.tab_enabled = True
 
     def refresh_cards(self):
         # 递归清理所有旧内容和嵌套布局，防止重影
         clear_layout(self.cards_layout)
+        
+        # 创建标签按钮
+        self.create_tab_buttons()
+        
         # 获取方案列表
         plan_list = getattr(self.main_window, 'trading_plan_list', [])
         # 保存排序后的列表到主窗口，确保索引一致
         sorted_plan_list = sorted(plan_list, key=lambda x: float(x.get('adjusted_value', 0)), reverse=True)
         self.main_window.sorted_trading_plan_list = sorted_plan_list
         
+        # 计算当前页面显示的方案
+        start_idx = self.current_page * self.cards_per_page
+        end_idx = min(start_idx + self.cards_per_page, len(sorted_plan_list))
+        current_page_plans = sorted_plan_list[start_idx:end_idx]
+        
         # 固定每行3个卡片，宽度600
         cards_per_row = 3
         card_width = 600
+        
         # 按行分组显示卡片
-        for row_start in range(0, len(sorted_plan_list), cards_per_row):
+        for row_start in range(0, len(current_page_plans), cards_per_row):
             row_layout = QHBoxLayout()
             row_layout.setSpacing(10)
             row_layout.setContentsMargins(0, 0, 0, 0)
             row_layout.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+            
             for col in range(cards_per_row):
                 idx = row_start + col
-                if idx < len(sorted_plan_list):
-                    plan = sorted_plan_list[idx]
-                    is_min = self.card_states.get(idx, None)
+                if idx < len(current_page_plans):
+                    plan = current_page_plans[idx]
+                    # 计算在原始列表中的索引
+                    original_idx = start_idx + idx
+                    is_min = self.card_states.get(original_idx, None)
                     if is_min is None:
                         if not plan.get('real_trade', False):
                             is_min = True
-                            self.card_states[idx] = True
+                            self.card_states[original_idx] = True
                         else:
                             is_min = False
-                            self.card_states[idx] = False
-                    card = self.create_plan_card(idx, plan, card_width, is_min)
+                            self.card_states[original_idx] = False
+                    
+                    card = self.create_plan_card(original_idx, plan, card_width, is_min)
                     if is_min:
                         card.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Minimum)
                     else:
                         card.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
+                    
                     wrapper = QWidget()
                     wrapper.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
                     vbox = QVBoxLayout(wrapper)
@@ -130,12 +350,18 @@ class TradingPlanWidget(QWidget):
                     spacer.setFixedWidth(card_width)
                     spacer.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
                     row_layout.addWidget(spacer)
+            
             self.cards_layout.addLayout(row_layout)
+        
         self.cards_layout.addStretch()
         # 强制重绘，防止重影
         self.cards_layout.update()
         self.update()
         self.cards_container.adjustSize()
+        
+        # 刷新后重新设置焦点
+        if self.tab_enabled:
+            self.setFocus()
 
     def create_plan_card(self, idx, plan, card_width, is_minimized):
         card = QFrame()
@@ -216,7 +442,6 @@ class TradingPlanWidget(QWidget):
         # 显示参加组合排序的参数名
         params = plan.get('params', {})
         selected_vars = params.get('selected_vars_with_values', [])
-        print(f"trading_plan_ui selected_vars: {selected_vars}")
         if selected_vars:
             # 构建参数显示文本
             param_lines = ["参加组合排序参数："]

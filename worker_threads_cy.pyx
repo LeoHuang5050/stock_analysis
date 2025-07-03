@@ -1534,11 +1534,17 @@ def calculate_batch_cy(
                     
 
                 # 调幅日均涨幅： 调整涨幅 / 持有天数
+                # 确定除数：如果持有天数小于操作天数的一半，使用操作天数的一半来计算
+                if hold_days is not None and hold_days < op_days / 2:
+                    divisor = round(op_days / 2)
+                else:
+                    divisor = hold_days
+                
                 if adjust_ops_value is not None and not isnan(adjust_ops_value):
-                    adjust_ops_incre_rate = round_to_2(adjust_ops_value / hold_days)
+                    adjust_ops_incre_rate = round_to_2(adjust_ops_value / divisor)
                 else:
                     if ops_change is not None and hold_days is not None and hold_days != 0:
-                        adjust_ops_incre_rate = round_to_2(ops_change / hold_days)
+                        adjust_ops_incre_rate = round_to_2(ops_change / divisor)
                     else:
                         adjust_ops_incre_rate = None
 
