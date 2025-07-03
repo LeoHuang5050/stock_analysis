@@ -152,7 +152,7 @@ class StockAnalysisApp(QWidget):
         query_layout.addWidget(self.query_btn)
         query_widget.setLayout(query_layout)
 
-        # 第四行：操作天数、递增率、后值大于结束值比例、后值大于前值比例
+        # 第四行：操作天数、止盈递增率、止盈后值大于结束值比例、止盈后值大于前值比例
         op_days_layout = QHBoxLayout()
         op_days_layout.setContentsMargins(0, 0, 0, 0)
         op_days_layout.setSpacing(0)
@@ -167,11 +167,11 @@ class StockAnalysisApp(QWidget):
         op_days_widget = QWidget()
         op_days_widget.setLayout(op_days_layout)
 
-        # 递增率组
+        # 止盈递增率组
         inc_rate_layout = QHBoxLayout()
         inc_rate_layout.setContentsMargins(0, 0, 0, 0)
         inc_rate_layout.setSpacing(0)
-        self.inc_rate_label = QLabel("递增率")
+        self.inc_rate_label = QLabel("止盈递增率")
         self.inc_rate_edit = QLineEdit()
         self.inc_rate_edit.setFixedWidth(40)
         self.inc_rate_edit.setAlignment(Qt.AlignLeft)
@@ -182,11 +182,11 @@ class StockAnalysisApp(QWidget):
         inc_rate_widget = QWidget()
         inc_rate_widget.setLayout(inc_rate_layout)
 
-        # 后值大于结束值比例组
+        # 止盈后值大于结束值比例组
         after_gt_end_layout = QHBoxLayout()
         after_gt_end_layout.setContentsMargins(0, 0, 0, 0)
         after_gt_end_layout.setSpacing(0)
-        self.after_gt_end_label = QLabel("后值大于结束值比例")
+        self.after_gt_end_label = QLabel("止盈后值大于结束值比例")
         self.after_gt_end_edit = QLineEdit()
         self.after_gt_end_edit.setFixedWidth(40)
         self.after_gt_end_edit.setAlignment(Qt.AlignLeft)
@@ -197,11 +197,11 @@ class StockAnalysisApp(QWidget):
         after_gt_end_widget = QWidget()
         after_gt_end_widget.setLayout(after_gt_end_layout)
 
-        # 后值大于前值比例组
+        # 止盈后值大于前值比例组
         after_gt_start_layout = QHBoxLayout()
         after_gt_start_layout.setContentsMargins(0, 0, 0, 0)
         after_gt_start_layout.setSpacing(0)
-        self.after_gt_start_label = QLabel("后值大于前值比例")
+        self.after_gt_start_label = QLabel("止盈后值大于前值比例")
         self.after_gt_start_edit = QLineEdit()
         self.after_gt_start_edit.setFixedWidth(40)
         self.after_gt_start_edit.setAlignment(Qt.AlignLeft)
@@ -290,9 +290,9 @@ class StockAnalysisApp(QWidget):
 
     # def on_calculate_clicked(self):
     #     # 在计算时
-    #     A = ... # 递增率
-    #     B = ... # 后值大于结束值比例
-    #     C = ... # 后值大于前值比例
+    #     A = ... # 止盈递增率
+    #     B = ... # 止盈后值大于结束值比例
+    #     C = ... # 止盈后值大于前值比例
     #     expr = self.expr_edit_brief.text()
     #     # 用simpleeval或自定义安全eval执行
     #     from simpleeval import simple_eval
@@ -304,7 +304,7 @@ class StockAnalysisApp(QWidget):
         dialog.setWindowTitle("编辑组合表达式")
         layout = QVBoxLayout(dialog)
         # 固定提示
-        tip_label = QLabel("A:递增率，B:后值大于结束值比例，C:后值大于前值比例")
+        tip_label = QLabel("A:止盈递增率，B:止盈后值大于结束值比例，C:止盈后值大于前值比例")
         tip_label.setStyleSheet("color:gray;")  # 灰色字体
         layout.addWidget(tip_label)
         text_edit = QTextEdit()

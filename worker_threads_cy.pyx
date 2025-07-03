@@ -126,6 +126,9 @@ def calculate_batch_cy(
     double inc_rate,
     double after_gt_end_ratio,
     double after_gt_start_ratio,
+    double stop_loss_inc_rate,
+    double stop_loss_after_gt_end_ratio,
+    double stop_loss_after_gt_start_ratio,
     str expr,
     double ops_change_input=0.09,
     str formula_expr=None,
@@ -216,6 +219,9 @@ def calculate_batch_cy(
     cdef double increment_threshold
     cdef double after_gt_end_threshold
     cdef double after_gt_start_threshold
+    cdef double stop_loss_inc_threshold
+    cdef double stop_loss_after_gt_end_threshold
+    cdef double stop_loss_after_gt_start_threshold
     cdef double v
     cdef int k
     cdef object user_func = None
@@ -863,7 +869,7 @@ def calculate_batch_cy(
                     increment_change = NAN
                     after_gt_end_change = NAN
                     after_gt_start_change = NAN
-
+                
                     if op_days > 0:
                         end_value = price_data_view[stock_idx, end_date_idx]
                         if not isnan(end_value):
@@ -876,10 +882,17 @@ def calculate_batch_cy(
                                 if isnan(v) or (trade_t1_mode and n == 1):
                                     continue
                                 increment_threshold = end_value * inc_rate * n
+                                stop_loss_inc_threshold = v_now * stop_loss_inc_rate
                                 if increment_threshold != 0 and (v - end_value) > increment_threshold:
                                     increment_value = round_to_2(v)
                                     increment_days = n
                                     increment_change = inc_rate * n * 100
+                                    found = True
+                                    break
+                                if stop_loss_inc_threshold != 0 and (v - end_value) < stop_loss_inc_threshold:
+                                    increment_value = round_to_2(v)
+                                    increment_days = n
+                                    increment_change = stop_loss_inc_rate * n * 100
                                     found = True
                                     break
                             if not found:
@@ -896,10 +909,18 @@ def calculate_batch_cy(
                                 if isnan(v) or (trade_t1_mode and n == 1):
                                     continue
                                 after_gt_end_threshold = end_value * after_gt_end_ratio
+                                # 计算止损阈值
+                                stop_loss_after_gt_end_threshold = v_now * stop_loss_after_gt_end_ratio
                                 if after_gt_end_ratio != 0 and (v - end_value) > after_gt_end_threshold:
                                     after_gt_end_value = round_to_2(v)
                                     after_gt_end_days = n
                                     after_gt_end_change = after_gt_end_ratio * 100
+                                    found = True
+                                    break
+                                if stop_loss_after_gt_end_ratio != 0 and (v - end_value) < stop_loss_after_gt_end_threshold:
+                                    after_gt_end_value = round_to_2(v)
+                                    after_gt_end_days = n
+                                    after_gt_end_change = stop_loss_after_gt_end_ratio * 100
                                     found = True
                                     break
                             if not found:
@@ -915,25 +936,25 @@ def calculate_batch_cy(
                                 if isnan(v_now) or isnan(v_prev) or (trade_t1_mode and n == 1):
                                     continue
                                 after_gt_start_threshold = v_now * after_gt_start_ratio
+                                # 计算止损阈值
+                                stop_loss_after_gt_start_threshold = v_now * stop_loss_after_gt_start_ratio
                                 if after_gt_start_ratio != 0 and (v_prev - v_now) > after_gt_start_threshold:
                                     after_gt_start_value = round_to_2(v_prev)
                                     after_gt_start_days = n
-                                    # 计算 after_gt_start_change：满足条件那一天的前一天涨幅 + after_gt_start_ratio
-                                    if k + 1 < num_dates:
-                                        prev_price = price_data_view[stock_idx, k + 1]
-                                        if k + 2 < num_dates:
-                                            prev_prev_price = price_data_view[stock_idx, k + 2]
-                                            if not isnan(prev_price) and not isnan(prev_prev_price) and prev_prev_price != 0:
-                                                prev_day_change_for_k = ((prev_price - prev_prev_price) / prev_prev_price) * 100
-                                                after_gt_start_change = round_to_2(prev_day_change_for_k + after_gt_start_ratio)
-                                            else:
-                                                after_gt_start_change = NAN
-                                        else:
-                                            after_gt_start_change = NAN
-                                    else:
-                                        after_gt_start_change = NAN
+                                    # 计算 after_gt_start_change：满足条件那一天的前一天价格与结束日价格的关系
+                                    after_gt_start_change = round_to_2((1 + (v_now - end_value) / end_value) * (1 + after_gt_start_ratio))
                                     found = True
                                     break
+
+                                if stop_loss_after_gt_start_ratio != 0 and (v_prev - v_now) < stop_loss_after_gt_start_threshold:
+                                    after_gt_start_value = round_to_2(v_prev)
+                                    after_gt_start_days = n
+                                    # 计算 after_gt_start_change：满足条件那一天的前一天价格与结束日价格的关系
+                                    after_gt_start_change = round_to_2((1 + (v_now - end_value) / end_value) * (1 + stop_loss_after_gt_start_ratio))
+                                    found = True
+                                    break
+                                
+                            
                             if not found:
                                 after_gt_start_value = NAN
                                 after_gt_start_days = -1

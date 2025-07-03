@@ -918,6 +918,10 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
                     step_edit.setPlaceholderText("步长")
                     step_edit.setFixedWidth(50)
                     step_edit.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+                    # 添加非负数验证器
+                    from PyQt5.QtGui import QDoubleValidator
+                    validator = QDoubleValidator(0, 999999, 2)  # 最小值0，最大值999999，2位小数
+                    step_edit.setValidator(validator)
                     direction_combo = QComboBox()
                     direction_combo.addItems(["右单向", "左单向", "全方向"])
                     direction_combo.setFixedWidth(60)
@@ -1391,7 +1395,12 @@ def get_special_abbr_map():
     abbrs = [
         ("日期宽度", "width"),
         ("操作天数", "op_days"),
-        ("递增率", "increment_rate"),
+        ("止盈递增率", "increment_rate"),
+        ("止盈后值大于结束值比例", "after_gt_end_ratio"),
+        ("止盈后值大于前值比例", "after_gt_start_ratio"),
+        ("止损递增率", "stop_loss_inc_rate"),
+        ("止损后值大于结束值比例", "stop_loss_after_gt_end_ratio"),
+        ("止损后值大于前值比例", "stop_loss_after_gt_start_ratio")
     ]
     return {zh: en for zh, en in abbrs}
 
@@ -1562,6 +1571,10 @@ class FormulaSelectWidget(QWidget):
         step_edit.setPlaceholderText("步长")
         step_edit.setFixedWidth(30)
         step_edit.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        # 添加非负数验证器
+        from PyQt5.QtGui import QDoubleValidator
+        validator = QDoubleValidator(0, 999999, 2)  # 最小值0，最大值999999，2位小数
+        step_edit.setValidator(validator)
         comparison_layout.addWidget(step_edit)
         
         # 方向选择下拉框
@@ -1700,7 +1713,13 @@ class FormulaSelectWidget(QWidget):
             
             if all_result_vars:
                 # 获取用户设置的排序方式
-                user_sort_mode = self.sort_combo.currentText() if self.sort_combo else (self.main_window.last_sort_mode if hasattr(self.main_window, 'last_sort_mode') else '最大值排序')
+                user_sort_mode = None
+                if self.sort_combo and self.sort_combo.currentText():
+                    user_sort_mode = self.sort_combo.currentText()
+                elif hasattr(self.main_window, 'last_sort_mode') and self.main_window.last_sort_mode:
+                    user_sort_mode = self.main_window.last_sort_mode
+                else:
+                    user_sort_mode = '最大值排序'
                 combinations.append({
                     'result_vars': all_result_vars,
                     'sort_modes': [user_sort_mode]
@@ -1824,6 +1843,31 @@ class FormulaSelectWidget(QWidget):
                 if widgets['checkbox'].isChecked():
                     logic_conditions.append(f"{en}")
         
+        # 收集需要参与组合的逻辑控件（只取前三个）
+        logic_combination_vars = []
+        logic_map = get_abbr_logic_map()
+        # 只取前三个逻辑控件参与组合
+        logic_vars_to_combine = ['range_ratio_is_less', 'continuous_abs_is_less', 'valid_abs_is_less']
+        
+        for logic_var in logic_vars_to_combine:
+            # 查找对应的中文名称
+            logic_zh = None
+            for zh, en in logic_map.items():
+                if en == logic_var:
+                    logic_zh = zh
+                    break
+            
+            if logic_zh:
+                # 查找对应的控件
+                for en, widgets in self.var_widgets.items():
+                    if en == logic_var and 'checkbox' in widgets and widgets['checkbox'].isChecked():
+                        logic_combination_vars.append({
+                            'var_name': logic_var,
+                            'zh_name': logic_zh
+                        })
+                        print(f"  添加逻辑控件到组合: {logic_var} ({logic_zh})")
+                        break
+        
         # 收集需要组合的变量控件
         combination_vars = []
         for en, widgets in self.var_widgets.items():
@@ -1832,7 +1876,10 @@ class FormulaSelectWidget(QWidget):
                 continue
                 
             if 'lower' in widgets and 'upper' in widgets and 'step' in widgets and 'direction' in widgets:
-                if widgets['checkbox'].isChecked():
+                # 对于同时有圆框和方框的变量，需要方框勾选才参与组合
+                # 对于只有方框的变量，只需要方框勾选
+                should_include = widgets['checkbox'].isChecked()
+                if should_include:
                     lower_text = widgets['lower'].text().strip()
                     upper_text = widgets['upper'].text().strip()
                     step_text = widgets['step'].text().strip()
@@ -1849,6 +1896,7 @@ class FormulaSelectWidget(QWidget):
                             else:
                                 step_val = 0
                             
+                            print(f"  添加变量到组合: {en}, 含逻辑: {has_logic}")
                             combination_vars.append({
                                 'var_name': en,
                                 'lower': lower_val,
@@ -2094,6 +2142,7 @@ class FormulaSelectWidget(QWidget):
                     
                     # 处理含逻辑：如果勾选了含逻辑，添加一个True条件
                     if has_logic:
+                        print(f"    变量 {var_name} 勾选了含逻辑，添加True条件")
                         combinations.append(('True', 'True'))
                     
                     var_combinations.append({
@@ -2151,6 +2200,7 @@ class FormulaSelectWidget(QWidget):
                     
                     # 处理含逻辑：如果勾选了含逻辑，添加一个True条件
                     if has_logic:
+                        print(f"    变量 {var_name} 勾选了含逻辑，添加True条件")
                         combinations.append(('True', 'True'))
                     
                     print(f"  生成的组合: {combinations}")
@@ -2364,6 +2414,7 @@ class FormulaSelectWidget(QWidget):
                 
                 # 处理含逻辑：如果勾选了含逻辑，添加一个True条件
                 if has_logic:
+                    print(f"    变量 {var_name} 勾选了含逻辑，添加True条件")
                     combinations.append(('True', 'True'))
                 
                 var_combinations.append({
@@ -2416,6 +2467,7 @@ class FormulaSelectWidget(QWidget):
                 
                 # 处理含逻辑：如果勾选了含逻辑，添加一个True条件
                 if has_logic:
+                    print(f"    变量 {var_name} 勾选了含逻辑，添加True条件")
                     combinations.append(('True', 'True'))
                 
                 print(f"  生成的组合: {combinations}")
@@ -2428,6 +2480,147 @@ class FormulaSelectWidget(QWidget):
                     'combinations': combinations,
                     'is_comparison': True  # 标记为比较控件
                 })
+            
+            # 生成笛卡尔积
+            if var_combinations:
+                # 获取所有变量的组合数量
+                total_combinations = 1
+                for var_combo in var_combinations:
+                    total_combinations *= len(var_combo['combinations'])
+                
+                print(f"非锁定输出模式：总共 {total_combinations} 个组合")
+                
+                # 为每个条件组合生成公式
+                for i in range(total_combinations):
+                    # 计算当前组合的索引
+                    indices = []
+                    temp = i
+                    for var_combo in var_combinations:
+                        indices.append(temp % len(var_combo['combinations']))
+                        temp //= len(var_combo['combinations'])
+                    
+                    # 构建当前组合的条件
+                    current_conditions = logic_conditions + comparison_conditions
+                    
+                    print(f"生成非锁定输出组合 {i+1} 的条件:")
+                    print(f"  逻辑条件: {logic_conditions}")
+                    print(f"  比较条件: {comparison_conditions}")
+                    
+                    for j, var_combo in enumerate(var_combinations):
+                        combo_idx = indices[j]
+                        lower_val, upper_val = var_combo['combinations'][combo_idx]
+                        
+                        print(f"  变量组合 {j+1}: ({lower_val}, {upper_val})")
+                        
+                        # 如果是True条件，跳过该变量（不添加任何条件）
+                        if lower_val == 'True' and upper_val == 'True':
+                            print(f"    跳过True条件")
+                            continue
+                        
+                        if var_combo['is_comparison']:
+                            # 比较控件：生成 v1 >= lower * v2 and v1 <= upper * v2 的条件
+                            var1 = var_combo['var1']
+                            var2 = var_combo['var2']
+                            comp_conditions = []
+                            comp_conditions.append(f"{var1} >= {lower_val} * {var2}")
+                            comp_conditions.append(f"{var1} <= {upper_val} * {var2}")
+                            current_conditions.append(' and '.join(comp_conditions))
+                            print(f"    添加比较条件: {' and '.join(comp_conditions)}")
+                        else:
+                            # 普通变量：生成 var >= lower and var <= upper 的条件
+                            var_name = var_combo['var_name']
+                            var_conditions = []
+                            var_conditions.append(f"{var_name} >= {lower_val}")
+                            var_conditions.append(f"{var_name} <= {upper_val}")
+                            current_conditions.append(' and '.join(var_conditions))
+                            print(f"    添加变量条件: {' and '.join(var_conditions)}")
+                    
+                    print(f"  最终条件: {current_conditions}")
+                    
+                    # 生成公式
+                    if current_conditions:
+                        cond_str = "if " + " and ".join(current_conditions) + ":"
+                    else:
+                        cond_str = "if True:"
+                    
+                    # 为每个特殊组合生成公式
+                    if special_result_combinations:
+                        print(f"有特殊组合 special_result_combinations :{special_result_combinations}")
+                        for special_combo in special_result_combinations:
+                            # 合并特殊组合和其他result变量
+                            all_result_vars = special_combo['result_vars'] + other_result_vars + special_forward_result_vars
+                            if all_result_vars:
+                                result_expr = "result = " + " + ".join(all_result_vars)
+                            else:
+                                result_expr = "result = 0"
+                            
+                            # 为每个排序方式生成一个公式
+                            for sort_mode in special_combo['sort_modes']:
+                                formula = f"{cond_str}\n    {result_expr}\nelse:\n    result = 0"
+                                formula_list.append({
+                                    'formula': formula,
+                                    'sort_mode': sort_mode,
+                                    'result_vars': all_result_vars
+                                })
+                    else:
+                        # 容错处理：当没有特殊组合时，也要处理向前参数和其他result变量
+                        print(f"没有特殊组合")
+                        all_result_vars = other_result_vars + special_forward_result_vars
+                        if all_result_vars:
+                            result_expr = "result = " + " + ".join(all_result_vars)
+                        else:
+                            result_expr = "result = 0"
+                        
+                        # 向前相关参数不区分最大最小排序，以基础参数为准，如果没有基础参数，则按用户设置的排序
+                        # 获取用户设置的排序方式
+                        user_sort_mode = self.sort_combo.currentText() if self.sort_combo else '最大值排序'
+                        print(f"user_sort_mode: {user_sort_mode}")
+                        
+                        # 生成一个公式
+                        formula = f"{cond_str}\n    {result_expr}\nelse:\n    result = 0"
+                        formula_list.append({
+                            'formula': formula,
+                            'sort_mode': user_sort_mode,
+                            'result_vars': all_result_vars
+                        })
+        
+        # 如果有逻辑控件参与组合，需要将每个公式都变成两个版本（无逻辑条件和有逻辑条件）
+        if logic_combination_vars:
+            print(f"有 {len(logic_combination_vars)} 个逻辑控件参与组合，将每个公式变成两个版本")
+            original_formula_list = formula_list.copy()
+            formula_list = []
+            
+            for formula_obj in original_formula_list:
+                # 版本1：无逻辑条件（保持原样）
+                formula_list.append(formula_obj)
+                
+                # 版本2：有逻辑条件
+                for logic_var_info in logic_combination_vars:
+                    logic_var = logic_var_info['var_name']
+                    logic_zh = logic_var_info['zh_name']
+                    
+                    # 复制原公式
+                    new_formula_obj = formula_obj.copy()
+                    original_formula = new_formula_obj['formula']
+                    
+                    # 在if条件中添加逻辑条件
+                    if 'if ' in original_formula:
+                        # 找到if行的结束位置
+                        if_end_pos = original_formula.find(':')
+                        if if_end_pos != -1:
+                            # 在if条件后添加逻辑条件
+                            if_condition = original_formula[3:if_end_pos].strip()
+                            if if_condition == 'True':
+                                new_condition = f"if {logic_var}:"
+                            else:
+                                new_condition = f"if {if_condition} and {logic_var}:"
+                            
+                            # 替换if条件
+                            new_formula = new_condition + original_formula[if_end_pos:]
+                            new_formula_obj['formula'] = new_formula
+                            
+                            print(f"  生成逻辑组合公式: {logic_var} ({logic_zh})")
+                            formula_list.append(new_formula_obj)
         
         for i, formula_obj in enumerate(formula_list):
             print(f"公式 {i+1} (排序方式: {formula_obj['sort_mode']}):")
@@ -2438,7 +2631,7 @@ class FormulaSelectWidget(QWidget):
     def generate_special_params_combinations(self):
         """
         生成特殊变量的组合参数
-        特殊变量包括：日期宽度、操作天数、递增率
+        特殊变量包括：日期宽度、操作天数、止盈递增率
         这些变量只有上下限和步长，按步长递增生成组合
         如果未勾选，则用主界面参数
         返回参数元组列表：[(width, op_days, increment_rate), ...]
@@ -2448,7 +2641,7 @@ class FormulaSelectWidget(QWidget):
         
         # 先收集勾选的变量
         for en, widgets in self.var_widgets.items():
-            if en in ['width', 'op_days', 'increment_rate']:
+            if en in ['width', 'op_days', 'increment_rate', 'after_gt_end_ratio', 'after_gt_start_ratio', 'stop_loss_inc_rate', 'stop_loss_after_gt_end_ratio', 'stop_loss_after_gt_start_ratio']:
                 if 'checkbox' in widgets and widgets['checkbox'].isChecked():
                     lower_text = widgets.get('lower', '').text().strip()
                     upper_text = widgets.get('upper', '').text().strip()
@@ -2463,7 +2656,7 @@ class FormulaSelectWidget(QWidget):
                                 # 生成整数序列
                                 values = list(range(lower_val, upper_val + 1, step_val))
                             else:
-                                # 递增率使用浮点数，保留两位小数
+                                # 止盈递增率使用浮点数，保留两位小数
                                 lower_val = float(lower_text)
                                 upper_val = float(upper_text)
                                 step_val = float(step_text)
@@ -2478,10 +2671,15 @@ class FormulaSelectWidget(QWidget):
         param_map = {
             'width': getattr(self.main_window, 'width_spin', None),
             'op_days': getattr(self.main_window, 'op_days_edit', None),
-            'increment_rate': getattr(self.main_window, 'inc_rate_edit', None)
+            'increment_rate': getattr(self.main_window, 'inc_rate_edit', None),
+            'after_gt_end_ratio': getattr(self.main_window, 'after_gt_end_edit', None),
+            'after_gt_start_ratio': getattr(self.main_window, 'after_gt_prev_edit', None),
+            'stop_loss_inc_rate': getattr(self.main_window, 'stop_loss_inc_rate_edit', None),
+            'stop_loss_after_gt_end_ratio': getattr(self.main_window, 'stop_loss_after_gt_end_edit', None),
+            'stop_loss_after_gt_start_ratio': getattr(self.main_window, 'stop_loss_after_gt_start_edit', None)
         }
         
-        for en in ['width', 'op_days', 'increment_rate']:
+        for en in ['width', 'op_days', 'increment_rate', 'after_gt_end_ratio', 'after_gt_start_ratio', 'stop_loss_inc_rate', 'stop_loss_after_gt_end_ratio', 'stop_loss_after_gt_start_ratio']:
             if en not in special_vars:
                 widget = param_map[en]
                 if widget is not None:
@@ -2511,11 +2709,21 @@ class FormulaSelectWidget(QWidget):
         width_values = special_vars['width']['values']
         op_days_values = special_vars['op_days']['values']
         increment_rate_values = special_vars['increment_rate']['values']
+        after_gt_end_ratio_values = special_vars['after_gt_end_ratio']['values']
+        after_gt_start_ratio_values = special_vars['after_gt_start_ratio']['values']
+        stop_loss_inc_rate_values = special_vars['stop_loss_inc_rate']['values']
+        stop_loss_after_gt_end_ratio_values = special_vars['stop_loss_after_gt_end_ratio']['values']
+        stop_loss_after_gt_start_ratio_values = special_vars['stop_loss_after_gt_start_ratio']['values']
         
         for width in width_values:
             for op_days in op_days_values:
                 for increment_rate in increment_rate_values:
-                    special_combinations.append((width, op_days, increment_rate))
+                    for after_gt_end_ratio in after_gt_end_ratio_values:
+                        for after_gt_start_ratio in after_gt_start_ratio_values:
+                            for stop_loss_inc_rate in stop_loss_inc_rate_values:
+                                for stop_loss_after_gt_end_ratio in stop_loss_after_gt_end_ratio_values:
+                                    for stop_loss_after_gt_start_ratio in stop_loss_after_gt_start_ratio_values:
+                                        special_combinations.append((width, op_days, increment_rate, after_gt_end_ratio, after_gt_start_ratio, stop_loss_inc_rate, stop_loss_after_gt_end_ratio, stop_loss_after_gt_start_ratio))
         
         for i, combination in enumerate(special_combinations):
             print(f"组合 {i+1}: {combination}")
@@ -2542,12 +2750,12 @@ class FormulaSelectWidget(QWidget):
         for (zh, en), en_val in self.abbr_round_only_map.items():
             round_only_vars.add(en_val)
         
-        # 获取特殊变量列表，用于排除（日期宽度、操作天数、递增率）
+        # 获取特殊变量列表，用于排除（日期宽度、操作天数、止盈递增率）
         special_abbr_map = get_special_abbr_map()
         special_vars = set(special_abbr_map.values())
         
         for en, widgets in self.var_widgets.items():
-            # 排除特殊变量（日期宽度、操作天数、递增率）
+            # 排除特殊变量（日期宽度、操作天数、止盈递增率）
             if en in special_vars:
                 continue
                 
@@ -2575,7 +2783,7 @@ class FormulaSelectWidget(QWidget):
         # 新增：向前参数勾选项也参与条件拼接
         if hasattr(self.main_window, 'forward_param_state') and self.main_window.forward_param_state:
             for en, v in self.main_window.forward_param_state.items():
-                # 排除特殊变量（日期宽度、操作天数、递增率）
+                # 排除特殊变量（日期宽度、操作天数、止盈递增率）
                 if en in special_vars:
                     continue
                     
@@ -2796,6 +3004,10 @@ class FormulaSelectWidget(QWidget):
             step_input = QLineEdit()
             step_input.setPlaceholderText("步长")
             step_input.setFixedWidth(30)
+            # 添加非负数验证器
+            from PyQt5.QtGui import QDoubleValidator
+            validator = QDoubleValidator(0, 999999, 2)  # 最小值0，最大值999999，2位小数
+            step_input.setValidator(validator)
             var_layout.addWidget(step_input)
 
             # 添加方向下拉框
@@ -2880,6 +3092,11 @@ class FormulaSelectWidget(QWidget):
             # 为日期宽度和操作天数添加整数验证器
             if en in ['width', 'op_days']:
                 step_input.setValidator(QIntValidator(1, 100))
+            else:
+                # 为其他特殊变量添加非负数验证器
+                from PyQt5.QtGui import QDoubleValidator
+                validator = QDoubleValidator(0, 999999, 2)  # 最小值0，最大值999999，2位小数
+                step_input.setValidator(validator)
             var_layout.addWidget(step_input)
 
             widget_dict = {
