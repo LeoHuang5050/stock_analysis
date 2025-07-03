@@ -233,6 +233,9 @@ class CalculateThread(QThread):
         inc_rate = float(params.get('inc_rate', 0)) * 0.01
         after_gt_end_ratio = float(params.get('after_gt_end_ratio', 0)) * 0.01
         after_gt_start_ratio = float(params.get('after_gt_start_ratio', 0)) * 0.01
+        stop_loss_inc_rate = float(params.get('stop_loss_inc_rate', 0)) * 0.01
+        stop_loss_after_gt_end_ratio = float(params.get('stop_loss_after_gt_end_ratio', 0)) * 0.01
+        stop_loss_after_gt_start_ratio = float(params.get('stop_loss_after_gt_start_ratio', 0)) * 0.01
         expr = params.get('expr', '') or ''
         expr = convert_expr_to_return_var_name(expr)
         formula_expr = params.get('formula_expr', '') or ''
@@ -332,6 +335,9 @@ class CalculateThread(QThread):
                 inc_rate,
                 after_gt_end_ratio,
                 after_gt_start_ratio,
+                stop_loss_inc_rate,
+                stop_loss_after_gt_end_ratio,
+                stop_loss_after_gt_start_ratio,
                 expr,
                 ops_change_input,
                 formula_expr,
@@ -535,6 +541,9 @@ def cy_batch_worker(args):
         inc_rate, 
         after_gt_end_ratio, 
         after_gt_start_ratio, 
+        stop_loss_inc_rate,
+        stop_loss_after_gt_end_ratio,
+        stop_loss_after_gt_start_ratio,
         expr, 
         ops_change_input, 
         formula_expr, 
@@ -605,6 +614,9 @@ def cy_batch_worker(args):
         inc_rate, 
         after_gt_end_ratio, 
         after_gt_start_ratio, 
+        stop_loss_inc_rate,
+        stop_loss_after_gt_end_ratio,
+        stop_loss_after_gt_start_ratio,
         expr, 
         ops_change_input, 
         formula_expr, 

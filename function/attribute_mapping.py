@@ -12,10 +12,10 @@ class AttributeMapping:
         'width': '日期宽度',
         'start_option': '开始日期值选择',
         'shift': '前移天数',
-        'inc_rate': '递增率',
+        'inc_rate': '止盈递增率',
         'op_days': '操作天数',
-        'after_gt_end_edit': '后值大于结束值比例',
-        'after_gt_prev_edit': '后值大于前值比例',
+        'after_gt_end_edit': '止盈后值大于结束值比例',
+        'after_gt_prev_edit': '止盈后值大于前值比例',
         'n_days': '第1组后N最大值逻辑',
         'n_days_max': '前1组结束地址后N日的最大值',
         'range_value': '开始日到结束日之间最高价/最低价小于',
@@ -79,7 +79,7 @@ class AttributeMapping:
         
         # 组合分析特有参数
         'sort_mode': '排序方式',
-        'increment_rate': '递增率',
+        'increment_rate': '止盈递增率',
         
         # 日期相关
         'date': '日期',
