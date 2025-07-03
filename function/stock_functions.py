@@ -1837,11 +1837,19 @@ class FormulaSelectWidget(QWidget):
         formula_list = []
         
         # 收集逻辑变量条件（这些在所有组合中都一样）
+        # 注意：前三个逻辑控件（range_ratio_is_less, continuous_abs_is_less, valid_abs_is_less）不在这里处理
+        # 它们会在后面的逻辑组合处理中单独处理
         logic_conditions = []
+        logic_map = get_abbr_logic_map()
+        # 前三个逻辑控件不在这里处理
+        logic_vars_to_exclude = ['range_ratio_is_less', 'continuous_abs_is_less', 'valid_abs_is_less']
+        
         for en, widgets in self.var_widgets.items():
             if 'checkbox' in widgets and 'lower' not in widgets:
-                if widgets['checkbox'].isChecked():
-                    logic_conditions.append(f"{en}")
+                # 排除前三个逻辑控件
+                if en not in logic_vars_to_exclude:
+                    if widgets['checkbox'].isChecked():
+                        logic_conditions.append(f"{en}")
         
         # 收集需要参与组合的逻辑控件（只取前三个）
         logic_combination_vars = []
@@ -2317,6 +2325,70 @@ class FormulaSelectWidget(QWidget):
                                 'result_vars': all_result_vars
                             })
             
+            # 锁定输出模式下也需要进行逻辑控件组合处理
+            if logic_combination_vars:
+                print(f"锁定输出模式下进行逻辑控件组合处理")
+                original_formula_list = formula_list.copy()
+                formula_list = []
+                
+                # 生成逻辑控件的所有组合（包括空组合）
+                logic_combinations = [[]]  # 空组合（无逻辑条件）
+                for logic_var_info in logic_combination_vars:
+                    logic_combinations.append([logic_var_info['var_name']])
+                
+                # 如果有多个逻辑控件，还需要生成它们的组合
+                if len(logic_combination_vars) > 1:
+                    # 生成2个逻辑控件的组合
+                    for i in range(len(logic_combination_vars)):
+                        for j in range(i + 1, len(logic_combination_vars)):
+                            logic_combinations.append([
+                                logic_combination_vars[i]['var_name'],
+                                logic_combination_vars[j]['var_name']
+                            ])
+                    
+                    # 生成3个逻辑控件的组合
+                    if len(logic_combination_vars) >= 3:
+                        logic_combinations.append([
+                            logic_combination_vars[0]['var_name'],
+                            logic_combination_vars[1]['var_name'],
+                            logic_combination_vars[2]['var_name']
+                        ])
+                
+                print(f"锁定输出模式逻辑控件组合: {logic_combinations}")
+                
+                # 为每个原始公式生成所有逻辑组合版本（笛卡尔积）
+                for formula_obj in original_formula_list:
+                    for logic_combo in logic_combinations:
+                        # 复制原公式
+                        new_formula_obj = formula_obj.copy()
+                        
+                        if logic_combo:  # 有逻辑控件组合
+                            # 在原有条件基础上添加逻辑控件条件
+                            original_formula = new_formula_obj['formula']
+                            if 'if ' in original_formula:
+                                # 找到if行的结束位置
+                                if_end_pos = original_formula.find(':')
+                                if if_end_pos != -1:
+                                    # 获取原始if条件
+                                    if_condition = original_formula[3:if_end_pos].strip()
+                                    
+                                    # 构建新的if条件 - 在原有条件基础上添加逻辑控件条件
+                                    logic_condition = " and ".join(logic_combo)
+                                    if if_condition == 'True':
+                                        new_condition = f"if {logic_condition}:"
+                                    else:
+                                        new_condition = f"if {if_condition} and {logic_condition}:"
+                                    
+                                    # 完全重新构建公式
+                                    new_formula = new_condition + original_formula[if_end_pos + 1:]  # +1 跳过冒号
+                                    new_formula_obj['formula'] = new_formula
+                                    
+                                    print(f"  生成锁定输出逻辑组合公式: {' and '.join(logic_combo)}")
+                                    formula_list.append(new_formula_obj)
+                        else:  # 空组合，保持原样
+                            print(f"  保持锁定输出原公式（无逻辑条件）")
+                            formula_list.append(new_formula_obj)
+            
             for i, formula_obj in enumerate(formula_list):
                 print(f"锁定输出公式 {i+1} (排序方式: {formula_obj['sort_mode']}):")
                 print(formula_obj['formula'])
@@ -2586,41 +2658,67 @@ class FormulaSelectWidget(QWidget):
         
         # 如果有逻辑控件参与组合，需要将每个公式都变成两个版本（无逻辑条件和有逻辑条件）
         if logic_combination_vars:
-            print(f"有 {len(logic_combination_vars)} 个逻辑控件参与组合，将每个公式变成两个版本")
+            print(f"有 {len(logic_combination_vars)} 个逻辑控件参与组合，将每个公式变成多个版本")
             original_formula_list = formula_list.copy()
             formula_list = []
             
-            for formula_obj in original_formula_list:
-                # 版本1：无逻辑条件（保持原样）
-                formula_list.append(formula_obj)
+            # 生成逻辑控件的所有组合（包括空组合）
+            logic_combinations = [[]]  # 空组合（无逻辑条件）
+            for logic_var_info in logic_combination_vars:
+                logic_combinations.append([logic_var_info['var_name']])
+            
+            # 如果有多个逻辑控件，还需要生成它们的组合
+            if len(logic_combination_vars) > 1:
+                # 生成2个逻辑控件的组合
+                for i in range(len(logic_combination_vars)):
+                    for j in range(i + 1, len(logic_combination_vars)):
+                        logic_combinations.append([
+                            logic_combination_vars[i]['var_name'],
+                            logic_combination_vars[j]['var_name']
+                        ])
                 
-                # 版本2：有逻辑条件
-                for logic_var_info in logic_combination_vars:
-                    logic_var = logic_var_info['var_name']
-                    logic_zh = logic_var_info['zh_name']
-                    
+                # 生成3个逻辑控件的组合
+                if len(logic_combination_vars) >= 3:
+                    logic_combinations.append([
+                        logic_combination_vars[0]['var_name'],
+                        logic_combination_vars[1]['var_name'],
+                        logic_combination_vars[2]['var_name']
+                    ])
+            
+            print(f"逻辑控件组合: {logic_combinations}")
+            
+            # 为每个原始公式生成所有逻辑组合版本（笛卡尔积）
+            for formula_obj in original_formula_list:
+                for logic_combo in logic_combinations:
                     # 复制原公式
                     new_formula_obj = formula_obj.copy()
-                    original_formula = new_formula_obj['formula']
                     
-                    # 在if条件中添加逻辑条件
-                    if 'if ' in original_formula:
-                        # 找到if行的结束位置
-                        if_end_pos = original_formula.find(':')
-                        if if_end_pos != -1:
-                            # 在if条件后添加逻辑条件
-                            if_condition = original_formula[3:if_end_pos].strip()
-                            if if_condition == 'True':
-                                new_condition = f"if {logic_var}:"
-                            else:
-                                new_condition = f"if {if_condition} and {logic_var}:"
-                            
-                            # 替换if条件
-                            new_formula = new_condition + original_formula[if_end_pos:]
-                            new_formula_obj['formula'] = new_formula
-                            
-                            print(f"  生成逻辑组合公式: {logic_var} ({logic_zh})")
-                            formula_list.append(new_formula_obj)
+                    if logic_combo:  # 有逻辑控件组合
+                        # 在原有条件基础上添加逻辑控件条件
+                        original_formula = new_formula_obj['formula']
+                        if 'if ' in original_formula:
+                            # 找到if行的结束位置
+                            if_end_pos = original_formula.find(':')
+                            if if_end_pos != -1:
+                                # 获取原始if条件
+                                if_condition = original_formula[3:if_end_pos].strip()
+                                
+                                # 构建新的if条件 - 在原有条件基础上添加逻辑控件条件
+                                logic_condition = " and ".join(logic_combo)
+                                if if_condition == 'True':
+                                    new_condition = f"if {logic_condition}:"
+                                else:
+                                    new_condition = f"if {if_condition} and {logic_condition}:"
+                                
+                                # 完全重新构建公式
+                                new_formula = new_condition + original_formula[if_end_pos + 1:]  # +1 跳过冒号
+                                new_formula_obj['formula'] = new_formula
+                                
+                                print(f"  生成逻辑组合公式: {' and '.join(logic_combo)}")
+                                formula_list.append(new_formula_obj)
+                    else:  # 空组合，保持原样
+                        print(f"  保持原公式（无逻辑条件）")
+                        formula_list.append(new_formula_obj)
         
         for i, formula_obj in enumerate(formula_list):
             print(f"公式 {i+1} (排序方式: {formula_obj['sort_mode']}):")
