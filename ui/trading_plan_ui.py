@@ -25,7 +25,6 @@ class TradingPlanWidget(QWidget):
     def __init__(self, main_window):
         super().__init__()
         self.main_window = main_window
-        self.card_states = {}  # 记录每个卡片的最小化/最大化状态
         self.current_page = 0  # 当前页面索引
         self.cards_per_page = 3  # 每页显示的卡片数量
         self.tab_enabled = True  # Tab切换功能是否启用
@@ -41,6 +40,9 @@ class TradingPlanWidget(QWidget):
         # 延迟设置焦点和安装事件过滤器
         QTimer.singleShot(100, lambda: (self.setFocus(), setattr(self, 'tab_enabled', True)))
         QTimer.singleShot(200, self.install_event_filters)
+        
+        # 监听文件上传成功事件
+        self.setup_file_upload_listener()
 
     def init_ui(self):
         layout = QVBoxLayout(self)
@@ -55,21 +57,12 @@ class TradingPlanWidget(QWidget):
         top_layout.addWidget(QLabel("请选择结束日期："))
         self.end_date_picker = QDateEdit(calendarPopup=True)
         # 初始化时不设置日期，延迟设置
-        # 添加日期变化监听事件
-        self.end_date_picker.dateChanged.connect(self.save_end_date_to_main_window)
+        # 添加日期变化监听事件（暂时保留，以备将来需要）
+        # self.end_date_picker.dateChanged.connect(self.save_end_date_to_main_window)
         top_layout.addWidget(self.end_date_picker)
         
-        # 初始化结束日期：优先从主窗口恢复，否则延迟设置
-        if hasattr(self.main_window, 'last_trading_plan_end_date') and self.main_window.last_trading_plan_end_date:
-            try:
-                self.end_date_picker.setDate(QDate.fromString(self.main_window.last_trading_plan_end_date, "yyyy-MM-dd"))
-            except Exception as e:
-                print(f"恢复操盘方案结束日期失败: {e}")
-                # 恢复失败时使用延迟设置
-                self.set_end_date_to_latest_workday()
-        else:
-            # 没有保存的日期时使用延迟设置
-            self.set_end_date_to_latest_workday()
+        # 初始化结束日期：如果上传了文件就设置为workdays_str最后一天，否则默认为今天
+        self.set_end_date_to_latest_workday()
         self.select_btn = QPushButton("进行选股")
         top_layout.addWidget(self.select_btn)
         self.select_btn.clicked.connect(self.on_select_btn_clicked)
@@ -98,8 +91,6 @@ class TradingPlanWidget(QWidget):
         layout.addWidget(scroll, 1)  # 让scroll占据剩余空间
 
         self.refresh_cards()
-
-
 
     def install_event_filters(self):
         """为主要控件安装事件过滤器"""
@@ -139,8 +130,6 @@ class TradingPlanWidget(QWidget):
                 super().keyPressEvent(event)
         else:
             super().keyPressEvent(event)
-
-
 
     def on_focus_out(self, event):
         """当焦点离开widget时禁用Tab切换功能"""
@@ -296,6 +285,7 @@ class TradingPlanWidget(QWidget):
         
         # 获取方案列表
         plan_list = getattr(self.main_window, 'trading_plan_list', [])
+        
         # 保存排序后的列表到主窗口，确保索引一致
         sorted_plan_list = sorted(plan_list, key=lambda x: float(x.get('adjusted_value', 0)), reverse=True)
         self.main_window.sorted_trading_plan_list = sorted_plan_list
@@ -322,15 +312,8 @@ class TradingPlanWidget(QWidget):
                     plan = current_page_plans[idx]
                     # 计算在原始列表中的索引
                     original_idx = start_idx + idx
-                    is_min = self.card_states.get(original_idx, None)
-                    if is_min is None:
-                        if not plan.get('real_trade', False):
-                            is_min = True
-                            self.card_states[original_idx] = True
-                        else:
-                            is_min = False
-                            self.card_states[original_idx] = False
-                    
+                    # 只根据用户操作记录的card_states决定最大/最小化，默认最大化
+                    is_min = plan.get('card_minimized', False)
                     card = self.create_plan_card(original_idx, plan, card_width, is_min)
                     if is_min:
                         card.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Minimum)
@@ -552,7 +535,18 @@ class TradingPlanWidget(QWidget):
         return card
 
     def set_card_minimized(self, idx, minimized):
-        self.card_states[idx] = minimized
+        # 使用排序后的列表来获取正确的plan
+        sorted_plan_list = getattr(self.main_window, 'sorted_trading_plan_list', [])
+        if 0 <= idx < len(sorted_plan_list):
+            plan_to_update = sorted_plan_list[idx]
+            plan_id = plan_to_update.get('plan_id')
+            
+            # 在原始列表中找到对应的plan并更新
+            plan_list = getattr(self.main_window, 'trading_plan_list', [])
+            for plan in plan_list:
+                if plan.get('plan_id') == plan_id:
+                    plan['card_minimized'] = minimized
+                    break
         self.refresh_cards()
 
     def delete_plan(self, idx):
@@ -677,13 +671,33 @@ class TradingPlanWidget(QWidget):
 
     def set_end_date_to_latest_workday(self):
         """
-        延迟设置结束日期为workdays_str最后一天。
+        设置结束日期：如果上传了文件就设置为workdays_str最后一天，否则默认为今天
         """
         workdays_str = getattr(self.main_window.init, 'workdays_str', None)
         if workdays_str and len(workdays_str) > 0:
             self.end_date_picker.setDate(QDate.fromString(workdays_str[-1], "yyyy-MM-dd"))
         else:
             self.end_date_picker.setDate(QDate.currentDate())
+
+    def setup_file_upload_listener(self):
+        """
+        设置文件上传成功监听器
+        """
+        # 监听主窗口的文件上传成功事件
+        if hasattr(self.main_window, 'init') and hasattr(self.main_window.init, 'on_file_loaded'):
+            # 保存原始的文件加载完成方法
+            original_on_file_loaded = self.main_window.init.on_file_loaded
+            
+            def new_on_file_loaded(df, price_data, diff_data, workdays_str, error_msg):
+                # 调用原始方法
+                original_on_file_loaded(df, price_data, diff_data, workdays_str, error_msg)
+                
+                # 如果没有错误，更新操盘方案的结束日期
+                if not error_msg and hasattr(self, 'end_date_picker'):
+                    self.set_end_date_to_latest_workday()
+            
+            # 替换方法
+            self.main_window.init.on_file_loaded = new_on_file_loaded
 
     def save_end_date_to_main_window(self):
         """

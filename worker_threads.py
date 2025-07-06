@@ -390,6 +390,16 @@ class CalculateThread(QThread):
             for (start, end) in stock_idx_ranges if end > start
         ]
         t0 = time.time()
+        
+        # 添加内存监控
+        try:
+            import psutil
+            process = psutil.Process()
+            initial_memory = process.memory_info().rss / 1024 / 1024  # MB
+            print(f"初始内存使用: {initial_memory:.2f} MB")
+        except ImportError:
+            print("psutil未安装，无法监控内存使用")
+        
         merged_results = {}
         for idx in range(end_date_start_idx, end_date_end_idx-1, -1):
             end_date = date_columns[idx]
@@ -397,13 +407,24 @@ class CalculateThread(QThread):
         with concurrent.futures.ProcessPoolExecutor(max_workers=n_proc) as executor:
             futures = [executor.submit(cy_batch_worker, args) for args in args_list]
             for fut in concurrent.futures.as_completed(futures):
+                # 添加超时处理
                 try:
                     process_results = fut.result()
                     for end_date, stocks in process_results.items():
                         if end_date in merged_results:
                             merged_results[end_date].extend(stocks)
                 except Exception as e:
+                    import traceback
                     print(f"子进程异常: {e}")
+                    print(f"异常详情: {traceback.format_exc()}")
+                    # 记录到日志文件
+                    try:
+                        with open('error_log.txt', 'a', encoding='utf-8') as f:
+                            f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} - 子进程异常: {e}\n")
+                            f.write(f"异常详情: {traceback.format_exc()}\n")
+                            f.write("-" * 50 + "\n")
+                    except:
+                        pass
         t1 = time.time()
         print(f"calculate_batch_{n_proc}_cores 总耗时: {t1 - t0:.4f}秒")
         if only_show_selected:

@@ -583,7 +583,7 @@ class ComponentAnalysisWidget(QWidget):
         self.current_analysis_index += 1
         
         # 使用QTimer延迟执行下一次分析，确保当前分析完全完成
-        QTimer.singleShot(500, self.execute_next_analysis)  # 3秒后执行下一次分析
+        QTimer.singleShot(3000, self.execute_next_analysis)  # 3秒后执行下一次分析
     
     def _execute_component_analysis_single(self, formula, width, op_days, increment_rate, after_gt_end_ratio, after_gt_start_ratio, stop_loss_inc_rate, stop_loss_after_gt_end_ratio, stop_loss_after_gt_start_ratio, sort_mode):
         """
@@ -781,7 +781,7 @@ class ComponentAnalysisWidget(QWidget):
         if not all_analysis_results:
             self.show_message("没有有效的分析结果")
             return
-
+        print(f"show_analysis_results length = {len(all_analysis_results)}")
         # 如果已经是top_three结构，直接展示
         if isinstance(all_analysis_results, list) and all_analysis_results and isinstance(all_analysis_results[0], dict) and 'analysis' in all_analysis_results[0]:
             top_three = all_analysis_results
@@ -888,13 +888,42 @@ class ComponentAnalysisWidget(QWidget):
         def show_analysis_detail(analysis_data, idx=None):
             if idx is None:
                 idx = 0
+            
+            # 使用主窗口级别的窗口管理，避免tab切换时丢失引用
+            if not hasattr(self.main_window, 'component_analysis_detail_window'):
+                self.main_window.component_analysis_detail_window = None
+            
+            # 如果已有窗口，检查窗口是否仍然有效
+            if self.main_window.component_analysis_detail_window is not None:
+                try:
+                    window = self.main_window.component_analysis_detail_window
+                    # 检查窗口是否仍然存在（没有被销毁）
+                    if hasattr(window, 'isVisible') and window.isVisible():
+                        # 如果窗口最小化，则恢复显示
+                        if window.isMinimized():
+                            window.showNormal()
+                        # 确保窗口在最前面
+                        window.raise_()
+                        window.activateWindow()
+                        return
+                    else:
+                        # 窗口不可见，清理引用
+                        self.main_window.component_analysis_detail_window = None
+                except Exception:
+                    # 窗口对象已失效，清理引用
+                    self.main_window.component_analysis_detail_window = None
+            
+            # 创建新窗口
             window = AnalysisDetailWindow(analysis_data, self.create_component_result_table, idx)
             window.show()
-            if not hasattr(self, 'detail_windows'):
-                self.detail_windows = []
-            self.detail_windows.append(window)
-            # 用lambda捕获self和window，避免闭包self引用问题
-            window.destroyed.connect(lambda: self.detail_windows.remove(window) if hasattr(self, 'detail_windows') and window in self.detail_windows else None)
+            self.main_window.component_analysis_detail_window = window
+            
+            # 连接窗口关闭事件，清理引用
+            def on_window_destroyed():
+                if hasattr(self.main_window, 'component_analysis_detail_window'):
+                    self.main_window.component_analysis_detail_window = None
+            
+            window.destroyed.connect(on_window_destroyed)
         
         def restore_formula_params(analysis_data):
             """恢复选股参数到选股控件"""
@@ -2509,7 +2538,7 @@ class AnalysisDetailWindow(QMainWindow):
     def __init__(self, analysis_data, create_table_func, idx):
         super().__init__(None)
         self.setWindowTitle(f"组合分析结果详情 - 第{idx+1}行")
-        self.setMinimumSize(1570, 800)
+        self.setMinimumSize(1600, 800)
         flags = self.windowFlags()
         flags &= ~Qt.WindowStaysOnTopHint
         flags |= Qt.WindowMinimizeButtonHint
