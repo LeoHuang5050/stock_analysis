@@ -18,24 +18,19 @@ class BaseParamHandler:
             params = {}
             
         params.update({
-            "width": self.main_window.width_spin.value(),
             "start_option": self.main_window.start_option_combo.currentText(),
             "shift_days": self.main_window.shift_spin.value(),
             "is_forward": self.main_window.direction_checkbox.isChecked(),
             "n_days": self.main_window.n_days_spin.value(),
             "range_value": self.main_window.range_value_edit.text(),
             "continuous_abs_threshold": self.main_window.continuous_abs_threshold_edit.text(),
-            "op_days": int(self.main_window.op_days_edit.text() or 0),
-            "inc_rate": float(self.main_window.inc_rate_edit.text() or 0),
-            "after_gt_end_ratio": float(self.main_window.after_gt_end_edit.text() or 0),
-            "after_gt_start_ratio": float(self.main_window.after_gt_prev_edit.text() or 0),
             "expr": getattr(self.main_window, 'last_expr', ''),
             "ops_change": float(self.main_window.ops_change_edit.text() or 0),# 添加 only_show_selected 参数
         })
         
         self.main_window.result_text.setText("正在切换窗口，请稍候...")
         QApplication.processEvents()
-        
+        print(f"only_show_selected = {params.get('only_show_selected')}")
         calc = CalculateThread(
             self.main_window.init.price_data, 
             self.main_window.init.diff_data, 
@@ -44,7 +39,22 @@ class BaseParamHandler:
         )
         # result = calc.calculate_batch(params)
         # result = calc.calculate_py_version(params)
-        result = calc.calculate_batch_16_cores(params)
+        try:
+            result = calc.calculate_batch_16_cores(params)
+        except Exception as e:
+            import traceback
+            print(f"计算过程发生异常: {e}")
+            print(f"异常详情: {traceback.format_exc()}")
+            # 记录到日志文件
+            try:
+                with open('error_log.txt', 'a', encoding='utf-8') as f:
+                    f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} - 计算过程异常: {e}\n")
+                    f.write(f"异常详情: {traceback.format_exc()}\n")
+                    f.write("-" * 50 + "\n")
+            except:
+                pass
+            # 返回空结果而不是崩溃
+            result = {"dates": {}, "shift_days": 0, "is_forward": False, "start_date": "", "end_date": "", "base_idx": None}
         
         self.main_window.all_row_results = result  # 直接存储整个结果对象
         self.main_window.continuous_results = result.get('continuous_results', None)
