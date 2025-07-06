@@ -41,7 +41,8 @@ FORMULAR_EXPR_PLACEHOLDER_TEXT = (
 )
 # 连续累加值参数表头
 param_headers = [
-    "连续累加值长度", "连续累加值正加和", "连续累加值负加和", "连续累加值开始值", "连续累加值开始后1位值", "连续累加值开始后2位值",
+    "连续累加值长度", "连续累加值正加和", "连续累加值负加和", '连续累加值正加和前一半', '连续累加值正加和后一半', '连续累加值负加和前一半', '连续累加值负加和后一半',
+    "连续累加值开始值", "连续累加值开始后1位值", "连续累加值开始后2位值",
     "连续累加值结束值", "连续累加值结束前1位值", "连续累加值结束前2位值",
     "连续累加值前一半绝对值之和", "连续累加值后一半绝对值之和",
     "连续累加值前四分之一绝对值之和", "连续累加值前四分之二绝对值之和",
@@ -200,6 +201,10 @@ def show_continuous_sum_table(parent, all_results, price_data, as_widget=False):
                     len(results),
                     row.get('cont_sum_pos_sum', ''),
                     row.get('cont_sum_neg_sum', ''),
+                    row.get('cont_sum_pos_sum_first_half', ''),
+                    row.get('cont_sum_pos_sum_second_half', ''),
+                    row.get('cont_sum_neg_sum_first_half', ''),
+                    row.get('cont_sum_neg_sum_second_half', ''),
                     row.get('continuous_start_value', ''),
                     row.get('continuous_start_next_value', ''),
                     row.get('continuous_start_next_next_value', ''),
@@ -375,33 +380,67 @@ def show_continuous_sum_table(parent, all_results, price_data, as_widget=False):
         return None
     
 def show_formula_select_table_result_window(table, content_widget):
-    # 只创建一次窗口，后续只替换内容
-    if not hasattr(content_widget, 'result_window') or content_widget.result_window is None:
-        result_window = QMainWindow()
-        result_window.setWindowTitle("选股结果")
-        flags = result_window.windowFlags()
-        flags &= ~Qt.WindowStaysOnTopHint  # 移除置顶标志
-        flags &= ~Qt.WindowContextHelpButtonHint  # 移除问号按钮
-        result_window.setWindowFlags(flags)
-        content_widget.result_window = result_window
-    else:
-        result_window = content_widget.result_window
-        # 如果窗口最小化，则恢复显示
-        if result_window.isMinimized():
-            result_window.showNormal()
-        # 确保窗口在最前面
-        result_window.raise_()
-        result_window.activateWindow()
+    # 获取主窗口引用
+    parent = content_widget.parent()
+    while parent and not hasattr(parent, 'formula_select_result_window'):
+        parent = parent.parent()
     
-    # 替换内容
-    central_widget = QWidget()
-    layout_ = QVBoxLayout(central_widget)
-    layout_.addWidget(table)
-    result_window.setCentralWidget(central_widget)
-    result_window.resize(580, 450)
-    result_window.show()
-    content_widget.result_window = result_window
-    content_widget.result_table = table
+    if parent is None:
+        # 如果找不到主窗口，回退到原来的逻辑
+        if not hasattr(content_widget, 'result_window') or content_widget.result_window is None:
+            result_window = QMainWindow()
+            result_window.setWindowTitle("选股结果")
+            flags = result_window.windowFlags()
+            flags &= ~Qt.WindowStaysOnTopHint  # 移除置顶标志
+            flags &= ~Qt.WindowContextHelpButtonHint  # 移除问号按钮
+            result_window.setWindowFlags(flags)
+            content_widget.result_window = result_window
+        else:
+            result_window = content_widget.result_window
+            # 如果窗口最小化，则恢复显示
+            if result_window.isMinimized():
+                result_window.showNormal()
+            # 确保窗口在最前面
+            result_window.raise_()
+            result_window.activateWindow()
+        
+        # 替换内容
+        central_widget = QWidget()
+        layout_ = QVBoxLayout(central_widget)
+        layout_.addWidget(table)
+        result_window.setCentralWidget(central_widget)
+        result_window.resize(580, 450)
+        result_window.show()
+        content_widget.result_window = result_window
+        content_widget.result_table = table
+    else:
+        # 使用主窗口级别的窗口管理
+        if not hasattr(parent, 'formula_select_result_window') or parent.formula_select_result_window is None:
+            result_window = QMainWindow()
+            result_window.setWindowTitle("选股结果")
+            flags = result_window.windowFlags()
+            flags &= ~Qt.WindowStaysOnTopHint  # 移除置顶标志
+            flags &= ~Qt.WindowContextHelpButtonHint  # 移除问号按钮
+            result_window.setWindowFlags(flags)
+            parent.formula_select_result_window = result_window
+        else:
+            result_window = parent.formula_select_result_window
+            # 如果窗口最小化，则恢复显示
+            if result_window.isMinimized():
+                result_window.showNormal()
+            # 确保窗口在最前面
+            result_window.raise_()
+            result_window.activateWindow()
+        
+        # 替换内容
+        central_widget = QWidget()
+        layout_ = QVBoxLayout(central_widget)
+        layout_.addWidget(table)
+        result_window.setCentralWidget(central_widget)
+        result_window.resize(580, 450)
+        result_window.show()
+        parent.formula_select_result_window = result_window
+        parent.formula_select_result_table = table
 
 def unify_date_columns(df):
     new_columns = []
@@ -918,7 +957,7 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
                     step_edit.setPlaceholderText("步长")
                     step_edit.setFixedWidth(50)
                     step_edit.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
-                    # 添加非负数验证器
+                    # 添加非负数验证器，允许为0
                     from PyQt5.QtGui import QDoubleValidator
                     validator = QDoubleValidator(0, 999999, 2)  # 最小值0，最大值999999，2位小数
                     step_edit.setValidator(validator)
@@ -1050,8 +1089,11 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
     content_widget.selected_results = []
     content_widget.select_thread = None
     content_widget.current_table = None
-    content_widget.result_window = None  # 新增：结果弹窗
-    content_widget.result_table = None   # 新增：结果表格
+    # 将结果窗口管理移到主窗口级别，避免tab切换时丢失引用
+    if not hasattr(parent, 'formula_select_result_window'):
+        parent.formula_select_result_window = None
+    if not hasattr(parent, 'formula_select_result_table'):
+        parent.formula_select_result_table = None
 
     # 选股逻辑
     def do_select():
@@ -1130,9 +1172,9 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
         selected_result = filtered[:select_count]
         parent.last_formula_select_result_data = {'dates': {first_date: selected_result}}
         table = show_formula_select_table_result(parent, parent.last_formula_select_result_data, getattr(parent, 'init', None) and getattr(parent.init, 'price_data', None), is_select_action=True)
-        # 弹窗展示
-        if hasattr(content_widget, 'result_window') and content_widget.result_window is not None:
-            content_widget.result_window.close()
+        # 弹窗展示 - 使用主窗口级别的窗口管理
+        if hasattr(parent, 'formula_select_result_window') and parent.formula_select_result_window is not None:
+            parent.formula_select_result_window.close()
         result_window = QMainWindow()
         result_window.setWindowTitle("选股结果")
         flags = result_window.windowFlags()
@@ -1145,8 +1187,8 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
         result_window.setCentralWidget(central_widget)
         result_window.resize(580, 450)
         result_window.show()
-        content_widget.result_window = result_window
-        content_widget.result_table = table
+        parent.formula_select_result_window = result_window
+        parent.formula_select_result_table = table
         # 新增：点击得分表头切换排序
         score_col = 5
         content_widget.score_sort_desc = True  # 默认降序
@@ -1165,14 +1207,14 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
                 # 重新生成表格
                 table2 = show_formula_select_table_result(parent, result_data, getattr(parent, 'init', None) and getattr(parent.init, 'price_data', None), is_select_action=True)
                 # 替换弹窗内容
-                win = content_widget.result_window
+                win = parent.formula_select_result_window
                 if win:
                     for i in reversed(range(win.layout().count())):
                         widget = win.layout().itemAt(i).widget()
                         if widget is not None:
                             widget.setParent(None)
                     win.layout().addWidget(table2)
-                    content_widget.result_table = table2
+                    parent.formula_select_result_table = table2
                     table2.horizontalHeader().sectionClicked.connect(on_header_clicked)
         table.horizontalHeader().sectionClicked.connect(on_header_clicked)
 
@@ -1335,7 +1377,7 @@ def show_formula_select_table_result(parent, result, price_data=None, output_edi
     table.setItem(mean_row_idx, 0, QTableWidgetItem(""))
     table.setItem(mean_row_idx, 1, QTableWidgetItem(str(first_date)))
     table.setItem(mean_row_idx, 2, QTableWidgetItem(str(mean_hold_days)))
-    table.setItem(mean_row_idx, 3, QTableWidgetItem(f"{mean_ops_change}%" if mean_ops_change != '' else ''))
+    table.setItem(mean_row_idx, 3, QTableWidgetItem(f"{mean_ops_change / mean_hold_days:.2f}%" if mean_ops_change != '' and mean_hold_days != '' and mean_hold_days != 0 else ''))
     table.setItem(mean_row_idx, 4, QTableWidgetItem(f"{mean_ops_incre_rate}%" if mean_ops_incre_rate != '' else ''))
     table.setItem(mean_row_idx, 5, QTableWidgetItem(f"{mean_adjust_ops_incre_rate}%" if mean_adjust_ops_incre_rate != '' else ''))
     table.resizeColumnsToContents()
@@ -1571,7 +1613,7 @@ class FormulaSelectWidget(QWidget):
         step_edit.setPlaceholderText("步长")
         step_edit.setFixedWidth(30)
         step_edit.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
-        # 添加非负数验证器
+        # 添加非负数验证器，允许为0
         from PyQt5.QtGui import QDoubleValidator
         validator = QDoubleValidator(0, 999999, 2)  # 最小值0，最大值999999，2位小数
         step_edit.setValidator(validator)
@@ -1836,45 +1878,26 @@ class FormulaSelectWidget(QWidget):
         
         formula_list = []
         
-        # 收集逻辑变量条件（这些在所有组合中都一样）
-        # 注意：前三个逻辑控件（range_ratio_is_less, continuous_abs_is_less, valid_abs_is_less）不在这里处理
-        # 它们会在后面的逻辑组合处理中单独处理
-        logic_conditions = []
-        logic_map = get_abbr_logic_map()
-        # 前三个逻辑控件不在这里处理
-        logic_vars_to_exclude = ['range_ratio_is_less', 'continuous_abs_is_less', 'valid_abs_is_less']
-        
-        for en, widgets in self.var_widgets.items():
-            if 'checkbox' in widgets and 'lower' not in widgets:
-                # 排除前三个逻辑控件
-                if en not in logic_vars_to_exclude:
-                    if widgets['checkbox'].isChecked():
-                        logic_conditions.append(f"{en}")
-        
-        # 收集需要参与组合的逻辑控件（只取前三个）
+        # 收集需要参与组合的逻辑控件（所有逻辑控件都参与）
         logic_combination_vars = []
         logic_map = get_abbr_logic_map()
-        # 只取前三个逻辑控件参与组合
-        logic_vars_to_combine = ['range_ratio_is_less', 'continuous_abs_is_less', 'valid_abs_is_less']
         
-        for logic_var in logic_vars_to_combine:
-            # 查找对应的中文名称
-            logic_zh = None
-            for zh, en in logic_map.items():
-                if en == logic_var:
-                    logic_zh = zh
-                    break
-            
-            if logic_zh:
-                # 查找对应的控件
-                for en, widgets in self.var_widgets.items():
-                    if en == logic_var and 'checkbox' in widgets and widgets['checkbox'].isChecked():
-                        logic_combination_vars.append({
-                            'var_name': logic_var,
-                            'zh_name': logic_zh
-                        })
-                        print(f"  添加逻辑控件到组合: {logic_var} ({logic_zh})")
-                        break
+        # 遍历所有逻辑控件
+        for en, widgets in self.var_widgets.items():
+            if 'checkbox' in widgets and 'lower' not in widgets:
+                if widgets['checkbox'].isChecked():
+                    # 查找对应的中文名称
+                    logic_zh = None
+                    for zh, en_name in logic_map.items():
+                        if en_name == en:
+                            logic_zh = zh
+                            break
+                    
+                    logic_combination_vars.append({
+                        'var_name': en,
+                        'zh_name': logic_zh or en
+                    })
+                    print(f"  添加逻辑控件到组合: {en} ({logic_zh or en})")
         
         # 收集需要组合的变量控件
         combination_vars = []
@@ -2076,6 +2099,10 @@ class FormulaSelectWidget(QWidget):
         
         # 生成所有可能的组合
         print(f"lock_output: {lock_output}")
+        
+        # 初始化logic_conditions，避免未定义错误
+        logic_conditions = []
+        
         if lock_output:
             # 锁定输出时，结果部分只生成一种组合（所有勾选的result变量直接加号拼接）
             all_result_vars = []
@@ -2091,7 +2118,8 @@ class FormulaSelectWidget(QWidget):
             
             if not combination_vars and not comparison_combination_vars:
                 # 如果没有需要组合的变量，只生成一个公式
-                all_conditions = logic_conditions + comparison_conditions
+                # 注意：逻辑控件条件在最后统一处理，这里不处理
+                all_conditions = comparison_conditions
                 if all_conditions:
                     cond_str = "if " + " and ".join(all_conditions) + ":"
                 else:
@@ -2125,28 +2153,54 @@ class FormulaSelectWidget(QWidget):
                         if direction == "右单向":
                             # 最大值不变，最小值按步长变化
                             current_lower = lower_val
-                            while current_lower < upper_val:  # 改为 < 避免等于的情况
-                                combinations.append((round(current_lower, 2), round(upper_val, 2)))
-                                current_lower += step_val
+                            # 根据步长正负调整循环条件
+                            if step_val > 0:
+                                while current_lower < upper_val:
+                                    combinations.append((round(current_lower, 2), round(upper_val, 2)))
+                                    current_lower += step_val
+                            else:  # step_val < 0
+                                while current_lower > upper_val:
+                                    combinations.append((round(current_lower, 2), round(upper_val, 2)))
+                                    current_lower += step_val
                         
                         elif direction == "左单向":
                             # 最小值不变，最大值按步长变化
                             current_upper = upper_val
-                            while current_upper > lower_val:  # 改为 > 避免等于的情况
-                                combinations.append((round(lower_val, 2), round(current_upper, 2)))
-                                current_upper -= step_val
+                            # 根据步长正负调整循环条件
+                            if step_val > 0:
+                                while current_upper > lower_val:
+                                    combinations.append((round(lower_val, 2), round(current_upper, 2)))
+                                    current_upper -= step_val
+                            else:  # step_val < 0
+                                while current_upper < lower_val:
+                                    combinations.append((round(lower_val, 2), round(current_upper, 2)))
+                                    current_upper -= step_val
                         
                         elif direction == "全方向":
-                            # 最小值和最大值都按步长变化
+                            combinations = []
+                            # 右单向：上限不变，下限不断加步长
                             current_lower = lower_val
-                            while current_lower <= upper_val:
-                                current_upper = current_lower
-                                while current_upper <= upper_val:
-                                    # 排除下限等于上限的情况，避免生成 >= 5.0 and <= 5.0 这样的条件
-                                    if current_lower != current_upper:
-                                        combinations.append((round(current_lower, 2), round(current_upper, 2)))
-                                    current_upper += step_val
-                                current_lower += step_val
+                            if step_val > 0:
+                                while current_lower < upper_val:
+                                    combinations.append((round(current_lower, 2), round(upper_val, 2)))
+                                    current_lower += step_val
+                            else:
+                                while current_lower > upper_val:
+                                    combinations.append((round(current_lower, 2), round(upper_val, 2)))
+                                    current_lower += step_val
+                            # 左单向：下限不变，上限不断减步长
+                            current_upper = upper_val
+                            if step_val > 0:
+                                while current_upper > lower_val:
+                                    combinations.append((round(lower_val, 2), round(current_upper, 2)))
+                                    current_upper -= step_val
+                            else:
+                                while current_upper < lower_val:
+                                    combinations.append((round(lower_val, 2), round(current_upper, 2)))
+                                    current_upper -= step_val
+                            # 剔除重复项和下限=上限的情况
+                            combinations = list({(a, b) for a, b in combinations if a != b})
+                            combinations.sort()
                     
                     # 处理含逻辑：如果勾选了含逻辑，添加一个True条件
                     if has_logic:
@@ -2183,32 +2237,58 @@ class FormulaSelectWidget(QWidget):
                         if direction == "右单向":
                             # 最大值不变，最小值按步长变化
                             current_lower = lower_val
-                            while current_lower < upper_val:
-                                combinations.append((round(current_lower, 2), round(upper_val, 2)))
-                                current_lower += step_val
+                            # 根据步长正负调整循环条件
+                            if step_val > 0:
+                                while current_lower < upper_val:
+                                    combinations.append((round(current_lower, 2), round(upper_val, 2)))
+                                    current_lower += step_val
+                            else:  # step_val < 0
+                                while current_lower > upper_val:
+                                    combinations.append((round(current_lower, 2), round(upper_val, 2)))
+                                    current_lower += step_val
                         
                         elif direction == "左单向":
                             # 最小值不变，最大值按步长变化
                             current_upper = upper_val
-                            while current_upper > lower_val:
-                                combinations.append((round(lower_val, 2), round(current_upper, 2)))
-                                current_upper -= step_val
+                            # 根据步长正负调整循环条件
+                            if step_val > 0:
+                                while current_upper > lower_val:
+                                    combinations.append((round(lower_val, 2), round(current_upper, 2)))
+                                    current_upper -= step_val
+                            else:  # step_val < 0
+                                while current_upper < lower_val:
+                                    combinations.append((round(lower_val, 2), round(current_upper, 2)))
+                                    current_upper -= step_val
                         
                         elif direction == "全方向":
-                            # 最小值和最大值都按步长变化
+                            combinations = []
+                            # 右单向：上限不变，下限不断加步长
                             current_lower = lower_val
-                            while current_lower <= upper_val:
-                                current_upper = current_lower
-                                while current_upper <= upper_val:
-                                    # 排除下限等于上限的情况，避免生成 >= 5.0 and <= 5.0 这样的条件
-                                    if current_lower != current_upper:
-                                        combinations.append((round(current_lower, 2), round(current_upper, 2)))
-                                    current_upper += step_val
-                                current_lower += step_val
+                            if step_val > 0:
+                                while current_lower < upper_val:
+                                    combinations.append((round(current_lower, 2), round(upper_val, 2)))
+                                    current_lower += step_val
+                            else:
+                                while current_lower > upper_val:
+                                    combinations.append((round(current_lower, 2), round(upper_val, 2)))
+                                    current_lower += step_val
+                            # 左单向：下限不变，上限不断减步长
+                            current_upper = upper_val
+                            if step_val > 0:
+                                while current_upper > lower_val:
+                                    combinations.append((round(lower_val, 2), round(current_upper, 2)))
+                                    current_upper -= step_val
+                            else:
+                                while current_upper < lower_val:
+                                    combinations.append((round(lower_val, 2), round(current_upper, 2)))
+                                    current_upper -= step_val
+                            # 剔除重复项和下限=上限的情况
+                            combinations = list({(a, b) for a, b in combinations if a != b})
+                            combinations.sort()
                     
                     # 处理含逻辑：如果勾选了含逻辑，添加一个True条件
                     if has_logic:
-                        print(f"    变量 {var_name} 勾选了含逻辑，添加True条件")
+                        print(f"    比较控件 {var1} vs {var2} 勾选了含逻辑，添加True条件")
                         combinations.append(('True', 'True'))
                     
                     print(f"  生成的组合: {combinations}")
@@ -2331,63 +2411,40 @@ class FormulaSelectWidget(QWidget):
                 original_formula_list = formula_list.copy()
                 formula_list = []
                 
-                # 生成逻辑控件的所有组合（包括空组合）
-                logic_combinations = [[]]  # 空组合（无逻辑条件）
-                for logic_var_info in logic_combination_vars:
-                    logic_combinations.append([logic_var_info['var_name']])
-                
-                # 如果有多个逻辑控件，还需要生成它们的组合
-                if len(logic_combination_vars) > 1:
-                    # 生成2个逻辑控件的组合
-                    for i in range(len(logic_combination_vars)):
-                        for j in range(i + 1, len(logic_combination_vars)):
-                            logic_combinations.append([
-                                logic_combination_vars[i]['var_name'],
-                                logic_combination_vars[j]['var_name']
-                            ])
+                # 锁定输出模式下，逻辑控件也只生成一个组合（所有勾选的逻辑条件用and连接）
+                if logic_combination_vars:
+                    print(f"锁定输出模式：有 {len(logic_combination_vars)} 个逻辑控件参与组合，只生成一个组合")
                     
-                    # 生成3个逻辑控件的组合
-                    if len(logic_combination_vars) >= 3:
-                        logic_combinations.append([
-                            logic_combination_vars[0]['var_name'],
-                            logic_combination_vars[1]['var_name'],
-                            logic_combination_vars[2]['var_name']
-                        ])
-                
-                print(f"锁定输出模式逻辑控件组合: {logic_combinations}")
-                
-                # 为每个原始公式生成所有逻辑组合版本（笛卡尔积）
-                for formula_obj in original_formula_list:
-                    for logic_combo in logic_combinations:
-                        # 复制原公式
-                        new_formula_obj = formula_obj.copy()
-                        
-                        if logic_combo:  # 有逻辑控件组合
-                            # 在原有条件基础上添加逻辑控件条件
-                            original_formula = new_formula_obj['formula']
-                            if 'if ' in original_formula:
-                                # 找到if行的结束位置
-                                if_end_pos = original_formula.find(':')
-                                if if_end_pos != -1:
-                                    # 获取原始if条件
-                                    if_condition = original_formula[3:if_end_pos].strip()
-                                    
-                                    # 构建新的if条件 - 在原有条件基础上添加逻辑控件条件
-                                    logic_condition = " and ".join(logic_combo)
-                                    if if_condition == 'True':
-                                        new_condition = f"if {logic_condition}:"
-                                    else:
-                                        new_condition = f"if {if_condition} and {logic_condition}:"
-                                    
-                                    # 完全重新构建公式
-                                    new_formula = new_condition + original_formula[if_end_pos + 1:]  # +1 跳过冒号
-                                    new_formula_obj['formula'] = new_formula
-                                    
-                                    print(f"  生成锁定输出逻辑组合公式: {' and '.join(logic_combo)}")
-                                    formula_list.append(new_formula_obj)
-                        else:  # 空组合，保持原样
-                            print(f"  保持锁定输出原公式（无逻辑条件）")
-                            formula_list.append(new_formula_obj)
+                    # 收集所有勾选的逻辑控件条件
+                    logic_conditions = [logic_var_info['var_name'] for logic_var_info in logic_combination_vars]
+                    logic_condition_str = " and ".join(logic_conditions)
+                    print(f"锁定输出模式逻辑控件组合: {logic_condition_str}")
+                    
+                    # 为每个公式添加逻辑控件条件
+                    for formula_obj in original_formula_list:
+                        original_formula = formula_obj['formula']
+                        if 'if ' in original_formula:
+                            # 找到if行的结束位置
+                            if_end_pos = original_formula.find(':')
+                            if if_end_pos != -1:
+                                # 获取原始if条件
+                                if_condition = original_formula[3:if_end_pos].strip()
+                                
+                                # 构建新的if条件 - 在原有条件基础上添加逻辑控件条件
+                                if if_condition == 'True':
+                                    new_condition = f"if {logic_condition_str}:"
+                                else:
+                                    new_condition = f"if {if_condition} and {logic_condition_str}:"
+                                
+                                # 完全重新构建公式
+                                new_formula = new_condition + original_formula[if_end_pos + 1:]  # +1 跳过冒号
+                                formula_obj['formula'] = new_formula
+                                
+                                print(f"  生成锁定输出逻辑组合公式: {logic_condition_str}")
+                        formula_list.append(formula_obj)
+                else:
+                    # 没有逻辑控件，直接添加原公式
+                    formula_list.extend(original_formula_list)
             
             for i, formula_obj in enumerate(formula_list):
                 print(f"锁定输出公式 {i+1} (排序方式: {formula_obj['sort_mode']}):")
@@ -2396,7 +2453,8 @@ class FormulaSelectWidget(QWidget):
             return formula_list
         elif not combination_vars and not comparison_combination_vars:
             # 如果没有需要组合的变量和比较控件，为每个特殊result组合生成一个公式
-            all_conditions = logic_conditions + comparison_conditions
+            # 注意：逻辑控件条件在最后统一处理，这里不处理
+            all_conditions = comparison_conditions
             if all_conditions:
                 cond_str = "if " + " and ".join(all_conditions) + ":"
             else:
@@ -2461,28 +2519,54 @@ class FormulaSelectWidget(QWidget):
                 if direction == "右单向":
                     # 最大值不变，最小值按步长变化
                     current_lower = lower_val
-                    while current_lower < upper_val:  # 改为 < 避免等于的情况
-                        combinations.append((round(current_lower, 2), round(upper_val, 2)))
-                        current_lower += step_val
+                    # 根据步长正负调整循环条件
+                    if step_val > 0:
+                        while current_lower < upper_val:
+                            combinations.append((round(current_lower, 2), round(upper_val, 2)))
+                            current_lower += step_val
+                    else:  # step_val < 0
+                        while current_lower > upper_val:
+                            combinations.append((round(current_lower, 2), round(upper_val, 2)))
+                            current_lower += step_val
                 
                 elif direction == "左单向":
                     # 最小值不变，最大值按步长变化
                     current_upper = upper_val
-                    while current_upper > lower_val:  # 改为 > 避免等于的情况
-                        combinations.append((round(lower_val, 2), round(current_upper, 2)))
-                        current_upper -= step_val
+                    # 根据步长正负调整循环条件
+                    if step_val > 0:
+                        while current_upper > lower_val:
+                            combinations.append((round(lower_val, 2), round(current_upper, 2)))
+                            current_upper -= step_val
+                    else:  # step_val < 0
+                        while current_upper < lower_val:
+                            combinations.append((round(lower_val, 2), round(current_upper, 2)))
+                            current_upper -= step_val
                 
                 elif direction == "全方向":
-                    # 最小值和最大值都按步长变化
+                    combinations = []
+                    # 右单向：上限不变，下限不断加步长
                     current_lower = lower_val
-                    while current_lower <= upper_val:
-                        current_upper = current_lower
-                        while current_upper <= upper_val:
-                            # 排除下限等于上限的情况，避免生成 >= 5.0 and <= 5.0 这样的条件
-                            if current_lower != current_upper:
-                                combinations.append((round(current_lower, 2), round(current_upper, 2)))
-                            current_upper += step_val
-                        current_lower += step_val
+                    if step_val > 0:
+                        while current_lower < upper_val:
+                            combinations.append((round(current_lower, 2), round(upper_val, 2)))
+                            current_lower += step_val
+                    else:
+                        while current_lower > upper_val:
+                            combinations.append((round(current_lower, 2), round(upper_val, 2)))
+                            current_lower += step_val
+                    # 左单向：下限不变，上限不断减步长
+                    current_upper = upper_val
+                    if step_val > 0:
+                        while current_upper > lower_val:
+                            combinations.append((round(lower_val, 2), round(current_upper, 2)))
+                            current_upper -= step_val
+                    else:
+                        while current_upper < lower_val:
+                            combinations.append((round(lower_val, 2), round(current_upper, 2)))
+                            current_upper -= step_val
+                    # 剔除重复项和下限=上限的情况
+                    combinations = list({(a, b) for a, b in combinations if a != b})
+                    combinations.sort()
                 
                 # 处理含逻辑：如果勾选了含逻辑，添加一个True条件
                 if has_logic:
@@ -2514,28 +2598,54 @@ class FormulaSelectWidget(QWidget):
                 if direction == "右单向":
                     # 最大值不变，最小值按步长变化
                     current_lower = lower_val
-                    while current_lower < upper_val:
-                        combinations.append((round(current_lower, 2), round(upper_val, 2)))
-                        current_lower += step_val
+                    # 根据步长正负调整循环条件
+                    if step_val > 0:
+                        while current_lower < upper_val:
+                            combinations.append((round(current_lower, 2), round(upper_val, 2)))
+                            current_lower += step_val
+                    else:  # step_val < 0
+                        while current_lower > upper_val:
+                            combinations.append((round(current_lower, 2), round(upper_val, 2)))
+                            current_lower += step_val
                 
                 elif direction == "左单向":
                     # 最小值不变，最大值按步长变化
                     current_upper = upper_val
-                    while current_upper > lower_val:
-                        combinations.append((round(lower_val, 2), round(current_upper, 2)))
-                        current_upper -= step_val
+                    # 根据步长正负调整循环条件
+                    if step_val > 0:
+                        while current_upper > lower_val:
+                            combinations.append((round(lower_val, 2), round(current_upper, 2)))
+                            current_upper -= step_val
+                    else:  # step_val < 0
+                        while current_upper < lower_val:
+                            combinations.append((round(lower_val, 2), round(current_upper, 2)))
+                            current_upper -= step_val
                 
                 elif direction == "全方向":
-                    # 最小值和最大值都按步长变化
+                    combinations = []
+                    # 右单向：上限不变，下限不断加步长
                     current_lower = lower_val
-                    while current_lower <= upper_val:
-                        current_upper = current_lower
-                        while current_upper <= upper_val:
-                            # 排除下限等于上限的情况，避免生成 >= 5.0 and <= 5.0 这样的条件
-                            if current_lower != current_upper:
-                                combinations.append((round(current_lower, 2), round(current_upper, 2)))
-                            current_upper += step_val
-                        current_lower += step_val
+                    if step_val > 0:
+                        while current_lower < upper_val:
+                            combinations.append((round(current_lower, 2), round(upper_val, 2)))
+                            current_lower += step_val
+                    else:
+                        while current_lower > upper_val:
+                            combinations.append((round(current_lower, 2), round(upper_val, 2)))
+                            current_lower += step_val
+                    # 左单向：下限不变，上限不断减步长
+                    current_upper = upper_val
+                    if step_val > 0:
+                        while current_upper > lower_val:
+                            combinations.append((round(lower_val, 2), round(current_upper, 2)))
+                            current_upper -= step_val
+                    else:
+                        while current_upper < lower_val:
+                            combinations.append((round(lower_val, 2), round(current_upper, 2)))
+                            current_upper -= step_val
+                    # 剔除重复项和下限=上限的情况
+                    combinations = list({(a, b) for a, b in combinations if a != b})
+                    combinations.sort()
                 
                 # 处理含逻辑：如果勾选了含逻辑，添加一个True条件
                 if has_logic:
@@ -2656,69 +2766,36 @@ class FormulaSelectWidget(QWidget):
                             'result_vars': all_result_vars
                         })
         
-        # 如果有逻辑控件参与组合，需要将每个公式都变成两个版本（无逻辑条件和有逻辑条件）
+        # 如果有逻辑控件参与组合，只生成一个组合（所有勾选的逻辑条件用and连接）
         if logic_combination_vars:
-            print(f"有 {len(logic_combination_vars)} 个逻辑控件参与组合，将每个公式变成多个版本")
-            original_formula_list = formula_list.copy()
-            formula_list = []
+            print(f"有 {len(logic_combination_vars)} 个逻辑控件参与组合，只生成一个组合")
             
-            # 生成逻辑控件的所有组合（包括空组合）
-            logic_combinations = [[]]  # 空组合（无逻辑条件）
-            for logic_var_info in logic_combination_vars:
-                logic_combinations.append([logic_var_info['var_name']])
+            # 收集所有勾选的逻辑控件条件
+            logic_conditions = [logic_var_info['var_name'] for logic_var_info in logic_combination_vars]
+            logic_condition_str = " and ".join(logic_conditions)
+            print(f"逻辑控件组合: {logic_condition_str}")
             
-            # 如果有多个逻辑控件，还需要生成它们的组合
-            if len(logic_combination_vars) > 1:
-                # 生成2个逻辑控件的组合
-                for i in range(len(logic_combination_vars)):
-                    for j in range(i + 1, len(logic_combination_vars)):
-                        logic_combinations.append([
-                            logic_combination_vars[i]['var_name'],
-                            logic_combination_vars[j]['var_name']
-                        ])
-                
-                # 生成3个逻辑控件的组合
-                if len(logic_combination_vars) >= 3:
-                    logic_combinations.append([
-                        logic_combination_vars[0]['var_name'],
-                        logic_combination_vars[1]['var_name'],
-                        logic_combination_vars[2]['var_name']
-                    ])
-            
-            print(f"逻辑控件组合: {logic_combinations}")
-            
-            # 为每个原始公式生成所有逻辑组合版本（笛卡尔积）
-            for formula_obj in original_formula_list:
-                for logic_combo in logic_combinations:
-                    # 复制原公式
-                    new_formula_obj = formula_obj.copy()
-                    
-                    if logic_combo:  # 有逻辑控件组合
-                        # 在原有条件基础上添加逻辑控件条件
-                        original_formula = new_formula_obj['formula']
-                        if 'if ' in original_formula:
-                            # 找到if行的结束位置
-                            if_end_pos = original_formula.find(':')
-                            if if_end_pos != -1:
-                                # 获取原始if条件
-                                if_condition = original_formula[3:if_end_pos].strip()
-                                
-                                # 构建新的if条件 - 在原有条件基础上添加逻辑控件条件
-                                logic_condition = " and ".join(logic_combo)
-                                if if_condition == 'True':
-                                    new_condition = f"if {logic_condition}:"
-                                else:
-                                    new_condition = f"if {if_condition} and {logic_condition}:"
-                                
-                                # 完全重新构建公式
-                                new_formula = new_condition + original_formula[if_end_pos + 1:]  # +1 跳过冒号
-                                new_formula_obj['formula'] = new_formula
-                                
-                                print(f"  生成逻辑组合公式: {' and '.join(logic_combo)}")
-                                formula_list.append(new_formula_obj)
-                    else:  # 空组合，保持原样
-                        print(f"  保持原公式（无逻辑条件）")
-                        formula_list.append(new_formula_obj)
+            # 为每个公式添加逻辑控件条件
+            for formula_obj in formula_list:
+                original_formula = formula_obj['formula']
+                if 'if ' in original_formula:
+                    # 找到if行的结束位置
+                    if_end_pos = original_formula.find(':')
+                    if if_end_pos != -1:
+                        # 获取原始if条件
+                        if_condition = original_formula[3:if_end_pos].strip()
+                        
+                        # 构建新的if条件 - 在原有条件基础上添加逻辑控件条件
+                        if if_condition == 'True':
+                            new_condition = f"if {logic_condition_str}:"
+                        else:
+                            new_condition = f"if {if_condition} and {logic_condition_str}:"
+                        
+                        # 完全重新构建公式
+                        new_formula = new_condition + original_formula[if_end_pos + 1:]  # +1 跳过冒号
+                        formula_obj['formula'] = new_formula
+                        
+                        print(f"  生成逻辑组合公式: {logic_condition_str}")
         
         for i, formula_obj in enumerate(formula_list):
             print(f"公式 {i+1} (排序方式: {formula_obj['sort_mode']}):")
@@ -2833,9 +2910,15 @@ class FormulaSelectWidget(QWidget):
         """生成浮点数区间"""
         vals = []
         v = start
-        while v <= stop:
-            vals.append(v)
-            v += step
+        # 根据步长正负调整循环条件
+        if step > 0:
+            while v <= stop:
+                vals.append(v)
+                v += step
+        else:  # step < 0
+            while v >= stop:
+                vals.append(v)
+                v += step
         return vals
 
     def generate_formula(self):
@@ -3102,7 +3185,7 @@ class FormulaSelectWidget(QWidget):
             step_input = QLineEdit()
             step_input.setPlaceholderText("步长")
             step_input.setFixedWidth(30)
-            # 添加非负数验证器
+            # 添加非负数验证器，允许为0
             from PyQt5.QtGui import QDoubleValidator
             validator = QDoubleValidator(0, 999999, 2)  # 最小值0，最大值999999，2位小数
             step_input.setValidator(validator)
@@ -3187,9 +3270,9 @@ class FormulaSelectWidget(QWidget):
             step_input = QLineEdit()
             step_input.setPlaceholderText("步长")
             step_input.setFixedWidth(30)
-            # 为日期宽度和操作天数添加整数验证器
+            # 为日期宽度和操作天数添加整数验证器，允许为0
             if en in ['width', 'op_days']:
-                step_input.setValidator(QIntValidator(1, 100))
+                step_input.setValidator(QIntValidator(1, 1000))
             else:
                 # 为其他特殊变量添加非负数验证器
                 from PyQt5.QtGui import QDoubleValidator
@@ -3389,7 +3472,10 @@ def get_abbr_map():
         ("前1组结束日地址值", "end_value"), 
         ("前1组结束地址前N日的最高值", "n_days_max_value"), 
         ("前1组结束地址前1日涨跌幅", "prev_day_change"), ("前1组结束日涨跌幅", "end_day_change"), ("后一组结束地址值", "diff_end_value"),
-        ("连续累加值数组非空数据长度", "continuous_len"), ("连续累加值正加值和", "cont_sum_pos_sum"), ("连续累加值负加值和", "cont_sum_neg_sum"), ("连续累加值开始值", "continuous_start_value"), ("连续累加值开始后1位值", "continuous_start_next_value"),
+        ("连续累加值数组非空数据长度", "continuous_len"), ("连续累加值正加值和", "cont_sum_pos_sum"), ("连续累加值负加值和", "cont_sum_neg_sum"), 
+        ("连续累加值正加值的前一半累加值和", "cont_sum_pos_sum_first_half"), ("连续累加值正加值的后一半累加值和", "cont_sum_pos_sum_second_half"),
+        ("连续累加值负加值的前一半累加值和", "cont_sum_neg_sum_first_half"), ("连续累加值负加值的后一半累加值和", "cont_sum_neg_sum_second_half"),
+        ("连续累加值开始值", "continuous_start_value"), ("连续累加值开始后1位值", "continuous_start_next_value"),
         ("连续累加值开始后2位值", "continuous_start_next_next_value"), ("连续累加值结束值", "continuous_end_value"), ("连续累加值结束前1位值", "continuous_end_prev_value"), ("连续累加值结束前2位值", "continuous_end_prev_prev_value"),
         ("连续累加值数组前一半绝对值之和", "continuous_abs_sum_first_half"), ("连续累加值数组后一半绝对值之和", "continuous_abs_sum_second_half"),
         ("连续累加值数组前四分之一绝对值之和", "continuous_abs_sum_block1"), ("连续累加值数组前四分之1-2绝对值之和", "continuous_abs_sum_block2"),
@@ -3723,7 +3809,7 @@ def calculate_analysis_result(valid_items):
                 pass
         
         mean_hold_days = safe_mean(hold_days_list_per_date)
-        mean_ops_change = safe_mean(ops_change_list_per_date)
+        mean_ops_change = round(safe_mean(ops_change_list_per_date) / mean_hold_days, 2) if mean_hold_days != '' and mean_hold_days != 0 else ''
         mean_ops_incre_rate = safe_mean(ops_incre_rate_list_per_date)
         # 新增：计算调幅日均涨跌幅均值
         mean_adjust_ops_incre_rate = safe_mean(adjust_ops_incre_rate_list_per_date)

@@ -3,7 +3,7 @@ from PyQt5.QtWidgets import (
     QApplication, QWidget, QLabel, QPushButton, QComboBox, QSpinBox, QDateEdit, QCheckBox, QGridLayout, QHBoxLayout, QVBoxLayout, QSizePolicy, QTextEdit, QLineEdit, QDialog, QMessageBox, QFrame, QStackedLayout, QTableWidget, QTableWidgetItem, QHeaderView
 )
 from PyQt5.QtCore import Qt, QDate, QItemSelectionModel
-from PyQt5.QtGui import QKeySequence, QGuiApplication, QIntValidator, QPixmap
+from PyQt5.QtGui import QKeySequence, QGuiApplication, QIntValidator, QPixmap, QDoubleValidator, QValidator
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QHeaderView
 from function.init import StockAnalysisInit
@@ -96,6 +96,43 @@ class ValidatedExprEdit(QTextEdit):
         except SyntaxError as e:
             QMessageBox.warning(self, "表达式语法错误", f"表达式存在语法错误，请检查！\n\n{e}")
         super().focusOutEvent(event)
+
+class NonPositiveValidator(QValidator):
+    """自定义验证器，只允许输入非正数（0或负数）"""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+    
+    def validate(self, input_str, pos):
+        if not input_str:
+            return QValidator.Acceptable, input_str, pos
+        
+        # 允许负号开头
+        if input_str == '-':
+            return QValidator.Intermediate, input_str, pos
+        
+        # 允许小数点
+        if input_str == '.':
+            return QValidator.Intermediate, input_str, pos
+        
+        # 允许负号后跟小数点
+        if input_str == '-.':
+            return QValidator.Intermediate, input_str, pos
+        
+        try:
+            value = float(input_str)
+            # 只允许非正数（0或负数）
+            if value <= 0:
+                return QValidator.Acceptable, input_str, pos
+            else:
+                return QValidator.Invalid, input_str, pos
+        except ValueError:
+            # 检查是否是有效的数字格式（中间状态）
+            import re
+            pattern = r'^-?\d*\.?\d*$'
+            if re.match(pattern, input_str):
+                return QValidator.Intermediate, input_str, pos
+            else:
+                return QValidator.Invalid, input_str, pos
 
 class StockAnalysisApp(QWidget):
     def __init__(self):
@@ -338,6 +375,8 @@ class StockAnalysisApp(QWidget):
         self.stop_loss_inc_rate_label = QLabel("止损递增率")
         self.stop_loss_inc_rate_edit = QLineEdit()
         self.stop_loss_inc_rate_edit.setFixedWidth(30)
+        # 添加非正数验证器（允许0和负数）
+        self.stop_loss_inc_rate_edit.setValidator(NonPositiveValidator())
         stop_loss_inc_rate_widget = QWidget()
         stop_loss_inc_rate_layout = QHBoxLayout()
         stop_loss_inc_rate_layout.setContentsMargins(0, 0, 0, 0)
@@ -353,6 +392,8 @@ class StockAnalysisApp(QWidget):
         self.stop_loss_after_gt_end_label = QLabel("止损后值大于结束值比例")
         self.stop_loss_after_gt_end_edit = QLineEdit()
         self.stop_loss_after_gt_end_edit.setFixedWidth(30)
+        # 添加非正数验证器（允许0和负数）
+        self.stop_loss_after_gt_end_edit.setValidator(NonPositiveValidator())
         stop_loss_after_gt_end_widget = QWidget()
         stop_loss_after_gt_end_layout = QHBoxLayout()
         stop_loss_after_gt_end_layout.setContentsMargins(0, 0, 0, 0)
@@ -368,6 +409,8 @@ class StockAnalysisApp(QWidget):
         self.stop_loss_after_gt_start_label = QLabel("止损大于前值比例")
         self.stop_loss_after_gt_start_edit = QLineEdit()
         self.stop_loss_after_gt_start_edit.setFixedWidth(30)
+        # 添加非正数验证器（允许0和负数）
+        self.stop_loss_after_gt_start_edit.setValidator(NonPositiveValidator())
         stop_loss_after_gt_start_widget = QWidget()
         stop_loss_after_gt_start_layout = QHBoxLayout()
         stop_loss_after_gt_start_layout.setContentsMargins(0, 0, 0, 0)
@@ -1304,23 +1347,15 @@ class StockAnalysisApp(QWidget):
         params['inc_rate'] = str(inc_rate) if inc_rate is not None else self.inc_rate_edit.text()
         params['after_gt_end_ratio'] = str(after_gt_end_ratio) if after_gt_end_ratio is not None else self.after_gt_end_edit.text()
         params['after_gt_start_ratio'] = str(after_gt_start_ratio) if after_gt_start_ratio is not None else self.after_gt_prev_edit.text()
-        # 止损参数取负值，因为是止损
-        stop_loss_inc_rate_val = stop_loss_inc_rate if stop_loss_inc_rate is not None else float(self.stop_loss_inc_rate_edit.text() or 0)
-        stop_loss_after_gt_end_ratio_val = stop_loss_after_gt_end_ratio if stop_loss_after_gt_end_ratio is not None else float(self.stop_loss_after_gt_end_edit.text() or 0)
-        stop_loss_after_gt_start_ratio_val = stop_loss_after_gt_start_ratio if stop_loss_after_gt_start_ratio is not None else float(self.stop_loss_after_gt_start_edit.text() or 0)
-        
-        params['stop_loss_inc_rate'] = str(-stop_loss_inc_rate_val)
-        params['stop_loss_after_gt_end_ratio'] = str(-stop_loss_after_gt_end_ratio_val)
-        params['stop_loss_after_gt_start_ratio'] = str(-stop_loss_after_gt_start_ratio_val)
-        print(f" inc_rate: {params['inc_rate']}, after_gt_end_ratio: {params['after_gt_end_ratio']}, after_gt_start_ratio: {params['after_gt_start_ratio']}")
-        print(f" stop_loss_inc_rate: {params['stop_loss_inc_rate']}, stop_loss_after_gt_end_ratio: {params['stop_loss_after_gt_end_ratio']}, stop_loss_after_gt_start_ratio: {params['stop_loss_after_gt_start_ratio']}")
+        # 止损参数直接使用输入值，因为验证器已确保输入为非正数
+        params['stop_loss_inc_rate'] = str(stop_loss_inc_rate if stop_loss_inc_rate is not None else float(self.stop_loss_inc_rate_edit.text() or 0))
+        params['stop_loss_after_gt_end_ratio'] = str(stop_loss_after_gt_end_ratio if stop_loss_after_gt_end_ratio is not None else float(self.stop_loss_after_gt_end_edit.text() or 0))
+        params['stop_loss_after_gt_start_ratio'] = str(stop_loss_after_gt_start_ratio if stop_loss_after_gt_start_ratio is not None else float(self.stop_loss_after_gt_start_edit.text() or 0))
         params['trade_mode'] = self.trade_mode_combo.currentText()
         # 选股公式、数量、排序方式参数
         params['expr'] = self.last_expr  # 新增：操作值表达式
         params['select_count'] = select_count if select_count is not None else 10
-        print(f"sort_mode: {sort_mode}")
         params['sort_mode'] = sort_mode if sort_mode else self.last_sort_mode
-        print(f"params sort_mode: {params['sort_mode']}")
         params['ops_change'] = self.ops_change_edit.text()
         # 选股计算公式
         params['formula_expr'] = current_formula
@@ -1382,6 +1417,7 @@ class StockAnalysisApp(QWidget):
         params['start_with_new_after_low2_flag'] = self.new_after_low2_flag_checkbox.isChecked()
         params['valid_abs_sum_threshold'] = self.valid_abs_sum_threshold_edit.text()
         params['new_before_high_logic'] = self.new_before_high_logic_combo.currentText()
+        print(f"select_count={params['select_count']}, sort_mode={params['sort_mode']}, width={params['width']}, op_days={params['op_days']}, increment_rate={params['inc_rate']}, after_gt_end_ratio={params['after_gt_end_ratio']}, after_gt_start_ratio={params['after_gt_start_ratio']}, stop_loss_inc_rate={params['stop_loss_inc_rate']}, stop_loss_after_gt_end_ratio={params['stop_loss_after_gt_end_ratio']}, stop_loss_after_gt_start_ratio={params['stop_loss_after_gt_start_ratio']}")
         result = self.base_param.on_calculate_clicked(params)
         if result is None:
             if show_main_output:
@@ -2299,11 +2335,11 @@ class StockAnalysisApp(QWidget):
             from ui.trading_plan_ui import TradingPlanWidget
             TradingPlanWidget.clean_plan_for_save(self.trading_plan_list)
             config['trading_plan_list'] = self.trading_plan_list
-        # 保存trading_plan_end_date
-        if hasattr(self, 'last_trading_plan_end_date'):
-            config['trading_plan_end_date'] = self.last_trading_plan_end_date
-        elif hasattr(self, 'trading_plan_widget'):
-            config['trading_plan_end_date'] = self.trading_plan_widget.end_date_picker.date().toString("yyyy-MM-dd")
+                    # 保存trading_plan_end_date
+            if hasattr(self, 'last_trading_plan_end_date'):
+                config['trading_plan_end_date'] = self.last_trading_plan_end_date
+            elif hasattr(self, 'trading_plan_widget'):
+                config['trading_plan_end_date'] = self.trading_plan_widget.end_date_picker.date().toString("yyyy-MM-dd")
         try:
             with open('config.json', 'w', encoding='utf-8') as f:
                 json.dump(config, f, ensure_ascii=False, indent=2)

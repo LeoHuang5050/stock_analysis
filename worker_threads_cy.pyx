@@ -106,6 +106,57 @@ cdef void calc_pos_neg_sum(vector[double]& arr, double* pos_sum, double* neg_sum
         elif v < 0:
             neg_sum[0] += v
 
+cdef void calc_pos_neg_sum_halves(
+    vector[double]& arr,
+    double* pos_sum_first_half,
+    double* pos_sum_second_half,
+    double* neg_sum_first_half,
+    double* neg_sum_second_half
+) nogil:
+    cdef int n = arr.size()
+    cdef int i, half
+    cdef double v
+    cdef vector[double] pos_values
+    cdef vector[double] neg_values
+    
+    pos_sum_first_half[0] = 0
+    pos_sum_second_half[0] = 0
+    neg_sum_first_half[0] = 0
+    neg_sum_second_half[0] = 0
+    
+    if n == 0:
+        return
+    
+    # 分离正负值
+    for i in range(n):
+        v = arr[i]
+        if isnan(v):
+            continue
+        if v > 0:
+            pos_values.push_back(v)
+        elif v < 0:
+            neg_values.push_back(v)
+    
+    # 计算正值的分半累加
+    if pos_values.size() > 0:
+        half = int(round(pos_values.size() / 2.0))
+        # 前一半
+        for i in range(half):
+            pos_sum_first_half[0] += pos_values[i]
+        # 后一半
+        for i in range(half, pos_values.size()):
+            pos_sum_second_half[0] += pos_values[i]
+    
+    # 计算负值的分半累加
+    if neg_values.size() > 0:
+        half = int(round(neg_values.size() / 2.0))
+        # 前一半
+        for i in range(half):
+            neg_sum_first_half[0] += neg_values[i]
+        # 后一半
+        for i in range(half, neg_values.size()):
+            neg_sum_second_half[0] += neg_values[i]
+
 def calculate_batch_cy(
     np.ndarray[DTYPE_t, ndim=2] price_data,
     list date_columns,
@@ -216,6 +267,7 @@ def calculate_batch_cy(
     cdef int increment_days = -1
     cdef int after_gt_end_days = -1
     cdef int after_gt_start_days = -1
+    cdef int end_state = 0
     cdef double increment_threshold
     cdef double after_gt_end_threshold
     cdef double after_gt_start_threshold
@@ -251,6 +303,10 @@ def calculate_batch_cy(
     cdef int new_after_low2_start_idx, found_new_after_low2
     cdef double cont_sum_pos_sum = NAN
     cdef double cont_sum_neg_sum = NAN  # 连续累加值正加和、负加和
+    cdef double cont_sum_pos_sum_first_half = NAN
+    cdef double cont_sum_pos_sum_second_half = NAN
+    cdef double cont_sum_neg_sum_first_half = NAN
+    cdef double cont_sum_neg_sum_second_half = NAN
     cdef double forward_max_cont_sum_pos_sum = NAN
     cdef double forward_max_cont_sum_neg_sum = NAN
     cdef double forward_min_cont_sum_pos_sum = NAN
@@ -303,9 +359,10 @@ def calculate_batch_cy(
     
     # 单线程处理每个股票
     for i in range(stock_idx_arr_view.shape[0]):
+        stock_idx = stock_idx_arr_view[i]
         if stock_idx == 0:
             printf(b"Calculating stock_idx=%d\n", stock_idx)
-        stock_idx = stock_idx_arr_view[i]
+            printf(b"only_show_selected=%d\n", only_show_selected)
         for idx in range(end_date_start_idx, end_date_end_idx-1, -1):
             try:
                 with nogil:
@@ -750,7 +807,6 @@ def calculate_batch_cy(
                         # 如果没有创后新低2，跳过后续计算
                         if not start_with_new_after_low2:
                             continue
-
                     # 原有的with nogil内容
                     end_date_idx = idx
                     start_date_idx = end_date_idx + width
@@ -810,6 +866,14 @@ def calculate_batch_cy(
                     cont_sum_pos_sum = round_to_2_nan(cont_sum_pos_sum)
                     cont_sum_neg_sum = round_to_2_nan(cont_sum_neg_sum)
 
+                    # 计算连续累加值正负加值的前一半、后一半累加值
+                    calc_pos_neg_sum_halves(cont_sum, &cont_sum_pos_sum_first_half, &cont_sum_pos_sum_second_half, &cont_sum_neg_sum_first_half, &cont_sum_neg_sum_second_half)
+
+                    cont_sum_pos_sum_first_half = round_to_2_nan(cont_sum_pos_sum_first_half)
+                    cont_sum_pos_sum_second_half = round_to_2_nan(cont_sum_pos_sum_second_half)
+                    cont_sum_neg_sum_first_half = round_to_2_nan(cont_sum_neg_sum_first_half)
+                    cont_sum_neg_sum_second_half = round_to_2_nan(cont_sum_neg_sum_second_half)
+
                     # 计算向前最大连续累加值
                     if is_forward and actual_idx > 0:
                         forward_max_price = -1e308
@@ -858,7 +922,6 @@ def calculate_batch_cy(
                     calc_pos_neg_sum(forward_min_result_c, &forward_min_cont_sum_pos_sum, &forward_min_cont_sum_neg_sum)
                     forward_min_cont_sum_pos_sum = round_to_2_nan(forward_min_cont_sum_pos_sum)
                     forward_min_cont_sum_neg_sum = round_to_2_nan(forward_min_cont_sum_neg_sum)
-
                     # 递增值计算逻辑
                     increment_value = NAN
                     increment_days = -1
@@ -882,18 +945,23 @@ def calculate_batch_cy(
                                 if isnan(v) or (trade_t1_mode and n == 1):
                                     continue
                                 increment_threshold = end_value * inc_rate * n
-                                stop_loss_inc_threshold = v_now * stop_loss_inc_rate
+                                stop_loss_inc_threshold = end_value * stop_loss_inc_rate * n
                                 if increment_threshold != 0 and (v - end_value) > increment_threshold:
                                     increment_value = round_to_2(v)
                                     increment_days = n
                                     increment_change = inc_rate * n * 100
                                     found = True
+                                    end_state = 1
                                     break
+                                #if stock_idx == 2164:
+                                    #printf("stock_idx=%d, n=%d, v=%.2f, end_value=%.2f, stop_loss_inc_rate=%.4f, stop_loss_inc_threshold=%.2f\n", 
+                                           #stock_idx, n, v, end_value, stop_loss_inc_rate, stop_loss_inc_threshold)
                                 if stop_loss_inc_threshold != 0 and (v - end_value) < stop_loss_inc_threshold:
                                     increment_value = round_to_2(v)
                                     increment_days = n
                                     increment_change = stop_loss_inc_rate * n * 100
                                     found = True
+                                    end_state = 2
                                     break
                             if not found:
                                 increment_value = NAN
@@ -910,18 +978,27 @@ def calculate_batch_cy(
                                     continue
                                 after_gt_end_threshold = end_value * after_gt_end_ratio
                                 # 计算止损阈值
-                                stop_loss_after_gt_end_threshold = v_now * stop_loss_after_gt_end_ratio
+                                stop_loss_after_gt_end_threshold = end_value * stop_loss_after_gt_end_ratio
+                                #if stock_idx == 2164:
+                                    #printf("stock_idx=%d, n=%d, v=%.2f, end_value=%.2f, after_gt_end_ratio=%.4f, after_gt_end_threshold=%.2f\n", 
+                                           #stock_idx, n, v, end_value, after_gt_end_ratio, after_gt_end_threshold)
                                 if after_gt_end_ratio != 0 and (v - end_value) > after_gt_end_threshold:
                                     after_gt_end_value = round_to_2(v)
                                     after_gt_end_days = n
                                     after_gt_end_change = after_gt_end_ratio * 100
                                     found = True
+                                    end_state = 1
                                     break
+
+                                #if stock_idx == 2164:
+                                    #printf("stock_idx=%d, n=%d, v=%.2f, end_value=%.2f, stop_loss_after_gt_end_ratio=%.4f, stop_loss_after_gt_end_threshold=%.2f\n", 
+                                           #stock_idx, n, v, end_value, stop_loss_after_gt_end_ratio, stop_loss_after_gt_end_threshold)
                                 if stop_loss_after_gt_end_ratio != 0 and (v - end_value) < stop_loss_after_gt_end_threshold:
                                     after_gt_end_value = round_to_2(v)
                                     after_gt_end_days = n
                                     after_gt_end_change = stop_loss_after_gt_end_ratio * 100
                                     found = True
+                                    end_state = 2
                                     break
                             if not found:
                                 after_gt_end_value = NAN
@@ -942,15 +1019,26 @@ def calculate_batch_cy(
                                     after_gt_start_value = round_to_2(v_prev)
                                     after_gt_start_days = n
                                     # 计算 after_gt_start_change：满足条件那一天的前一天价格与结束日价格的关系
-                                    after_gt_start_change = round_to_2((1 + (v_now - end_value) / end_value) * (1 + after_gt_start_ratio))
+                                    if n == 1:
+                                        after_gt_start_change = after_gt_start_ratio * 100
+                                    else:
+                                        after_gt_start_change = round_to_2(((1 + (v_now - end_value) / end_value) * (1 + after_gt_start_ratio) - 1) * 100)
+                                    #if stock_idx == 5377:
+                                        #printf("stock_idx=%d, n=%d, v_now=%.2f, v_prev=%.2f, end_value=%.2f, after_gt_start_ratio=%.4f, after_gt_start_change=%.2f\n", 
+                                            #stock_idx, n, v_now, v_prev, end_value, after_gt_start_ratio, after_gt_start_change)
+                                    end_state = 1
                                     found = True
                                     break
-
+                                
                                 if stop_loss_after_gt_start_ratio != 0 and (v_prev - v_now) < stop_loss_after_gt_start_threshold:
                                     after_gt_start_value = round_to_2(v_prev)
                                     after_gt_start_days = n
                                     # 计算 after_gt_start_change：满足条件那一天的前一天价格与结束日价格的关系
-                                    after_gt_start_change = round_to_2((1 + (v_now - end_value) / end_value) * (1 + stop_loss_after_gt_start_ratio))
+                                    if n == 1:
+                                        after_gt_start_change = stop_loss_after_gt_start_ratio * 100
+                                    else:
+                                        after_gt_start_change = round_to_2(((1 + (v_now - end_value) / end_value) * (1 + stop_loss_after_gt_start_ratio) - 1) * 100)
+                                    end_state = 2
                                     found = True
                                     break
                                 
@@ -960,7 +1048,9 @@ def calculate_batch_cy(
                                 after_gt_start_days = -1
                                 after_gt_start_change = NAN
 
-
+                    #if stock_idx == 5377:
+                        #printf("stock_idx=%d, increment_value=%.2f, increment_days=%d, after_gt_end_value=%.2f, after_gt_end_days=%d, after_gt_start_value=%.2f, after_gt_start_days=%d, increment_change=%.2f, after_gt_end_change=%.2f, after_gt_start_change=%.2f\n", 
+                               #stock_idx, increment_value, increment_days, after_gt_end_value, after_gt_end_days, after_gt_start_value, after_gt_start_days, increment_change, after_gt_end_change, after_gt_start_change)
                     # 处理NAN值
                     if isnan(increment_value):
                         increment_value = NAN
@@ -968,7 +1058,6 @@ def calculate_batch_cy(
                         after_gt_end_value = NAN
                     if isnan(after_gt_start_value):
                         after_gt_start_value = NAN
-
                     # 主连续累加值的有效累加值及正负加和
                     valid_sum_vec.clear()
                     calc_valid_sum_and_pos_neg(
@@ -1378,7 +1467,7 @@ def calculate_batch_cy(
                         valid_neg_sum = NAN
                     valid_pos_sum = round_to_2(valid_pos_sum)
                     valid_neg_sum = round_to_2(valid_neg_sum)
-                    
+
                 # with gil
 
                 start_with_new_before_high_py = bool(start_with_new_before_high)
@@ -1456,6 +1545,7 @@ def calculate_batch_cy(
                 inc_value = increment_value
                 age_value = after_gt_end_value
                 ags_value = after_gt_start_value
+
                 try:
                     result_value = user_func(inc_value, age_value, ags_value)
                     # 判断 result_value 是哪个变量，自动取 value 和 days
@@ -1514,8 +1604,8 @@ def calculate_batch_cy(
                     try:
                         if ops_change > ops_change_input and hold_days == 1:
                             adjust_days = 2
-                        elif ops_change > ops_change_input and hold_days == 2 and trade_t1_mode:
-                            adjust_days = 3
+                        elif hold_days == 1:
+                            adjust_days = 1
                         else:
                             adjust_days = hold_days + 1
                     except Exception:
@@ -1535,8 +1625,13 @@ def calculate_batch_cy(
 
                 # 调幅日均涨幅： 调整涨幅 / 持有天数
                 # 确定除数：如果持有天数小于操作天数的一半，使用操作天数的一半来计算
-                if hold_days is not None and hold_days < op_days / 2:
-                    divisor = round(op_days / 2)
+                # 确保使用浮点数除法，避免整数除法的问题
+                op_days_half = float(op_days) / 2.0
+                if hold_days is not None and hold_days < op_days_half:
+                    # 使用传统四舍五入，而不是银行家舍入
+                    # 例如：op_days=3时，3/2=1.5，四舍五入为2
+                    # 例如：op_days=1时，1/2=0.5，四舍五入为1
+                    divisor = int(op_days_half + 0.5)
                 else:
                     divisor = hold_days
                 
@@ -1548,10 +1643,13 @@ def calculate_batch_cy(
                     else:
                         adjust_ops_incre_rate = None
 
+                # 当stock_idx=5366时打印相关参数
+                #if stock_idx == 5377:
+                    #print(f"stock_idx={stock_idx}, hold_days={hold_days}, op_days={op_days}, divisor={divisor}, adjust_ops_value={adjust_ops_value}, ops_change={ops_change}, adjust_ops_incre_rate={adjust_ops_incre_rate}")
+                    #print(f"op_days_half = {op_days_half}")
 
                 # 新增：score 计算
                 score = None
-    
                 if formula_expr is not None:
                     # 预先计算所有需要的变量
                     def safe_formula_val(val):
@@ -1676,6 +1774,10 @@ def calculate_batch_cy(
                         'forward_min_result_len': safe_formula_val(forward_min_result_len),
                         'cont_sum_pos_sum': safe_formula_val(cont_sum_pos_sum),
                         'cont_sum_neg_sum': safe_formula_val(cont_sum_neg_sum),
+                        'cont_sum_pos_sum_first_half': safe_formula_val(cont_sum_pos_sum_first_half),
+                        'cont_sum_pos_sum_second_half': safe_formula_val(cont_sum_pos_sum_second_half),
+                        'cont_sum_neg_sum_first_half': safe_formula_val(cont_sum_neg_sum_first_half),
+                        'cont_sum_neg_sum_second_half': safe_formula_val(cont_sum_neg_sum_second_half),
                         'forward_max_cont_sum_pos_sum': safe_formula_val(forward_max_cont_sum_pos_sum),
                         'forward_max_cont_sum_neg_sum': safe_formula_val(forward_max_cont_sum_neg_sum),
                         'forward_min_cont_sum_pos_sum': safe_formula_val(forward_min_cont_sum_pos_sum),
@@ -1714,13 +1816,12 @@ def calculate_batch_cy(
                                 
                     except Exception as e:
                         import traceback
-                        #print(f"[calculate_batch_cy] 执行公式异常: {e}")
-                        #print(f"公式内容: {formula_expr}")
-                        #print(traceback.format_exc())
+                        print(f"[calculate_batch_cy] 执行公式异常: {e}")
+                        print(f"公式内容: {formula_expr}")
+                        print(traceback.format_exc())
                         score = None
                 
                 #print(f"stock_idx={stock_idx}, cont_sum_pos_sum={cont_sum_pos_sum}, valid_pos_sum={valid_pos_sum}, forward_min_cont_sum_pos_sum={forward_min_cont_sum_pos_sum}")
-                
                 if only_show_selected:
                     if score is not None and score != 0 and not isnan(end_value) and hold_days != -1:
                         # 根据排序模式过滤score
@@ -1841,6 +1942,10 @@ def calculate_batch_cy(
                                 'forward_min_result_len': forward_min_result_len,
                                 'cont_sum_pos_sum': cont_sum_pos_sum,
                                 'cont_sum_neg_sum': cont_sum_neg_sum,
+                                'cont_sum_pos_sum_first_half': safe_formula_val(cont_sum_pos_sum_first_half),
+                                'cont_sum_pos_sum_second_half': safe_formula_val(cont_sum_pos_sum_second_half),
+                                'cont_sum_neg_sum_first_half': safe_formula_val(cont_sum_neg_sum_first_half),
+                                'cont_sum_neg_sum_second_half': safe_formula_val(cont_sum_neg_sum_second_half),
                                 'forward_max_cont_sum_pos_sum': forward_max_cont_sum_pos_sum,
                                 'forward_max_cont_sum_neg_sum': forward_max_cont_sum_neg_sum,
                                 'forward_min_cont_sum_pos_sum': forward_min_cont_sum_pos_sum,
@@ -1853,6 +1958,7 @@ def calculate_batch_cy(
                                 'start_with_new_before_low2': start_with_new_before_low2_py,
                                 'start_with_new_after_low': start_with_new_after_low_py,
                                 'start_with_new_after_low2': start_with_new_after_low2_py,
+                                'end_state': end_state
                             }
                             current_stocks = all_results.get(date_columns[end_date_idx], [])
                             current_stocks.append(row_result)
@@ -1864,6 +1970,8 @@ def calculate_batch_cy(
                             # 只保留指定数量的结果
                             all_results[date_columns[end_date_idx]] = current_stocks[:select_count]
                 else:
+                    if stock_idx == 0:
+                        print(f"only_show_selected = {only_show_selected}， cont_sum_pos_sum_first_half = {cont_sum_pos_sum_first_half}")
                     row_result = {
                             'stock_idx': stock_idx,
                             'max_value': max_price,
@@ -1980,6 +2088,10 @@ def calculate_batch_cy(
                             'forward_min_result_len': forward_min_result_len,
                             'cont_sum_pos_sum': cont_sum_pos_sum,
                             'cont_sum_neg_sum': cont_sum_neg_sum,
+                            'cont_sum_pos_sum_first_half': safe_formula_val(cont_sum_pos_sum_first_half),
+                            'cont_sum_pos_sum_second_half': safe_formula_val(cont_sum_pos_sum_second_half),
+                            'cont_sum_neg_sum_first_half': safe_formula_val(cont_sum_neg_sum_first_half),
+                            'cont_sum_neg_sum_second_half': safe_formula_val(cont_sum_neg_sum_second_half),
                             'forward_max_cont_sum_pos_sum': forward_max_cont_sum_pos_sum,
                             'forward_max_cont_sum_neg_sum': forward_max_cont_sum_neg_sum,
                             'forward_min_cont_sum_pos_sum': forward_min_cont_sum_pos_sum,
@@ -1992,6 +2104,7 @@ def calculate_batch_cy(
                             'start_with_new_before_low2': start_with_new_before_low2_py,
                             'start_with_new_after_low': start_with_new_after_low_py,
                             'start_with_new_after_low2': start_with_new_after_low2_py,
+                            'end_state': end_state
                         }
                     all_results[date_columns[end_date_idx]].append(row_result)
             except Exception as e:
