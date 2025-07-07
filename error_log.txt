@@ -88,3 +88,855 @@ concurrent.futures.process.BrokenProcessPool: A process in the process pool was 
 concurrent.futures.process.BrokenProcessPool: A process in the process pool was terminated abruptly while the future was running or pending.
 
 --------------------------------------------------
+2025-07-06 21:42:13 - 子进程异常: A process in the process pool was terminated abruptly while the future was running or pending.
+异常详情: Traceback (most recent call last):
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+concurrent.futures.process.BrokenProcessPool: A process in the process pool was terminated abruptly while the future was running or pending.
+
+--------------------------------------------------
+2025-07-06 21:42:13 - 子进程异常: A process in the process pool was terminated abruptly while the future was running or pending.
+异常详情: Traceback (most recent call last):
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+concurrent.futures.process.BrokenProcessPool: A process in the process pool was terminated abruptly while the future was running or pending.
+
+--------------------------------------------------
+2025-07-06 21:42:13 - 子进程异常: A process in the process pool was terminated abruptly while the future was running or pending.
+异常详情: Traceback (most recent call last):
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+concurrent.futures.process.BrokenProcessPool: A process in the process pool was terminated abruptly while the future was running or pending.
+
+--------------------------------------------------
+2025-07-06 21:42:13 - 子进程异常: A process in the process pool was terminated abruptly while the future was running or pending.
+异常详情: Traceback (most recent call last):
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+concurrent.futures.process.BrokenProcessPool: A process in the process pool was terminated abruptly while the future was running or pending.
+
+--------------------------------------------------
+2025-07-06 21:42:13 - 子进程异常: A process in the process pool was terminated abruptly while the future was running or pending.
+异常详情: Traceback (most recent call last):
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+concurrent.futures.process.BrokenProcessPool: A process in the process pool was terminated abruptly while the future was running or pending.
+
+--------------------------------------------------
+2025-07-06 21:51:05 - 子进程异常: A process in the process pool was terminated abruptly while the future was running or pending.
+异常详情: Traceback (most recent call last):
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+concurrent.futures.process.BrokenProcessPool: A process in the process pool was terminated abruptly while the future was running or pending.
+
+--------------------------------------------------
+2025-07-06 21:51:05 - 子进程异常: A process in the process pool was terminated abruptly while the future was running or pending.
+异常详情: Traceback (most recent call last):
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+concurrent.futures.process.BrokenProcessPool: A process in the process pool was terminated abruptly while the future was running or pending.
+
+--------------------------------------------------
+2025-07-06 21:51:05 - 子进程异常: A process in the process pool was terminated abruptly while the future was running or pending.
+异常详情: Traceback (most recent call last):
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+concurrent.futures.process.BrokenProcessPool: A process in the process pool was terminated abruptly while the future was running or pending.
+
+--------------------------------------------------
+2025-07-06 21:51:05 - 子进程异常: A process in the process pool was terminated abruptly while the future was running or pending.
+异常详情: Traceback (most recent call last):
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+concurrent.futures.process.BrokenProcessPool: A process in the process pool was terminated abruptly while the future was running or pending.
+
+--------------------------------------------------
+2025-07-06 21:51:05 - 子进程异常: A process in the process pool was terminated abruptly while the future was running or pending.
+异常详情: Traceback (most recent call last):
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+concurrent.futures.process.BrokenProcessPool: A process in the process pool was terminated abruptly while the future was running or pending.
+
+--------------------------------------------------
+2025-07-06 21:54:05 - 子进程异常: A process in the process pool was terminated abruptly while the future was running or pending.
+异常详情: Traceback (most recent call last):
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+concurrent.futures.process.BrokenProcessPool: A process in the process pool was terminated abruptly while the future was running or pending.
+
+--------------------------------------------------
+2025-07-06 22:08:01 - 子进程异常: A process in the process pool was terminated abruptly while the future was running or pending.
+异常详情: Traceback (most recent call last):
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+concurrent.futures.process.BrokenProcessPool: A process in the process pool was terminated abruptly while the future was running or pending.
+
+--------------------------------------------------
+2025-07-06 22:08:01 - 子进程异常: A process in the process pool was terminated abruptly while the future was running or pending.
+异常详情: Traceback (most recent call last):
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+concurrent.futures.process.BrokenProcessPool: A process in the process pool was terminated abruptly while the future was running or pending.
+
+--------------------------------------------------
+2025-07-06 22:08:01 - 子进程异常: A process in the process pool was terminated abruptly while the future was running or pending.
+异常详情: Traceback (most recent call last):
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+concurrent.futures.process.BrokenProcessPool: A process in the process pool was terminated abruptly while the future was running or pending.
+
+--------------------------------------------------
+2025-07-06 22:08:01 - 子进程异常: A process in the process pool was terminated abruptly while the future was running or pending.
+异常详情: Traceback (most recent call last):
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+concurrent.futures.process.BrokenProcessPool: A process in the process pool was terminated abruptly while the future was running or pending.
+
+--------------------------------------------------
+2025-07-06 22:08:01 - 子进程异常: A process in the process pool was terminated abruptly while the future was running or pending.
+异常详情: Traceback (most recent call last):
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+concurrent.futures.process.BrokenProcessPool: A process in the process pool was terminated abruptly while the future was running or pending.
+
+--------------------------------------------------
+2025-07-06 23:09:27 - 子进程异常: A process in the process pool was terminated abruptly while the future was running or pending.
+异常详情: Traceback (most recent call last):
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+concurrent.futures.process.BrokenProcessPool: A process in the process pool was terminated abruptly while the future was running or pending.
+
+--------------------------------------------------
+2025-07-06 23:09:27 - 子进程异常: A process in the process pool was terminated abruptly while the future was running or pending.
+异常详情: Traceback (most recent call last):
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+concurrent.futures.process.BrokenProcessPool: A process in the process pool was terminated abruptly while the future was running or pending.
+
+--------------------------------------------------
+2025-07-06 23:09:27 - 子进程异常: A process in the process pool was terminated abruptly while the future was running or pending.
+异常详情: Traceback (most recent call last):
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+concurrent.futures.process.BrokenProcessPool: A process in the process pool was terminated abruptly while the future was running or pending.
+
+--------------------------------------------------
+2025-07-06 23:09:27 - 子进程异常: A process in the process pool was terminated abruptly while the future was running or pending.
+异常详情: Traceback (most recent call last):
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+concurrent.futures.process.BrokenProcessPool: A process in the process pool was terminated abruptly while the future was running or pending.
+
+--------------------------------------------------
+2025-07-06 23:09:27 - 子进程异常: A process in the process pool was terminated abruptly while the future was running or pending.
+异常详情: Traceback (most recent call last):
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+concurrent.futures.process.BrokenProcessPool: A process in the process pool was terminated abruptly while the future was running or pending.
+
+--------------------------------------------------
+2025-07-06 23:17:29 - 子进程异常: A process in the process pool was terminated abruptly while the future was running or pending.
+异常详情: Traceback (most recent call last):
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+concurrent.futures.process.BrokenProcessPool: A process in the process pool was terminated abruptly while the future was running or pending.
+
+--------------------------------------------------
+2025-07-06 23:22:14 - 子进程异常: A process in the process pool was terminated abruptly while the future was running or pending.
+异常详情: Traceback (most recent call last):
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+concurrent.futures.process.BrokenProcessPool: A process in the process pool was terminated abruptly while the future was running or pending.
+
+--------------------------------------------------
+2025-07-06 23:35:16 - 子进程异常: A process in the process pool was terminated abruptly while the future was running or pending.
+异常详情: Traceback (most recent call last):
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+concurrent.futures.process.BrokenProcessPool: A process in the process pool was terminated abruptly while the future was running or pending.
+
+--------------------------------------------------
+2025-07-06 23:56:50 - 子进程异常: A process in the process pool was terminated abruptly while the future was running or pending.
+异常详情: Traceback (most recent call last):
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+concurrent.futures.process.BrokenProcessPool: A process in the process pool was terminated abruptly while the future was running or pending.
+
+--------------------------------------------------
+2025-07-07 00:11:11 - 子进程异常: A process in the process pool was terminated abruptly while the future was running or pending.
+异常详情: Traceback (most recent call last):
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+concurrent.futures.process.BrokenProcessPool: A process in the process pool was terminated abruptly while the future was running or pending.
+
+--------------------------------------------------
+2025-07-07 00:11:11 - 子进程异常: A process in the process pool was terminated abruptly while the future was running or pending.
+异常详情: Traceback (most recent call last):
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+concurrent.futures.process.BrokenProcessPool: A process in the process pool was terminated abruptly while the future was running or pending.
+
+--------------------------------------------------
+2025-07-07 00:11:11 - 子进程异常: A process in the process pool was terminated abruptly while the future was running or pending.
+异常详情: Traceback (most recent call last):
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+concurrent.futures.process.BrokenProcessPool: A process in the process pool was terminated abruptly while the future was running or pending.
+
+--------------------------------------------------
+2025-07-07 00:11:11 - 子进程异常: A process in the process pool was terminated abruptly while the future was running or pending.
+异常详情: Traceback (most recent call last):
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+concurrent.futures.process.BrokenProcessPool: A process in the process pool was terminated abruptly while the future was running or pending.
+
+--------------------------------------------------
+2025-07-07 00:11:11 - 子进程异常: A process in the process pool was terminated abruptly while the future was running or pending.
+异常详情: Traceback (most recent call last):
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+concurrent.futures.process.BrokenProcessPool: A process in the process pool was terminated abruptly while the future was running or pending.
+
+--------------------------------------------------
+2025-07-07 16:10:43 - 子进程异常: A process in the process pool was terminated abruptly while the future was running or pending.
+异常详情: Traceback (most recent call last):
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+concurrent.futures.process.BrokenProcessPool: A process in the process pool was terminated abruptly while the future was running or pending.
+
+--------------------------------------------------
+2025-07-07 16:10:43 - 子进程异常: A process in the process pool was terminated abruptly while the future was running or pending.
+异常详情: Traceback (most recent call last):
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+concurrent.futures.process.BrokenProcessPool: A process in the process pool was terminated abruptly while the future was running or pending.
+
+--------------------------------------------------
+2025-07-07 16:10:43 - 子进程异常: A process in the process pool was terminated abruptly while the future was running or pending.
+异常详情: Traceback (most recent call last):
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+concurrent.futures.process.BrokenProcessPool: A process in the process pool was terminated abruptly while the future was running or pending.
+
+--------------------------------------------------
+2025-07-07 16:10:43 - 子进程异常: A process in the process pool was terminated abruptly while the future was running or pending.
+异常详情: Traceback (most recent call last):
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+concurrent.futures.process.BrokenProcessPool: A process in the process pool was terminated abruptly while the future was running or pending.
+
+--------------------------------------------------
+2025-07-07 16:10:43 - 子进程异常: A process in the process pool was terminated abruptly while the future was running or pending.
+异常详情: Traceback (most recent call last):
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+concurrent.futures.process.BrokenProcessPool: A process in the process pool was terminated abruptly while the future was running or pending.
+
+--------------------------------------------------
+2025-07-07 17:02:42 - 子进程异常: A process in the process pool was terminated abruptly while the future was running or pending.
+异常详情: Traceback (most recent call last):
+  File "E:\project\接单\stock\worker_threads.py", line 412, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+concurrent.futures.process.BrokenProcessPool: A process in the process pool was terminated abruptly while the future was running or pending.
+
+--------------------------------------------------
