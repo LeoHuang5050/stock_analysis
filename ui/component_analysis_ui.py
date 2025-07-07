@@ -1681,6 +1681,47 @@ class ComponentAnalysisWidget(QWidget):
         table.horizontalHeader().setFixedHeight(40)
         table.horizontalHeader().setStyleSheet("font-size: 12px;")
 
+        # 在表格最后一行插入止盈止损率统计，跨所有列
+        row = table.rowCount()
+        table.insertRow(row)
+        
+        # 构建止盈止损率统计文本
+        stats_text = f"总股票数: {summary.get('total_stocks', 0)} | "
+        stats_text += f"持有率: {summary.get('hold_rate', 0)}% | "
+        stats_text += f"止盈率: {summary.get('profit_rate', 0)}% | "
+        stats_text += f"止损率: {summary.get('loss_rate', 0)}%"
+        
+        item = QTableWidgetItem(stats_text)
+        item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+        item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        item.setToolTip(stats_text)
+        table.setItem(row, 0, item)
+        table.setSpan(row, 0, 1, table.columnCount())
+        table.setWordWrap(True)
+        table.resizeRowToContents(row)
+
+        # 在总股票数下一行插入中位数统计，跨所有列
+        row = table.rowCount()
+        table.insertRow(row)
+        
+        # 构建中位数统计文本
+        hold_median = summary.get('hold_median')
+        profit_median = summary.get('profit_median')
+        loss_median = summary.get('loss_median')
+        
+        median_text = f"持有中位数: {hold_median}%" if hold_median is not None else "持有中位数: "
+        median_text += f" | 止盈中位数: {profit_median}%" if profit_median is not None else " | 止盈中位数: "
+        median_text += f" | 止损中位数: {loss_median}%" if loss_median is not None else " | 止损中位数: "
+        
+        item = QTableWidgetItem(median_text)
+        item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+        item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        item.setToolTip(median_text)
+        table.setItem(row, 0, item)
+        table.setSpan(row, 0, 1, table.columnCount())
+        table.setWordWrap(True)
+        table.resizeRowToContents(row)
+
         # 在表格最后一行插入公式
         if formula:
             row = table.rowCount()
