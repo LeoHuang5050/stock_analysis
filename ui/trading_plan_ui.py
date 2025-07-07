@@ -61,8 +61,8 @@ class TradingPlanWidget(QWidget):
         # self.end_date_picker.dateChanged.connect(self.save_end_date_to_main_window)
         top_layout.addWidget(self.end_date_picker)
         
-        # 初始化结束日期：如果上传了文件就设置为workdays_str最后一天，否则默认为今天
-        self.set_end_date_to_latest_workday()
+        # 初始化结束日期：优先从缓存恢复，否则设置为workdays_str最后一天或当前日期
+        self.restore_end_date_from_cache()
         self.select_btn = QPushButton("进行选股")
         top_layout.addWidget(self.select_btn)
         self.select_btn.clicked.connect(self.on_select_btn_clicked)
@@ -669,15 +669,49 @@ class TradingPlanWidget(QWidget):
             plan.pop('result_window', None)
             plan.pop('result_table', None)
 
+    def restore_end_date_from_cache(self):
+        """
+        从缓存恢复结束日期：优先使用缓存，否则设置为workdays_str最后一天或当前日期
+        """
+        try:
+            # 优先从缓存恢复
+            cached_date = getattr(self.main_window, 'last_trading_plan_end_date', None)
+            if cached_date:
+                if hasattr(self, 'end_date_picker') and self.end_date_picker is not None:
+                    self.end_date_picker.setDate(QDate.fromString(cached_date, "yyyy-MM-dd"))
+                    print(f"从缓存恢复操盘方案结束日期: {cached_date}")
+                    return
+                else:
+                    print("end_date_picker控件不存在，无法从缓存恢复")
+            
+            # 如果没有缓存，使用原来的逻辑
+            self.set_end_date_to_latest_workday()
+        except Exception as e:
+            print(f"从缓存恢复结束日期失败: {e}")
+            # 如果恢复失败，使用原来的逻辑
+            self.set_end_date_to_latest_workday()
+
     def set_end_date_to_latest_workday(self):
         """
         设置结束日期：如果上传了文件就设置为workdays_str最后一天，否则默认为今天
         """
-        workdays_str = getattr(self.main_window.init, 'workdays_str', None)
-        if workdays_str and len(workdays_str) > 0:
-            self.end_date_picker.setDate(QDate.fromString(workdays_str[-1], "yyyy-MM-dd"))
-        else:
-            self.end_date_picker.setDate(QDate.currentDate())
+        try:
+            workdays_str = getattr(self.main_window.init, 'workdays_str', None)
+            if workdays_str and len(workdays_str) > 0:
+                # 检查控件是否仍然有效
+                if hasattr(self, 'end_date_picker') and self.end_date_picker is not None:
+                    self.end_date_picker.setDate(QDate.fromString(workdays_str[-1], "yyyy-MM-dd"))
+                    print(f"设置操盘方案结束日期为: {workdays_str[-1]}")
+                else:
+                    print("end_date_picker控件不存在，跳过设置")
+            else:
+                if hasattr(self, 'end_date_picker') and self.end_date_picker is not None:
+                    self.end_date_picker.setDate(QDate.currentDate())
+                    print("设置操盘方案结束日期为当前日期")
+                else:
+                    print("end_date_picker控件不存在，跳过设置")
+        except Exception as e:
+            print(f"设置结束日期失败: {e}")
 
     def setup_file_upload_listener(self):
         """
@@ -692,9 +726,19 @@ class TradingPlanWidget(QWidget):
                 # 调用原始方法
                 original_on_file_loaded(df, price_data, diff_data, workdays_str, error_msg)
                 
-                # 如果没有错误，更新操盘方案的结束日期
-                if not error_msg and hasattr(self, 'end_date_picker'):
-                    self.set_end_date_to_latest_workday()
+                # 如果没有错误，将结束日期保存到缓存中
+                if not error_msg and workdays_str and len(workdays_str) > 0:
+                    # 保存到主窗口缓存
+                    self.main_window.last_trading_plan_end_date = workdays_str[-1]
+                    print(f"文件上传成功，缓存操盘方案结束日期: {workdays_str[-1]}")
+                    
+                    # 如果操盘方案界面已经创建，则立即设置日期
+                    if hasattr(self, 'end_date_picker') and self.end_date_picker is not None:
+                        try:
+                            self.end_date_picker.setDate(QDate.fromString(workdays_str[-1], "yyyy-MM-dd"))
+                            print(f"立即设置操盘方案结束日期为: {workdays_str[-1]}")
+                        except Exception as e:
+                            print(f"立即设置结束日期失败: {e}")
             
             # 替换方法
             self.main_window.init.on_file_loaded = new_on_file_loaded

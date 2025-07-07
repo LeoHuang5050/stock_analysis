@@ -13,6 +13,7 @@ import concurrent.futures
 from multiprocessing import cpu_count
 import re
 import gc
+import statistics
 
 EXPR_PLACEHOLDER_TEXT = (
     "需要严格按照python表达式规则填入。\n"
@@ -3653,6 +3654,18 @@ def calculate_analysis_result(valid_items):
                 'bottom_nth_adjust_with_nan1': '从下往上第N1位调幅含空均值',
                 'bottom_nth_adjust_with_nan2': '从下往上第N2位调幅含空均值',
                 'bottom_nth_adjust_with_nan3': '从下往上第N3位调幅含空均值',
+                # 新增：止盈率、止损率、持有率统计
+                'total_stocks': '总股票数量',
+                'hold_rate': '持有率（百分比）',
+                'profit_rate': '止盈率（百分比）',
+                'loss_rate': '止损率（百分比）',
+                'hold_count': '持有股票数量',
+                'profit_count': '止盈股票数量',
+                'loss_count': '止损股票数量',
+                # 新增：止盈、止损、持有中值
+                'hold_median': '持有涨跌幅中位数',
+                'profit_median': '止盈涨跌幅中位数',
+                'loss_median': '止损涨跌幅中位数'
             }
         }
     """
@@ -3766,6 +3779,17 @@ def calculate_analysis_result(valid_items):
     adjust_non_nan_mean_list = []
     adjust_with_nan_mean_list = []
     
+    # 新增：统计止盈率、止损率、持有率
+    total_stocks = 0
+    hold_count = 0  # end_state = 0
+    profit_count = 0  # end_state = 1
+    loss_count = 0  # end_state = 2
+    
+    # 新增：收集止盈、止损、持有涨跌幅数组
+    hold_changes = []  # end_state = 0 的 end_day_change
+    profit_changes = []  # end_state = 1 的 take_profit
+    loss_changes = []  # end_state = 2 的 stop_loss
+    
     # 计算每个日期的数据
     for date_key, stocks in valid_items:
         hold_days_list_per_date = []
@@ -3774,6 +3798,57 @@ def calculate_analysis_result(valid_items):
         adjust_ops_incre_rate_list_per_date = []
         
         for stock in stocks:
+            # 新增：统计end_state并收集涨跌幅数据
+            try:
+                end_state_raw = stock.get('end_state', '')
+                end_state = safe_val(end_state_raw)
+                
+                if end_state != '' and end_state is not None:
+                    end_state = int(float(end_state))
+                    total_stocks += 1
+                    
+                    # 根据end_state收集相应的涨跌幅数据
+                    if end_state == 0:
+                        hold_count += 1
+                        # 收集持有涨跌幅：只使用op_day_change
+                        op_day_change_raw = stock.get('op_day_change', '')
+                        op_day_change = safe_val(op_day_change_raw)
+                        
+                        if op_day_change != '' and op_day_change is not None:
+                            try:
+                                op_day_change = float(op_day_change)
+                                if not math.isnan(op_day_change):
+                                    hold_changes.append(op_day_change)
+                            except (ValueError, TypeError):
+                                pass
+                    elif end_state == 1:
+                        profit_count += 1
+                        # 收集止盈涨跌幅
+                        take_profit_raw = stock.get('take_profit', '')
+                        take_profit = safe_val(take_profit_raw)
+                        if take_profit != '' and take_profit is not None:
+                            try:
+                                take_profit = float(take_profit)
+                                if not math.isnan(take_profit):
+                                    profit_changes.append(take_profit)
+                            except (ValueError, TypeError):
+                                pass
+                    elif end_state == 2:
+                        loss_count += 1
+                        # 收集止损涨跌幅
+                        stop_loss_raw = stock.get('stop_loss', '')
+                        stop_loss = safe_val(stop_loss_raw)
+                        if stop_loss != '' and stop_loss is not None:
+                            try:
+                                stop_loss = float(stop_loss)
+                                if not math.isnan(stop_loss):
+                                    loss_changes.append(stop_loss)
+                            except (ValueError, TypeError):
+                                pass
+            except Exception as e:
+                print(f"Debug - 统计end_state时出错: {e}, end_state_raw: {end_state_raw}")
+                pass
+                
             try:
                 v = safe_val(stock.get('hold_days', ''))
                 if v != '':
@@ -3977,8 +4052,46 @@ def calculate_analysis_result(valid_items):
         'adjust_bottom_first_non_nan': items[-1]['adjust_non_nan_mean'] if len(items) > 0 else None,
         'adjust_bottom_second_non_nan': items[-2]['adjust_non_nan_mean'] if len(items) > 1 else None,
         'adjust_bottom_third_non_nan': items[-3]['adjust_non_nan_mean'] if len(items) > 2 else None,
-        'adjust_bottom_fourth_non_nan': items[-4]['adjust_non_nan_mean'] if len(items) > 3 else None
+        'adjust_bottom_fourth_non_nan': items[-4]['adjust_non_nan_mean'] if len(items) > 3 else None,
+        # 新增：止盈率、止损率、持有率统计
+        'total_stocks': total_stocks,
+        'hold_rate': round(hold_count / total_stocks * 100, 2) if total_stocks > 0 else 0,
+        'profit_rate': round(profit_count / total_stocks * 100, 2) if total_stocks > 0 else 0,
+        'loss_rate': round(loss_count / total_stocks * 100, 2) if total_stocks > 0 else 0,
+        'hold_count': hold_count,
+        'profit_count': profit_count,
+        'loss_count': loss_count
     }
+    
+    # 新增：计算止盈、止损、持有中值
+    
+    # 计算中位数函数
+    def calculate_median(values):
+        if not values:
+            return None
+        try:
+            return round(statistics.median(values), 2)
+        except Exception as e:
+            print(f"计算中位数时出错: {e}")
+            return None
+    
+    # 计算各数组中位数
+    hold_median = calculate_median(hold_changes)
+    profit_median = calculate_median(profit_changes)
+    loss_median = calculate_median(loss_changes)
+    
+    # 将中位数添加到summary中
+    summary['hold_median'] = hold_median
+    summary['profit_median'] = profit_median
+    summary['loss_median'] = loss_median
+    
+    # 打印各数组用于校验
+    print(f"持有涨跌幅数组 (end_state=0, op_day_change): {sorted(hold_changes) if hold_changes else '空'}")
+    print(f"止盈涨跌幅数组 (end_state=1, take_profit): {sorted(profit_changes) if profit_changes else '空'}")
+    print(f"止损涨跌幅数组 (end_state=2, stop_loss): {sorted(loss_changes) if loss_changes else '空'}")
+    print(f"持有中位数: {hold_median}")
+    print(f"止盈中位数: {profit_median}")
+    print(f"止损中位数: {loss_median}")
     
     # 新增：根据N位控件值动态计算从下往上第N位的值
     if items:

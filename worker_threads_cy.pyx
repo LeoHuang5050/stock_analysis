@@ -267,7 +267,15 @@ def calculate_batch_cy(
     cdef int increment_days = -1
     cdef int after_gt_end_days = -1
     cdef int after_gt_start_days = -1
-    cdef int end_state = 0
+    cdef int inc_end_state = 0
+    cdef int gs_end_state = 0
+    cdef int ge_end_state = 0
+    cdef double inc_take_profit
+    cdef double gs_take_profit
+    cdef double ge_take_profit
+    cdef double inc_stop_loss
+    cdef double gs_stop_loss
+    cdef double ge_stop_loss
     cdef double increment_threshold
     cdef double after_gt_end_threshold
     cdef double after_gt_start_threshold
@@ -935,6 +943,32 @@ def calculate_batch_cy(
                 
                     if op_days > 0:
                         end_value = price_data_view[stock_idx, end_date_idx]
+                        
+                        # 新增：计算操作日当天涨跌幅
+                        op_day_change = NAN
+                        if end_date_idx > 0:
+                            op_day_idx = end_date_idx - op_days
+                            op_day_prev_idx = end_date_idx - op_days + 1
+                            
+                            # 处理索引越界情况
+                            if op_day_idx < 0:
+                                op_day_idx = 0
+                                op_day_prev_idx = 1
+                            
+                            # 检查索引边界 - 确保不会越界
+                            if op_day_idx < num_dates and op_day_prev_idx < num_dates and op_day_idx >= 0 and op_day_prev_idx >= 0:
+                                op_day_price = price_data_view[stock_idx, op_day_idx]
+                                op_day_prev_price = price_data_view[stock_idx, op_day_prev_idx]
+                                
+                                if not isnan(op_day_price) and not isnan(op_day_prev_price) and op_day_prev_price != 0:
+                                    op_day_change = round_to_2(((op_day_price - op_day_prev_price) / op_day_prev_price) * 100)
+
+                        if stock_idx == 5289:
+                            printf("stock_idx=%d, op_days=%d, end_date_idx=%d, op_day_idx=%d, op_day_prev_idx=%d\n", 
+                                   stock_idx, op_days, end_date_idx, op_day_idx, op_day_prev_idx)
+                            printf("op_day_price=%.2f, op_day_prev_price=%.2f, op_day_change=%.2f\n", 
+                                   op_day_price, op_day_prev_price, op_day_change)
+                        
                         if not isnan(end_value):
                             # 递增值
                             found = False
@@ -946,27 +980,49 @@ def calculate_batch_cy(
                                     continue
                                 increment_threshold = end_value * inc_rate * n
                                 stop_loss_inc_threshold = end_value * stop_loss_inc_rate * n
+
+                                if n == 1:
+                                    prev_price = end_value
+                                else:
+                                    prev_price = price_data_view[stock_idx, k + 1]
+
                                 if increment_threshold != 0 and (v - end_value) > increment_threshold:
                                     increment_value = round_to_2(v)
                                     increment_days = n
                                     increment_change = inc_rate * n * 100
+                                    
+                                    if not isnan(prev_price) and prev_price != 0:
+                                        inc_take_profit = round_to_2(((v - prev_price) / prev_price) * 100)
+                                    else:
+                                        inc_take_profit = NAN
                                     found = True
-                                    end_state = 1
+                                    inc_end_state = 1
                                     break
+                                    
                                 #if stock_idx == 2164:
                                     #printf("stock_idx=%d, n=%d, v=%.2f, end_value=%.2f, stop_loss_inc_rate=%.4f, stop_loss_inc_threshold=%.2f\n", 
                                            #stock_idx, n, v, end_value, stop_loss_inc_rate, stop_loss_inc_threshold)
+
                                 if stop_loss_inc_threshold != 0 and (v - end_value) < stop_loss_inc_threshold:
                                     increment_value = round_to_2(v)
                                     increment_days = n
                                     increment_change = stop_loss_inc_rate * n * 100
+
+                                    if not isnan(prev_price) and prev_price != 0:
+                                        inc_stop_loss = round_to_2(((v - prev_price) / prev_price) * 100)
+                                    else:
+                                        inc_stop_loss = NAN
                                     found = True
-                                    end_state = 2
+                                    inc_end_state = 2
                                     break
+
                             if not found:
                                 increment_value = NAN
                                 increment_days = -1
                                 increment_change = NAN
+                                inc_end_state = 0
+                                inc_take_profit = NAN
+                                inc_stop_loss = NAN
 
                             # after_gt_end_value 计算（方向：end_date_idx-1 向 end_date_idx-op_days）
                             found = False
@@ -976,33 +1032,58 @@ def calculate_batch_cy(
                                 v = price_data_view[stock_idx, k]
                                 if isnan(v) or (trade_t1_mode and n == 1):
                                     continue
+
+                                if n == 1:
+                                    prev_price = end_value
+                                else:
+                                    # 检查边界，确保 k + 1 在有效范围内
+                                    if k + 1 < num_dates:
+                                        prev_price = price_data_view[stock_idx, k + 1]
+                                    else:
+                                        prev_price = NAN
+
                                 after_gt_end_threshold = end_value * after_gt_end_ratio
                                 # 计算止损阈值
                                 stop_loss_after_gt_end_threshold = end_value * stop_loss_after_gt_end_ratio
                                 #if stock_idx == 2164:
                                     #printf("stock_idx=%d, n=%d, v=%.2f, end_value=%.2f, after_gt_end_ratio=%.4f, after_gt_end_threshold=%.2f\n", 
                                            #stock_idx, n, v, end_value, after_gt_end_ratio, after_gt_end_threshold)
+
                                 if after_gt_end_ratio != 0 and (v - end_value) > after_gt_end_threshold:
                                     after_gt_end_value = round_to_2(v)
                                     after_gt_end_days = n
                                     after_gt_end_change = after_gt_end_ratio * 100
                                     found = True
-                                    end_state = 1
+                                    ge_end_state = 1
+                                    if not isnan(prev_price) and prev_price != 0:
+                                        ge_take_profit = round_to_2(((v - prev_price) / prev_price) * 100)
+                                    else:
+                                        ge_take_profit = NAN
                                     break
 
                                 #if stock_idx == 2164:
                                     #printf("stock_idx=%d, n=%d, v=%.2f, end_value=%.2f, stop_loss_after_gt_end_ratio=%.4f, stop_loss_after_gt_end_threshold=%.2f\n", 
                                            #stock_idx, n, v, end_value, stop_loss_after_gt_end_ratio, stop_loss_after_gt_end_threshold)
+
                                 if stop_loss_after_gt_end_ratio != 0 and (v - end_value) < stop_loss_after_gt_end_threshold:
                                     after_gt_end_value = round_to_2(v)
                                     after_gt_end_days = n
                                     after_gt_end_change = stop_loss_after_gt_end_ratio * 100
                                     found = True
-                                    end_state = 2
+                                    ge_end_state = 2
+                                    if not isnan(prev_price) and prev_price != 0:
+                                        ge_stop_loss = round_to_2(((v - prev_price) / prev_price) * 100)
+                                    else:
+                                        ge_stop_loss = NAN
                                     break
+
                             if not found:
                                 after_gt_end_value = NAN
                                 after_gt_end_days = -1
+                                ge_end_state = 0
+                                ge_take_profit = NAN
+                                ge_stop_loss = NAN
+
                             # after_gt_start_value 计算（方向：end_date_idx 向 end_date_idx-op_days，判断k和k-1）
                             found = False
                             for n, k in enumerate(range(end_date_idx, end_date_idx - op_days, -1), 1):
@@ -1010,6 +1091,15 @@ def calculate_batch_cy(
                                     continue
                                 v_now = price_data_view[stock_idx, k]
                                 v_prev = price_data_view[stock_idx, k - 1]
+                                if n == 1:
+                                    prev_price = end_value
+                                else:
+                                    # 检查边界，确保 k + 1 在有效范围内
+                                    if k + 1 < num_dates:
+                                        prev_price = price_data_view[stock_idx, k + 1]
+                                    else:
+                                        prev_price = NAN
+                                
                                 if isnan(v_now) or isnan(v_prev) or (trade_t1_mode and n == 1):
                                     continue
                                 after_gt_start_threshold = v_now * after_gt_start_ratio
@@ -1018,39 +1108,42 @@ def calculate_batch_cy(
                                 if after_gt_start_ratio != 0 and (v_prev - v_now) > after_gt_start_threshold:
                                     after_gt_start_value = round_to_2(v_prev)
                                     after_gt_start_days = n
-                                    # 计算 after_gt_start_change：满足条件那一天的前一天价格与结束日价格的关系
-                                    if n == 1:
-                                        after_gt_start_change = after_gt_start_ratio * 100
-                                    else:
-                                        after_gt_start_change = round_to_2(((1 + (v_now - end_value) / end_value) * (1 + after_gt_start_ratio) - 1) * 100)
+                                    
                                     #if stock_idx == 5377:
                                         #printf("stock_idx=%d, n=%d, v_now=%.2f, v_prev=%.2f, end_value=%.2f, after_gt_start_ratio=%.4f, after_gt_start_change=%.2f\n", 
                                             #stock_idx, n, v_now, v_prev, end_value, after_gt_start_ratio, after_gt_start_change)
-                                    end_state = 1
+                                    
+                                    gs_end_state = 1
+                                    if not isnan(prev_price) and prev_price != 0:
+                                        gs_take_profit = round_to_2(((v - prev_price) / prev_price) * 100)
+                                    else:
+                                        gs_take_profit = NAN
                                     found = True
                                     break
                                 
                                 if stop_loss_after_gt_start_ratio != 0 and (v_prev - v_now) < stop_loss_after_gt_start_threshold:
                                     after_gt_start_value = round_to_2(v_prev)
                                     after_gt_start_days = n
-                                    # 计算 after_gt_start_change：满足条件那一天的前一天价格与结束日价格的关系
-                                    if n == 1:
-                                        after_gt_start_change = stop_loss_after_gt_start_ratio * 100
+                                    gs_end_state = 2
+                                    if not isnan(prev_price) and prev_price != 0:
+                                        gs_stop_loss = round_to_2(((v - prev_price) / prev_price) * 100)
                                     else:
-                                        after_gt_start_change = round_to_2(((1 + (v_now - end_value) / end_value) * (1 + stop_loss_after_gt_start_ratio) - 1) * 100)
-                                    end_state = 2
+                                        gs_stop_loss = NAN
                                     found = True
                                     break
                                 
-                            
                             if not found:
                                 after_gt_start_value = NAN
                                 after_gt_start_days = -1
                                 after_gt_start_change = NAN
+                                gs_end_state = 0
+                                gs_take_profit = NAN
+                                gs_stop_loss = NAN
 
                     #if stock_idx == 5377:
                         #printf("stock_idx=%d, increment_value=%.2f, increment_days=%d, after_gt_end_value=%.2f, after_gt_end_days=%d, after_gt_start_value=%.2f, after_gt_start_days=%d, increment_change=%.2f, after_gt_end_change=%.2f, after_gt_start_change=%.2f\n", 
                                #stock_idx, increment_value, increment_days, after_gt_end_value, after_gt_end_days, after_gt_start_value, after_gt_start_days, increment_change, after_gt_end_change, after_gt_start_change)
+                    
                     # 处理NAN值
                     if isnan(increment_value):
                         increment_value = NAN
@@ -1545,7 +1638,9 @@ def calculate_batch_cy(
                 inc_value = increment_value
                 age_value = after_gt_end_value
                 ags_value = after_gt_start_value
-
+                end_state = 0
+                take_profit = 0
+                stop_loss = 0
                 try:
                     result_value = user_func(inc_value, age_value, ags_value)
                     # 判断 result_value 是哪个变量，自动取 value 和 days
@@ -1553,24 +1648,38 @@ def calculate_batch_cy(
                         ops_value = increment_value
                         hold_days = increment_days
                         adjust_ops_value = increment_change
-                        
+                        end_state = inc_end_state
+                        take_profit = inc_take_profit
+                        stop_loss = inc_stop_loss
                     elif result_value == 'after_gt_end_value':
                         ops_value = after_gt_end_value
                         hold_days = after_gt_end_days
                         adjust_ops_value = after_gt_end_change
+                        end_state = ge_end_state
+                        take_profit = ge_take_profit
+                        stop_loss = ge_stop_loss
                     elif result_value == 'after_gt_start_value':
                         ops_value = after_gt_start_value
                         hold_days = after_gt_start_days
                         adjust_ops_value = after_gt_start_change
+                        end_state = gs_end_state
+                        take_profit = gs_take_profit
+                        stop_loss = gs_stop_loss
                     else:
                         ops_value = result_value
                         hold_days = None
                         adjust_ops_value = None
+                        end_state = 0
+                        take_profit = 0
+                        stop_loss = 0
 
                 except Exception as e:
                     ops_value = None
                     hold_days = None
                     adjust_ops_value = None
+                    end_state = 0
+                    take_profit = 0
+                    stop_loss = 0
 
                 # 新增：计算操作涨幅、调整天数、日均涨幅
                 ops_change = None
@@ -1622,7 +1731,6 @@ def calculate_batch_cy(
                 if stock_idx == 0:
                     print(f"stock_idx={stock_idx}, ops_change={ops_change}, adjust_days={adjust_days}, ops_incre_rate={ops_incre_rate}")
                     
-
                 # 调幅日均涨幅： 调整涨幅 / 持有天数
                 # 确定除数：如果持有天数小于操作天数的一半，使用操作天数的一半来计算
                 # 确保使用浮点数除法，避免整数除法的问题
@@ -1958,7 +2066,10 @@ def calculate_batch_cy(
                                 'start_with_new_before_low2': start_with_new_before_low2_py,
                                 'start_with_new_after_low': start_with_new_after_low_py,
                                 'start_with_new_after_low2': start_with_new_after_low2_py,
-                                'end_state': end_state
+                                'end_state': end_state,
+                                'stop_loss': stop_loss,
+                                'take_profit': take_profit,
+                                'op_day_change': op_day_change
                             }
                             current_stocks = all_results.get(date_columns[end_date_idx], [])
                             current_stocks.append(row_result)
@@ -2104,7 +2215,10 @@ def calculate_batch_cy(
                             'start_with_new_before_low2': start_with_new_before_low2_py,
                             'start_with_new_after_low': start_with_new_after_low_py,
                             'start_with_new_after_low2': start_with_new_after_low2_py,
-                            'end_state': end_state
+                            'end_state': end_state,
+                            'stop_loss': stop_loss,
+                            'take_profit': take_profit,
+                            'op_day_change': op_day_change
                         }
                     all_results[date_columns[end_date_idx]].append(row_result)
             except Exception as e:
