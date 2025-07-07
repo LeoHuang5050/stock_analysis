@@ -1907,9 +1907,10 @@ def calculate_batch_cy(
                             var1, var2 = var_pair  # 解包元组对
                             var1_value = formula_vars.get(var1, 0)
                             var2_value = formula_vars.get(var2, 0)
+                            if stock_idx == 2756:
+                                print(f"stock_idx: {stock_idx}, var1: {var1}, var2: {var2}, var1_value: {var1_value}, var2_value: {var2_value}")
                             # 如果一对变量都为0，设置flag为False
-                            if var1_value == 0 and var2_value == 0:
-                                #print(f"stock_idx: {stock_idx}, var1: {var1}, var2: {var2}, var1_value: {var1_value}, var2_value: {var2_value}")
+                            if (var1_value == 0 or var1_value is None) and (var2_value == 0 or var2_value is None):
                                 should_exec_formula = False
                                 score = 0
                                 break
