@@ -27,6 +27,10 @@ class BaseParamHandler:
             "expr": getattr(self.main_window, 'last_expr', ''),
             "ops_change": float(self.main_window.ops_change_edit.text() or 0),# 添加 only_show_selected 参数
         })
+        # if params['only_show_selected']:
+        #     print(f"only_show_selected params = {params}")
+        # else:
+        #     print(f"not only_show_selected params = {params}")
         
         self.main_window.result_text.setText("正在切换窗口，请稍候...")
         QApplication.processEvents()

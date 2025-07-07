@@ -1323,6 +1323,8 @@ class StockAnalysisApp(QWidget):
         current_formula = formula_expr if formula_expr is not None else (
             self.formula_expr_edit.toPlainText() if hasattr(self, 'formula_expr_edit') else ''
         )
+
+        print(f"current_formula = {current_formula}")
     
         # 每次都强制重新计算
         # 收集所有参数
@@ -1724,6 +1726,31 @@ class StockAnalysisApp(QWidget):
         # 获取选股数量和排序方式
         select_count = getattr(self, 'last_select_count', 10)
         sort_mode = getattr(self, 'last_sort_mode', '最大值排序')
+        
+        # 获取比较变量列表 - 参考选股的do_select()函数
+        comparison_vars = []
+        # 从last_formula_select_state中获取比较变量
+        if hasattr(self, 'last_formula_select_state') and self.last_formula_select_state:
+            state = self.last_formula_select_state
+            if 'comparison_vars' in state:
+                comparison_vars = state['comparison_vars']
+                print(f"从last_formula_select_state获取comparison_vars: {comparison_vars}")
+        
+        # 如果没有从状态中获取到，尝试从当前公式选股控件获取
+        if not comparison_vars and hasattr(self, 'formula_select_widget') and self.formula_select_widget is not None:
+            for comp in self.formula_select_widget.comparison_widgets:
+                if comp['checkbox'].isChecked():
+                    var1 = comp['var1'].currentText()
+                    var2 = comp['var2'].currentText()
+                    var1_en = next((en for zh, en in self.formula_select_widget.abbr_map.items() if zh == var1), None)
+                    var2_en = next((en for zh, en in self.formula_select_widget.abbr_map.items() if zh == var2), None)
+                    if var1_en and var2_en:
+                        comparison_vars.append((var1_en, var2_en))  # 以元组对的形式添加
+            print(f"从formula_select_widget获取comparison_vars: {comparison_vars}")
+        
+        comparison_vars = list(comparison_vars)  # 转换为list
+        print(f"最终自动分析comparison_vars: {comparison_vars}")
+        
         result = self.get_or_calculate_result(
             formula_expr=formula, 
             show_main_output=False, 
@@ -1732,7 +1759,8 @@ class StockAnalysisApp(QWidget):
             select_count=select_count,
             sort_mode=sort_mode,
             end_date_start=start_date,
-            end_date_end=end_date
+            end_date_end=end_date,
+            comparison_vars=comparison_vars
         )
         self.last_auto_analysis_result = result  # 新增：只给自动分析用
         merged_results = result.get('dates', {}) if result else {}

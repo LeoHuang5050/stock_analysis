@@ -61,8 +61,8 @@ class TradingPlanWidget(QWidget):
         # self.end_date_picker.dateChanged.connect(self.save_end_date_to_main_window)
         top_layout.addWidget(self.end_date_picker)
         
-        # 初始化结束日期：优先从缓存恢复，否则设置为workdays_str最后一天或当前日期
-        self.restore_end_date_from_cache()
+        # 初始化结束日期：设置为workdays_str最后一天或当前日期
+        self.init_end_date()
         self.select_btn = QPushButton("进行选股")
         top_layout.addWidget(self.select_btn)
         self.select_btn.clicked.connect(self.on_select_btn_clicked)
@@ -668,6 +668,12 @@ class TradingPlanWidget(QWidget):
         for plan in plan_list:
             plan.pop('result_window', None)
             plan.pop('result_table', None)
+
+    def init_end_date(self):
+        """
+        初始化结束日期：设置为workdays_str最后一天或当前日期
+        """
+        self.set_end_date_to_latest_workday()
 
     def restore_end_date_from_cache(self):
         """
