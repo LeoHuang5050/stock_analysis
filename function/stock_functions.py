@@ -1154,6 +1154,11 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
         
         # 使用过滤后的结果
         merged_results = filtered_results
+        if merged_results:
+            first_date = list(merged_results.keys())[0]
+            first_stocks = merged_results[first_date]
+            stock_indices = [stock.get('stock_idx') for stock in first_stocks if 'stock_idx' in stock]
+            print(f"选股第一个日期 {first_date} 的stock_idx: {stock_indices}")
         parent.all_param_result = all_param_result
         if not merged_results or not any(merged_results.values()):
             QMessageBox.information(parent, "提示", "没有选股结果。")
@@ -1504,6 +1509,19 @@ class FormulaSelectWidget(QWidget):
                 'logic_checked': comp['logic_check'].isChecked()  # 新增：保存含逻辑状态
             })
         state['comparison_widgets'] = comparison_state
+        
+        # 添加comparison_vars到状态中
+        comparison_vars = []
+        for comp in self.comparison_widgets:
+            if comp['checkbox'].isChecked():
+                var1 = comp['var1'].currentText()
+                var2 = comp['var2'].currentText()
+                var1_en = next((en for zh, en in self.abbr_map.items() if zh == var1), None)
+                var2_en = next((en for zh, en in self.abbr_map.items() if zh == var2), None)
+                if var1_en and var2_en:
+                    comparison_vars.append((var1_en, var2_en))
+        state['comparison_vars'] = comparison_vars
+        
         self.main_window.last_formula_select_state = state
         if not hasattr(self, 'main_window'):
             return
@@ -2866,7 +2884,7 @@ class FormulaSelectWidget(QWidget):
                         elif hasattr(widget, 'text'):  # QLineEdit类型
                             val = widget.text()
                         else:
-                            val = 30 if en == 'width' else 5 if en == 'op_days' else 3
+                            val = 30 if en == 'width' else 5 if en == 'op_days' else 0
                         
                         # 根据变量类型转换
                         if en in ['width', 'op_days']:
@@ -2875,10 +2893,10 @@ class FormulaSelectWidget(QWidget):
                             val = round(float(val), 2)
                     except (ValueError, AttributeError):
                         # 如果获取失败，使用默认值
-                        val = 30 if en == 'width' else 5 if en == 'op_days' else 3
+                        val = 30 if en == 'width' else 5 if en == 'op_days' else 0
                 else:
                     # 如果控件不存在，使用默认值
-                    val = 30 if en == 'width' else 5 if en == 'op_days' else 3
+                    val = 30 if en == 'width' else 5 if en == 'op_days' else 0
                 special_vars[en] = {'values': [val]}
         
         # 生成笛卡尔积
@@ -3797,6 +3815,9 @@ def calculate_analysis_result(valid_items):
         ops_incre_rate_list_per_date = []
         adjust_ops_incre_rate_list_per_date = []
         
+        # 新增：收集股票索引用于调试
+        stock_indices_per_date = []
+        
         for stock in stocks:
             # 新增：统计end_state并收集涨跌幅数据
             try:
@@ -3863,6 +3884,9 @@ def calculate_analysis_result(valid_items):
                     v = float(v)
                     if not math.isnan(v):
                         ops_change_list_per_date.append(v)
+                        # 收集对应的股票索引
+                        stock_idx = stock.get('stock_idx', '未知')
+                        stock_indices_per_date.append(stock_idx)
             except Exception:
                 pass
             try:
@@ -3922,6 +3946,14 @@ def calculate_analysis_result(valid_items):
             'adjust_non_nan_mean': '',  # 新增：调幅从下往上非空均值
             'adjust_with_nan_mean': ''  # 新增：调幅从下往上含空均值
         })
+        
+        # 调试打印：股票索引和ops_change列表
+        print(f"日期: {date_key}")
+        print(f"股票索引列表: {stock_indices_per_date}")
+        print(f"ops_change列表: {ops_change_list_per_date}")
+        print(f"ops_change列表长度: {len(ops_change_list_per_date)}")
+        print(f"股票索引列表长度: {len(stock_indices_per_date)}")
+        print("-" * 50)
 
     # 计算从下往上的均值
     n = len(items)

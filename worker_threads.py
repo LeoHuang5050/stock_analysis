@@ -427,13 +427,24 @@ class CalculateThread(QThread):
                         pass
         t1 = time.time()
         print(f"calculate_batch_{n_proc}_cores 总耗时: {t1 - t0:.4f}秒")
+        
         if only_show_selected:
             for end_date in merged_results:
+                if merged_results[end_date]:
+                    first_date = list(merged_results.keys())[0]
+                    print(f"merged_results第一个日期 {first_date} 的list长度: {len(merged_results[first_date])}")
                 merged_results[end_date] = sorted(
                     merged_results[end_date],
                     key=lambda x: x['score'],
                     reverse=(sort_mode == "最大值排序")
                 )[:select_count]
+            if merged_results:
+                first_date = list(merged_results.keys())[0]
+                first_stocks = merged_results[first_date]
+                stock_indices = [stock.get('stock_idx') for stock in first_stocks if 'stock_idx' in stock]
+                print(f"自动分析第一个日期 {first_date} 的stock_idx: {stock_indices}")
+                scores = [stock.get('score') for stock in first_stocks if 'score' in stock]
+                print(f"自动分析第一个日期 {first_date} 的score: {scores}")
         
         result = {
             "dates": merged_results,

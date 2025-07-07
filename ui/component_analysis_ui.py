@@ -744,6 +744,14 @@ class ComponentAnalysisWidget(QWidget):
         # 获取选股数量和排序方式
         select_count = getattr(self.main_window, 'last_select_count', 10)
         # 调用主窗口的计算方法，直接传递参数
+        # 获取比较变量列表
+        comparison_vars = []
+        if hasattr(self.main_window, 'last_formula_select_state') and self.main_window.last_formula_select_state:
+            state = self.main_window.last_formula_select_state
+            if 'comparison_vars' in state:
+                comparison_vars = state['comparison_vars']
+                print(f"组合分析从last_formula_select_state获取comparison_vars: {comparison_vars}")
+        
         result = self.main_window.get_or_calculate_result(
             formula_expr=formula, 
             show_main_output=False, 
@@ -760,7 +768,8 @@ class ComponentAnalysisWidget(QWidget):
             after_gt_start_ratio=after_gt_start_ratio,
             stop_loss_inc_rate=stop_loss_inc_rate,
             stop_loss_after_gt_end_ratio=stop_loss_after_gt_end_ratio,
-            stop_loss_after_gt_start_ratio=stop_loss_after_gt_start_ratio
+            stop_loss_after_gt_start_ratio=stop_loss_after_gt_start_ratio,
+            comparison_vars=comparison_vars
         )
         
         if result:
