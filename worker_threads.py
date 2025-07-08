@@ -1,31 +1,142 @@
 import pandas as pd
 from PyQt5.QtCore import QThread, pyqtSignal
-from function.stock_functions import unify_date_columns, calc_continuous_sum_np
+from function.stock_functions import unify_date_columns
+import numpy as np
+import time
+from multiprocessing import Pool, cpu_count
+import concurrent.futures
+import worker_threads_cy  # 这是你用Cython编译出来的模块
+import re
+
+# 全局缩写映射表
+abbr_map = {
+    'MAX': 'max_value', 'MIN': 'min_value', 'END': 'end_value', 'START': 'start_value',
+    'ACT': 'actual_value', 'CLS': 'closest_value', 'NDAYMAX': 'n_days_max_value',
+    'NMAXISMAX': 'n_max_is_max', 'RRL': 'range_ratio_is_less', 'CAL': 'continuous_abs_is_less',
+    'PDC': 'prev_day_change', 'EDC': 'end_day_change', 'DEV': 'diff_end_value',
+    'CR': 'continuous_results', 'CL': 'continuous_len',
+    'CSV': 'continuous_start_value', 'CSNV': 'continuous_start_next_value',
+    'CSNNV': 'continuous_start_next_next_value', 'CEV': 'continuous_end_value',
+    'CEPV': 'continuous_end_prev_value', 'CEPPV': 'continuous_end_prev_prev_value',
+    'CASFH': 'continuous_abs_sum_first_half', 'CASSH': 'continuous_abs_sum_second_half',
+    'CASB1': 'continuous_abs_sum_block1', 'CASB2': 'continuous_abs_sum_block2',
+    'CASB3': 'continuous_abs_sum_block3', 'CASB4': 'continuous_abs_sum_block4',
+    'VSA': 'valid_sum_arr', 'VSL': 'valid_sum_len', 'VPS': 'valid_pos_sum', 'VNS': 'valid_neg_sum',
+    'VASFH': 'valid_abs_sum_first_half', 'VASSH': 'valid_abs_sum_second_half',
+    'VASB1': 'valid_abs_sum_block1', 'VASB2': 'valid_abs_sum_block2',
+    'VASB3': 'valid_abs_sum_block3', 'VASB4': 'valid_abs_sum_block4',
+    'FMD': 'forward_max_date', 'FMR': 'forward_max_result',
+    'FMVSL': 'forward_max_valid_sum_len', 'FMVSA': 'forward_max_valid_sum_arr',
+    'FMVPS': 'forward_max_valid_pos_sum', 'FMVNS': 'forward_max_valid_neg_sum',
+    'FMVASFH': 'forward_max_valid_abs_sum_first_half', 'FMVASSH': 'forward_max_valid_abs_sum_second_half',
+    'FMVASB1': 'forward_max_valid_abs_sum_block1', 'FMVASB2': 'forward_max_valid_abs_sum_block2',
+    'FMVASB3': 'forward_max_valid_abs_sum_block3', 'FMVASB4': 'forward_max_valid_abs_sum_block4',
+    'FMinD': 'forward_min_date', 'FMinR': 'forward_min_result',
+    'FMinVSL': 'forward_min_valid_sum_len', 'FMinVSA': 'forward_min_valid_sum_arr',
+    'FMinVPS': 'forward_min_valid_pos_sum', 'FMinVNS': 'forward_min_valid_neg_sum',
+    'FMinVASFH': 'forward_min_valid_abs_sum_first_half', 'FMinVASSH': 'forward_min_valid_abs_sum_second_half',
+    'FMinVASB1': 'forward_min_valid_abs_sum_block1', 'FMinVASB2': 'forward_min_valid_abs_sum_block2',
+    'FMinVASB3': 'forward_min_valid_abs_sum_block3', 'FMinVASB4': 'forward_min_valid_abs_sum_block4',
+    'INC': 'increment_value', 'AGE': 'after_gt_end_value', 'AGS': 'after_gt_start_value',
+    'OPS': 'ops_value', 'HD': 'hold_days', 'OPC': 'ops_change', 'ADJ': 'adjust_days', 'OIR': 'ops_incre_rate',
+    'FMaxCV': 'forward_max_continuous_start_value', 'FMaxCNV': 'forward_max_continuous_start_next_value',
+    'FMaxCNNV': 'forward_max_continuous_start_next_next_value', 'FMaxCEV': 'forward_max_continuous_end_value',
+    'FMaxCEPV': 'forward_max_continuous_end_prev_value', 'FMaxCEPPV': 'forward_max_continuous_end_prev_prev_value',
+    'FMinCV': 'forward_min_continuous_start_value', 'FMinCNV': 'forward_min_continuous_start_next_value',
+    'FMinCNNV': 'forward_min_continuous_start_next_next_value', 'FMinCEV': 'forward_min_continuous_end_value',
+    'FMinCEPV': 'forward_min_continuous_end_prev_value', 'FMinCEPPV': 'forward_min_continuous_end_prev_prev_value',
+    'FMaxCASFH': 'forward_max_continuous_abs_sum_first_half', 'FMaxCASSH': 'forward_max_continuous_abs_sum_second_half',
+    'FMaxCASB1': 'forward_max_continuous_abs_sum_block1', 'FMaxCASB2': 'forward_max_continuous_abs_sum_block2',
+    'FMaxCASB3': 'forward_max_continuous_abs_sum_block3', 'FMaxCASB4': 'forward_max_continuous_abs_sum_block4',
+    'FMinCASFH': 'forward_min_continuous_abs_sum_first_half', 'FMinCASSH': 'forward_min_continuous_abs_sum_second_half',
+    'FMinCASB1': 'forward_min_continuous_abs_sum_block1', 'FMinCASB2': 'forward_min_continuous_abs_sum_block2',
+    'FMinCASB3': 'forward_min_continuous_abs_sum_block3', 'FMinCASB4': 'forward_min_continuous_abs_sum_block4',
+    'EDV': 'end_value',
+    'FMaxLen': 'forward_max_result_len',
+    'FMinLen': 'forward_min_result_len'
+}
+
+def split_indices(total, n_parts):
+    part_size = (total + n_parts - 1) // n_parts
+    # 返回每个分组的起止索引（左闭右开）
+    return [(i * part_size, min((i + 1) * part_size, total)) for i in range(n_parts)]
+
+class OpValue:
+    def __init__(self, key, value, days):
+        self.key = key
+        self.value = value
+        self.days = days
+    def __eq__(self, other):
+        # 只要是同一个对象就相等
+        return id(self) == id(other)
+    def __gt__(self, other):
+        return self.value > (other.value if isinstance(other, OpValue) else other)
+    def __lt__(self, other):
+        return self.value < (other.value if isinstance(other, OpValue) else other)
+    def __float__(self):
+        return float(self.value)
+    def __repr__(self):
+        return f"{self.key}({self.value})"
+
+class RowResult:
+    __slots__ = [
+        'code', 'name', 'max_value', 'min_value', 'end_value', 'start_value',
+        'actual_value', 'closest_value', 'continuous_results', 'forward_max_result',
+        'forward_min_result', 'forward_max_date', 'forward_min_date', 'n_max_value',
+        'n_max_is_max', 'prev_day_change', 'end_day_change', 'diff_end_value',
+        'range_ratio_is_less', 'continuous_abs_is_less', 'continuous_start_value',
+        'continuous_start_next_value', 'continuous_start_next_next_value',
+        'continuous_end_value', 'continuous_end_prev_value', 'continuous_end_prev_prev_value',
+        'continuous_len', 'continuous_abs_sum_first_half', 'continuous_abs_sum_second_half',
+        'continuous_abs_sum_block1', 'continuous_abs_sum_block2', 'continuous_abs_sum_block3',
+        'continuous_abs_sum_block4', 'valid_sum_arr', 'forward_max_valid_sum_arr',
+        'forward_min_valid_sum_arr', 'valid_pos_sum', 'valid_neg_sum',
+        'forward_max_valid_pos_sum', 'forward_max_valid_neg_sum', 'forward_min_valid_pos_sum',
+        'forward_min_valid_neg_sum', 'valid_sum_len', 'valid_abs_sum_first_half',
+        'valid_abs_sum_second_half', 'valid_abs_sum_block1', 'valid_abs_sum_block2',
+        'valid_abs_sum_block3', 'valid_abs_sum_block4', 'forward_max_valid_sum_len',
+        'forward_max_valid_abs_sum_first_half', 'forward_max_valid_abs_sum_second_half',
+        'forward_max_valid_abs_sum_block1', 'forward_max_valid_abs_sum_block2',
+        'forward_max_valid_abs_sum_block3', 'forward_max_valid_abs_sum_block4',
+        'forward_min_valid_sum_len', 'forward_min_valid_abs_sum_first_half',
+        'forward_min_valid_abs_sum_second_half', 'forward_min_valid_abs_sum_block1',
+        'forward_min_valid_abs_sum_block2', 'forward_min_valid_abs_sum_block3',
+        'forward_min_valid_abs_sum_block4', 'increment_value', 'after_gt_end_value',
+        'after_gt_start_value', 'ops_value', 'hold_days', 'ops_change',
+        'adjust_days', 'ops_incre_rate', 'score'
+    ]
+
+    def __init__(self):
+        for slot in self.__slots__:
+            setattr(self, slot, None)
+
+    def to_dict(self):
+        return {slot: getattr(self, slot) for slot in self.__slots__}
 
 class FileLoaderThread(QThread):
     finished = pyqtSignal(object, object, object, list, str)  # df, price_data, diff_data, workdays_str, error_msg
 
-    def __init__(self, file_path):
+    def __init__(self, file_path, file_type='csv'):
         super().__init__()
         self.file_path = file_path
+        self.file_type = file_type
 
     def run(self):
         try:
-            # 读取Excel文件
-            # df = pd.read_excel(self.file_path, dtype=str)  # 先全部读为字符串
-            # 只用csv
-            df = pd.read_csv(self.file_path, dtype=str)  # 先全部读为字符串
+            if self.file_type == 'xlsx':
+                df = pd.read_excel(self.file_path, dtype=str)
+            else:
+                df = pd.read_csv(self.file_path, dtype=str)
             
             # 处理数据类型转换
             for col in df.columns:
-                try:
-                    # 先尝试转换为float
-                    df[col] = pd.to_numeric(df[col], errors='coerce')
-                except Exception:
-                    # 如果转换失败，保持原样
-                    continue
+                if col not in ['代码', '名称']:
+                    try:
+                        df[col] = pd.to_numeric(df[col], errors='coerce')
+                    except Exception:
+                        continue
             
-            # 后续逻辑不变
+            # 只对price_data部分做0.0转为NaN
             columns = df.columns.tolist()
             separator_idx = None
             for i, col in enumerate(columns):
@@ -37,151 +148,564 @@ class FileLoaderThread(QThread):
                 return
             price_data = df.iloc[:, 0:separator_idx]
             price_data = unify_date_columns(price_data)
+            # 只对price_data做0.0转为NaN
+            for col in price_data.columns:
+                price_data.loc[price_data[col] == 0.0, col] = np.nan
             diff_data = df.iloc[:, separator_idx+1:]
             diff_data = unify_date_columns(diff_data)
+            
+            # 对diff_data的数值列进行精度控制
+            for col in diff_data.columns:
+                diff_data[col] = diff_data[col].round(2)  # 保留两位小数
+            
             all_dates = [col for col in price_data.columns if col[:4].isdigit()]
             all_dates = sorted(all_dates)
             self.finished.emit(df, price_data, diff_data, all_dates, "")
         except Exception as e:
             self.finished.emit(None, None, None, [], str(e))
 
+def calculate_one_worker(args):
+    price_data, diff_data, params, preprocessed_data = args
+    # 使用预处理好的数据
+    temp_thread = CalculateThread(price_data, diff_data, [], params)
+    temp_thread.preprocessed_data = preprocessed_data  # 传入预处理数据
+    return temp_thread.calculate_one(params)
+
 class CalculateThread(QThread):
-    finished = pyqtSignal(dict)  # 用字典传递所有结果
+    finished = pyqtSignal(dict)
 
     def __init__(self, price_data, diff_data, workdays_str, params):
         super().__init__()
         self.price_data = price_data
         self.diff_data = diff_data
         self.workdays_str = workdays_str
-        self.params = params  # 传递所有界面参数
+        self.params = params
+        self.prev_continuous_results = {}
+        self.prev_start_idx = {}
+        self.prev_end_idx = {}
+        self.preprocessed_data = None  # 存储预处理数据
+
+    def safe_float(self, val, default=float('nan')):
+        try:
+            if val is None or (isinstance(val, str) and val.strip() == ''):
+                return default
+            return float(val)
+        except Exception:
+            return default
+
+    def expr_to_tuple(self, expr, abbr_map):
+        # 1. 缩写转全名
+        for abbr, full in abbr_map.items():
+            expr = re.sub(rf'\b{abbr}\b', full, expr)
+        # 2. 自动将 result = xxx 替换为 result = (xxx, xxx_days)
+        for full in abbr_map.values():
+            expr = re.sub(
+                rf'result\s*=\s*{full}\b',
+                f'result = ({full}, {full.replace("value", "days")})',
+                expr
+            )
+        return expr
+
+    def calculate_batch_16_cores(self, params):
+        columns = list(self.diff_data.columns)
+        date_columns = list(self.price_data.columns[2:])
+        width = params.get("width")
+        start_option = params.get("start_option")
+        shift_days = params.get("shift_days")
+        is_forward = params.get("is_forward", False)  # 是否计算向前
+        n_days = params.get("n_days", 0)  # 前N日
+        range_value = params.get('range_value', None)
+        user_range_ratio = self.safe_float(range_value)
+        continuous_abs_threshold = self.safe_float(params.get('continuous_abs_threshold', None))
+        end_date_start = params.get('end_date_start', "2025-04-30")
+        end_date_end = params.get('end_date_end', "2025-04-30")
+        print(f"end_date_start: {end_date_start}, end_date_end: {end_date_end}")
+        end_date_start_idx = date_columns.index(end_date_start)
+        end_date_end_idx = date_columns.index(end_date_end)
+        price_data_np = self.price_data.iloc[:, 2:].values.astype(np.float64)
+        diff_data_np = self.diff_data.values.astype(np.float64)
+        num_stocks = price_data_np.shape[0]
+        trade_t1_mode = params.get('trade_mode', 'T+1') == 'T+1'
+
+        stock_idx_arr = np.arange(num_stocks, dtype=np.int32)
+        n_days_max = params.get("n_days_max", 0)
+        op_days = int(params.get('op_days', 0))
+        inc_rate = float(params.get('inc_rate', 0)) * 0.01
+        after_gt_end_ratio = float(params.get('after_gt_end_ratio', 0)) * 0.01
+        after_gt_start_ratio = float(params.get('after_gt_start_ratio', 0)) * 0.01
+        stop_loss_inc_rate = float(params.get('stop_loss_inc_rate', 0)) * 0.01
+        stop_loss_after_gt_end_ratio = float(params.get('stop_loss_after_gt_end_ratio', 0)) * 0.01
+        stop_loss_after_gt_start_ratio = float(params.get('stop_loss_after_gt_start_ratio', 0)) * 0.01
+        expr = params.get('expr', '') or ''
+        expr = convert_expr_to_return_var_name(expr)
+        formula_expr = params.get('formula_expr', '') or ''
+        # formula_expr = replace_abbr(formula_expr, abbr_map)
+        ops_change_input = params.get("ops_change", 0)
+        select_count = int(params.get('select_count', 10))
+        sort_mode = params.get('sort_mode', '最大值排序')
+        only_show_selected = params.get('only_show_selected', False)
+        max_cores = params.get('max_cores', 1)  # 从参数中获取最大核心数
+        
+        if only_show_selected:
+            n_proc = max_cores  # 使用UI中设置的核心数
+        else:
+            n_proc = 1
+
+        # 新增：创新高/创新低相关参数
+        new_before_high_start = int(params.get('new_before_high_start', 0))
+        new_before_high_range = int(params.get('new_before_high_range', 0))
+        new_before_high_span = int(params.get('new_before_high_span', 0))
+        new_before_high_logic = params.get('new_before_high_logic', '与')
+        
+        # 新增：创前新高2相关参数
+        new_before_high2_start = int(params.get('new_before_high2_start', 0))
+        new_before_high2_range = int(params.get('new_before_high2_range', 0))
+        new_before_high2_span = int(params.get('new_before_high2_span', 0))
+        new_before_high2_logic = params.get('new_before_high2_logic', '与')
+
+        # 新增：创后新高1相关参数
+        new_after_high_start = int(params.get('new_after_high_start', 0))
+        new_after_high_range = int(params.get('new_after_high_range', 0))
+        new_after_high_span = int(params.get('new_after_high_span', 0))
+        new_after_high_logic = params.get('new_after_high_logic', '与')
+        
+        # 新增：创后新高2相关参数
+        new_after_high2_start = int(params.get('new_after_high2_start', 0))
+        new_after_high2_range = int(params.get('new_after_high2_range', 0))
+        new_after_high2_span = int(params.get('new_after_high2_span', 0))
+        new_after_high2_logic = params.get('new_after_high2_logic', '与')
+
+        # 新增：创前新低1相关参数
+        new_before_low_start = int(params.get('new_before_low_start', 0))
+        new_before_low_range = int(params.get('new_before_low_range', 0))
+        new_before_low_span = int(params.get('new_before_low_span', 0))
+        new_before_low_logic = params.get('new_before_low_logic', '与')
+        
+        # 新增：创前新低2相关参数
+        new_before_low2_start = int(params.get('new_before_low2_start', 0))
+        new_before_low2_range = int(params.get('new_before_low2_range', 0))
+        new_before_low2_span = int(params.get('new_before_low2_span', 0))
+        new_before_low2_logic = params.get('new_before_low2_logic', '与')
+        
+        # 新增：创后新低1相关参数
+        new_after_low_start = int(params.get('new_after_low_start', 0))
+        new_after_low_range = int(params.get('new_after_low_range', 0))
+        new_after_low_span = int(params.get('new_after_low_span', 0))
+        new_after_low_logic = params.get('new_after_low_logic', '与')
+        
+        # 新增：创后新低2相关参数
+        new_after_low2_start = int(params.get('new_after_low2_start', 0))
+        new_after_low2_range = int(params.get('new_after_low2_range', 0))
+        new_after_low2_span = int(params.get('new_after_low2_span', 0))
+        new_after_low2_logic = params.get('new_after_low2_logic', '与')
+
+        stock_idx_ranges = split_indices(num_stocks, n_proc)
+        # n_proc = 1
+        # 新增：创新高/创新低逻辑控件布尔参数
+        start_with_new_before_high_flag = params.get('start_with_new_before_high_flag', False)
+        start_with_new_before_high2_flag = params.get('start_with_new_before_high2_flag', False)
+        start_with_new_after_high_flag = params.get('start_with_new_after_high_flag', False)
+        start_with_new_after_high2_flag = params.get('start_with_new_after_high2_flag', False)
+        start_with_new_before_low_flag = params.get('start_with_new_before_low_flag', False)
+        start_with_new_before_low2_flag = params.get('start_with_new_before_low2_flag', False)
+        start_with_new_after_low_flag = params.get('start_with_new_after_low_flag', False)
+        start_with_new_after_low2_flag = params.get('start_with_new_after_low2_flag', False)
+        valid_abs_sum_threshold = self.safe_float(params.get('valid_abs_sum_threshold', None))
+        new_before_high_logic = params.get('new_before_high_logic', '与')
+        comparison_vars = params.get('comparison_vars', [])
+        
+        args_list = [
+            (
+                price_data_np,
+                date_columns,
+                width,
+                start_option,
+                shift_days,
+                end_date_start_idx,
+                end_date_end_idx,
+                diff_data_np,
+                np.ascontiguousarray(stock_idx_arr[start:end], dtype=np.int32),
+                is_forward,
+                n_days,
+                user_range_ratio,
+                continuous_abs_threshold,
+                valid_abs_sum_threshold,
+                n_days_max,
+                op_days,
+                inc_rate,
+                after_gt_end_ratio,
+                after_gt_start_ratio,
+                stop_loss_inc_rate,
+                stop_loss_after_gt_end_ratio,
+                stop_loss_after_gt_start_ratio,
+                expr,
+                ops_change_input,
+                formula_expr,
+                select_count,
+                sort_mode,
+                trade_t1_mode,
+                only_show_selected,
+                new_before_high_start,
+                new_before_high_range,
+                new_before_high_span,
+                new_before_high_logic,
+                new_before_high2_start,
+                new_before_high2_range,
+                new_before_high2_span,
+                new_before_high2_logic,
+                new_after_high_start,
+                new_after_high_range,
+                new_after_high_span,
+                new_after_high_logic,
+                new_after_high2_start,
+                new_after_high2_range,
+                new_after_high2_span,
+                new_after_high2_logic,
+                new_before_low_start,
+                new_before_low_range,
+                new_before_low_span,
+                new_before_low_logic,
+                new_before_low2_start,
+                new_before_low2_range,
+                new_before_low2_span,
+                new_before_low2_logic,
+                new_after_low_start,
+                new_after_low_range,
+                new_after_low_span,
+                new_after_low_logic,
+                new_after_low2_start,
+                new_after_low2_range,
+                new_after_low2_span,
+                new_after_low2_logic,
+                start_with_new_before_high_flag,
+                start_with_new_before_high2_flag,
+                start_with_new_after_high_flag,
+                start_with_new_after_high2_flag,
+                start_with_new_before_low_flag,
+                start_with_new_before_low2_flag,
+                start_with_new_after_low_flag,
+                start_with_new_after_low2_flag,
+                comparison_vars,  # 添加比较变量列表
+            )
+            for (start, end) in stock_idx_ranges if end > start
+        ]
+        t0 = time.time()
+        
+        # 添加内存监控
+        try:
+            import psutil
+            process = psutil.Process()
+            initial_memory = process.memory_info().rss / 1024 / 1024  # MB
+            print(f"初始内存使用: {initial_memory:.2f} MB")
+        except ImportError:
+            print("psutil未安装，无法监控内存使用")
+        
+        merged_results = {}
+        for idx in range(end_date_start_idx, end_date_end_idx-1, -1):
+            end_date = date_columns[idx]
+            merged_results[end_date] = []
+        with concurrent.futures.ProcessPoolExecutor(max_workers=n_proc) as executor:
+            futures = [executor.submit(cy_batch_worker, args) for args in args_list]
+            for fut in concurrent.futures.as_completed(futures):
+                # 添加超时处理
+                try:
+                    process_results = fut.result()
+                    for end_date, stocks in process_results.items():
+                        if end_date in merged_results:
+                            merged_results[end_date].extend(stocks)
+                except Exception as e:
+                    import traceback
+                    print(f"子进程异常: {e}")
+                    print(f"异常详情: {traceback.format_exc()}")
+                    # 记录到日志文件
+                    try:
+                        with open('error_log.txt', 'a', encoding='utf-8') as f:
+                            f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} - 子进程异常: {e}\n")
+                            f.write(f"异常详情: {traceback.format_exc()}\n")
+                            f.write("-" * 50 + "\n")
+                    except:
+                        pass
+        t1 = time.time()
+        print(f"calculate_batch_{n_proc}_cores 总耗时: {t1 - t0:.4f}秒")
+        
+        if only_show_selected:
+            for end_date in merged_results:
+                # if merged_results[end_date]:
+                #     first_date = list(merged_results.keys())[0]
+                #     print(f"merged_results第一个日期 {first_date} 的list长度: {len(merged_results[first_date])}")
+                merged_results[end_date] = sorted(
+                    merged_results[end_date],
+                    key=lambda x: x['score'],
+                    reverse=(sort_mode == "最大值排序")
+                )[:select_count]
+            # if merged_results:
+            #     first_date = list(merged_results.keys())[0]
+            #     first_stocks = merged_results[first_date]
+            #     stock_indices = [stock.get('stock_idx') for stock in first_stocks if 'stock_idx' in stock]
+            #     print(f"自动分析第一个日期 {first_date} 的stock_idx: {stock_indices}")
+            #     scores = [stock.get('score') for stock in first_stocks if 'score' in stock]
+            #     print(f"自动分析第一个日期 {first_date} 的score: {scores}")
+        
+        result = {
+            "dates": merged_results,
+            "shift_days": shift_days,
+            "is_forward": params.get("is_forward"),
+            "start_date": date_columns[0],
+            "end_date": date_columns[-1],
+            "base_idx": None,
+        }
+        return result
+
+
+class SelectStockThread(QThread):
+    finished = pyqtSignal(list)
+    def __init__(self, all_results, formula_expr, select_count, sort_mode):
+        super().__init__()
+        self.all_results = all_results
+        self.formula_expr = formula_expr
+        self.select_count = select_count
+        self.sort_mode = sort_mode  # '最大值排序' or '最小值排序'
 
     def run(self):
-        # 1. 取出参数
-        end_date = self.params.get("end_date")
-        width = self.params.get("width")
-        target_date = self.params.get("target_date")
-        start_option = self.params.get("start_option")
-        shift_days = self.params.get("shift_days")
-        is_forward = self.params.get("is_forward")
-
-        columns = list(self.diff_data.columns)
-        try:
-            end_idx = columns.index(end_date)
-        except ValueError:
-            self.finished.emit({"error": "结束日期不在diff_data中！"})
-            return
-        start_idx = end_idx + width - 1
-        if start_idx >= len(columns):
-            start_idx = len(columns) - 1
-        date_columns = columns[end_idx:start_idx+1]
-        first_row = self.price_data.iloc[0]
-        price_data = [first_row[d] for d in date_columns]
-
-        # 计算最大值、最小值
-        max_value = max([v for v in price_data if pd.notna(v)])
-        min_value = min([v for v in price_data if pd.notna(v)])
-
-        # 目标日期相关
-        target_value = None
-        target_idx = None
-        if target_date in date_columns:
-            target_idx = date_columns.index(target_date)
-            target_value = price_data[target_idx]
+        import re
+        # 替换公式中的缩写为原参数名
+        expr = self.formula_expr
+        for abbr, full in abbr_map.items():
+            expr = re.sub(r'\b' + abbr + r'\b', full, expr)
+        results = []
+        for row in self.all_results:
+            local_vars = dict(row)
+            print_flag = False
+            if print_flag:
+                print(f"[SelectStockThread] local_vars: {local_vars}")
+            # 只对极少数元组参数自动取数值
+            for k in ['max_value', 'min_value', 'end_value', 'start_value', 'actual_value', 'closest_value']:
+                v = local_vars.get(k)
+                if isinstance(v, (list, tuple)) and len(v) == 2 and isinstance(v[1], (int, float)):
+                    local_vars[k] = v[1]
+            if print_flag:
+                print(f"[SelectStockThread] eval expr: {expr}")
+            try:
+                exec(expr, {}, local_vars)
+                score = round(local_vars.get('result', 0), 2)
+            except Exception as e:
+                if print_flag:
+                    print(f"[SelectStockThread] eval error: {e}")
+                score = float('-inf') if self.sort_mode == '最大值排序' else float('inf')
+            if score is not None and score != float('inf') and score != float('-inf') and score != 0:
+                results.append({'code': row.get('code', ''), 'name': row.get('name', ''), 'hold_days': row.get('hold_days', ''), 'ops_change': row.get('ops_change', ''), 'ops_incre_rate': row.get('ops_incre_rate', ''), 'score': score})
+            print_flag = True
+        reverse = self.sort_mode == '最大值排序'
+        results.sort(key=lambda x: x['score'], reverse=reverse)
+        selected = results[:self.select_count]
+        print(f"[SelectStockThread] selected: {selected}")
+        self.finished.emit(selected)
+        
+def convert_expr_to_return_var_name(expr):
+    """把返回变量的表达式转换成返回变量名的表达式
+    例如：
+    if INC > 10:
+        result = INC
+    转换成：
+    if INC > 10:
+        result = 'increment_value'
+    """
+    lines = expr.split('\n')
+    new_lines = []
+    for line in lines:
+        # 移除行首的空白字符
+        stripped_line = line.lstrip()
+        # 检查是否是result赋值语句
+        if stripped_line.startswith('result ='):
+            # 获取等号后面的值，并移除所有空白字符
+            var = stripped_line.split('=')[1].strip()
+            # 保持原始缩进
+            indent = line[:len(line) - len(stripped_line)]
+            if var == 'INC':
+                new_lines.append(f"{indent}result = 'increment_value'")
+            elif var == 'AGE':
+                new_lines.append(f"{indent}result = 'after_gt_end_value'")
+            elif var == 'AGS':
+                new_lines.append(f"{indent}result = 'after_gt_start_value'")
+            else:
+                new_lines.append(line)
         else:
-            target_value = None
+            new_lines.append(line)
+    result = '\n'.join(new_lines)
+    return result
 
-        # 计算最接近值
-        closest_date = "无"
-        closest_value = "无"
-        min_diff = float('inf')
-        if start_option == "接近值" and target_value is not None and pd.notna(target_value):
-            for i, (d, v) in enumerate(zip(date_columns, price_data)):
-                if d == target_date or pd.isna(v):
-                    continue
-                diff = abs(v - target_value)
-                if diff < min_diff:
-                    min_diff = diff
-                    closest_date = d
-                    closest_value = v
-
-        # 开始值
-        start_value = price_data[-1] if price_data else "无"
-
-        # 计算实际开始索引
-        if start_option == "最大值":
-            base_idx = price_data.index(max_value)
-        elif start_option == "最小值":
-            base_idx = price_data.index(min_value)
-        elif start_option == "接近值":
-            base_idx = price_data.index(closest_value) if closest_value != "无" else None
-        else:  # "开始值"
-            base_idx = len(price_data) - 1 if price_data else None
-
-        # 前移天数
-        actual_idx = None
-        actual_date = "无"
-        actual_value = "无"
-        if base_idx is not None:
-            actual_idx = base_idx + shift_days
-            if 0 <= actual_idx < len(price_data):
-                actual_date = date_columns[actual_idx]
-                actual_value = price_data[actual_idx]
-
-        # 计算连续累加值
-        continuous_results = []
-        forward_max_result = []
-        forward_min_result = []
-        forward_max_date = None
-        forward_min_date = None
-
-        if actual_date != "无" and end_date in self.diff_data.columns and actual_date in self.diff_data.columns:
-            columns = list(self.diff_data.columns)
-            start_idx = columns.index(actual_date)
-            end_idx = columns.index(end_date)
-            for idx, row in self.diff_data.iterrows():
-                arr = [row[d] for d in columns]
-                result = calc_continuous_sum_np(arr, start_idx, end_idx)
-                continuous_results.append(result)
-
-            # 向前最大/最小连续累加值
-            if is_forward and actual_idx is not None and actual_idx < len(price_data) - 1:
-                forward_range = price_data[actual_idx+1:]
-                valid_forward = [(i, v) for i, v in enumerate(forward_range) if pd.notna(v)]
-                if valid_forward:
-                    min_i, min_val = min(valid_forward, key=lambda x: x[1])
-                    max_i, max_val = max(valid_forward, key=lambda x: x[1])
-                    min_idx = actual_idx + 1 + min_i
-                    max_idx = actual_idx + 1 + max_i
-                    forward_min_date = date_columns[min_idx]
-                    forward_max_date = date_columns[max_idx]
-                    min_start_idx = columns.index(forward_min_date)
-                    max_start_idx = columns.index(forward_max_date)
-                    for idx, row in self.diff_data.iterrows():
-                        arr = [row[d] for d in columns]
-                        forward_min_result.append(
-                            calc_continuous_sum_np(arr, min_start_idx, end_idx)
-                        )
-                        forward_max_result.append(
-                            calc_continuous_sum_np(arr, max_start_idx, end_idx)
-                        )
-
-        # 组装结果
-        result = {
-            'shift_days': shift_days,
-            'max_value': max_value,
-            'min_value': min_value,
-            'target_date': target_date,
-            'target_value': target_value,
-            'closest_date': closest_date,
-            'closest_value': closest_value,
-            'start_value': start_value,
-            'actual_date': actual_date,
-            'actual_value': actual_value,
-            'is_forward': is_forward,
-            'continuous_results': continuous_results,
-            'forward_max_date': forward_max_date,
-            'forward_max_result': forward_max_result,
-            'forward_min_date': forward_min_date,
-            'forward_min_result': forward_min_result,
+def make_user_func(expr):
+    # 预处理表达式，把返回变量的表达式转换成返回变量名的表达式
+    expr = convert_expr_to_return_var_name(expr)
+    def user_func(INC, AGE, AGS):
+        # 动态执行表达式
+        local_vars = {
+            'INC': INC,
+            'AGE': AGE,
+            'AGS': AGS,
+            'increment_value': INC,
+            'after_gt_end_value': AGE,
+            'after_gt_start_value': AGS
         }
-        self.finished.emit(result) 
+        exec(expr, {}, local_vars)
+        return local_vars.get('result', None)  # 直接返回表达式的结果，不做值判断
+    return user_func
+
+def cy_batch_worker(args):
+    import worker_threads_cy
+    (
+        price_data_np, 
+        date_columns, 
+        width, 
+        start_option, 
+        shift_days, 
+        end_date_start_idx, 
+        end_date_end_idx, 
+        diff_data_np, 
+        stock_idx_arr, 
+        is_forward, 
+        n_days, 
+        user_range_ratio, 
+        continuous_abs_threshold, 
+        valid_abs_sum_threshold, 
+        n_days_max, 
+        op_days, 
+        inc_rate, 
+        after_gt_end_ratio, 
+        after_gt_start_ratio, 
+        stop_loss_inc_rate,
+        stop_loss_after_gt_end_ratio,
+        stop_loss_after_gt_start_ratio,
+        expr, 
+        ops_change_input, 
+        formula_expr, 
+        select_count, 
+        sort_mode, 
+        trade_t1_mode,
+        only_show_selected, 
+        new_before_high_start, 
+        new_before_high_range, 
+        new_before_high_span, 
+        new_before_high_logic, 
+        new_before_high2_start, 
+        new_before_high2_range, 
+        new_before_high2_span, 
+        new_before_high2_logic, 
+        new_after_high_start, 
+        new_after_high_range, 
+        new_after_high_span, 
+        new_after_high_logic, 
+        new_after_high2_start, 
+        new_after_high2_range, 
+        new_after_high2_span, 
+        new_after_high2_logic,
+        new_before_low_start,
+        new_before_low_range,
+        new_before_low_span,
+        new_before_low_logic,
+        new_before_low2_start,
+        new_before_low2_range,
+        new_before_low2_span,
+        new_before_low2_logic,
+        new_after_low_start,
+        new_after_low_range,
+        new_after_low_span,
+        new_after_low_logic,
+        new_after_low2_start,
+        new_after_low2_range,
+        new_after_low2_span,
+        new_after_low2_logic,
+        start_with_new_before_high_flag, 
+        start_with_new_before_high2_flag, 
+        start_with_new_after_high_flag,
+        start_with_new_after_high2_flag,
+        start_with_new_before_low_flag, 
+        start_with_new_before_low2_flag,
+        start_with_new_after_low_flag,
+        start_with_new_after_low2_flag,
+        comparison_vars,  # 添加比较变量列表
+    ) = args
+    stock_idx_arr = np.ascontiguousarray(stock_idx_arr, dtype=np.int32)
+    date_grouped_results = worker_threads_cy.calculate_batch_cy(
+        price_data_np, 
+        date_columns, 
+        width, 
+        start_option, 
+        shift_days, 
+        end_date_start_idx, 
+        end_date_end_idx, 
+        diff_data_np, 
+        stock_idx_arr, 
+        is_forward, 
+        n_days, 
+        user_range_ratio, 
+        continuous_abs_threshold, 
+        valid_abs_sum_threshold, 
+        n_days_max, 
+        op_days, 
+        inc_rate, 
+        after_gt_end_ratio, 
+        after_gt_start_ratio, 
+        stop_loss_inc_rate,
+        stop_loss_after_gt_end_ratio,
+        stop_loss_after_gt_start_ratio,
+        expr, 
+        ops_change_input, 
+        formula_expr, 
+        select_count, 
+        sort_mode, 
+        trade_t1_mode,
+        only_show_selected, 
+        new_before_high_start, 
+        new_before_high_range, 
+        new_before_high_span,  
+        new_before_high_logic, 
+        new_before_high2_start, 
+        new_before_high2_range, 
+        new_before_high2_span, 
+        new_before_high2_logic, 
+        new_after_high_start, 
+        new_after_high_range, 
+        new_after_high_span, 
+        new_after_high_logic, 
+        new_after_high2_start, 
+        new_after_high2_range, 
+        new_after_high2_span, 
+        new_after_high2_logic,
+        new_before_low_start,
+        new_before_low_range,
+        new_before_low_span,
+        new_before_low_logic,
+        new_before_low2_start,
+        new_before_low2_range,
+        new_before_low2_span,
+        new_before_low2_logic,
+        new_after_low_start,
+        new_after_low_range,
+        new_after_low_span,
+        new_after_low_logic,
+        new_after_low2_start,
+        new_after_low2_range,
+        new_after_low2_span,
+        new_after_low2_logic,
+        start_with_new_before_high_flag, 
+        start_with_new_before_high2_flag,
+        start_with_new_after_high_flag,
+        start_with_new_after_high2_flag,
+        start_with_new_before_low_flag, 
+        start_with_new_before_low2_flag,
+        start_with_new_after_low_flag,
+        start_with_new_after_low2_flag,
+        comparison_vars,  # 添加比较变量列表
+    )
+    return date_grouped_results
+
+def replace_abbr(expr, abbr_map):
+    for abbr, full in abbr_map.items():
+        expr = re.sub(rf'\b{abbr}\b', full, expr)
+    return expr
+
+def split_indices(total, n_parts):
+    part_size = (total + n_parts - 1) // n_parts
+    # 返回每个分组的起止索引（左闭右开）
+    return [(i * part_size, min((i + 1) * part_size, total)) for i in range(n_parts)]
