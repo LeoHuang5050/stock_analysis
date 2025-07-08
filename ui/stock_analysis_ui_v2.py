@@ -1350,9 +1350,23 @@ class StockAnalysisApp(QWidget):
         params['after_gt_end_ratio'] = str(after_gt_end_ratio) if after_gt_end_ratio is not None else self.after_gt_end_edit.text()
         params['after_gt_start_ratio'] = str(after_gt_start_ratio) if after_gt_start_ratio is not None else self.after_gt_prev_edit.text()
         # 止损参数直接使用输入值，因为验证器已确保输入为非正数
-        params['stop_loss_inc_rate'] = str(stop_loss_inc_rate if stop_loss_inc_rate is not None else float(self.stop_loss_inc_rate_edit.text() or 0))
-        params['stop_loss_after_gt_end_ratio'] = str(stop_loss_after_gt_end_ratio if stop_loss_after_gt_end_ratio is not None else float(self.stop_loss_after_gt_end_edit.text() or 0))
-        params['stop_loss_after_gt_start_ratio'] = str(stop_loss_after_gt_start_ratio if stop_loss_after_gt_start_ratio is not None else float(self.stop_loss_after_gt_start_edit.text() or 0))
+                # 获取参数值
+        stop_loss_inc_rate_val = stop_loss_inc_rate if stop_loss_inc_rate is not None else float(self.stop_loss_inc_rate_edit.text() or 0)
+        stop_loss_after_gt_end_ratio_val = stop_loss_after_gt_end_ratio if stop_loss_after_gt_end_ratio is not None else float(self.stop_loss_after_gt_end_edit.text() or 0)
+        stop_loss_after_gt_start_ratio_val = stop_loss_after_gt_start_ratio if stop_loss_after_gt_start_ratio is not None else float(self.stop_loss_after_gt_start_edit.text() or 0)
+        
+        # 如果参数大于0，统一设置为0
+        if stop_loss_inc_rate_val > 0:
+            stop_loss_inc_rate_val = 0
+        if stop_loss_after_gt_end_ratio_val > 0:
+            stop_loss_after_gt_end_ratio_val = 0
+        if stop_loss_after_gt_start_ratio_val > 0:
+            stop_loss_after_gt_start_ratio_val = 0
+        
+        params['stop_loss_inc_rate'] = str(stop_loss_inc_rate_val)
+        params['stop_loss_after_gt_end_ratio'] = str(stop_loss_after_gt_end_ratio_val)
+        params['stop_loss_after_gt_start_ratio'] = str(stop_loss_after_gt_start_ratio_val)
+        
         params['trade_mode'] = self.trade_mode_combo.currentText()
         # 选股公式、数量、排序方式参数
         params['expr'] = self.last_expr  # 新增：操作值表达式
@@ -1523,9 +1537,9 @@ class StockAnalysisApp(QWidget):
         profit_median = summary.get('profit_median')
         loss_median = summary.get('loss_median')
         
-        median_text = f"持有中位数: {hold_median}%" if hold_median is not None else "持有中位数: "
-        median_text += f" | 止盈中位数: {profit_median}%" if profit_median is not None else " | 止盈中位数: "
-        median_text += f" | 止损中位数: {loss_median}%" if loss_median is not None else " | 止损中位数: "
+        median_text = f"持有中位数: {hold_median}%" if hold_median is not None else "持有中位数: 无"
+        median_text += f" | 止盈中位数: {profit_median}%" if profit_median is not None else " | 止盈中位数: 无"
+        median_text += f" | 止损中位数: {loss_median}%" if loss_median is not None else " | 止损中位数: 无"
         
         item = QTableWidgetItem(median_text)
         item.setFlags(item.flags() & ~Qt.ItemIsEditable)

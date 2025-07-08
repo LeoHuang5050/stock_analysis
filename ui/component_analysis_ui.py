@@ -1718,9 +1718,9 @@ class ComponentAnalysisWidget(QWidget):
         profit_median = summary.get('profit_median')
         loss_median = summary.get('loss_median')
         
-        median_text = f"持有中位数: {hold_median}%" if hold_median is not None else "持有中位数: "
-        median_text += f" | 止盈中位数: {profit_median}%" if profit_median is not None else " | 止盈中位数: "
-        median_text += f" | 止损中位数: {loss_median}%" if loss_median is not None else " | 止损中位数: "
+        median_text = f"持有中位数: {hold_median}%" if hold_median is not None else "持有中位数: 无"
+        median_text += f" | 止盈中位数: {profit_median}%" if profit_median is not None else " | 止盈中位数: 无"
+        median_text += f" | 止损中位数: {loss_median}%" if loss_median is not None else " | 止损中位数: 无"
         
         item = QTableWidgetItem(median_text)
         item.setFlags(item.flags() & ~Qt.ItemIsEditable)

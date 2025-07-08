@@ -962,12 +962,6 @@ def calculate_batch_cy(
                                 
                                 if not isnan(op_day_price) and not isnan(op_day_prev_price) and op_day_prev_price != 0:
                                     op_day_change = round_to_2(((op_day_price - op_day_prev_price) / op_day_prev_price) * 100)
-
-                        if stock_idx == 5289:
-                            printf("stock_idx=%d, op_days=%d, end_date_idx=%d, op_day_idx=%d, op_day_prev_idx=%d\n", 
-                                   stock_idx, op_days, end_date_idx, op_day_idx, op_day_prev_idx)
-                            printf("op_day_price=%.2f, op_day_prev_price=%.2f, op_day_change=%.2f\n", 
-                                   op_day_price, op_day_prev_price, op_day_change)
                         
                         if not isnan(end_value):
                             # 递增值
@@ -1907,8 +1901,6 @@ def calculate_batch_cy(
                             var1, var2 = var_pair  # 解包元组对
                             var1_value = formula_vars.get(var1, 0)
                             var2_value = formula_vars.get(var2, 0)
-                            if stock_idx == 2756:
-                                print(f"stock_idx: {stock_idx}, var1: {var1}, var2: {var2}, var1_value: {var1_value}, var2_value: {var2_value}")
                             # 如果一对变量都为0，设置flag为False
                             if (var1_value == 0 or var1_value is None) and (var2_value == 0 or var2_value is None):
                                 should_exec_formula = False
