@@ -1276,11 +1276,18 @@ def format_stock_table(result):
     return "\n".join(lines)
 
 def show_formula_select_table_result(parent, result, price_data=None, output_edit=None, is_select_action=False):
+    # 导入CopyableTableWidget
+    try:
+        from ui.common_widgets import CopyableTableWidget
+    except ImportError:
+        # 如果导入失败，回退到QTableWidget
+        CopyableTableWidget = QTableWidget
+    
     merged_results = result.get('dates', {})
     headers = ["股票代码", "股票名称", "持有天数", "操作涨幅", "调天日均涨跌幅", "调幅日均涨跌幅", "选股公式输出值"]
     if not merged_results or not any(merged_results.values()):
         # 返回一个只有表头的空表格
-        table = QTableWidget(0, len(headers), parent)
+        table = CopyableTableWidget(0, len(headers), parent)
         table.setHorizontalHeaderLabels(headers)
         table.resizeColumnsToContents()
         table.horizontalHeader().setFixedHeight(50)
@@ -1292,13 +1299,13 @@ def show_formula_select_table_result(parent, result, price_data=None, output_edi
     first_date = list(merged_results.keys())[0]
     stocks = merged_results[first_date]
     if not stocks:
-        table = QTableWidget(0, len(headers), parent)
+        table = CopyableTableWidget(0, len(headers), parent)
         table.setHorizontalHeaderLabels(headers)
         table.resizeColumnsToContents()
         table.horizontalHeader().setFixedHeight(50)
         table.horizontalHeader().setStyleSheet("font-size: 12px;")
         return table
-    table = QTableWidget(len(stocks) + 2, len(headers), parent)  # 多两行：空行+均值行
+    table = CopyableTableWidget(len(stocks) + 2, len(headers), parent)  # 多两行：空行+均值行
     table.setHorizontalHeaderLabels(headers)
     hold_days_list = []
     ops_change_list = []
@@ -2614,7 +2621,11 @@ class FormulaSelectWidget(QWidget):
                 
                 combinations = []
                 
-                if direction == "右单向":
+                if step_val == 0 or step_val == '' or step_val is None:
+                    combinations.append((round(lower_val, 2), round(upper_val, 2)))
+                    print(f"  步长为0或空，生成单一组合: ({round(lower_val, 2)}, {round(upper_val, 2)})")
+
+                elif direction == "右单向":
                     # 最大值不变，最小值按步长变化
                     current_lower = lower_val
                     # 根据步长正负调整循环条件
@@ -3948,12 +3959,12 @@ def calculate_analysis_result(valid_items):
         })
         
         # 调试打印：股票索引和ops_change列表
-        print(f"日期: {date_key}")
-        print(f"股票索引列表: {stock_indices_per_date}")
-        print(f"ops_change列表: {ops_change_list_per_date}")
-        print(f"ops_change列表长度: {len(ops_change_list_per_date)}")
-        print(f"股票索引列表长度: {len(stock_indices_per_date)}")
-        print("-" * 50)
+        # print(f"日期: {date_key}")
+        # print(f"股票索引列表: {stock_indices_per_date}")
+        # print(f"ops_change列表: {ops_change_list_per_date}")
+        # print(f"ops_change列表长度: {len(ops_change_list_per_date)}")
+        # print(f"股票索引列表长度: {len(stock_indices_per_date)}")
+        # print("-" * 50)
 
     # 计算从下往上的均值
     n = len(items)
@@ -4118,12 +4129,12 @@ def calculate_analysis_result(valid_items):
     summary['loss_median'] = loss_median
     
     # 打印各数组用于校验
-    print(f"持有涨跌幅数组 (end_state=0, op_day_change): {sorted(hold_changes) if hold_changes else '空'}")
-    print(f"止盈涨跌幅数组 (end_state=1, take_profit): {sorted(profit_changes) if profit_changes else '空'}")
-    print(f"止损涨跌幅数组 (end_state=2, stop_loss): {sorted(loss_changes) if loss_changes else '空'}")
-    print(f"持有中位数: {hold_median}")
-    print(f"止盈中位数: {profit_median}")
-    print(f"止损中位数: {loss_median}")
+    # print(f"持有涨跌幅数组 (end_state=0, op_day_change): {sorted(hold_changes) if hold_changes else '空'}")
+    # print(f"止盈涨跌幅数组 (end_state=1, take_profit): {sorted(profit_changes) if profit_changes else '空'}")
+    # print(f"止损涨跌幅数组 (end_state=2, stop_loss): {sorted(loss_changes) if loss_changes else '空'}")
+    # print(f"持有中位数: {hold_median}")
+    # print(f"止盈中位数: {profit_median}")
+    # print(f"止损中位数: {loss_median}")
     
     # 新增：根据N位控件值动态计算从下往上第N位的值
     if items:
