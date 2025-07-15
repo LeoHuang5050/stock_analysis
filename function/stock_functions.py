@@ -1191,7 +1191,7 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
         layout_ = QVBoxLayout(central_widget)
         layout_.addWidget(table)
         result_window.setCentralWidget(central_widget)
-        result_window.resize(580, 450)
+        result_window.resize(780, 450)
         result_window.show()
         parent.formula_select_result_window = result_window
         parent.formula_select_result_table = table
@@ -1284,7 +1284,7 @@ def show_formula_select_table_result(parent, result, price_data=None, output_edi
         CopyableTableWidget = QTableWidget
     
     merged_results = result.get('dates', {})
-    headers = ["股票代码", "股票名称", "持有天数", "操作涨幅", "调天日均涨跌幅", "调幅日均涨跌幅", "选股公式输出值"]
+    headers = ["股票代码", "股票名称", "持有天数", "止盈止损涨幅", "止盈止损日均涨幅", "调整天数", "停盈停损涨幅", "停盈停损日均涨幅", "选股公式输出值"]
     if not merged_results or not any(merged_results.values()):
         # 返回一个只有表头的空表格
         table = CopyableTableWidget(0, len(headers), parent)
@@ -1311,6 +1311,7 @@ def show_formula_select_table_result(parent, result, price_data=None, output_edi
     ops_change_list = []
     ops_incre_rate_list = []
     adjust_ops_incre_rate_list = []
+    adjust_days_list = []
     def safe_val(val):
         if val is None:
             return ''
@@ -1334,6 +1335,7 @@ def show_formula_select_table_result(parent, result, price_data=None, output_edi
         ops_incre_rate = safe_val(stock.get('ops_incre_rate', ''))
         score = safe_val(stock.get('score', ''))
         adjust_ops_incre_rate = safe_val(stock.get('adjust_ops_incre_rate', ''))
+        adjust_days = safe_val(stock.get('adjust_days', ''))
         # 加%号显示
         ops_change_str = f"{ops_change}%" if ops_change != '' else ''
         ops_incre_rate_str = f"{ops_incre_rate}%" if ops_incre_rate != '' else ''
@@ -1343,8 +1345,10 @@ def show_formula_select_table_result(parent, result, price_data=None, output_edi
         table.setItem(row_idx, 2, QTableWidgetItem(str(hold_days)))
         table.setItem(row_idx, 3, QTableWidgetItem(ops_change_str))
         table.setItem(row_idx, 4, QTableWidgetItem(ops_incre_rate_str))
-        table.setItem(row_idx, 5, QTableWidgetItem(adjust_ops_incre_rate_str))
-        table.setItem(row_idx, 6, QTableWidgetItem(str(score)))
+        table.setItem(row_idx, 5, QTableWidgetItem(str(adjust_days)))
+        table.setItem(row_idx, 6, QTableWidgetItem(ops_change_str))  # 停盈停损涨幅使用相同的ops_change
+        table.setItem(row_idx, 7, QTableWidgetItem(adjust_ops_incre_rate_str))
+        table.setItem(row_idx, 8, QTableWidgetItem(str(score)))
         # 收集用于均值计算的数据（只收集有效数值）
         try:
             if hold_days != '':
@@ -1374,6 +1378,13 @@ def show_formula_select_table_result(parent, result, price_data=None, output_edi
                     adjust_ops_incre_rate_list.append(v)
         except Exception:
             pass
+        try:
+            if adjust_days != '':
+                v = float(adjust_days)
+                if not math.isnan(v):
+                    adjust_days_list.append(v)
+        except Exception:
+            pass
     # 插入空行
     empty_row_idx = len(stocks)
     for col in range(len(headers)):
@@ -1385,6 +1396,7 @@ def show_formula_select_table_result(parent, result, price_data=None, output_edi
     mean_ops_change = safe_mean(ops_change_list)
     mean_ops_incre_rate = safe_mean(ops_incre_rate_list)
     mean_adjust_ops_incre_rate = safe_mean(adjust_ops_incre_rate_list)
+    mean_adjust_days = safe_mean(adjust_days_list)
     # 插入均值行
     mean_row_idx = len(stocks) + 1
     table.setItem(mean_row_idx, 0, QTableWidgetItem(""))
@@ -1392,7 +1404,9 @@ def show_formula_select_table_result(parent, result, price_data=None, output_edi
     table.setItem(mean_row_idx, 2, QTableWidgetItem(str(mean_hold_days)))
     table.setItem(mean_row_idx, 3, QTableWidgetItem(f"{mean_ops_change / mean_hold_days:.2f}%" if mean_ops_change != '' and mean_hold_days != '' and mean_hold_days != 0 else ''))
     table.setItem(mean_row_idx, 4, QTableWidgetItem(f"{mean_ops_incre_rate}%" if mean_ops_incre_rate != '' else ''))
-    table.setItem(mean_row_idx, 5, QTableWidgetItem(f"{mean_adjust_ops_incre_rate}%" if mean_adjust_ops_incre_rate != '' else ''))
+    table.setItem(mean_row_idx, 5, QTableWidgetItem(str(mean_adjust_days)))
+    table.setItem(mean_row_idx, 6, QTableWidgetItem(f"{mean_ops_change / mean_adjust_days:.2f}%" if mean_ops_change != '' and mean_adjust_days != '' and mean_adjust_days != 0 else ''))
+    table.setItem(mean_row_idx, 7, QTableWidgetItem(f"{mean_adjust_ops_incre_rate}%" if mean_adjust_ops_incre_rate != '' else ''))
     table.resizeColumnsToContents()
     table.horizontalHeader().setFixedHeight(50)
     table.horizontalHeader().setStyleSheet("font-size: 12px;")

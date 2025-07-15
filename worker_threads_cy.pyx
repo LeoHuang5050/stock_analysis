@@ -940,7 +940,6 @@ def calculate_batch_cy(
                     increment_change = NAN
                     after_gt_end_change = NAN
                     after_gt_start_change = NAN
-                
                     if op_days > 0:
                         end_value = price_data_view[stock_idx, end_date_idx]
                         
@@ -1097,12 +1096,13 @@ def calculate_batch_cy(
                                 if isnan(v_now) or isnan(v_prev) or (trade_t1_mode and n == 1):
                                     continue
                                 after_gt_start_threshold = v_now * after_gt_start_ratio
-                                # 计算止损阈值
-                                stop_loss_after_gt_start_threshold = v_now * stop_loss_after_gt_start_ratio
                                 if after_gt_start_ratio != 0 and (v_prev - v_now) > after_gt_start_threshold:
                                     after_gt_start_value = round_to_2(v_prev)
                                     after_gt_start_days = n
-                                    
+                                    if n == 1:
+                                        after_gt_start_change = after_gt_start_ratio * 100
+                                    else:
+                                        after_gt_start_change = round_to_2(((1 + (v_now - end_value) / end_value) * (1 + after_gt_start_ratio) - 1) * 100)
                                     #if stock_idx == 5377:
                                         #printf("stock_idx=%d, n=%d, v_now=%.2f, v_prev=%.2f, end_value=%.2f, after_gt_start_ratio=%.4f, after_gt_start_change=%.2f\n", 
                                             #stock_idx, n, v_now, v_prev, end_value, after_gt_start_ratio, after_gt_start_change)
@@ -1114,11 +1114,18 @@ def calculate_batch_cy(
                                         gs_take_profit = NAN
                                     found = True
                                     break
-                                
+
+                                # 计算止损阈值
+                                stop_loss_after_gt_start_threshold = v_now * stop_loss_after_gt_start_ratio
                                 if stop_loss_after_gt_start_ratio != 0 and (v_prev - v_now) < stop_loss_after_gt_start_threshold:
                                     after_gt_start_value = round_to_2(v_prev)
                                     after_gt_start_days = n
                                     gs_end_state = 2
+                                    if n == 1:
+                                        after_gt_start_change = stop_loss_after_gt_start_ratio  * 100
+                                    else:
+                                        after_gt_start_change = round_to_2(((1 + (v_now - end_value) / end_value) * (1 + stop_loss_after_gt_start_ratio) - 1) * 100)
+                                        
                                     if not isnan(prev_price) and prev_price != 0:
                                         gs_stop_loss = round_to_2(((v - prev_price) / prev_price) * 100)
                                     else:
@@ -1556,7 +1563,7 @@ def calculate_batch_cy(
                     valid_neg_sum = round_to_2(valid_neg_sum)
 
                 # with gil
-
+                
                 start_with_new_before_high_py = bool(start_with_new_before_high)
                 start_with_new_before_high2_py = bool(start_with_new_before_high2)
                 start_with_new_after_high_py = bool(start_with_new_after_high)
@@ -1582,17 +1589,27 @@ def calculate_batch_cy(
                 actual_value_date = date_columns[actual_idx] if actual_idx >= 0 and actual_idx < num_dates else None
                 closest_value_date = date_columns[end_date_idx + closest_idx_in_window] if closest_idx_in_window >= 0 else None
                 
-                # 计算日期字符串
                 forward_max_date_str = date_columns[forward_max_date_idx] if forward_max_date_idx >= 0 else None
                 forward_min_date_str = date_columns[forward_min_date_idx] if forward_min_date_idx >= 0 else None
 
-                forward_min_valid_abs_sum_first_half = round_to_2(forward_min_valid_abs_sum_first_half)
-                forward_min_valid_abs_sum_second_half = round_to_2(forward_min_valid_abs_sum_second_half)
-                forward_min_valid_abs_sum_block1 = round_to_2(forward_min_valid_abs_sum_block1)
-                forward_min_valid_abs_sum_block2 = round_to_2(forward_min_valid_abs_sum_block2)
-                forward_min_valid_abs_sum_block3 = round_to_2(forward_min_valid_abs_sum_block3)
-                forward_min_valid_abs_sum_block4 = round_to_2(forward_min_valid_abs_sum_block4)
-
+                # 判空处理，如果为None或nan则不调用round_to_2
+                if forward_min_valid_abs_sum_first_half is not None and not isnan(forward_min_valid_abs_sum_first_half):
+                    forward_min_valid_abs_sum_first_half = round_to_2(forward_min_valid_abs_sum_first_half)
+                
+                if forward_min_valid_abs_sum_second_half is not None and not isnan(forward_min_valid_abs_sum_second_half):
+                    forward_min_valid_abs_sum_second_half = round_to_2(forward_min_valid_abs_sum_second_half)
+                
+                if forward_min_valid_abs_sum_block1 is not None and not isnan(forward_min_valid_abs_sum_block1):
+                    forward_min_valid_abs_sum_block1 = round_to_2(forward_min_valid_abs_sum_block1)
+                
+                if forward_min_valid_abs_sum_block2 is not None and not isnan(forward_min_valid_abs_sum_block2):
+                    forward_min_valid_abs_sum_block2 = round_to_2(forward_min_valid_abs_sum_block2)
+                
+                if forward_min_valid_abs_sum_block3 is not None and not isnan(forward_min_valid_abs_sum_block3):
+                    forward_min_valid_abs_sum_block3 = round_to_2(forward_min_valid_abs_sum_block3)
+                
+                if forward_min_valid_abs_sum_block4 is not None and not isnan(forward_min_valid_abs_sum_block4):
+                    forward_min_valid_abs_sum_block4 = round_to_2(forward_min_valid_abs_sum_block4)
                 # 先定义所有表达式可能用到的参数变量
                 # 连续累加值基本参数
                 continuous_start_value = cont_sum[0] if cont_sum.size() > 0 else None
@@ -1602,7 +1619,6 @@ def calculate_batch_cy(
                 continuous_end_prev_value = cont_sum[cont_sum.size()-2] if cont_sum.size() > 1 else None
                 continuous_end_prev_prev_value = cont_sum[cont_sum.size()-3] if cont_sum.size() > 2 else None
 
-
                 # 向前最大连续累加值相关参数
                 forward_max_continuous_start_value = forward_max_result_c[0] if forward_max_result_c.size() > 0 else None
                 forward_max_continuous_start_next_value = forward_max_result_c[1] if forward_max_result_c.size() > 1 else None
@@ -1610,7 +1626,7 @@ def calculate_batch_cy(
                 forward_max_continuous_end_value = forward_max_result_c[forward_max_result_c.size()-1] if forward_max_result_c.size() > 0 else None
                 forward_max_continuous_end_prev_value = forward_max_result_c[forward_max_result_c.size()-2] if forward_max_result_c.size() > 1 else None
                 forward_max_continuous_end_prev_prev_value = forward_max_result_c[forward_max_result_c.size()-3] if forward_max_result_c.size() > 2 else None
-
+                
                 # 向前最小连续累加值相关参数
                 forward_min_continuous_start_value = forward_min_result_c[0] if forward_min_result_c.size() > 0 else None
                 forward_min_continuous_start_next_value = forward_min_result_c[1] if forward_min_result_c.size() > 1 else None
@@ -1618,7 +1634,7 @@ def calculate_batch_cy(
                 forward_min_continuous_end_value = forward_min_result_c[forward_min_result_c.size()-1] if forward_min_result_c.size() > 0 else None
                 forward_min_continuous_end_prev_value = forward_min_result_c[forward_min_result_c.size()-2] if forward_min_result_c.size() > 1 else None
                 forward_min_continuous_end_prev_prev_value = forward_min_result_c[forward_min_result_c.size()-3] if forward_min_result_c.size() > 2 else None
-
+                
                 # 最后只在返回时转为Python对象
                 py_cont_sum = list(cont_sum)
                 forward_max_result = [forward_max_result_c[j] for j in range(forward_max_result_c.size())]
@@ -1674,7 +1690,7 @@ def calculate_batch_cy(
                     end_state = 0
                     take_profit = 0
                     stop_loss = 0
-
+                
                 # 新增：计算操作涨幅、调整天数、日均涨幅
                 ops_change = None
                 adjust_days = None
@@ -1702,19 +1718,22 @@ def calculate_batch_cy(
                     except Exception:
                         ops_change = None  
 
-                # 调整天数
-                if ops_change is not None and ops_change_input is not None and hold_days is not None:
-                    try:
-                        if ops_change > ops_change_input and hold_days == 1:
-                            adjust_days = 2
-                        elif hold_days == 1:
-                            adjust_days = 1
+                # 调整天数计算
+                if hold_days is not None and hold_days > 0:
+                    if not trade_t1_mode:  # T+0模式
+                        if hold_days == 1:
+                            if ops_change is not None and ops_change > ops_change_input:
+                                adjust_days = 2
+                            else:
+                                adjust_days = 1
                         else:
-                            adjust_days = hold_days + 1
-                    except Exception:
-                        adjust_days = None
+                            adjust_days = hold_days
+                    else:  # T+1模式
+                        adjust_days = hold_days + 1
+                else:
+                    adjust_days = None
 
-                # 调天日均涨幅
+                # 调天日均涨幅 （停盈停损日均涨幅）
                 if ops_change is not None and adjust_days not in (None, 0):
                     try:
                         ops_incre_rate = round_to_2(ops_change / adjust_days)
@@ -1725,31 +1744,14 @@ def calculate_batch_cy(
                 if stock_idx == 0:
                     print(f"stock_idx={stock_idx}, ops_change={ops_change}, adjust_days={adjust_days}, ops_incre_rate={ops_incre_rate}")
                     
-                # 调幅日均涨幅： 调整涨幅 / 持有天数
-                # 确定除数：如果持有天数小于操作天数的一半，使用操作天数的一半来计算
-                # 确保使用浮点数除法，避免整数除法的问题
-                op_days_half = float(op_days) / 2.0
-                if hold_days is not None and hold_days < op_days_half:
-                    # 使用传统四舍五入，而不是银行家舍入
-                    # 例如：op_days=3时，3/2=1.5，四舍五入为2
-                    # 例如：op_days=1时，1/2=0.5，四舍五入为1
-                    divisor = int(op_days_half + 0.5)
-                else:
-                    divisor = hold_days
-                
+                # 调幅日均涨幅： 调整涨幅 / 持有天数 （止盈止损）
+                adjust_ops_incre_rate = None  # 先初始化为None
                 if adjust_ops_value is not None and not isnan(adjust_ops_value):
-                    adjust_ops_incre_rate = round_to_2(adjust_ops_value / divisor)
-                else:
-                    if ops_change is not None and hold_days is not None and hold_days != 0:
-                        adjust_ops_incre_rate = round_to_2(ops_change / divisor)
-                    else:
+                    try:
+                        adjust_ops_incre_rate = round_to_2(adjust_ops_value / hold_days)
+                    except Exception:
                         adjust_ops_incre_rate = None
-
-                # 当stock_idx=5366时打印相关参数
-                #if stock_idx == 5377:
-                    #print(f"stock_idx={stock_idx}, hold_days={hold_days}, op_days={op_days}, divisor={divisor}, adjust_ops_value={adjust_ops_value}, ops_change={ops_change}, adjust_ops_incre_rate={adjust_ops_incre_rate}")
-                    #print(f"op_days_half = {op_days_half}")
-
+                
                 # 新增：score 计算
                 score = None
                 if formula_expr is not None:
