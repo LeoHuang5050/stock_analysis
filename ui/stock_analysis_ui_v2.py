@@ -1458,11 +1458,11 @@ class StockAnalysisApp(QWidget):
             formula = ''
         formula = formula.strip()
         row_count = len(valid_items)
-        table = CopyableTableWidget(row_count + 2, 15, self.analysis_widget)  # 修正为14列
+        table = CopyableTableWidget(row_count + 2, 17, self.analysis_widget)  # 修正为14列
         table.setHorizontalHeaderLabels([
-            "结束日期", "操作天数", "持有涨跌幅", 
-            "调天日均涨跌幅", "调天从下往上非空均值", "调天从下往上含空均值", "调天含空值均值", "调天最大值", "调天最小值",
-            "调幅日均涨跌幅", "调幅从下往上非空均值", "调幅从下往上含空均值", "调幅含空值均值", "调幅最大值", "调幅最小值"
+            "结束日期", 
+            "持有天数", "止盈止损涨幅", "止盈止损日均涨跌幅", "止盈止损从下往上非空均值", "止盈止损从下往上含空均值", "止盈止损含空值均值", "止盈止损最大值", "止盈止损最小值",
+            "调整天数", "停盈停损涨幅", "停盈停损日均涨跌幅", "停盈停损从下往上非空均值", "停盈停损从下往上含空均值", "停盈停损含空值均值", "停盈停损最大值", "停盈停损最小值"
         ])
         table.setSelectionBehavior(QTableWidget.SelectItems)
         table.setSelectionMode(QTableWidget.ExtendedSelection)
@@ -1474,37 +1474,41 @@ class StockAnalysisApp(QWidget):
         # 设置第一行的均值数据
         summary = result['summary']
         table.setItem(0, 1, QTableWidgetItem(str(summary['mean_hold_days'])))
-        table.setItem(0, 2, QTableWidgetItem(f"{summary['mean_ops_change']}%" if summary['mean_ops_change'] != '' else ''))
-        table.setItem(0, 3, QTableWidgetItem(f"{summary['mean_daily_change']}%" if summary['mean_daily_change'] != '' else ''))
-        table.setItem(0, 4, QTableWidgetItem(f"{summary['mean_non_nan']}%" if summary['mean_non_nan'] != '' else ''))
-        table.setItem(0, 5, QTableWidgetItem(f"{summary['mean_with_nan']}%" if summary['mean_with_nan'] != '' else ''))
-        table.setItem(0, 6, QTableWidgetItem(f"{summary['mean_daily_with_nan']}%" if summary['mean_daily_with_nan'] != '' else ''))
-        table.setItem(0, 7, QTableWidgetItem(f"{summary['max_change']}%" if summary['max_change'] != '' else ''))
-        table.setItem(0, 8, QTableWidgetItem(f"{summary['min_change']}%" if summary['min_change'] != '' else ''))
-        table.setItem(0, 9, QTableWidgetItem(f"{summary['mean_adjust_ops_incre_rate']}%" if summary['mean_adjust_ops_incre_rate'] != '' else ''))
-        table.setItem(0, 10, QTableWidgetItem(f"{summary['mean_adjust_non_nan']}%" if summary['mean_adjust_non_nan'] != '' else ''))
-        table.setItem(0, 11, QTableWidgetItem(f"{summary['mean_adjust_with_nan']}%" if summary['mean_adjust_with_nan'] != '' else ''))
-        table.setItem(0, 12, QTableWidgetItem(f"{summary['mean_adjust_daily_with_nan']}%" if summary.get('mean_adjust_daily_with_nan', '') != '' else ''))
-        table.setItem(0, 13, QTableWidgetItem(f"{summary['max_adjust_ops_incre_rate']}%" if summary['max_adjust_ops_incre_rate'] != '' else ''))
-        table.setItem(0, 14, QTableWidgetItem(f"{summary['min_adjust_ops_incre_rate']}%" if summary['min_adjust_ops_incre_rate'] != '' else ''))
+        table.setItem(0, 2, QTableWidgetItem(f"{summary['mean_adjust_ops_change']}%" if summary['mean_adjust_ops_change'] != '' else ''))
+        table.setItem(0, 3, QTableWidgetItem(f"{summary['mean_adjust_daily_change']}%" if summary.get('mean_adjust_daily_change', '') != '' else ''))
+        table.setItem(0, 4, QTableWidgetItem(f"{summary['mean_adjust_non_nan']}%" if summary['mean_adjust_non_nan'] != '' else ''))
+        table.setItem(0, 5, QTableWidgetItem(f"{summary['mean_adjust_with_nan']}%" if summary['mean_adjust_with_nan'] != '' else ''))
+        table.setItem(0, 6, QTableWidgetItem(f"{summary['mean_adjust_daily_with_nan']}%" if summary.get('mean_adjust_daily_with_nan', '') != '' else ''))
+        table.setItem(0, 7, QTableWidgetItem(f"{summary['max_adjust_ops_incre_rate']}%" if summary['max_adjust_ops_incre_rate'] != '' else ''))
+        table.setItem(0, 8, QTableWidgetItem(f"{summary['min_adjust_ops_incre_rate']}%" if summary['min_adjust_ops_incre_rate'] != '' else ''))
+        table.setItem(0, 9, QTableWidgetItem(str(summary['mean_adjust_days'])))
+        table.setItem(0, 10, QTableWidgetItem(f"{summary['mean_ops_change']}%" if summary['mean_ops_change'] != '' else ''))
+        table.setItem(0, 11, QTableWidgetItem(f"{summary['mean_daily_change']}%" if summary['mean_daily_change'] != '' else ''))
+        table.setItem(0, 12, QTableWidgetItem(f"{summary['mean_non_nan']}%" if summary['mean_non_nan'] != '' else ''))
+        table.setItem(0, 13, QTableWidgetItem(f"{summary['mean_with_nan']}%" if summary['mean_with_nan'] != '' else ''))
+        table.setItem(0, 14, QTableWidgetItem(f"{summary['mean_daily_with_nan']}%" if summary['mean_daily_with_nan'] != '' else ''))
+        table.setItem(0, 15, QTableWidgetItem(f"{summary['max_change']}%" if summary['max_change'] != '' else ''))
+        table.setItem(0, 16, QTableWidgetItem(f"{summary['min_change']}%" if summary['min_change'] != '' else ''))
 
         # 设置每行的数据
         for row_idx, item in enumerate(result['items']):
             table.setItem(row_idx + 2, 0, QTableWidgetItem(item['date']))
             table.setItem(row_idx + 2, 1, QTableWidgetItem(str(item['hold_days'])))
-            table.setItem(row_idx + 2, 2, QTableWidgetItem(f"{item['ops_change']}%" if item['ops_change'] != '' else ''))
-            table.setItem(row_idx + 2, 3, QTableWidgetItem(f"{item['daily_change']}%" if item['daily_change'] != '' else ''))
-            table.setItem(row_idx + 2, 4, QTableWidgetItem(f"{round(item['non_nan_mean'],2)}%" if not math.isnan(item['non_nan_mean']) else ''))
-            table.setItem(row_idx + 2, 5, QTableWidgetItem(f"{round(item['with_nan_mean'],2)}%" if not math.isnan(item['with_nan_mean']) else ''))
-            table.setItem(row_idx + 2, 6, QTableWidgetItem(""))  # 含空值均值在summary中，这里暂时留空
-            table.setItem(row_idx + 2, 7, QTableWidgetItem(""))  # 最大值在summary中，这里暂时留空
-            table.setItem(row_idx + 2, 8, QTableWidgetItem(""))  # 最小值在summary中，这里暂时留空
-            table.setItem(row_idx + 2, 9, QTableWidgetItem(f"{item['adjust_daily_change']}%" if item['adjust_daily_change'] != '' else ''))
-            table.setItem(row_idx + 2, 10, QTableWidgetItem(f"{round(item['adjust_non_nan_mean'],2)}%" if not math.isnan(item['adjust_non_nan_mean']) else ''))
-            table.setItem(row_idx + 2, 11, QTableWidgetItem(f"{round(item['adjust_with_nan_mean'],2)}%" if not math.isnan(item['adjust_with_nan_mean']) else ''))
-            table.setItem(row_idx + 2, 12, QTableWidgetItem(""))  # 调幅含空值均值只在均值行
-            table.setItem(row_idx + 2, 13, QTableWidgetItem(""))  # 调幅最大值只在均值行
-            table.setItem(row_idx + 2, 14, QTableWidgetItem(""))  # 调幅最小值只在均值行
+            table.setItem(row_idx + 2, 2, QTableWidgetItem(f"{item['adjust_ops_change']}%" if item['adjust_ops_change'] != '' else ''))
+            table.setItem(row_idx + 2, 3, QTableWidgetItem(f"{item['adjust_daily_change']}%" if item['adjust_daily_change'] != '' else ''))
+            table.setItem(row_idx + 2, 4, QTableWidgetItem(f"{round(item['adjust_non_nan_mean'],2)}%" if not math.isnan(item['adjust_non_nan_mean']) else ''))
+            table.setItem(row_idx + 2, 5, QTableWidgetItem(f"{round(item['adjust_with_nan_mean'],2)}%" if not math.isnan(item['adjust_with_nan_mean']) else ''))
+            table.setItem(row_idx + 2, 6, QTableWidgetItem(""))  # 调幅含空值均值只在均值行
+            table.setItem(row_idx + 2, 7, QTableWidgetItem(""))  # 调幅最大值只在均值行
+            table.setItem(row_idx + 2, 8, QTableWidgetItem(""))  # 调幅最小值只在均值行
+            table.setItem(row_idx + 2, 9, QTableWidgetItem(str(item['adjust_days'])))
+            table.setItem(row_idx + 2, 10, QTableWidgetItem(f"{item['ops_change']}%" if item['ops_change'] != '' else ''))
+            table.setItem(row_idx + 2, 11, QTableWidgetItem(f"{item['daily_change']}%" if item['daily_change'] != '' else ''))
+            table.setItem(row_idx + 2, 12, QTableWidgetItem(f"{round(item['non_nan_mean'],2)}%" if not math.isnan(item['non_nan_mean']) else ''))
+            table.setItem(row_idx + 2, 13, QTableWidgetItem(f"{round(item['with_nan_mean'],2)}%" if not math.isnan(item['with_nan_mean']) else ''))
+            table.setItem(row_idx + 2, 14, QTableWidgetItem(""))  # 含空值均值在summary中，这里暂时留空
+            table.setItem(row_idx + 2, 15, QTableWidgetItem(""))  # 最大值在summary中，这里暂时留空
+            table.setItem(row_idx + 2, 16, QTableWidgetItem(""))  # 最小值在summary中，这里暂时留空
 
         table.horizontalHeader().setFixedHeight(40)
         table.horizontalHeader().setStyleSheet("font-size: 12px;")
