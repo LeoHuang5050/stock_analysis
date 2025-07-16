@@ -6,7 +6,7 @@
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QDateEdit, QPushButton, 
     QTextEdit, QTableWidget, QTableWidgetItem, QHeaderView, QMessageBox,
-    QFileDialog, QCheckBox, QTabWidget, QSpinBox, QDialog, QScrollArea, QMainWindow
+    QFileDialog, QCheckBox, QTabWidget, QSpinBox, QDialog, QScrollArea, QMainWindow, QLineEdit
 )
 from PyQt5.QtCore import Qt, QDate, QTimer
 from PyQt5.QtGui import QFont
@@ -117,6 +117,79 @@ class ComponentAnalysisWidget(QWidget):
         if hasattr(self.main_window, 'last_component_only_better_trading_plan'):
             self.only_better_trading_plan_checkbox.setChecked(self.main_window.last_component_only_better_trading_plan)
         
+        # 添加持有率、止盈率、止损率区间输入框
+        self.hold_rate_label = QLabel("持有率:")
+        self.hold_rate_min_edit = QLineEdit()
+        self.hold_rate_min_edit.setPlaceholderText("0")
+        self.hold_rate_min_edit.setText("0")  # 默认下限0
+        self.hold_rate_min_edit.setFixedWidth(30)
+        
+        self.hold_rate_separator = QLabel("~")
+        self.hold_rate_separator.setFixedWidth(15)
+        
+        self.hold_rate_max_edit = QLineEdit()
+        self.hold_rate_max_edit.setPlaceholderText("100")
+        self.hold_rate_max_edit.setText("100")  # 默认上限100
+        self.hold_rate_max_edit.setFixedWidth(30)
+        
+        # 恢复保存的持有率区间
+        if hasattr(self.main_window, 'last_component_hold_rate_min'):
+            self.hold_rate_min_edit.setText(str(self.main_window.last_component_hold_rate_min))
+        if hasattr(self.main_window, 'last_component_hold_rate_max'):
+            self.hold_rate_max_edit.setText(str(self.main_window.last_component_hold_rate_max))
+        
+        # 绑定信号，变更时同步变量
+        self.hold_rate_min_edit.textChanged.connect(self._on_hold_rate_min_changed_save)
+        self.hold_rate_max_edit.textChanged.connect(self._on_hold_rate_max_changed_save)
+        
+        self.profit_rate_label = QLabel("止盈率:")
+        self.profit_rate_min_edit = QLineEdit()
+        self.profit_rate_min_edit.setPlaceholderText("0")
+        self.profit_rate_min_edit.setText("0")  # 默认下限0
+        self.profit_rate_min_edit.setFixedWidth(30)
+        
+        self.profit_rate_separator = QLabel("~")
+        self.profit_rate_separator.setFixedWidth(15)
+        
+        self.profit_rate_max_edit = QLineEdit()
+        self.profit_rate_max_edit.setPlaceholderText("100")
+        self.profit_rate_max_edit.setText("100")  # 默认上限100
+        self.profit_rate_max_edit.setFixedWidth(30)
+        
+        # 恢复保存的止盈率区间
+        if hasattr(self.main_window, 'last_component_profit_rate_min'):
+            self.profit_rate_min_edit.setText(str(self.main_window.last_component_profit_rate_min))
+        if hasattr(self.main_window, 'last_component_profit_rate_max'):
+            self.profit_rate_max_edit.setText(str(self.main_window.last_component_profit_rate_max))
+        
+        # 绑定信号，变更时同步变量
+        self.profit_rate_min_edit.textChanged.connect(self._on_profit_rate_min_changed_save)
+        self.profit_rate_max_edit.textChanged.connect(self._on_profit_rate_max_changed_save)
+        
+        self.loss_rate_label = QLabel("止损率:")
+        self.loss_rate_min_edit = QLineEdit()
+        self.loss_rate_min_edit.setPlaceholderText("0")
+        self.loss_rate_min_edit.setText("0")  # 默认下限0
+        self.loss_rate_min_edit.setFixedWidth(30)
+        
+        self.loss_rate_separator = QLabel("~")
+        self.loss_rate_separator.setFixedWidth(15)
+        
+        self.loss_rate_max_edit = QLineEdit()
+        self.loss_rate_max_edit.setPlaceholderText("100")
+        self.loss_rate_max_edit.setText("100")  # 默认上限100
+        self.loss_rate_max_edit.setFixedWidth(30)
+        
+        # 恢复保存的止损率区间
+        if hasattr(self.main_window, 'last_component_loss_rate_min'):
+            self.loss_rate_min_edit.setText(str(self.main_window.last_component_loss_rate_min))
+        if hasattr(self.main_window, 'last_component_loss_rate_max'):
+            self.loss_rate_max_edit.setText(str(self.main_window.last_component_loss_rate_max))
+        
+        # 绑定信号，变更时同步变量
+        self.loss_rate_min_edit.textChanged.connect(self._on_loss_rate_min_changed_save)
+        self.loss_rate_max_edit.textChanged.connect(self._on_loss_rate_max_changed_save)
+        
         # 上次最优值显示标签
         self.last_best_value_label = QLabel("上次最优值：")
         self.last_best_value_display = QLabel("无")
@@ -145,6 +218,18 @@ class ComponentAnalysisWidget(QWidget):
         row_layout.addWidget(self.import_json_btn)
         row_layout.addWidget(self.generate_trading_plan_checkbox)
         row_layout.addWidget(self.only_better_trading_plan_checkbox)
+        row_layout.addWidget(self.hold_rate_label)
+        row_layout.addWidget(self.hold_rate_min_edit)
+        row_layout.addWidget(self.hold_rate_separator)
+        row_layout.addWidget(self.hold_rate_max_edit)
+        row_layout.addWidget(self.profit_rate_label)
+        row_layout.addWidget(self.profit_rate_min_edit)
+        row_layout.addWidget(self.profit_rate_separator)
+        row_layout.addWidget(self.profit_rate_max_edit)
+        row_layout.addWidget(self.loss_rate_label)
+        row_layout.addWidget(self.loss_rate_min_edit)
+        row_layout.addWidget(self.loss_rate_separator)
+        row_layout.addWidget(self.loss_rate_max_edit)
         row_layout.addWidget(self.last_best_value_label)
         row_layout.addWidget(self.last_best_value_display)
         row_layout.addWidget(self.clear_best_value_btn)
@@ -184,6 +269,54 @@ class ComponentAnalysisWidget(QWidget):
     def _on_analysis_count_changed_save(self):
         """保存分析次数变更"""
         self.main_window.last_component_analysis_count = self.analysis_count_spin.value()
+        
+    def _on_hold_rate_min_changed_save(self):
+        """保存持有率最小值变更"""
+        try:
+            value = int(self.hold_rate_min_edit.text())
+            self.main_window.last_component_hold_rate_min = value
+        except ValueError:
+            pass  # 如果输入的不是有效数字，忽略
+        
+    def _on_hold_rate_max_changed_save(self):
+        """保存持有率最大值变更"""
+        try:
+            value = int(self.hold_rate_max_edit.text())
+            self.main_window.last_component_hold_rate_max = value
+        except ValueError:
+            pass  # 如果输入的不是有效数字，忽略
+        
+    def _on_profit_rate_min_changed_save(self):
+        """保存止盈率最小值变更"""
+        try:
+            value = int(self.profit_rate_min_edit.text())
+            self.main_window.last_component_profit_rate_min = value
+        except ValueError:
+            pass  # 如果输入的不是有效数字，忽略
+        
+    def _on_profit_rate_max_changed_save(self):
+        """保存止盈率最大值变更"""
+        try:
+            value = int(self.profit_rate_max_edit.text())
+            self.main_window.last_component_profit_rate_max = value
+        except ValueError:
+            pass  # 如果输入的不是有效数字，忽略
+        
+    def _on_loss_rate_min_changed_save(self):
+        """保存止损率最小值变更"""
+        try:
+            value = int(self.loss_rate_min_edit.text())
+            self.main_window.last_component_loss_rate_min = value
+        except ValueError:
+            pass  # 如果输入的不是有效数字，忽略
+        
+    def _on_loss_rate_max_changed_save(self):
+        """保存止损率最大值变更"""
+        try:
+            value = int(self.loss_rate_max_edit.text())
+            self.main_window.last_component_loss_rate_max = value
+        except ValueError:
+            pass  # 如果输入的不是有效数字，忽略
         
     def on_analyze_clicked(self):
         
@@ -440,6 +573,64 @@ class ComponentAnalysisWidget(QWidget):
                         should_generate = False
                 # 如果没有勾选"更优才生成"，则直接生成（should_generate保持为True）
                 
+                # 第三步：如果满足生成条件，检查持有率、止盈率、止损率是否满足最小值要求
+                if should_generate:
+                    # 获取top_one的统计结果
+                    analysis_stats = top_one.get('analysis', {}).get('analysis_stats', {})
+                    summary = analysis_stats.get('summary', {})
+                    
+                    # 获取当前设置的率值区间
+                    try:
+                        hold_rate_min = int(self.hold_rate_min_edit.text())
+                    except ValueError:
+                        hold_rate_min = 0
+                    try:
+                        hold_rate_max = int(self.hold_rate_max_edit.text())
+                    except ValueError:
+                        hold_rate_max = 100
+                    try:
+                        profit_rate_min = int(self.profit_rate_min_edit.text())
+                    except ValueError:
+                        profit_rate_min = 0
+                    try:
+                        profit_rate_max = int(self.profit_rate_max_edit.text())
+                    except ValueError:
+                        profit_rate_max = 100
+                    try:
+                        loss_rate_min = int(self.loss_rate_min_edit.text())
+                    except ValueError:
+                        loss_rate_min = 0
+                    try:
+                        loss_rate_max = int(self.loss_rate_max_edit.text())
+                    except ValueError:
+                        loss_rate_max = 100
+                    
+                    # 获取实际的率值
+                    actual_hold_rate = summary.get('hold_rate', 0)
+                    actual_profit_rate = summary.get('profit_rate', 0)
+                    actual_loss_rate = summary.get('loss_rate', 0)
+                    
+                    # 检查是否满足区间要求
+                    rate_check_passed = True
+                    failed_rates = []
+                    
+                    if actual_hold_rate < hold_rate_min or actual_hold_rate > hold_rate_max:
+                        rate_check_passed = False
+                        failed_rates.append(f"持有率({actual_hold_rate}% 不在 {hold_rate_min}%~{hold_rate_max}% 范围内)")
+                    if actual_profit_rate < profit_rate_min or actual_profit_rate > profit_rate_max:
+                        rate_check_passed = False
+                        failed_rates.append(f"止盈率({actual_profit_rate}% 不在 {profit_rate_min}%~{profit_rate_max}% 范围内)")
+                    if actual_loss_rate < loss_rate_min or actual_loss_rate > loss_rate_max:
+                        rate_check_passed = False
+                        failed_rates.append(f"止损率({actual_loss_rate}% 不在 {loss_rate_min}%~{loss_rate_max}% 范围内)")
+                    
+                    # 如果不满足率值要求，显示弹框提示并跳过生成
+                    if not rate_check_passed:
+                        rate_msg = "、".join(failed_rates)
+                        QMessageBox.warning(self, "方案无效", f"该组合分析最优方案的 {rate_msg} 不满足条件，此方案无效，不生成操盘方案")
+                        should_generate = False
+                        print(f"不生成操盘方案：{rate_msg} 不满足最小值要求")
+                
                 # 根据should_generate决定是否生成操盘方案
                 if should_generate:
                     # 生成操盘方案
@@ -447,8 +638,8 @@ class ComponentAnalysisWidget(QWidget):
                     # 更新上次最优值显示
                     self._update_last_best_value_display()
                 
-                # 更新last_adjusted_value（只有在新的值大于上次的值时才更新）
-                if new_value is not None:
+                # 更新last_adjusted_value（只有在新的值大于上次的值且满足率值要求时才更新）
+                if new_value is not None and should_generate:
                     try:
                         new_value_float = float(new_value)
                         last_value_float = float(last_value) if last_value is not None else None
@@ -1638,11 +1829,11 @@ class ComponentAnalysisWidget(QWidget):
         formula = analysis.get('formula', '')
         row_count = len(items)
         
-        table = CopyableTableWidget(row_count + 2, 15, self.result_area)
+        table = CopyableTableWidget(row_count + 2, 17, self.result_area)
         table.setHorizontalHeaderLabels([
-            "结束日期", "操作天数", "持有涨跌幅", 
-            "调天日均涨跌幅", "调天从下往上非空均值", "调天从下往上含空均值", "调天含空值均值", "调天最大值", "调天最小值",
-            "调幅日均涨跌幅", "调幅从下往上非空均值", "调幅从下往上含空均值", "调幅含空值均值", "调幅最大值", "调幅最小值", "调幅含空值均值"
+            "结束日期", 
+            "持有天数", "止盈止损涨幅", "止盈止损日均涨跌幅", "止盈止损从下往上非空均值", "止盈止损从下往上含空均值", "止盈止损含空值均值", "止盈止损最大值", "止盈止损最小值",
+            "调整天数", "停盈停损涨幅", "停盈停损日均涨跌幅", "停盈停损从下往上非空均值", "停盈停损从下往上含空均值", "停盈停损含空值均值", "停盈停损最大值", "停盈停损最小值"
         ])
         table.setSelectionBehavior(QTableWidget.SelectItems)
         table.setSelectionMode(QTableWidget.ExtendedSelection)
@@ -1651,41 +1842,45 @@ class ComponentAnalysisWidget(QWidget):
         # 设置第一行的均值数据
         if summary:
             table.setItem(0, 1, QTableWidgetItem(str(summary.get('mean_hold_days', ''))))
-            table.setItem(0, 2, QTableWidgetItem(f"{summary.get('mean_ops_change', '')}%" if summary.get('mean_ops_change', '') != '' else ''))
-            table.setItem(0, 3, QTableWidgetItem(f"{summary.get('mean_daily_change', '')}%" if summary.get('mean_daily_change', '') != '' else ''))
-            table.setItem(0, 4, QTableWidgetItem(f"{summary.get('mean_non_nan', '')}%" if summary.get('mean_non_nan', '') != '' else ''))
-            table.setItem(0, 5, QTableWidgetItem(f"{summary.get('mean_with_nan', '')}%" if summary.get('mean_with_nan', '') != '' else ''))
-            table.setItem(0, 6, QTableWidgetItem(f"{summary.get('mean_daily_with_nan', '')}%" if summary.get('mean_daily_with_nan', '') != '' else ''))
-            table.setItem(0, 7, QTableWidgetItem(f"{summary.get('max_change', '')}%" if summary.get('max_change', '') != '' else ''))
-            table.setItem(0, 8, QTableWidgetItem(f"{summary.get('min_change', '')}%" if summary.get('min_change', '') != '' else ''))
-            table.setItem(0, 9, QTableWidgetItem(f"{summary.get('mean_adjust_ops_incre_rate', '')}%" if summary.get('mean_adjust_ops_incre_rate', '') != '' else ''))
-            table.setItem(0, 10, QTableWidgetItem(f"{summary.get('mean_adjust_non_nan', '')}%" if summary.get('mean_adjust_non_nan', '') != '' else ''))
-            table.setItem(0, 11, QTableWidgetItem(f"{summary.get('mean_adjust_with_nan', '')}%" if summary.get('mean_adjust_with_nan', '') != '' else ''))
-            table.setItem(0, 12, QTableWidgetItem(f"{summary.get('mean_adjust_daily_with_nan', '')}%" if summary.get('mean_adjust_daily_with_nan', '') != '' else ''))
-            table.setItem(0, 13, QTableWidgetItem(f"{summary.get('max_adjust_ops_incre_rate', '')}%" if summary.get('max_adjust_ops_incre_rate', '') != '' else ''))
-            table.setItem(0, 14, QTableWidgetItem(f"{summary.get('min_adjust_ops_incre_rate', '')}%" if summary.get('min_adjust_ops_incre_rate', '') != '' else ''))
+            table.setItem(0, 2, QTableWidgetItem(f"{summary.get('mean_adjust_ops_change', '')}%" if summary.get('mean_adjust_ops_change', '') != '' else ''))
+            table.setItem(0, 3, QTableWidgetItem(f"{summary.get('mean_adjust_daily_change', '')}%" if summary.get('mean_adjust_daily_change', '') != '' else ''))
+            table.setItem(0, 4, QTableWidgetItem(f"{summary.get('mean_adjust_non_nan', '')}%" if summary.get('mean_adjust_non_nan', '') != '' else ''))
+            table.setItem(0, 5, QTableWidgetItem(f"{summary.get('mean_adjust_with_nan', '')}%" if summary.get('mean_adjust_with_nan', '') != '' else ''))
+            table.setItem(0, 6, QTableWidgetItem(f"{summary.get('mean_adjust_daily_with_nan', '')}%" if summary.get('mean_adjust_daily_with_nan', '') != '' else ''))
+            table.setItem(0, 7, QTableWidgetItem(f"{summary.get('max_adjust_ops_incre_rate', '')}%" if summary.get('max_adjust_ops_incre_rate', '') != '' else ''))
+            table.setItem(0, 8, QTableWidgetItem(f"{summary.get('min_adjust_ops_incre_rate', '')}%" if summary.get('min_adjust_ops_incre_rate', '') != '' else ''))
+            table.setItem(0, 9, QTableWidgetItem(str(summary.get('mean_adjust_days', ''))))
+            table.setItem(0, 10, QTableWidgetItem(f"{summary.get('mean_ops_change', '')}%" if summary.get('mean_ops_change', '') != '' else ''))
+            table.setItem(0, 11, QTableWidgetItem(f"{summary.get('mean_daily_change', '')}%" if summary.get('mean_daily_change', '') != '' else ''))
+            table.setItem(0, 12, QTableWidgetItem(f"{summary.get('mean_non_nan', '')}%" if summary.get('mean_non_nan', '') != '' else ''))
+            table.setItem(0, 13, QTableWidgetItem(f"{summary.get('mean_with_nan', '')}%" if summary.get('mean_with_nan', '') != '' else ''))
+            table.setItem(0, 14, QTableWidgetItem(f"{summary.get('mean_daily_with_nan', '')}%" if summary.get('mean_daily_with_nan', '') != '' else ''))
+            table.setItem(0, 15, QTableWidgetItem(f"{summary.get('max_change', '')}%" if summary.get('max_change', '') != '' else ''))
+            table.setItem(0, 16, QTableWidgetItem(f"{summary.get('min_change', '')}%" if summary.get('min_change', '') != '' else ''))
 
         # 设置每行的数据
         for row_idx, item in enumerate(items):
             table.setItem(row_idx + 2, 0, QTableWidgetItem(str(item.get('date', ''))))
             table.setItem(row_idx + 2, 1, QTableWidgetItem(str(item.get('hold_days', ''))))
-            table.setItem(row_idx + 2, 2, QTableWidgetItem(f"{item.get('ops_change', '')}%" if item.get('ops_change', '') != '' else ''))
-            table.setItem(row_idx + 2, 3, QTableWidgetItem(f"{item.get('daily_change', '')}%" if item.get('daily_change', '') != '' else ''))
-            non_nan_mean = item.get('non_nan_mean', '')
-            table.setItem(row_idx + 2, 4, QTableWidgetItem(f"{round(non_nan_mean, 2)}%" if non_nan_mean != '' and not (isinstance(non_nan_mean, float) and math.isnan(non_nan_mean)) else ''))
-            with_nan_mean = item.get('with_nan_mean', '')
-            table.setItem(row_idx + 2, 5, QTableWidgetItem(f"{round(with_nan_mean, 2)}%" if with_nan_mean != '' and not (isinstance(with_nan_mean, float) and math.isnan(with_nan_mean)) else ''))
-            table.setItem(row_idx + 2, 6, QTableWidgetItem(""))
-            table.setItem(row_idx + 2, 7, QTableWidgetItem(""))
-            table.setItem(row_idx + 2, 8, QTableWidgetItem(""))
-            table.setItem(row_idx + 2, 9, QTableWidgetItem(f"{item.get('adjust_daily_change', '')}%" if item.get('adjust_daily_change', '') != '' else ''))
+            table.setItem(row_idx + 2, 2, QTableWidgetItem(f"{item.get('adjust_ops_change', '')}%" if item.get('adjust_ops_change', '') != '' else ''))
+            table.setItem(row_idx + 2, 3, QTableWidgetItem(f"{item.get('adjust_daily_change', '')}%" if item.get('adjust_daily_change', '') != '' else ''))
             adjust_non_nan_mean = item.get('adjust_non_nan_mean', '')
-            table.setItem(row_idx + 2, 10, QTableWidgetItem(f"{round(adjust_non_nan_mean, 2)}%" if adjust_non_nan_mean != '' and not (isinstance(adjust_non_nan_mean, float) and math.isnan(adjust_non_nan_mean)) else ''))
+            table.setItem(row_idx + 2, 4, QTableWidgetItem(f"{round(adjust_non_nan_mean, 2)}%" if adjust_non_nan_mean != '' and not (isinstance(adjust_non_nan_mean, float) and math.isnan(adjust_non_nan_mean)) else ''))
             adjust_with_nan_mean = item.get('adjust_with_nan_mean', '')
-            table.setItem(row_idx + 2, 11, QTableWidgetItem(f"{round(adjust_with_nan_mean, 2)}%" if adjust_with_nan_mean != '' and not (isinstance(adjust_with_nan_mean, float) and math.isnan(adjust_with_nan_mean)) else ''))
-            table.setItem(row_idx + 2, 12, QTableWidgetItem(""))
-            table.setItem(row_idx + 2, 13, QTableWidgetItem(""))
-            table.setItem(row_idx + 2, 14, QTableWidgetItem(""))
+            table.setItem(row_idx + 2, 5, QTableWidgetItem(f"{round(adjust_with_nan_mean, 2)}%" if adjust_with_nan_mean != '' and not (isinstance(adjust_with_nan_mean, float) and math.isnan(adjust_with_nan_mean)) else ''))
+            table.setItem(row_idx + 2, 6, QTableWidgetItem(""))  # 调幅含空值均值只在均值行
+            table.setItem(row_idx + 2, 7, QTableWidgetItem(""))  # 调幅最大值只在均值行
+            table.setItem(row_idx + 2, 8, QTableWidgetItem(""))  # 调幅最小值只在均值行
+            table.setItem(row_idx + 2, 9, QTableWidgetItem(str(item.get('adjust_days', ''))))
+            table.setItem(row_idx + 2, 10, QTableWidgetItem(f"{item.get('ops_change', '')}%" if item.get('ops_change', '') != '' else ''))
+            table.setItem(row_idx + 2, 11, QTableWidgetItem(f"{item.get('daily_change', '')}%" if item.get('daily_change', '') != '' else ''))
+            non_nan_mean = item.get('non_nan_mean', '')
+            table.setItem(row_idx + 2, 12, QTableWidgetItem(f"{round(non_nan_mean, 2)}%" if non_nan_mean != '' and not (isinstance(non_nan_mean, float) and math.isnan(non_nan_mean)) else ''))
+            with_nan_mean = item.get('with_nan_mean', '')
+            table.setItem(row_idx + 2, 13, QTableWidgetItem(f"{round(with_nan_mean, 2)}%" if with_nan_mean != '' and not (isinstance(with_nan_mean, float) and math.isnan(with_nan_mean)) else ''))
+            table.setItem(row_idx + 2, 14, QTableWidgetItem(""))  # 含空值均值在summary中，这里暂时留空
+            table.setItem(row_idx + 2, 15, QTableWidgetItem(""))  # 最大值在summary中，这里暂时留空
+            table.setItem(row_idx + 2, 16, QTableWidgetItem(""))  # 最小值在summary中，这里暂时留空
 
         table.horizontalHeader().setFixedHeight(40)
         table.horizontalHeader().setStyleSheet("font-size: 12px;")
@@ -1743,18 +1938,25 @@ class ComponentAnalysisWidget(QWidget):
             table.setWordWrap(True)
             table.resizeRowToContents(row)
 
-        # 不再插入参数输出行
-        # row = table.rowCount()
-        # params = [
-        #     ("日期宽度", str(analysis.get('width', ''))),
-        #     ("操作天数", str(analysis.get('op_days', ''))),
-        #     ("止盈递增率", f"{analysis.get('increment_rate', '')}%"),
-        #     ("排序方式", analysis.get('sort_mode', ''))
-        # ]
-        # for i, (label, value) in enumerate(params):
-        #     table.insertRow(row + i)
-        #     table.setItem(row + i, 0, QTableWidgetItem(label))
-        #     table.setItem(row + i, 1, QTableWidgetItem(value))
+        # 插入参数输出
+        row = table.rowCount()
+        params = [
+            ("日期宽度", str(analysis.get('width', ''))),
+            ("开始日期值选择", analysis.get('start_option', '')),
+            ("前移天数", str(analysis.get('shift', ''))),
+            ("操作天数", str(analysis.get('op_days', ''))),
+            ("止盈递增率", f"{analysis.get('increment_rate', '')}%"),
+            ("止盈后值大于结束值比例", f"{analysis.get('after_gt_end_ratio', '')}%"),
+            ("止盈后值大于前值比例", f"{analysis.get('after_gt_start_ratio', '')}%"),
+            ("止损递增率", f"{analysis.get('stop_loss_inc_rate', '')}%"),
+            ("止损后值大于结束值比例", f"{analysis.get('stop_loss_after_gt_end_ratio', '')}%"),
+            ("止损大于前值比例", f"{analysis.get('stop_loss_after_gt_start_ratio', '')}%"),
+            ("操作涨幅", f"{analysis.get('ops_change', '')}%")
+        ]
+        for i, (label, value) in enumerate(params):
+            table.insertRow(row + i)
+            table.setItem(row + i, 0, QTableWidgetItem(label))
+            table.setItem(row + i, 1, QTableWidgetItem(value))
 
         header = table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.Fixed)
@@ -2161,6 +2363,61 @@ class ComponentAnalysisWidget(QWidget):
                         print(f"更新组合分析次数: {count_val}")
                     except Exception as e:
                         print(f"更新组合分析次数失败: {e}")
+                
+                # 恢复持有率、止盈率、止损率区间
+                hold_rate_min_val = param_map.get('component_hold_rate_min', '')
+                if hold_rate_min_val:
+                    try:
+                        hold_rate_val = int(float(hold_rate_min_val))
+                        self.hold_rate_min_edit.setText(str(hold_rate_val))
+                        print(f"更新持有率最小值: {hold_rate_val}")
+                    except Exception as e:
+                        print(f"更新持有率最小值失败: {e}")
+                
+                hold_rate_max_val = param_map.get('component_hold_rate_max', '')
+                if hold_rate_max_val:
+                    try:
+                        hold_rate_val = int(float(hold_rate_max_val))
+                        self.hold_rate_max_edit.setText(str(hold_rate_val))
+                        print(f"更新持有率最大值: {hold_rate_val}")
+                    except Exception as e:
+                        print(f"更新持有率最大值失败: {e}")
+                
+                profit_rate_min_val = param_map.get('component_profit_rate_min', '')
+                if profit_rate_min_val:
+                    try:
+                        profit_rate_val = int(float(profit_rate_min_val))
+                        self.profit_rate_min_edit.setText(str(profit_rate_val))
+                        print(f"更新止盈率最小值: {profit_rate_val}")
+                    except Exception as e:
+                        print(f"更新止盈率最小值失败: {e}")
+                
+                profit_rate_max_val = param_map.get('component_profit_rate_max', '')
+                if profit_rate_max_val:
+                    try:
+                        profit_rate_val = int(float(profit_rate_max_val))
+                        self.profit_rate_max_edit.setText(str(profit_rate_val))
+                        print(f"更新止盈率最大值: {profit_rate_val}")
+                    except Exception as e:
+                        print(f"更新止盈率最大值失败: {e}")
+                
+                loss_rate_min_val = param_map.get('component_loss_rate_min', '')
+                if loss_rate_min_val:
+                    try:
+                        loss_rate_val = int(float(loss_rate_min_val))
+                        self.loss_rate_min_edit.setText(str(loss_rate_val))
+                        print(f"更新止损率最小值: {loss_rate_val}")
+                    except Exception as e:
+                        print(f"更新止损率最小值失败: {e}")
+                
+                loss_rate_max_val = param_map.get('component_loss_rate_max', '')
+                if loss_rate_max_val:
+                    try:
+                        loss_rate_val = int(float(loss_rate_max_val))
+                        self.loss_rate_max_edit.setText(str(loss_rate_val))
+                        print(f"更新止损率最大值: {loss_rate_val}")
+                    except Exception as e:
+                        print(f"更新止损率最大值失败: {e}")
             else:
                 # 兼容旧方式：从主窗口属性获取（用于其他场景）
                 if hasattr(self.main_window, 'last_component_analysis_start_date'):
@@ -2483,7 +2740,8 @@ class ComponentAnalysisWidget(QWidget):
             'after_gt_prev_edit', 'n_days', 'n_days_max', 'range_value', 'continuous_abs_threshold',
             'ops_change', 'expr', 'last_select_count', 'last_sort_mode', 'direction',
             'analysis_start_date', 'analysis_end_date', 'component_analysis_start_date',
-            'component_analysis_end_date', 'cpu_cores',
+            'component_analysis_end_date', 'component_hold_rate_min', 'component_hold_rate_max', 'component_profit_rate_min', 'component_profit_rate_max', 'component_loss_rate_min', 'component_loss_rate_max',
+            'cpu_cores',
             'trade_mode',
             'new_before_high_start', 'new_before_high_range', 'new_before_high_span',
             'new_before_low_start', 'new_before_low_range', 'new_before_low_span',
@@ -2510,6 +2768,37 @@ class ComponentAnalysisWidget(QWidget):
                     v = getattr(self.main_window, 'last_component_analysis_start_date', '')
                 elif k == 'component_analysis_end_date' and hasattr(self.main_window, 'last_component_analysis_end_date'):
                     v = getattr(self.main_window, 'last_component_analysis_end_date', '')
+                # 特殊处理：组合分析率值区间参数
+                elif k == 'component_hold_rate_min':
+                    try:
+                        v = int(self.hold_rate_min_edit.text())
+                    except ValueError:
+                        v = 0
+                elif k == 'component_hold_rate_max':
+                    try:
+                        v = int(self.hold_rate_max_edit.text())
+                    except ValueError:
+                        v = 100
+                elif k == 'component_profit_rate_min':
+                    try:
+                        v = int(self.profit_rate_min_edit.text())
+                    except ValueError:
+                        v = 0
+                elif k == 'component_profit_rate_max':
+                    try:
+                        v = int(self.profit_rate_max_edit.text())
+                    except ValueError:
+                        v = 100
+                elif k == 'component_loss_rate_min':
+                    try:
+                        v = int(self.loss_rate_min_edit.text())
+                    except ValueError:
+                        v = 0
+                elif k == 'component_loss_rate_max':
+                    try:
+                        v = int(self.loss_rate_max_edit.text())
+                    except ValueError:
+                        v = 100
                 # LineEdit - 优先处理，避免被当作直接控件名
                 elif hasattr(self.main_window, k + '_edit'):
                     edit_name = k + '_edit'
@@ -2588,7 +2877,7 @@ class AnalysisDetailWindow(QMainWindow):
     def __init__(self, analysis_data, create_table_func, idx):
         super().__init__(None)
         self.setWindowTitle(f"组合分析结果详情 - 第{idx+1}行")
-        self.setMinimumSize(1600, 800)
+        self.setMinimumSize(2040, 800)
         flags = self.windowFlags()
         flags &= ~Qt.WindowStaysOnTopHint
         flags |= Qt.WindowMinimizeButtonHint

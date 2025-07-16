@@ -410,7 +410,7 @@ def show_formula_select_table_result_window(table, content_widget):
         layout_ = QVBoxLayout(central_widget)
         layout_.addWidget(table)
         result_window.setCentralWidget(central_widget)
-        result_window.resize(580, 450)
+        result_window.resize(780, 450)
         result_window.show()
         content_widget.result_window = result_window
         content_widget.result_table = table
@@ -438,7 +438,7 @@ def show_formula_select_table_result_window(table, content_widget):
         layout_ = QVBoxLayout(central_widget)
         layout_.addWidget(table)
         result_window.setCentralWidget(central_widget)
-        result_window.resize(580, 450)
+        result_window.resize(780, 450)
         result_window.show()
         parent.formula_select_result_window = result_window
         parent.formula_select_result_table = table
@@ -690,7 +690,7 @@ def show_params_table(parent, all_results, end_date=None, n_days=0, n_days_max=0
             table.setItem(row_idx, 29, QTableWidgetItem(get_percent(row.get('increment_change', ''))))
             table.setItem(row_idx, 30, QTableWidgetItem(get_percent(row.get('after_gt_end_change', ''))))
             table.setItem(row_idx, 31, QTableWidgetItem(get_percent(row.get('after_gt_start_change', ''))))
-            table.setItem(row_idx, 32, QTableWidgetItem(get_percent(row.get('adjust_ops_value', ''))))
+            table.setItem(row_idx, 32, QTableWidgetItem(get_percent(row.get('adjust_ops_change', ''))))
             table.setItem(row_idx, 33, QTableWidgetItem(get_percent(row.get('adjust_ops_incre_rate', ''))))
             # 新增：创新高、创新低
             table.setItem(row_idx, 34, QTableWidgetItem(get_bool(row.get('start_with_new_before_high', ''))))
@@ -1312,6 +1312,7 @@ def show_formula_select_table_result(parent, result, price_data=None, output_edi
     ops_incre_rate_list = []
     adjust_ops_incre_rate_list = []
     adjust_days_list = []
+    adjust_ops_change_list = []
     def safe_val(val):
         if val is None:
             return ''
@@ -1336,18 +1337,20 @@ def show_formula_select_table_result(parent, result, price_data=None, output_edi
         score = safe_val(stock.get('score', ''))
         adjust_ops_incre_rate = safe_val(stock.get('adjust_ops_incre_rate', ''))
         adjust_days = safe_val(stock.get('adjust_days', ''))
+        adjust_ops_change = safe_val(stock.get('adjust_ops_change', ''))
         # 加%号显示
         ops_change_str = f"{ops_change}%" if ops_change != '' else ''
         ops_incre_rate_str = f"{ops_incre_rate}%" if ops_incre_rate != '' else ''
         adjust_ops_incre_rate_str = f"{adjust_ops_incre_rate}%" if adjust_ops_incre_rate != '' else ''
+        adjust_ops_change_str = f"{adjust_ops_change}%" if adjust_ops_change != '' else ''
         table.setItem(row_idx, 0, QTableWidgetItem(str(code)))
         table.setItem(row_idx, 1, QTableWidgetItem(str(name)))
         table.setItem(row_idx, 2, QTableWidgetItem(str(hold_days)))
-        table.setItem(row_idx, 3, QTableWidgetItem(ops_change_str))
-        table.setItem(row_idx, 4, QTableWidgetItem(ops_incre_rate_str))
+        table.setItem(row_idx, 3, QTableWidgetItem(adjust_ops_change_str))  # 止盈止损涨幅
+        table.setItem(row_idx, 4, QTableWidgetItem(adjust_ops_incre_rate_str))  # 止盈止损日均涨幅
         table.setItem(row_idx, 5, QTableWidgetItem(str(adjust_days)))
-        table.setItem(row_idx, 6, QTableWidgetItem(ops_change_str))  # 停盈停损涨幅使用相同的ops_change
-        table.setItem(row_idx, 7, QTableWidgetItem(adjust_ops_incre_rate_str))
+        table.setItem(row_idx, 6, QTableWidgetItem(ops_change_str))  # 停盈停损涨幅
+        table.setItem(row_idx, 7, QTableWidgetItem(ops_incre_rate_str))  # 停盈停损日均涨幅
         table.setItem(row_idx, 8, QTableWidgetItem(str(score)))
         # 收集用于均值计算的数据（只收集有效数值）
         try:
@@ -1385,6 +1388,13 @@ def show_formula_select_table_result(parent, result, price_data=None, output_edi
                     adjust_days_list.append(v)
         except Exception:
             pass
+        try:
+            if adjust_ops_change != '':
+                v = float(adjust_ops_change)
+                if not math.isnan(v):
+                    adjust_ops_change_list.append(v)
+        except Exception:
+            pass
     # 插入空行
     empty_row_idx = len(stocks)
     for col in range(len(headers)):
@@ -1397,16 +1407,23 @@ def show_formula_select_table_result(parent, result, price_data=None, output_edi
     mean_ops_incre_rate = safe_mean(ops_incre_rate_list)
     mean_adjust_ops_incre_rate = safe_mean(adjust_ops_incre_rate_list)
     mean_adjust_days = safe_mean(adjust_days_list)
+    mean_adjust_ops_change = safe_mean(adjust_ops_change_list)
+    
+    print(f"mean_hold_days={mean_hold_days}, mean_adjust_ops_change={mean_adjust_ops_change}")
+    print(f"mean_hold_days={mean_adjust_days}, mean_adjust_ops_change={mean_ops_incre_rate}")
+    # 计算日均涨幅均值
+    mean_adjust_ops_incre_rate_daily = mean_adjust_ops_change / mean_hold_days if mean_adjust_ops_change != '' and mean_hold_days != '' and mean_hold_days != 0 else ''
+    mean_ops_incre_rate_daily = mean_ops_change / mean_adjust_days if mean_ops_change != '' and mean_adjust_days != '' and mean_adjust_days != 0 else ''
     # 插入均值行
     mean_row_idx = len(stocks) + 1
     table.setItem(mean_row_idx, 0, QTableWidgetItem(""))
     table.setItem(mean_row_idx, 1, QTableWidgetItem(str(first_date)))
     table.setItem(mean_row_idx, 2, QTableWidgetItem(str(mean_hold_days)))
-    table.setItem(mean_row_idx, 3, QTableWidgetItem(f"{mean_ops_change / mean_hold_days:.2f}%" if mean_ops_change != '' and mean_hold_days != '' and mean_hold_days != 0 else ''))
-    table.setItem(mean_row_idx, 4, QTableWidgetItem(f"{mean_ops_incre_rate}%" if mean_ops_incre_rate != '' else ''))
+    table.setItem(mean_row_idx, 3, QTableWidgetItem(f"{mean_adjust_ops_change}%" if mean_adjust_ops_change != '' else ''))  # 止盈止损涨幅均值
+    table.setItem(mean_row_idx, 4, QTableWidgetItem(f"{mean_adjust_ops_incre_rate_daily:.2f}%" if mean_adjust_ops_incre_rate_daily != '' else ''))  # 止盈止损日均涨幅均值
     table.setItem(mean_row_idx, 5, QTableWidgetItem(str(mean_adjust_days)))
-    table.setItem(mean_row_idx, 6, QTableWidgetItem(f"{mean_ops_change / mean_adjust_days:.2f}%" if mean_ops_change != '' and mean_adjust_days != '' and mean_adjust_days != 0 else ''))
-    table.setItem(mean_row_idx, 7, QTableWidgetItem(f"{mean_adjust_ops_incre_rate}%" if mean_adjust_ops_incre_rate != '' else ''))
+    table.setItem(mean_row_idx, 6, QTableWidgetItem(f"{mean_ops_change}%" if mean_ops_change != '' else ''))  # 停盈停损涨幅均值
+    table.setItem(mean_row_idx, 7, QTableWidgetItem(f"{mean_ops_incre_rate_daily:.2f}%" if mean_ops_incre_rate_daily != '' else ''))  # 停盈停损日均涨幅均值
     table.resizeColumnsToContents()
     table.horizontalHeader().setFixedHeight(50)
     table.horizontalHeader().setStyleSheet("font-size: 12px;")
@@ -2244,7 +2261,7 @@ class FormulaSelectWidget(QWidget):
                     
                     # 处理含逻辑：如果勾选了含逻辑，添加一个True条件
                     if has_logic:
-                        print(f"    变量 {var_name} 勾选了含逻辑，添加True条件")
+                        print(f"    比较控件 {var1} vs {var2} 勾选了含逻辑，添加True条件")
                         combinations.append(('True', 'True'))
                     
                     var_combinations.append({
@@ -2610,7 +2627,7 @@ class FormulaSelectWidget(QWidget):
                 
                 # 处理含逻辑：如果勾选了含逻辑，添加一个True条件
                 if has_logic:
-                    print(f"    变量 {var_name} 勾选了含逻辑，添加True条件")
+                    print(f"    比较控件 {var1} vs {var2} 勾选了含逻辑，添加True条件")
                     combinations.append(('True', 'True'))
                 
                 var_combinations.append({
@@ -2693,7 +2710,7 @@ class FormulaSelectWidget(QWidget):
                 
                 # 处理含逻辑：如果勾选了含逻辑，添加一个True条件
                 if has_logic:
-                    print(f"    变量 {var_name} 勾选了含逻辑，添加True条件")
+                    print(f"    比较控件 {var1} vs {var2} 勾选了含逻辑，添加True条件")
                     combinations.append(('True', 'True'))
                 
                 print(f"  生成的组合: {combinations}")
@@ -3669,7 +3686,7 @@ def calculate_analysis_result(valid_items):
                 ...
             ],
             'summary': {
-                'mean_hold_days': '操作天数均值',
+                'mean_hold_days': '持有天数均值',
                 'mean_ops_change': '持有涨跌幅均值',
                 'mean_daily_change': '日均涨跌幅均值',
                 'mean_adjust_ops_incre_rate': '调天日均涨跌幅均值',
@@ -3822,6 +3839,11 @@ def calculate_analysis_result(valid_items):
     adjust_non_nan_mean_list = []
     adjust_with_nan_mean_list = []
     
+    # 新增：调整天数和止盈止损涨幅相关列表
+    adjust_days_list = []
+    adjust_ops_change_list = []
+    adjust_daily_change_list = []
+    adjust_daily_change_list_with_nan = []
     # 新增：统计止盈率、止损率、持有率
     total_stocks = 0
     hold_count = 0  # end_state = 0
@@ -3839,6 +3861,8 @@ def calculate_analysis_result(valid_items):
         ops_change_list_per_date = []
         ops_incre_rate_list_per_date = []
         adjust_ops_incre_rate_list_per_date = []
+        adjust_days_list_per_date = []
+        adjust_ops_change_list_per_date = []
         
         # 新增：收集股票索引用于调试
         stock_indices_per_date = []
@@ -3931,17 +3955,40 @@ def calculate_analysis_result(valid_items):
                         adjust_ops_incre_rate_list_per_date.append(v)
             except Exception:
                 pass
+            # 新增：收集调整天数
+            try:
+                v = safe_val(stock.get('adjust_days', ''))
+                if v != '':
+                    v = float(v)
+                    if not math.isnan(v):
+                        adjust_days_list_per_date.append(v)
+            except Exception:
+                pass
+            # 新增：收集止盈止损涨幅
+            try:
+                v = safe_val(stock.get('adjust_ops_change', ''))
+                if v != '':
+                    v = float(v)
+                    if not math.isnan(v):
+                        adjust_ops_change_list_per_date.append(v)
+            except Exception:
+                pass
         
         mean_hold_days = safe_mean(hold_days_list_per_date)
-        mean_ops_change = round(safe_mean(ops_change_list_per_date) / mean_hold_days, 2) if mean_hold_days != '' and mean_hold_days != 0 else ''
-        mean_ops_incre_rate = safe_mean(ops_incre_rate_list_per_date)
-        # 新增：计算调幅日均涨跌幅均值
-        mean_adjust_ops_incre_rate = safe_mean(adjust_ops_incre_rate_list_per_date)
+        mean_adjust_days = safe_mean(adjust_days_list_per_date)
+        mean_adjust_ops_change = safe_mean(adjust_ops_change_list_per_date)
         
-        daily_change = mean_ops_incre_rate
-        # 新增：调幅日均涨跌幅
-        adjust_daily_change = mean_adjust_ops_incre_rate
-            
+        mean_ops_change = safe_mean(ops_change_list_per_date)
+        mean_ops_incre_rate = safe_mean(ops_incre_rate_list_per_date)
+        
+        mean_adjust_ops_incre_rate = safe_mean(adjust_ops_incre_rate_list_per_date)
+        # 停盈停损日均涨跌幅
+        #daily_change = mean_ops_incre_rate
+        daily_change = round(mean_ops_change / mean_adjust_days, 2) if mean_ops_change != '' and mean_adjust_days != '' and mean_adjust_days != 0 else ''
+        print(f"mean_ops_change={mean_ops_change}, mean_adjust_days={mean_adjust_days}, daily_change={daily_change}")
+        # 止盈止损日均涨跌幅
+        adjust_daily_change = round(mean_adjust_ops_change / mean_hold_days, 2) if mean_adjust_ops_change != '' and mean_hold_days != '' and mean_hold_days != 0 else ''
+        
         if mean_hold_days != '':
             hold_days_list.append(mean_hold_days)
         if mean_ops_change != '':
@@ -3951,6 +3998,12 @@ def calculate_analysis_result(valid_items):
             daily_change_list_with_nan.append(daily_change)  # 添加到含空值列表
         else:
             daily_change_list_with_nan.append(0)  # 空值当作0处理
+        
+        if adjust_daily_change != '':
+            adjust_daily_change_list.append(adjust_daily_change)
+            adjust_daily_change_list_with_nan.append(adjust_daily_change)  # 添加到含空值列表
+        else:
+            adjust_daily_change_list_with_nan.append(0)  # 空值当作0处理
             
         # 新增：处理调幅日均涨跌幅
         if adjust_daily_change != '':
@@ -3958,6 +4011,12 @@ def calculate_analysis_result(valid_items):
             adjust_ops_incre_rate_list_with_nan.append(adjust_daily_change)  # 添加到含空值列表
         else:
             adjust_ops_incre_rate_list_with_nan.append(0)  # 空值当作0处理
+
+        # 新增：处理调整天数和止盈止损涨幅
+        if mean_adjust_days != '':
+            adjust_days_list.append(mean_adjust_days)
+        if mean_adjust_ops_change != '':
+            adjust_ops_change_list.append(mean_adjust_ops_change)
             
         # 添加到items列表
         items.append({
@@ -3966,6 +4025,8 @@ def calculate_analysis_result(valid_items):
             'ops_change': mean_ops_change,
             'daily_change': daily_change,
             'adjust_daily_change': adjust_daily_change,  # 新增：调幅日均涨跌幅
+            'adjust_days': mean_adjust_days,  # 新增：调整天数
+            'adjust_ops_change': mean_adjust_ops_change,  # 新增：止盈止损涨幅
             'non_nan_mean': '',  # 将在后面计算
             'with_nan_mean': '',  # 将在后面计算
             'adjust_non_nan_mean': '',  # 新增：调幅从下往上非空均值
@@ -4079,7 +4140,9 @@ def calculate_analysis_result(valid_items):
     summary = {
         'mean_hold_days': safe_mean(hold_days_list),
         'mean_ops_change': safe_mean(ops_change_list),
+        'mean_adjust_ops_change': safe_mean(adjust_ops_change_list),
         'mean_daily_change': safe_mean(daily_change_list),
+        'mean_adjust_daily_change': safe_mean(adjust_daily_change_list),
         'mean_non_nan': safe_mean(non_nan_mean_list),
         'mean_with_nan': safe_mean(with_nan_mean_list),  # 保持为从下往上含空均值
         'mean_daily_with_nan': safe_mean(daily_change_list_with_nan),  # 使用含空值的列表计算均值
@@ -4092,6 +4155,8 @@ def calculate_analysis_result(valid_items):
         'mean_adjust_daily_with_nan': safe_mean(adjust_ops_incre_rate_list_with_nan),
         'max_adjust_ops_incre_rate': max(adjust_ops_incre_rate_list) if adjust_ops_incre_rate_list else '',
         'min_adjust_ops_incre_rate': min(adjust_ops_incre_rate_list) if adjust_ops_incre_rate_list else '',
+        # 新增：调整天数和止盈止损涨幅统计
+        'mean_adjust_days': safe_mean(adjust_days_list),
         # 添加从下往上的前1~4个的非空均值和含空均值
         'bottom_first_with_nan': items[-1]['with_nan_mean'] if len(items) > 0 else None,
         'bottom_second_with_nan': items[-2]['with_nan_mean'] if len(items) > 1 else None,

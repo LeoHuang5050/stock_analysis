@@ -823,7 +823,6 @@ def calculate_batch_cy(
                     max_idx_in_window = -1
                     min_idx_in_window = -1
                     window_len = width + 1 
-                    
                     for j in range(window_len):
                         if not isnan(price_data_view[stock_idx, end_date_idx + j]):
                             if price_data_view[stock_idx, end_date_idx + j] > max_price:
@@ -1140,10 +1139,9 @@ def calculate_batch_cy(
                                 gs_end_state = 0
                                 gs_take_profit = NAN
                                 gs_stop_loss = NAN
-
-                    #if stock_idx == 5377:
-                        #printf("stock_idx=%d, increment_value=%.2f, increment_days=%d, after_gt_end_value=%.2f, after_gt_end_days=%d, after_gt_start_value=%.2f, after_gt_start_days=%d, increment_change=%.2f, after_gt_end_change=%.2f, after_gt_start_change=%.2f\n", 
-                               #stock_idx, increment_value, increment_days, after_gt_end_value, after_gt_end_days, after_gt_start_value, after_gt_start_days, increment_change, after_gt_end_change, after_gt_start_change)
+                    if stock_idx == 5415:
+                        printf("stock_idx=%d, increment_value=%.2f, increment_days=%d, after_gt_end_value=%.2f, after_gt_end_days=%d, after_gt_start_value=%.2f, after_gt_start_days=%d, increment_change=%.2f, after_gt_end_change=%.2f, after_gt_start_change=%.2f\n", 
+                               stock_idx, increment_value, increment_days, after_gt_end_value, after_gt_end_days, after_gt_start_value, after_gt_start_days, increment_change, after_gt_end_change, after_gt_start_change)
                     
                     # 处理NAN值
                     if isnan(increment_value):
@@ -1563,7 +1561,6 @@ def calculate_batch_cy(
                     valid_neg_sum = round_to_2(valid_neg_sum)
 
                 # with gil
-                
                 start_with_new_before_high_py = bool(start_with_new_before_high)
                 start_with_new_before_high2_py = bool(start_with_new_before_high2)
                 start_with_new_after_high_py = bool(start_with_new_after_high)
@@ -1643,7 +1640,8 @@ def calculate_batch_cy(
                 forward_max_valid_sum_arr = [forward_max_valid_sum_vec[j] for j in range(forward_max_valid_sum_vec.size())]
                 forward_min_valid_sum_arr = [forward_min_valid_sum_vec[j] for j in range(forward_min_valid_sum_vec.size())]
                 py_valid_sum_arr = [valid_sum_vec[j] for j in range(valid_sum_vec.size())]
-                
+                if stock_idx == 0:
+                    print("running 5")
                 # 递增值等都算好后，计算 ops_value
                 inc_value = increment_value
                 age_value = after_gt_end_value
@@ -1657,28 +1655,28 @@ def calculate_batch_cy(
                     if result_value == 'increment_value':
                         ops_value = increment_value
                         hold_days = increment_days
-                        adjust_ops_value = increment_change
+                        adjust_ops_change = increment_change
                         end_state = inc_end_state
                         take_profit = inc_take_profit
                         stop_loss = inc_stop_loss
                     elif result_value == 'after_gt_end_value':
                         ops_value = after_gt_end_value
                         hold_days = after_gt_end_days
-                        adjust_ops_value = after_gt_end_change
+                        adjust_ops_change = after_gt_end_change
                         end_state = ge_end_state
                         take_profit = ge_take_profit
                         stop_loss = ge_stop_loss
                     elif result_value == 'after_gt_start_value':
                         ops_value = after_gt_start_value
                         hold_days = after_gt_start_days
-                        adjust_ops_value = after_gt_start_change
+                        adjust_ops_change = after_gt_start_change
                         end_state = gs_end_state
                         take_profit = gs_take_profit
                         stop_loss = gs_stop_loss
                     else:
                         ops_value = result_value
                         hold_days = None
-                        adjust_ops_value = None
+                        adjust_ops_change = result_value
                         end_state = 0
                         take_profit = 0
                         stop_loss = 0
@@ -1686,7 +1684,7 @@ def calculate_batch_cy(
                 except Exception as e:
                     ops_value = None
                     hold_days = None
-                    adjust_ops_value = None
+                    adjust_ops_change = None
                     end_state = 0
                     take_profit = 0
                     stop_loss = 0
@@ -1715,6 +1713,7 @@ def calculate_batch_cy(
                         op_idx_when_ops_value_nan = 0
                     try:
                         ops_change = round_to_2((price_data_view[stock_idx, op_idx_when_ops_value_nan] - end_value_for_ops) / end_value_for_ops * 100)
+                        adjust_ops_change = ops_change
                     except Exception:
                         ops_change = None  
 
@@ -1731,7 +1730,7 @@ def calculate_batch_cy(
                     else:  # T+1模式
                         adjust_days = hold_days + 1
                 else:
-                    adjust_days = None
+                    adjust_days = 0
 
                 # 调天日均涨幅 （停盈停损日均涨幅）
                 if ops_change is not None and adjust_days not in (None, 0):
@@ -1746,9 +1745,9 @@ def calculate_batch_cy(
                     
                 # 调幅日均涨幅： 调整涨幅 / 持有天数 （止盈止损）
                 adjust_ops_incre_rate = None  # 先初始化为None
-                if adjust_ops_value is not None and not isnan(adjust_ops_value):
+                if adjust_ops_change is not None and not isnan(adjust_ops_change):
                     try:
-                        adjust_ops_incre_rate = round_to_2(adjust_ops_value / hold_days)
+                        adjust_ops_incre_rate = round_to_2(adjust_ops_change / hold_days)
                     except Exception:
                         adjust_ops_incre_rate = None
                 
@@ -1868,7 +1867,7 @@ def calculate_batch_cy(
                         'increment_change': safe_formula_val(increment_change),
                         'after_gt_end_change': safe_formula_val(after_gt_end_change),
                         'after_gt_start_change': safe_formula_val(after_gt_start_change),
-                        'adjust_ops_value': safe_formula_val(adjust_ops_value),
+                        'adjust_ops_change': safe_formula_val(adjust_ops_change),
                         'adjust_ops_incre_rate': safe_formula_val(adjust_ops_incre_rate),
                         'hold_days': safe_formula_val(hold_days),
                         'ops_change': safe_formula_val(ops_change),
@@ -2038,7 +2037,7 @@ def calculate_batch_cy(
                                 'increment_change': increment_change,
                                 'after_gt_end_change': after_gt_end_change,
                                 'after_gt_start_change': after_gt_start_change,
-                                'adjust_ops_value': adjust_ops_value,
+                                'adjust_ops_change': adjust_ops_change,
                                 'adjust_ops_incre_rate': adjust_ops_incre_rate,
                                 'score': score,
                                 'forward_max_result_len': forward_max_result_len,
@@ -2187,7 +2186,7 @@ def calculate_batch_cy(
                             'increment_change': increment_change,
                             'after_gt_end_change': after_gt_end_change,
                             'after_gt_start_change': after_gt_start_change,
-                            'adjust_ops_value': adjust_ops_value,
+                            'adjust_ops_change': adjust_ops_change,
                             'adjust_ops_incre_rate': adjust_ops_incre_rate,
                             'score': score,
                             'forward_max_result_len': forward_max_result_len,
