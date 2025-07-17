@@ -140,21 +140,21 @@ cdef void calc_pos_neg_sum_halves(
     # 计算正值的分半累加
     if pos_values.size() > 0:
         half = int(round(pos_values.size() / 2.0))
-        # 前一半
+        # 前一半：前half个
         for i in range(half):
             pos_sum_first_half[0] += pos_values[i]
-        # 后一半
-        for i in range(half, pos_values.size()):
+        # 后一半：后half个（有重叠）
+        for i in range(pos_values.size() - half, pos_values.size()):
             pos_sum_second_half[0] += pos_values[i]
     
     # 计算负值的分半累加
     if neg_values.size() > 0:
         half = int(round(neg_values.size() / 2.0))
-        # 前一半
+        # 前一半：前half个
         for i in range(half):
             neg_sum_first_half[0] += neg_values[i]
-        # 后一半
-        for i in range(half, neg_values.size()):
+        # 后一半：后half个（有重叠）
+        for i in range(neg_values.size() - half, neg_values.size()):
             neg_sum_second_half[0] += neg_values[i]
 
 def calculate_batch_cy(
@@ -831,6 +831,12 @@ def calculate_batch_cy(
                             if price_data_view[stock_idx, end_date_idx + j] < min_price:
                                 min_price = price_data_view[stock_idx, end_date_idx + j]
                                 min_idx_in_window = j
+                    
+                    # 检查是否找到了有效值，如果没有找到则设置为nan
+                    if max_idx_in_window == -1:
+                        max_price = NAN
+                    if min_idx_in_window == -1:
+                        min_price = NAN
                     
                     end_value = price_data_view[stock_idx, end_date_idx]
                     start_value = price_data_view[stock_idx, start_date_idx]
@@ -1572,7 +1578,8 @@ def calculate_batch_cy(
 
                 # 计算range_ratio_is_less
                 range_ratio_is_less = False
-                if min_price is not None and min_price != 0 and not isnan(user_range_ratio):
+                if (min_price is not None and min_price != 0 and not isnan(min_price) and 
+                    max_price is not None and not isnan(max_price) and not isnan(user_range_ratio)):
                     range_ratio_is_less = (max_price / min_price) < user_range_ratio
 
                 # 计算日期索引和n_max_is_max

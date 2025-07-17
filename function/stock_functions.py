@@ -186,8 +186,8 @@ def show_continuous_sum_table(parent, all_results, price_data, as_widget=False):
             table1.setRowCount(len(stocks_data))
             for row_idx, row in enumerate(stocks_data):
                 stock_idx = row.get('stock_idx', 0)
-                code = price_data.iloc[stock_idx, 0]
-                name = price_data.iloc[stock_idx, 1]
+                code = row.get('code', '')
+                name = row.get('name', '')
                 # 实际开始日期值
                 actual_value_val = row.get('actual_value', '')
                 table1.setItem(row_idx, 0, QTableWidgetItem(str(code)))
@@ -246,8 +246,8 @@ def show_continuous_sum_table(parent, all_results, price_data, as_widget=False):
             table3.setRowCount(len(stocks_data))
             for row_idx, row in enumerate(stocks_data):
                 stock_idx = row.get('stock_idx', 0)
-                code = price_data.iloc[stock_idx, 0]
-                name = price_data.iloc[stock_idx, 1]
+                code = row.get('code', '')
+                name = row.get('name', '')
                 table3.setItem(row_idx, 0, QTableWidgetItem(str(code)))
                 table3.setItem(row_idx, 1, QTableWidgetItem(str(name)))
                 table3.setItem(row_idx, 2, QTableWidgetItem(str(row.get('forward_max_date', ''))))
@@ -291,8 +291,8 @@ def show_continuous_sum_table(parent, all_results, price_data, as_widget=False):
             table4.setRowCount(len(stocks_data))
             for row_idx, row in enumerate(stocks_data):
                 stock_idx = row.get('stock_idx', 0)
-                code = price_data.iloc[stock_idx, 0]
-                name = price_data.iloc[stock_idx, 1]
+                code = row.get('code', '')
+                name = row.get('name', '')
                 table4.setItem(row_idx, 0, QTableWidgetItem(str(code)))
                 table4.setItem(row_idx, 1, QTableWidgetItem(str(name)))
                 table4.setItem(row_idx, 2, QTableWidgetItem(str(row.get('forward_min_date', ''))))
@@ -656,8 +656,8 @@ def show_params_table(parent, all_results, end_date=None, n_days=0, n_days_max=0
         table.setRowCount(len(stocks_data))
         for row_idx, row in enumerate(stocks_data):
             stock_idx = row.get('stock_idx', 0)
-            code = price_data.iloc[stock_idx, 0]
-            name = price_data.iloc[stock_idx, 1]
+            code = row.get('code', '')
+            name = row.get('name', '')
             table.setItem(row_idx, 0, QTableWidgetItem(str(code)))
             table.setItem(row_idx, 1, QTableWidgetItem(str(name)))
             table.setItem(row_idx, 2, QTableWidgetItem(str(get_val(row.get('max_value', '')))))
@@ -1324,13 +1324,8 @@ def show_formula_select_table_result(parent, result, price_data=None, output_edi
     for row_idx, stock in enumerate(stocks):
         stock_idx = stock.get('stock_idx', None)
         # 优先从stock获取name，没有再查price_data
-        code = stock.get('code', stock.get('stock_idx', ''))
+        code = stock.get('code', None)
         name = stock.get('name', None)
-        if (not name) and price_data is not None and stock_idx is not None:
-            code = price_data.iloc[stock_idx, 0]
-            name = price_data.iloc[stock_idx, 1]
-        if name is None:
-            name = ''
         hold_days = safe_val(stock.get('hold_days', ''))
         ops_change = safe_val(stock.get('ops_change', ''))
         ops_incre_rate = safe_val(stock.get('ops_incre_rate', ''))
@@ -1432,42 +1427,42 @@ def show_formula_select_table_result(parent, result, price_data=None, output_edi
 def get_abbr_round_only_map():
     """获取只有圆框的变量映射"""
     abbrs = [
-        ("非空调天涨跌幅均值", "mean_non_nan"),
-        ("含空调天涨跌幅均值", "mean_with_nan"),
-        ("非空调幅涨跌幅均值", "mean_adjust_non_nan"),
-        ("含空调幅涨跌幅均值", "mean_adjust_with_nan"),
+        ("非空停盈停损涨跌幅均值", "mean_non_nan"),
+        ("含空停盈停损涨跌幅均值", "mean_with_nan"),
+        ("非空止盈止损涨跌幅均值", "mean_adjust_non_nan"),
+        ("含空止盈止损涨跌幅均值", "mean_adjust_with_nan"),
 
-        ("从下往上的第1个调天涨跌幅含空均值", "bottom_first_with_nan"),
-        ("从下往上的第2个调天涨跌幅含空均值", "bottom_second_with_nan"),
-        ("从下往上的第3个调天涨跌幅含空均值", "bottom_third_with_nan"),
-        ("从下往上的第4个调天涨跌幅含空均值", "bottom_fourth_with_nan"),
-        ("从下往上的第1个调天涨跌幅非空均值", "bottom_first_non_nan"),
-        ("从下往上的第2个调天涨跌幅非空均值", "bottom_second_non_nan"),
-        ("从下往上的第3个调天涨跌幅非空均值", "bottom_third_non_nan"),
-        ("从下往上的第4个调天涨跌幅非空均值", "bottom_fourth_non_nan"),
+        ("从下往上的第1个停盈停损涨跌幅含空均值", "bottom_first_with_nan"),
+        ("从下往上的第2个停盈停损涨跌幅含空均值", "bottom_second_with_nan"),
+        ("从下往上的第3个停盈停损涨跌幅含空均值", "bottom_third_with_nan"),
+        ("从下往上的第4个停盈停损涨跌幅含空均值", "bottom_fourth_with_nan"),
+        ("从下往上的第1个停盈停损涨跌幅非空均值", "bottom_first_non_nan"),
+        ("从下往上的第2个停盈停损涨跌幅非空均值", "bottom_second_non_nan"),
+        ("从下往上的第3个停盈停损涨跌幅非空均值", "bottom_third_non_nan"),
+        ("从下往上的第4个停盈停损涨跌幅非空均值", "bottom_fourth_non_nan"),
 
-        ("从下往上的第1个调幅涨跌幅含空均值", "adjust_bottom_first_with_nan"),
-        ("从下往上的第2个调幅涨跌幅含空均值", "adjust_bottom_second_with_nan"),
-        ("从下往上的第3个调幅涨跌幅含空均值", "adjust_bottom_third_with_nan"),
-        ("从下往上的第4个调幅涨跌幅含空均值", "adjust_bottom_fourth_with_nan"),
-        ("从下往上的第1个调幅涨跌幅非空均值", "adjust_bottom_first_non_nan"),
-        ("从下往上的第2个调幅涨跌幅非空均值", "adjust_bottom_second_non_nan"),
-        ("从下往上的第3个调幅涨跌幅非空均值", "adjust_bottom_third_non_nan"),
-        ("从下往上的第4个调幅涨跌幅非空均值", "adjust_bottom_fourth_non_nan"),
+        ("从下往上的第1个止盈止损涨跌幅含空均值", "adjust_bottom_first_with_nan"),
+        ("从下往上的第2个止盈止损涨跌幅含空均值", "adjust_bottom_second_with_nan"),
+        ("从下往上的第3个止盈止损涨跌幅含空均值", "adjust_bottom_third_with_nan"),
+        ("从下往上的第4个止盈止损涨跌幅含空均值", "adjust_bottom_fourth_with_nan"),
+        ("从下往上的第1个止盈止损涨跌幅非空均值", "adjust_bottom_first_non_nan"),
+        ("从下往上的第2个止盈止损涨跌幅非空均值", "adjust_bottom_second_non_nan"),
+        ("从下往上的第3个止盈止损涨跌幅非空均值", "adjust_bottom_third_non_nan"),
+        ("从下往上的第4个止盈止损涨跌幅非空均值", "adjust_bottom_fourth_non_nan"),
 
-        ("从下往上第N位调天非空均值", "bottom_nth_non_nan1"),
-        ("从下往上第N位调天非空均值", "bottom_nth_non_nan2"),
-        ("从下往上第N位调天非空均值", "bottom_nth_non_nan3"),
-        ("从下往上第N位调天含空均值", "bottom_nth_with_nan1"),
-        ("从下往上第N位调天含空均值", "bottom_nth_with_nan2"),
-        ("从下往上第N位调天含空均值", "bottom_nth_with_nan3"),
+        ("从下往上第N位停盈停损非空均值", "bottom_nth_non_nan1"),
+        ("从下往上第N位停盈停损非空均值", "bottom_nth_non_nan2"),
+        ("从下往上第N位停盈停损非空均值", "bottom_nth_non_nan3"),
+        ("从下往上第N位停盈停损含空均值", "bottom_nth_with_nan1"),
+        ("从下往上第N位停盈停损含空均值", "bottom_nth_with_nan2"),
+        ("从下往上第N位停盈停损含空均值", "bottom_nth_with_nan3"),
 
-        ("从下往上第N位调幅非空均值", "bottom_nth_adjust_non_nan1"),
-        ("从下往上第N位调幅非空均值", "bottom_nth_adjust_non_nan2"),
-        ("从下往上第N位调幅非空均值", "bottom_nth_adjust_non_nan3"),
-        ("从下往上第N位调幅含空均值", "bottom_nth_adjust_with_nan1"),
-        ("从下往上第N位调幅含空均值", "bottom_nth_adjust_with_nan2"),
-        ("从下往上第N位调幅含空均值", "bottom_nth_adjust_with_nan3"),
+        ("从下往上第N位止盈止损非空均值", "bottom_nth_adjust_non_nan1"),
+        ("从下往上第N位止盈止损非空均值", "bottom_nth_adjust_non_nan2"),
+        ("从下往上第N位止盈止损非空均值", "bottom_nth_adjust_non_nan3"),
+        ("从下往上第N位止盈止损含空均值", "bottom_nth_adjust_with_nan1"),
+        ("从下往上第N位止盈止损含空均值", "bottom_nth_adjust_with_nan2"),
+        ("从下往上第N位止盈止损含空均值", "bottom_nth_adjust_with_nan3"),
         
     ]
     # 允许label重复，英文名唯一
@@ -2261,7 +2256,6 @@ class FormulaSelectWidget(QWidget):
                     
                     # 处理含逻辑：如果勾选了含逻辑，添加一个True条件
                     if has_logic:
-                        print(f"    比较控件 {var1} vs {var2} 勾选了含逻辑，添加True条件")
                         combinations.append(('True', 'True'))
                     
                     var_combinations.append({
@@ -2345,7 +2339,6 @@ class FormulaSelectWidget(QWidget):
                     
                     # 处理含逻辑：如果勾选了含逻辑，添加一个True条件
                     if has_logic:
-                        print(f"    比较控件 {var1} vs {var2} 勾选了含逻辑，添加True条件")
                         combinations.append(('True', 'True'))
                     
                     print(f"  生成的组合: {combinations}")
@@ -2573,7 +2566,11 @@ class FormulaSelectWidget(QWidget):
                 
                 combinations = []
                 
-                if direction == "右单向":
+                # 如果步长为0或空，生成单一组合
+                if step_val == 0 or step_val == '' or step_val is None:
+                    combinations.append((round(lower_val, 2), round(upper_val, 2)))
+                    print(f"  步长为0或空，生成单一组合: ({round(lower_val, 2)}, {round(upper_val, 2)})")
+                elif direction == "右单向":
                     # 最大值不变，最小值按步长变化
                     current_lower = lower_val
                     # 根据步长正负调整循环条件
@@ -2627,7 +2624,6 @@ class FormulaSelectWidget(QWidget):
                 
                 # 处理含逻辑：如果勾选了含逻辑，添加一个True条件
                 if has_logic:
-                    print(f"    比较控件 {var1} vs {var2} 勾选了含逻辑，添加True条件")
                     combinations.append(('True', 'True'))
                 
                 var_combinations.append({
@@ -2710,7 +2706,6 @@ class FormulaSelectWidget(QWidget):
                 
                 # 处理含逻辑：如果勾选了含逻辑，添加一个True条件
                 if has_logic:
-                    print(f"    比较控件 {var1} vs {var2} 勾选了含逻辑，添加True条件")
                     combinations.append(('True', 'True'))
                 
                 print(f"  生成的组合: {combinations}")
@@ -3470,7 +3465,7 @@ class FormulaSelectWidget(QWidget):
         special_count = len(self.special_abbr_map)
         special_rows = (special_count + self.cols_per_row - 1) // self.cols_per_row
         # 新的比较区起始行：变量控件最后一行 + round_only 控件行数 + 特殊变量行数 + 2
-        comparison_start_row = last_var_row + round_only_rows + special_rows + 2
+        comparison_start_row = last_var_row + round_only_rows + special_rows + 3
         for comp in getattr(self, 'comparison_widgets', []):
             if hasattr(comp, 'widget'):
                 comp['widget'].setParent(None)

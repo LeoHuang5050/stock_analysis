@@ -32,7 +32,6 @@ class ComponentAnalysisWidget(QWidget):
         self.continuous_sum_logic_checkbox.stateChanged.connect(self._on_continuous_sum_logic_changed)
         self.valid_sum_logic_checkbox.stateChanged.connect(self._on_valid_sum_logic_changed)
         self.generate_trading_plan_checkbox.stateChanged.connect(self._on_generate_trading_plan_changed)
-        self.only_better_trading_plan_checkbox.stateChanged.connect(self._on_only_better_trading_plan_changed)
         
     def init_ui(self):
         """初始化UI"""
@@ -109,13 +108,20 @@ class ComponentAnalysisWidget(QWidget):
         if hasattr(self.main_window, 'last_component_generate_trading_plan'):
             self.generate_trading_plan_checkbox.setChecked(self.main_window.last_component_generate_trading_plan)
         
-        # 大于上次最优值才生成操盘方案勾选框
-        self.only_better_trading_plan_checkbox = QCheckBox("大于上次最优值才生成操盘方案")
-        self.only_better_trading_plan_checkbox.setChecked(False)  # 默认不勾选
+        # 大于上次最优值才生成操盘方案输入框
+        self.only_better_trading_plan_label = QLabel("大于上次最优值")
+        self.only_better_trading_plan_edit = QLineEdit()
+        self.only_better_trading_plan_edit.setPlaceholderText("0")
+        self.only_better_trading_plan_edit.setText("0")  # 默认0%
+        self.only_better_trading_plan_edit.setFixedWidth(30)
+        self.only_better_trading_plan_percent_label = QLabel("%才生成操盘方案")
         
-        # 恢复大于上次最优值才生成操盘方案勾选框状态
-        if hasattr(self.main_window, 'last_component_only_better_trading_plan'):
-            self.only_better_trading_plan_checkbox.setChecked(self.main_window.last_component_only_better_trading_plan)
+        # 恢复大于上次最优值才生成操盘方案输入框状态
+        if hasattr(self.main_window, 'last_component_only_better_trading_plan_percent'):
+            self.only_better_trading_plan_edit.setText(str(self.main_window.last_component_only_better_trading_plan_percent))
+        
+        # 绑定信号，变更时同步变量
+        self.only_better_trading_plan_edit.textChanged.connect(self._on_only_better_trading_plan_percent_changed_save)
         
         # 添加持有率、止盈率、止损率区间输入框
         self.hold_rate_label = QLabel("持有率:")
@@ -217,7 +223,9 @@ class ComponentAnalysisWidget(QWidget):
         row_layout.addWidget(self.export_json_btn)
         row_layout.addWidget(self.import_json_btn)
         row_layout.addWidget(self.generate_trading_plan_checkbox)
-        row_layout.addWidget(self.only_better_trading_plan_checkbox)
+        row_layout.addWidget(self.only_better_trading_plan_label)
+        row_layout.addWidget(self.only_better_trading_plan_edit)
+        row_layout.addWidget(self.only_better_trading_plan_percent_label)
         row_layout.addWidget(self.hold_rate_label)
         row_layout.addWidget(self.hold_rate_min_edit)
         row_layout.addWidget(self.hold_rate_separator)
@@ -315,6 +323,14 @@ class ComponentAnalysisWidget(QWidget):
         try:
             value = int(self.loss_rate_max_edit.text())
             self.main_window.last_component_loss_rate_max = value
+        except ValueError:
+            pass  # 如果输入的不是有效数字，忽略
+            
+    def _on_only_better_trading_plan_percent_changed_save(self):
+        """保存大于上次最优值百分比变更"""
+        try:
+            value = float(self.only_better_trading_plan_edit.text())
+            self.main_window.last_component_only_better_trading_plan_percent = value
         except ValueError:
             pass  # 如果输入的不是有效数字，忽略
         
@@ -554,16 +570,40 @@ class ComponentAnalysisWidget(QWidget):
                 new_value = top_one.get('adjusted_value', None)
                 last_value = getattr(self.main_window, 'last_adjusted_value', None)
                 
-                # 第一步：判断是否要生成操盘方案
-                should_generate = True
+                # 第一步：检查输出值是否大于0
+                should_generate = False
+                if new_value is not None:
+                    try:
+                        new_value_float = float(new_value)
+                        if new_value_float > 0:
+                            should_generate = True
+                        else:
+                            QMessageBox.warning(self, "方案无效", f"该组合分析最优方案的输出值 {new_value_float:.2f} 不大于0，此方案无效，不生成操盘方案")
+                            should_generate = False
+                    except Exception:
+                        QMessageBox.warning(self, "方案无效", "该组合分析最优方案的输出值无效，此方案无效，不生成操盘方案")
+                        should_generate = False
+                else:
+                    QMessageBox.warning(self, "方案无效", "该组合分析最优方案的输出值为空，此方案无效，不生成操盘方案")
+                    should_generate = False
                 
-                # 第二步：如果勾选了"更优才生成"，则进一步判断是否更优
-                if self.only_better_trading_plan_checkbox.isChecked():
+                # 第二步：如果输出值大于0，进一步判断是否满足百分比要求
+                if should_generate:
+                    try:
+                        better_percent = float(self.only_better_trading_plan_edit.text())
+                    except ValueError:
+                        better_percent = 0.0
+                    
+                    # 无论百分比是否为0，都需要进行判断
                     if new_value is not None and last_value is not None:
                         try:
                             new_value_float = float(new_value)
                             last_value_float = float(last_value)
-                            should_generate = new_value_float > last_value_float
+                            # 计算需要超过的阈值：上次值 * (1 + 百分比/100)
+                            threshold = last_value_float * (1 + better_percent / 100)
+                            should_generate = new_value_float > threshold
+                            if not should_generate:
+                                QMessageBox.warning(self, "方案无效", f"该组合分析最优方案的输出值 {new_value_float:.2f} 不大于上次最优值 {last_value_float:.2f} 的 {better_percent}%，此方案无效，不生成操盘方案")
                         except Exception:
                             should_generate = True  # 转换失败时默认生成
                     elif new_value is not None and last_value is None:
@@ -571,7 +611,6 @@ class ComponentAnalysisWidget(QWidget):
                         should_generate = True
                     else:
                         should_generate = False
-                # 如果没有勾选"更优才生成"，则直接生成（should_generate保持为True）
                 
                 # 第三步：如果满足生成条件，检查持有率、止盈率、止损率是否满足最小值要求
                 if should_generate:
@@ -638,7 +677,7 @@ class ComponentAnalysisWidget(QWidget):
                     # 更新上次最优值显示
                     self._update_last_best_value_display()
                 
-                # 更新last_adjusted_value（只有在新的值大于上次的值且满足率值要求时才更新）
+                # 更新last_adjusted_value（只有在满足所有条件时才更新）
                 if new_value is not None and should_generate:
                     try:
                         new_value_float = float(new_value)
@@ -1196,6 +1235,11 @@ class ComponentAnalysisWidget(QWidget):
                         widgets['round_checkbox'].setChecked(False)
                         print(f"  重置round_checkbox: {var_name}")
                     
+                    # 清空含逻辑选项
+                    if 'logic_check' in widgets:
+                        widgets['logic_check'].setChecked(False)
+                        print(f"  重置含逻辑选项: {var_name}")
+                    
                     # 清空输入框
                     if 'lower' in widgets:
                         widgets['lower'].setText('')
@@ -1238,6 +1282,7 @@ class ComponentAnalysisWidget(QWidget):
                     # 取消勾选逻辑复选框
                     if 'logic_check' in comp:
                         comp['logic_check'].setChecked(False)
+                        print(f"  重置比较控件含逻辑选项")
                     print(f"  已重置比较控件")
                 
                 # 重置forward_param_state中的向前参数控件状态
@@ -1249,9 +1294,14 @@ class ComponentAnalysisWidget(QWidget):
                             var_state['enable'] = False
                             # 重置round圆框状态
                             var_state['round'] = False
-                            # 清空上下限值
+                            # 重置含逻辑选项
+                            if 'logic' in var_state:
+                                var_state['logic'] = False
+                            # 清空上下限值和步长
                             var_state['lower'] = ''
                             var_state['upper'] = ''
+                            if 'step' in var_state:
+                                var_state['step'] = ''
                             print(f"重置向前参数: {var_name}")
                         elif isinstance(var_state, bool):
                             # 如果只是布尔值，重置为False
@@ -2418,6 +2468,16 @@ class ComponentAnalysisWidget(QWidget):
                         print(f"更新止损率最大值: {loss_rate_val}")
                     except Exception as e:
                         print(f"更新止损率最大值失败: {e}")
+                
+                # 恢复大于上次最优值百分比
+                better_percent_val = param_map.get('component_only_better_trading_plan_percent', '')
+                if better_percent_val:
+                    try:
+                        better_percent_val_float = float(better_percent_val)
+                        self.only_better_trading_plan_edit.setText(str(better_percent_val_float))
+                        print(f"更新大于上次最优值百分比: {better_percent_val_float}")
+                    except Exception as e:
+                        print(f"更新大于上次最优值百分比失败: {e}")
             else:
                 # 兼容旧方式：从主窗口属性获取（用于其他场景）
                 if hasattr(self.main_window, 'last_component_analysis_start_date'):
@@ -2740,7 +2800,7 @@ class ComponentAnalysisWidget(QWidget):
             'after_gt_prev_edit', 'n_days', 'n_days_max', 'range_value', 'continuous_abs_threshold',
             'ops_change', 'expr', 'last_select_count', 'last_sort_mode', 'direction',
             'analysis_start_date', 'analysis_end_date', 'component_analysis_start_date',
-            'component_analysis_end_date', 'component_hold_rate_min', 'component_hold_rate_max', 'component_profit_rate_min', 'component_profit_rate_max', 'component_loss_rate_min', 'component_loss_rate_max',
+            'component_analysis_end_date', 'component_hold_rate_min', 'component_hold_rate_max', 'component_profit_rate_min', 'component_profit_rate_max', 'component_loss_rate_min', 'component_loss_rate_max', 'component_only_better_trading_plan_percent',
             'cpu_cores',
             'trade_mode',
             'new_before_high_start', 'new_before_high_range', 'new_before_high_span',
@@ -2799,6 +2859,11 @@ class ComponentAnalysisWidget(QWidget):
                         v = int(self.loss_rate_max_edit.text())
                     except ValueError:
                         v = 100
+                elif k == 'component_only_better_trading_plan_percent':
+                    try:
+                        v = float(self.only_better_trading_plan_edit.text())
+                    except ValueError:
+                        v = 0.0
                 # LineEdit - 优先处理，避免被当作直接控件名
                 elif hasattr(self.main_window, k + '_edit'):
                     edit_name = k + '_edit'
@@ -2849,9 +2914,7 @@ class ComponentAnalysisWidget(QWidget):
         """生成操盘方案勾选框状态改变"""
         self.main_window.last_component_generate_trading_plan = (state == Qt.Checked)
         
-    def _on_only_better_trading_plan_changed(self, state):
-        """大于上次最优值才生成操盘方案勾选框状态改变"""
-        self.main_window.last_component_only_better_trading_plan = (state == Qt.Checked)
+
         
     def _update_last_best_value_display(self):
         """更新上次最优值显示"""
@@ -2869,7 +2932,7 @@ class ComponentAnalysisWidget(QWidget):
 
     def _on_clear_best_value(self):
         """清空上次最优值"""
-        self.main_window.last_adjusted_value = None
+        self.main_window.last_adjusted_value = 0
         self._update_last_best_value_display()
 
 
