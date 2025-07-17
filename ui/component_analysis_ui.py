@@ -794,7 +794,66 @@ class ComponentAnalysisWidget(QWidget):
                     'select_count': select_count,  # 添加选股数量
                     'result': result,
                     'valid_items': valid_items,
-                    'analysis_stats': analysis_stats  # 添加统计结果
+                    'analysis_stats': analysis_stats,  # 添加统计结果
+                    
+                    # 添加更多控件值用于参数恢复
+                    'start_option': self.main_window.start_option_combo.currentText(),
+                    'shift_days': self.main_window.shift_spin.value(),
+                    'is_forward': self.main_window.direction_checkbox.isChecked(),
+                    'trade_mode': self.main_window.trade_mode_combo.currentText(),
+                    'range_value': self.main_window.range_value_edit.text(),
+                    'continuous_abs_threshold': self.main_window.continuous_abs_threshold_edit.text(),
+                    'valid_abs_sum_threshold': self.main_window.valid_abs_sum_threshold_edit.text(),
+                    'n_days': self.main_window.n_days_spin.value(),
+                    'n_days_max': self.main_window.n_days_max_spin.value(),
+                    'ops_change': self.main_window.ops_change_edit.text(),
+                    
+                    # 创新高/创新低相关参数
+                    'new_before_high_start': self.main_window.new_before_high_start_spin.value(),
+                    'new_before_high_range': self.main_window.new_before_high_range_spin.value(),
+                    'new_before_high_span': self.main_window.new_before_high_span_spin.value(),
+                    'new_before_high_logic': self.main_window.new_before_high_logic_combo.currentText(),
+                    'new_before_high2_start': self.main_window.new_before_high2_start_spin.value(),
+                    'new_before_high2_range': self.main_window.new_before_high2_range_spin.value(),
+                    'new_before_high2_span': self.main_window.new_before_high2_span_spin.value(),
+                    'new_before_high2_logic': self.main_window.new_before_high2_logic_combo.currentText(),
+                    'new_after_high_start': self.main_window.new_after_high_start_spin.value(),
+                    'new_after_high_range': self.main_window.new_after_high_range_spin.value(),
+                    'new_after_high_span': self.main_window.new_after_high_span_spin.value(),
+                    'new_after_high_logic': self.main_window.new_after_high_logic_combo.currentText(),
+                    'new_after_high2_start': self.main_window.new_after_high2_start_spin.value(),
+                    'new_after_high2_range': self.main_window.new_after_high2_range_spin.value(),
+                    'new_after_high2_span': self.main_window.new_after_high2_span_spin.value(),
+                    'new_after_high2_logic': self.main_window.new_after_high2_logic_combo.currentText(),
+                    'new_before_low_start': self.main_window.new_before_low_start_spin.value(),
+                    'new_before_low_range': self.main_window.new_before_low_range_spin.value(),
+                    'new_before_low_span': self.main_window.new_before_low_span_spin.value(),
+                    'new_before_low_logic': self.main_window.new_before_low_logic_combo.currentText(),
+                    'new_before_low2_start': self.main_window.new_before_low2_start_spin.value(),
+                    'new_before_low2_range': self.main_window.new_before_low2_range_spin.value(),
+                    'new_before_low2_span': self.main_window.new_before_low2_span_spin.value(),
+                    'new_before_low2_logic': self.main_window.new_before_low2_logic_combo.currentText(),
+                    'new_after_low_start': self.main_window.new_after_low_start_spin.value(),
+                    'new_after_low_range': self.main_window.new_after_low_range_spin.value(),
+                    'new_after_low_span': self.main_window.new_after_low_span_spin.value(),
+                    'new_after_low_logic': self.main_window.new_after_low_logic_combo.currentText(),
+                    'new_after_low2_start': self.main_window.new_after_low2_start_spin.value(),
+                    'new_after_low2_range': self.main_window.new_after_low2_range_spin.value(),
+                    'new_after_low2_span': self.main_window.new_after_low2_span_spin.value(),
+                    'new_after_low2_logic': self.main_window.new_after_low2_logic_combo.currentText(),
+                    
+                    # 创新高/创新低勾选状态
+                    'new_before_high_flag': self.main_window.new_before_high_flag_checkbox.isChecked(),
+                    'new_before_high2_flag': self.main_window.new_before_high2_flag_checkbox.isChecked(),
+                    'new_after_high_flag': self.main_window.new_after_high_flag_checkbox.isChecked(),
+                    'new_after_high2_flag': self.main_window.new_after_high2_flag_checkbox.isChecked(),
+                    'new_before_low_flag': self.main_window.new_before_low_flag_checkbox.isChecked(),
+                    'new_before_low2_flag': self.main_window.new_before_low2_flag_checkbox.isChecked(),
+                    'new_after_low_flag': self.main_window.new_after_low_flag_checkbox.isChecked(),
+                    'new_after_low2_flag': self.main_window.new_after_low2_flag_checkbox.isChecked(),
+                    
+                    # 操作值表达式
+                    'expr': getattr(self.main_window, 'last_expr', '')
                 }
                 self.all_analysis_results.append(analysis_info)
                 
@@ -1287,7 +1346,6 @@ class ComponentAnalysisWidget(QWidget):
                 
                 # 重置forward_param_state中的向前参数控件状态
                 if hasattr(self.main_window, 'forward_param_state') and self.main_window.forward_param_state:
-                    print(f"重置forward_param_state: {self.main_window.forward_param_state}")
                     for var_name, var_state in self.main_window.forward_param_state.items():
                         if isinstance(var_state, dict):
                             # 重置enable复选框状态
@@ -1310,7 +1368,6 @@ class ComponentAnalysisWidget(QWidget):
                 
                 # 恢复forward_param_state中的向前参数控件状态
                 if hasattr(self.main_window, 'forward_param_state') and self.main_window.forward_param_state:
-                    print(f"恢复forward_param_state: {self.main_window.forward_param_state}")
                     for var_name, var_state in self.main_window.forward_param_state.items():
                         if var_name in temp_formula_widget.var_widgets:
                             widgets = temp_formula_widget.var_widgets[var_name]
@@ -1706,10 +1763,458 @@ class ComponentAnalysisWidget(QWidget):
                     except:
                         pass
                 
+                # 恢复新增的控件值
+                # 开始日期值选择
+                start_option = analysis_data.get('start_option', '')
+                if start_option and hasattr(self.main_window, 'start_option_combo'):
+                    try:
+                        idx = self.main_window.start_option_combo.findText(start_option)
+                        if idx >= 0:
+                            self.main_window.start_option_combo.setCurrentIndex(idx)
+                            print(f"设置开始日期值选择: {start_option}")
+                    except:
+                        pass
+                
+                # 前移天数
+                shift_days = analysis_data.get('shift_days', '')
+                if shift_days != '' and shift_days is not None and hasattr(self.main_window, 'shift_spin'):
+                    try:
+                        shift_days_int = int(shift_days)
+                        self.main_window.shift_spin.setValue(shift_days_int)
+                        print(f"设置前移天数: {shift_days_int}")
+                    except:
+                        pass
+                
+                # 是否计算向前
+                is_forward = analysis_data.get('is_forward', False)
+                if hasattr(self.main_window, 'direction_checkbox'):
+                    try:
+                        self.main_window.direction_checkbox.setChecked(is_forward)
+                        print(f"设置是否计算向前: {is_forward}")
+                    except:
+                        pass
+                
+                # 交易方式
+                trade_mode = analysis_data.get('trade_mode', '')
+                if trade_mode and hasattr(self.main_window, 'trade_mode_combo'):
+                    try:
+                        idx = self.main_window.trade_mode_combo.findText(trade_mode)
+                        if idx >= 0:
+                            self.main_window.trade_mode_combo.setCurrentIndex(idx)
+                            print(f"设置交易方式: {trade_mode}")
+                    except:
+                        pass
+                
+                # 操作涨幅
+                ops_change = analysis_data.get('ops_change', '')
+                if ops_change and hasattr(self.main_window, 'ops_change_edit'):
+                    try:
+                        self.main_window.ops_change_edit.setText(str(ops_change))
+                        print(f"设置操作涨幅: {ops_change}")
+                    except:
+                        pass
+                
+                # 其他参数
+                n_days = analysis_data.get('n_days', '')
+                if n_days and hasattr(self.main_window, 'n_days_spin'):
+                    try:
+                        self.main_window.n_days_spin.setValue(int(n_days))
+                        print(f"设置n_days: {n_days}")
+                    except:
+                        pass
+                
+                n_days_max = analysis_data.get('n_days_max', '')
+                if n_days_max and hasattr(self.main_window, 'n_days_max_spin'):
+                    try:
+                        self.main_window.n_days_max_spin.setValue(int(n_days_max))
+                        print(f"设置n_days_max: {n_days_max}")
+                    except:
+                        pass
+                
+                range_value = analysis_data.get('range_value', '')
+                if range_value and hasattr(self.main_window, 'range_value_edit'):
+                    try:
+                        self.main_window.range_value_edit.setText(str(range_value))
+                        print(f"设置range_value: {range_value}")
+                    except:
+                        pass
+                
+                continuous_abs_threshold = analysis_data.get('continuous_abs_threshold', '')
+                if continuous_abs_threshold and hasattr(self.main_window, 'continuous_abs_threshold_edit'):
+                    try:
+                        self.main_window.continuous_abs_threshold_edit.setText(str(continuous_abs_threshold))
+                        print(f"设置continuous_abs_threshold: {continuous_abs_threshold}")
+                    except:
+                        pass
+
+                valid_abs_sum_threshold = analysis_data.get('valid_abs_sum_threshold', '')
+                if valid_abs_sum_threshold and hasattr(self.main_window, 'valid_abs_sum_threshold_edit'):
+                    try:
+                        self.main_window.valid_abs_sum_threshold_edit.setText(str(valid_abs_sum_threshold))
+                        print(f"设置valid_abs_sum_threshold: {valid_abs_sum_threshold}")
+                    except:
+                        pass
+                
+                # 创新高/创新低相关参数
+                new_before_high_start = analysis_data.get('new_before_high_start', '')
+                if new_before_high_start and hasattr(self.main_window, 'new_before_high_start_spin'):
+                    try:
+                        self.main_window.new_before_high_start_spin.setValue(int(new_before_high_start))
+                        print(f"设置new_before_high_start: {new_before_high_start}")
+                    except:
+                        pass
+                
+                new_before_high_range = analysis_data.get('new_before_high_range', '')
+                if new_before_high_range and hasattr(self.main_window, 'new_before_high_range_spin'):
+                    try:
+                        self.main_window.new_before_high_range_spin.setValue(int(new_before_high_range))
+                        print(f"设置new_before_high_range: {new_before_high_range}")
+                    except:
+                        pass
+                
+                new_before_high_span = analysis_data.get('new_before_high_span', '')
+                if new_before_high_span and hasattr(self.main_window, 'new_before_high_span_spin'):
+                    try:
+                        self.main_window.new_before_high_span_spin.setValue(int(new_before_high_span))
+                        print(f"设置new_before_high_span: {new_before_high_span}")
+                    except:
+                        pass
+                
+                new_before_high_logic = analysis_data.get('new_before_high_logic', '')
+                if new_before_high_logic and hasattr(self.main_window, 'new_before_high_logic_combo'):
+                    try:
+                        idx = self.main_window.new_before_high_logic_combo.findText(new_before_high_logic)
+                        if idx >= 0:
+                            self.main_window.new_before_high_logic_combo.setCurrentIndex(idx)
+                            print(f"设置new_before_high_logic: {new_before_high_logic}")
+                    except:
+                        pass
+                
+                # 创前新高2参数
+                new_before_high2_start = analysis_data.get('new_before_high2_start', '')
+                if new_before_high2_start and hasattr(self.main_window, 'new_before_high2_start_spin'):
+                    try:
+                        self.main_window.new_before_high2_start_spin.setValue(int(new_before_high2_start))
+                        print(f"设置new_before_high2_start: {new_before_high2_start}")
+                    except:
+                        pass
+                
+                new_before_high2_range = analysis_data.get('new_before_high2_range', '')
+                if new_before_high2_range and hasattr(self.main_window, 'new_before_high2_range_spin'):
+                    try:
+                        self.main_window.new_before_high2_range_spin.setValue(int(new_before_high2_range))
+                        print(f"设置new_before_high2_range: {new_before_high2_range}")
+                    except:
+                        pass
+                
+                new_before_high2_span = analysis_data.get('new_before_high2_span', '')
+                if new_before_high2_span and hasattr(self.main_window, 'new_before_high2_span_spin'):
+                    try:
+                        self.main_window.new_before_high2_span_spin.setValue(int(new_before_high2_span))
+                        print(f"设置new_before_high2_span: {new_before_high2_span}")
+                    except:
+                        pass
+                
+                new_before_high2_logic = analysis_data.get('new_before_high2_logic', '')
+                if new_before_high2_logic and hasattr(self.main_window, 'new_before_high2_logic_combo'):
+                    try:
+                        idx = self.main_window.new_before_high2_logic_combo.findText(new_before_high2_logic)
+                        if idx >= 0:
+                            self.main_window.new_before_high2_logic_combo.setCurrentIndex(idx)
+                            print(f"设置new_before_high2_logic: {new_before_high2_logic}")
+                    except:
+                        pass
+                
+                # 创后新高1参数
+                new_after_high_start = analysis_data.get('new_after_high_start', '')
+                if new_after_high_start and hasattr(self.main_window, 'new_after_high_start_spin'):
+                    try:
+                        self.main_window.new_after_high_start_spin.setValue(int(new_after_high_start))
+                        print(f"设置new_after_high_start: {new_after_high_start}")
+                    except:
+                        pass
+                
+                new_after_high_range = analysis_data.get('new_after_high_range', '')
+                if new_after_high_range and hasattr(self.main_window, 'new_after_high_range_spin'):
+                    try:
+                        self.main_window.new_after_high_range_spin.setValue(int(new_after_high_range))
+                        print(f"设置new_after_high_range: {new_after_high_range}")
+                    except:
+                        pass
+                
+                new_after_high_span = analysis_data.get('new_after_high_span', '')
+                if new_after_high_span and hasattr(self.main_window, 'new_after_high_span_spin'):
+                    try:
+                        self.main_window.new_after_high_span_spin.setValue(int(new_after_high_span))
+                        print(f"设置new_after_high_span: {new_after_high_span}")
+                    except:
+                        pass
+                
+                new_after_high_logic = analysis_data.get('new_after_high_logic', '')
+                if new_after_high_logic and hasattr(self.main_window, 'new_after_high_logic_combo'):
+                    try:
+                        idx = self.main_window.new_after_high_logic_combo.findText(new_after_high_logic)
+                        if idx >= 0:
+                            self.main_window.new_after_high_logic_combo.setCurrentIndex(idx)
+                            print(f"设置new_after_high_logic: {new_after_high_logic}")
+                    except:
+                        pass
+                
+                # 创后新高2参数
+                new_after_high2_start = analysis_data.get('new_after_high2_start', '')
+                if new_after_high2_start and hasattr(self.main_window, 'new_after_high2_start_spin'):
+                    try:
+                        self.main_window.new_after_high2_start_spin.setValue(int(new_after_high2_start))
+                        print(f"设置new_after_high2_start: {new_after_high2_start}")
+                    except:
+                        pass
+                
+                new_after_high2_range = analysis_data.get('new_after_high2_range', '')
+                if new_after_high2_range and hasattr(self.main_window, 'new_after_high2_range_spin'):
+                    try:
+                        self.main_window.new_after_high2_range_spin.setValue(int(new_after_high2_range))
+                        print(f"设置new_after_high2_range: {new_after_high2_range}")
+                    except:
+                        pass
+                
+                new_after_high2_span = analysis_data.get('new_after_high2_span', '')
+                if new_after_high2_span and hasattr(self.main_window, 'new_after_high2_span_spin'):
+                    try:
+                        self.main_window.new_after_high2_span_spin.setValue(int(new_after_high2_span))
+                        print(f"设置new_after_high2_span: {new_after_high2_span}")
+                    except:
+                        pass
+                
+                new_after_high2_logic = analysis_data.get('new_after_high2_logic', '')
+                if new_after_high2_logic and hasattr(self.main_window, 'new_after_high2_logic_combo'):
+                    try:
+                        idx = self.main_window.new_after_high2_logic_combo.findText(new_after_high2_logic)
+                        if idx >= 0:
+                            self.main_window.new_after_high2_logic_combo.setCurrentIndex(idx)
+                            print(f"设置new_after_high2_logic: {new_after_high2_logic}")
+                    except:
+                        pass
+                
+                # 创前新低1参数
+                new_before_low_start = analysis_data.get('new_before_low_start', '')
+                if new_before_low_start and hasattr(self.main_window, 'new_before_low_start_spin'):
+                    try:
+                        self.main_window.new_before_low_start_spin.setValue(int(new_before_low_start))
+                        print(f"设置new_before_low_start: {new_before_low_start}")
+                    except:
+                        pass
+                
+                new_before_low_range = analysis_data.get('new_before_low_range', '')
+                if new_before_low_range and hasattr(self.main_window, 'new_before_low_range_spin'):
+                    try:
+                        self.main_window.new_before_low_range_spin.setValue(int(new_before_low_range))
+                        print(f"设置new_before_low_range: {new_before_low_range}")
+                    except:
+                        pass
+                
+                new_before_low_span = analysis_data.get('new_before_low_span', '')
+                if new_before_low_span and hasattr(self.main_window, 'new_before_low_span_spin'):
+                    try:
+                        self.main_window.new_before_low_span_spin.setValue(int(new_before_low_span))
+                        print(f"设置new_before_low_span: {new_before_low_span}")
+                    except:
+                        pass
+                
+                new_before_low_logic = analysis_data.get('new_before_low_logic', '')
+                if new_before_low_logic and hasattr(self.main_window, 'new_before_low_logic_combo'):
+                    try:
+                        idx = self.main_window.new_before_low_logic_combo.findText(new_before_low_logic)
+                        if idx >= 0:
+                            self.main_window.new_before_low_logic_combo.setCurrentIndex(idx)
+                            print(f"设置new_before_low_logic: {new_before_low_logic}")
+                    except:
+                        pass
+                
+                # 创前新低2参数
+                new_before_low2_start = analysis_data.get('new_before_low2_start', '')
+                if new_before_low2_start and hasattr(self.main_window, 'new_before_low2_start_spin'):
+                    try:
+                        self.main_window.new_before_low2_start_spin.setValue(int(new_before_low2_start))
+                        print(f"设置new_before_low2_start: {new_before_low2_start}")
+                    except:
+                        pass
+                
+                new_before_low2_range = analysis_data.get('new_before_low2_range', '')
+                if new_before_low2_range and hasattr(self.main_window, 'new_before_low2_range_spin'):
+                    try:
+                        self.main_window.new_before_low2_range_spin.setValue(int(new_before_low2_range))
+                        print(f"设置new_before_low2_range: {new_before_low2_range}")
+                    except:
+                        pass
+                
+                new_before_low2_span = analysis_data.get('new_before_low2_span', '')
+                if new_before_low2_span and hasattr(self.main_window, 'new_before_low2_span_spin'):
+                    try:
+                        self.main_window.new_before_low2_span_spin.setValue(int(new_before_low2_span))
+                        print(f"设置new_before_low2_span: {new_before_low2_span}")
+                    except:
+                        pass
+                
+                new_before_low2_logic = analysis_data.get('new_before_low2_logic', '')
+                if new_before_low2_logic and hasattr(self.main_window, 'new_before_low2_logic_combo'):
+                    try:
+                        idx = self.main_window.new_before_low2_logic_combo.findText(new_before_low2_logic)
+                        if idx >= 0:
+                            self.main_window.new_before_low2_logic_combo.setCurrentIndex(idx)
+                            print(f"设置new_before_low2_logic: {new_before_low2_logic}")
+                    except:
+                        pass
+                
+                # 创后新低1参数
+                new_after_low_start = analysis_data.get('new_after_low_start', '')
+                if new_after_low_start and hasattr(self.main_window, 'new_after_low_start_spin'):
+                    try:
+                        self.main_window.new_after_low_start_spin.setValue(int(new_after_low_start))
+                        print(f"设置new_after_low_start: {new_after_low_start}")
+                    except:
+                        pass
+                
+                new_after_low_range = analysis_data.get('new_after_low_range', '')
+                if new_after_low_range and hasattr(self.main_window, 'new_after_low_range_spin'):
+                    try:
+                        self.main_window.new_after_low_range_spin.setValue(int(new_after_low_range))
+                        print(f"设置new_after_low_range: {new_after_low_range}")
+                    except:
+                        pass
+                
+                new_after_low_span = analysis_data.get('new_after_low_span', '')
+                if new_after_low_span and hasattr(self.main_window, 'new_after_low_span_spin'):
+                    try:
+                        self.main_window.new_after_low_span_spin.setValue(int(new_after_low_span))
+                        print(f"设置new_after_low_span: {new_after_low_span}")
+                    except:
+                        pass
+                
+                new_after_low_logic = analysis_data.get('new_after_low_logic', '')
+                if new_after_low_logic and hasattr(self.main_window, 'new_after_low_logic_combo'):
+                    try:
+                        idx = self.main_window.new_after_low_logic_combo.findText(new_after_low_logic)
+                        if idx >= 0:
+                            self.main_window.new_after_low_logic_combo.setCurrentIndex(idx)
+                            print(f"设置new_after_low_logic: {new_after_low_logic}")
+                    except:
+                        pass
+                
+                # 创后新低2参数
+                new_after_low2_start = analysis_data.get('new_after_low2_start', '')
+                if new_after_low2_start and hasattr(self.main_window, 'new_after_low2_start_spin'):
+                    try:
+                        self.main_window.new_after_low2_start_spin.setValue(int(new_after_low2_start))
+                        print(f"设置new_after_low2_start: {new_after_low2_start}")
+                    except:
+                        pass
+                
+                new_after_low2_range = analysis_data.get('new_after_low2_range', '')
+                if new_after_low2_range and hasattr(self.main_window, 'new_after_low2_range_spin'):
+                    try:
+                        self.main_window.new_after_low2_range_spin.setValue(int(new_after_low2_range))
+                        print(f"设置new_after_low2_range: {new_after_low2_range}")
+                    except:
+                        pass
+                
+                new_after_low2_span = analysis_data.get('new_after_low2_span', '')
+                if new_after_low2_span and hasattr(self.main_window, 'new_after_low2_span_spin'):
+                    try:
+                        self.main_window.new_after_low2_span_spin.setValue(int(new_after_low2_span))
+                        print(f"设置new_after_low2_span: {new_after_low2_span}")
+                    except:
+                        pass
+                
+                new_after_low2_logic = analysis_data.get('new_after_low2_logic', '')
+                if new_after_low2_logic and hasattr(self.main_window, 'new_after_low2_logic_combo'):
+                    try:
+                        idx = self.main_window.new_after_low2_logic_combo.findText(new_after_low2_logic)
+                        if idx >= 0:
+                            self.main_window.new_after_low2_logic_combo.setCurrentIndex(idx)
+                            print(f"设置new_after_low2_logic: {new_after_low2_logic}")
+                    except:
+                        pass
+                
+                # 恢复创新高/创新低勾选状态
+                new_before_high_flag = analysis_data.get('new_before_high_flag', False)
+                if hasattr(self.main_window, 'new_before_high_flag_checkbox'):
+                    try:
+                        self.main_window.new_before_high_flag_checkbox.setChecked(new_before_high_flag)
+                        print(f"设置new_before_high_flag: {new_before_high_flag}")
+                    except:
+                        pass
+                
+                new_before_high2_flag = analysis_data.get('new_before_high2_flag', False)
+                if hasattr(self.main_window, 'new_before_high2_flag_checkbox'):
+                    try:
+                        self.main_window.new_before_high2_flag_checkbox.setChecked(new_before_high2_flag)
+                        print(f"设置new_before_high2_flag: {new_before_high2_flag}")
+                    except:
+                        pass
+                
+                new_after_high_flag = analysis_data.get('new_after_high_flag', False)
+                if hasattr(self.main_window, 'new_after_high_flag_checkbox'):
+                    try:
+                        self.main_window.new_after_high_flag_checkbox.setChecked(new_after_high_flag)
+                        print(f"设置new_after_high_flag: {new_after_high_flag}")
+                    except:
+                        pass
+                
+                new_after_high2_flag = analysis_data.get('new_after_high2_flag', False)
+                if hasattr(self.main_window, 'new_after_high2_flag_checkbox'):
+                    try:
+                        self.main_window.new_after_high2_flag_checkbox.setChecked(new_after_high2_flag)
+                        print(f"设置new_after_high2_flag: {new_after_high2_flag}")
+                    except:
+                        pass
+                
+                new_before_low_flag = analysis_data.get('new_before_low_flag', False)
+                if hasattr(self.main_window, 'new_before_low_flag_checkbox'):
+                    try:
+                        self.main_window.new_before_low_flag_checkbox.setChecked(new_before_low_flag)
+                        print(f"设置new_before_low_flag: {new_before_low_flag}")
+                    except:
+                        pass
+                
+                new_before_low2_flag = analysis_data.get('new_before_low2_flag', False)
+                if hasattr(self.main_window, 'new_before_low2_flag_checkbox'):
+                    try:
+                        self.main_window.new_before_low2_flag_checkbox.setChecked(new_before_low2_flag)
+                        print(f"设置new_before_low2_flag: {new_before_low2_flag}")
+                    except:
+                        pass
+                
+                new_after_low_flag = analysis_data.get('new_after_low_flag', False)
+                if hasattr(self.main_window, 'new_after_low_flag_checkbox'):
+                    try:
+                        self.main_window.new_after_low_flag_checkbox.setChecked(new_after_low_flag)
+                        print(f"设置new_after_low_flag: {new_after_low_flag}")
+                    except:
+                        pass
+                
+                new_after_low2_flag = analysis_data.get('new_after_low2_flag', False)
+                if hasattr(self.main_window, 'new_after_low2_flag_checkbox'):
+                    try:
+                        self.main_window.new_after_low2_flag_checkbox.setChecked(new_after_low2_flag)
+                        print(f"设置new_after_low2_flag: {new_after_low2_flag}")
+                    except:
+                        pass
+                
+                # 恢复操作值表达式
+                expr = analysis_data.get('expr', '')
+                if expr:
+                    try:
+                        self.main_window.last_expr = expr
+                        print(f"设置操作值表达式: {expr}")
+                    except:
+                        pass
+                
+            
+                
                 # 清理临时控件
                 temp_formula_widget.deleteLater()
                 
-                QMessageBox.information(self, "恢复成功", f"已成功恢复选股参数！\n公式: {formula}\n排序方式: {sort_mode}\n 选股数量: {select_count}\n日期宽度: {width}\n操作天数: {op_days}\n止盈递增率: {increment_rate}\n止盈后值大于结束值比例: {after_gt_end_ratio}\n止盈后值大于前值比例: {after_gt_start_ratio}\n止损递增率: {stop_loss_inc_rate}\n止损后值大于结束值比例: {stop_loss_after_gt_end_ratio}\n止损后值大于前值比例: {stop_loss_after_gt_start_ratio}")
+                QMessageBox.information(self, "恢复成功", f"已成功恢复选股参数！\n公式: {formula}\n排序方式: {sort_mode}\n选股数量: {select_count}\n开始日期值选择: {analysis_data.get('start_option', '')}\n前移天数: {analysis_data.get('shift_days', '')}\n是否计算向前: {analysis_data.get('is_forward', False)}\n交易方式: {analysis_data.get('trade_mode', '')}\n操作值: {analysis_data.get('expr', '')}\n开始日到结束日之间最高价/最低价小于: {analysis_data.get('range_value', '')}\n开始日到结束日之间连续累加值绝对值小于: {analysis_data.get('continuous_abs_threshold', '')}\n开始日到结束日之间有效累加值绝对值小于: {analysis_data.get('valid_abs_sum_threshold', '')}\n第1组后N最大值逻辑: {analysis_data.get('n_days', '')}\n前1组结束地址后N日的最大值: {analysis_data.get('n_days_max', '')}\n操作涨幅: {analysis_data.get('ops_change', '')}\n日期宽度: {width}\n操作天数: {op_days}\n止盈递增率: {increment_rate}\n止盈后值大于结束值比例: {after_gt_end_ratio}\n止盈后值大于前值比例: {after_gt_start_ratio}\n止损递增率: {stop_loss_inc_rate}\n止损后值大于结束值比例: {stop_loss_after_gt_end_ratio}\n止损后值大于前值比例: {stop_loss_after_gt_start_ratio}")
                 
             except Exception as e:
                 QMessageBox.critical(self, "恢复失败", f"恢复选股参数失败：{e}")
@@ -1776,6 +2281,9 @@ class ComponentAnalysisWidget(QWidget):
             params_text = []
             params_text.append(f"选股数量: {analysis.get('select_count', 10)}")
             params_text.append(f"排序方式: {analysis.get('sort_mode', '')}")
+            params_text.append(f"开始日期值选择: {analysis.get('start_option', '')}")
+            params_text.append(f"交易方式: {analysis.get('trade_mode', '')}")
+            params_text.append(f"操作值: {analysis.get('expr', '')}")
             params_text.append(f"日期宽度: {analysis.get('width', '')}")
             params_text.append(f"操作天数: {analysis.get('op_days', '')}")
             params_text.append(f"止盈递增率: {analysis.get('increment_rate', '')}")
@@ -2639,6 +3147,12 @@ class ComponentAnalysisWidget(QWidget):
                 'sort_mode': analysis.get('sort_mode', ''),
                 'op_days': analysis.get('op_days', ''),
                 'increment_rate': analysis.get('increment_rate', ''),
+                'after_gt_end_ratio': analysis.get('after_gt_end_ratio', ''),
+                'after_gt_start_ratio': analysis.get('after_gt_start_ratio', ''),
+                'stop_loss_inc_rate': analysis.get('stop_loss_inc_rate', ''),
+                'stop_loss_after_gt_end_ratio': analysis.get('stop_loss_after_gt_end_ratio', ''),
+                'stop_loss_after_gt_start_ratio': analysis.get('stop_loss_after_gt_start_ratio', ''),
+                'expr': analysis.get('expr', ''),
                 'selected_vars_with_values': analysis.get('selected_vars_with_values', []),
                 'n_values': analysis.get('n_values', [])
             })
@@ -2756,6 +3270,12 @@ class ComponentAnalysisWidget(QWidget):
                 'sort_mode': analysis.get('sort_mode', ''),
                 'op_days': analysis.get('op_days', ''),
                 'increment_rate': analysis.get('increment_rate', ''),
+                'after_gt_end_ratio': analysis.get('after_gt_end_ratio', ''),
+                'after_gt_start_ratio': analysis.get('after_gt_start_ratio', ''),
+                'stop_loss_inc_rate': analysis.get('stop_loss_inc_rate', ''),
+                'stop_loss_after_gt_end_ratio': analysis.get('stop_loss_after_gt_end_ratio', ''),
+                'stop_loss_after_gt_start_ratio': analysis.get('stop_loss_after_gt_start_ratio', ''),
+                'expr': analysis.get('expr', ''),
                 'selected_vars_with_values': analysis.get('selected_vars_with_values', []),
                 'n_values': analysis.get('n_values', [])
             })
@@ -2803,6 +3323,7 @@ class ComponentAnalysisWidget(QWidget):
             'component_analysis_end_date', 'component_hold_rate_min', 'component_hold_rate_max', 'component_profit_rate_min', 'component_profit_rate_max', 'component_loss_rate_min', 'component_loss_rate_max', 'component_only_better_trading_plan_percent',
             'cpu_cores',
             'trade_mode',
+            'stop_loss_inc_rate', 'stop_loss_after_gt_end_edit', 'stop_loss_after_gt_start_edit',
             'new_before_high_start', 'new_before_high_range', 'new_before_high_span',
             'new_before_low_start', 'new_before_low_range', 'new_before_low_span',
             'valid_abs_sum_threshold', 'new_before_high_logic', 'new_before_high2_start',
