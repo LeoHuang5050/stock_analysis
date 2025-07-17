@@ -648,15 +648,7 @@ class TradingPlanWidget(QWidget):
                 params
             )
             result = calc.calculate_batch_16_cores(params)
-            # 新增：将股票名称写入result
-            price_data = getattr(self.main_window.init, 'price_data', None)
-            if result and isinstance(result, dict) and price_data is not None:
-                merged_results = result.get('dates', {})
-                for stocks in merged_results.values():
-                    for stock in stocks:
-                        stock_idx = stock.get('stock_idx', None)
-                        if stock_idx is not None and 'name' not in stock:
-                            stock['name'] = price_data.iloc[stock_idx, 1]
+
             plan['result'] = result
         self.clean_plan_for_save(plan_list)
 

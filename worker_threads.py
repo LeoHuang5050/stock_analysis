@@ -428,23 +428,34 @@ class CalculateThread(QThread):
         t1 = time.time()
         print(f"calculate_batch_{n_proc}_cores 总耗时: {t1 - t0:.4f}秒")
         
+        # 统一处理股票代码和名称
+        for end_date in merged_results:
+            for stock in merged_results[end_date]:
+                stock_idx = stock.get('stock_idx', None)
+                if stock_idx is not None:
+                    # 获取股票代码和名称
+                    code = self.price_data.iloc[stock_idx, 0]
+                    name = self.price_data.iloc[stock_idx, 1]
+                    
+                    # 格式化股票代码为6位数字格式
+                    if code is not None and code != '':
+                        try:
+                            code_str = str(code).strip()
+                            if code_str.isdigit() and len(code_str) < 6:
+                                code = code_str.zfill(6)
+                        except Exception:
+                            pass
+                    
+                    stock['code'] = code
+                    stock['name'] = name if name is not None else ''
+        
         if only_show_selected:
             for end_date in merged_results:
-                # if merged_results[end_date]:
-                #     first_date = list(merged_results.keys())[0]
-                #     print(f"merged_results第一个日期 {first_date} 的list长度: {len(merged_results[first_date])}")
                 merged_results[end_date] = sorted(
                     merged_results[end_date],
                     key=lambda x: x['score'],
                     reverse=(sort_mode == "最大值排序")
                 )[:select_count]
-            # if merged_results:
-            #     first_date = list(merged_results.keys())[0]
-            #     first_stocks = merged_results[first_date]
-            #     stock_indices = [stock.get('stock_idx') for stock in first_stocks if 'stock_idx' in stock]
-            #     print(f"自动分析第一个日期 {first_date} 的stock_idx: {stock_indices}")
-            #     scores = [stock.get('score') for stock in first_stocks if 'score' in stock]
-            #     print(f"自动分析第一个日期 {first_date} 的score: {scores}")
         
         result = {
             "dates": merged_results,

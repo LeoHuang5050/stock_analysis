@@ -58,6 +58,10 @@ class StockAnalysisInit:
         else:
             self.main_window.date_picker.setDate(max_date)
             self.last_valid_date = max_date
+        
+        # 更新自动分析界面的开始和结束日期为最大交易日
+        self.main_window.last_analysis_start_date = max_date.toString("yyyy-MM-dd")
+        self.main_window.last_analysis_end_date = max_date.toString("yyyy-MM-dd")
 
         # 获取当前结束日期
         end_date = self.main_window.date_picker.date().toString("yyyy-MM-dd")

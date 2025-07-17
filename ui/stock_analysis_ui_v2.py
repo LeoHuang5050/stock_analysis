@@ -180,6 +180,8 @@ class StockAnalysisApp(QWidget):
         self.date_label = QLabel("请选择结束日期：")
         self.date_picker = QDateEdit(calendarPopup=True)
         self.date_picker.setDisplayFormat("yyyy/M/d")
+        # 设置默认值为今天
+        self.date_picker.setDate(QDate.currentDate())
         # 绑定日期修正事件
         self.date_picker.editingFinished.connect(self._fix_date_range)
 
@@ -1813,25 +1815,28 @@ class StockAnalysisApp(QWidget):
         row_layout = QHBoxLayout()
         self.start_date_label = QLabel("结束日期开始日:")
         self.start_date_picker = QDateEdit(calendarPopup=True)
-        # 使用保存的日期值或默认值
-        if hasattr(self, 'last_analysis_start_date'):
+        # 优先使用last_analysis_start_date，如果没有则默认今天
+        if hasattr(self, 'last_analysis_start_date') and self.last_analysis_start_date:
             self.start_date_picker.setDate(QDate.fromString(self.last_analysis_start_date, "yyyy-MM-dd"))
-            print(f"获取到了 last_analysis_start_date: {self.last_analysis_start_date}")
+            print(f"使用last_analysis_start_date: {self.last_analysis_start_date}")
         else:
-            print("没有获取到 last_analysis_start_date")
-            self.start_date_picker.setDate(self.date_picker.date())
+            self.start_date_picker.setDate(QDate.currentDate())
+            print("使用默认今天作为开始日期")
         self.end_date_label = QLabel("结束日期结束日:")
         self.end_date_picker = QDateEdit(calendarPopup=True)
-        # 使用保存的日期值或默认值
-        if hasattr(self, 'last_analysis_end_date'):
-            print(f"获取到了 last_analysis_end_date: {self.last_analysis_end_date}")
+        # 优先使用last_analysis_end_date，如果没有则默认今天
+        if hasattr(self, 'last_analysis_end_date') and self.last_analysis_end_date:
             self.end_date_picker.setDate(QDate.fromString(self.last_analysis_end_date, "yyyy-MM-dd"))
+            print(f"使用last_analysis_end_date: {self.last_analysis_end_date}")
         else:
-            print("没有获取到 last_analysis_end_date")
-            self.end_date_picker.setDate(self.date_picker.date())
+            self.end_date_picker.setDate(QDate.currentDate())
+            print("使用默认今天作为结束日期")
         # 绑定信号，变更时同步变量
         self.start_date_picker.dateChanged.connect(self._on_analysis_date_changed_save)
         self.end_date_picker.dateChanged.connect(self._on_analysis_date_changed_save)
+        
+        # 设置文件上传监听器
+        self.setup_analysis_file_upload_listener()
         # 新增导出按钮
         self.export_excel_btn = QPushButton("导出Excel")
         self.export_excel_btn.clicked.connect(self.on_export_excel)
@@ -1936,6 +1941,43 @@ class StockAnalysisApp(QWidget):
     def _on_analysis_date_changed_save(self):
         self.last_analysis_start_date = self.start_date_picker.date().toString("yyyy-MM-dd")
         self.last_analysis_end_date = self.end_date_picker.date().toString("yyyy-MM-dd")
+
+    def setup_analysis_file_upload_listener(self):
+        
+        #设置自动分析界面的文件上传成功监听器
+        # 监听主窗口的文件上传成功事件
+        if hasattr(self, 'init') and hasattr(self.init, 'on_file_loaded'):
+            # 保存原始的文件加载完成方法
+            original_on_file_loaded = self.init.on_file_loaded
+            
+            def new_on_file_loaded(df, price_data, diff_data, workdays_str, error_msg):
+                # 调用原始方法
+                original_on_file_loaded(df, price_data, diff_data, workdays_str, error_msg)
+                
+                # 如果没有错误，更新自动分析界面的日期
+                if not error_msg and workdays_str and len(workdays_str) > 0:
+                    # 更新主窗口的缓存
+                    self.last_analysis_start_date = workdays_str[-1]
+                    self.last_analysis_end_date = workdays_str[-1]
+                    print(f"文件上传成功，更新自动分析日期: {workdays_str[-1]}")
+                    
+                    # 如果自动分析界面已经创建，则立即设置日期
+                    if hasattr(self, 'start_date_picker') and self.start_date_picker is not None:
+                        try:
+                            self.start_date_picker.setDate(QDate.fromString(workdays_str[-1], "yyyy-MM-dd"))
+                            print(f"立即设置自动分析开始日期为: {workdays_str[-1]}")
+                        except Exception as e:
+                            print(f"立即设置开始日期失败: {e}")
+                    
+                    if hasattr(self, 'end_date_picker') and self.end_date_picker is not None:
+                        try:
+                            self.end_date_picker.setDate(QDate.fromString(workdays_str[-1], "yyyy-MM-dd"))
+                            print(f"立即设置自动分析结束日期为: {workdays_str[-1]}")
+                        except Exception as e:
+                            print(f"立即设置结束日期失败: {e}")
+            
+            # 替换方法
+            self.init.on_file_loaded = new_on_file_loaded
 
     def on_op_stat_btn_clicked(self):
         self.clear_result_area()
@@ -2764,7 +2806,6 @@ class StockAnalysisApp(QWidget):
 
     def save_config(self):
         config = {
-            'date': self.date_picker.date().toString("yyyy-MM-dd"),
             'width': self.width_spin.value(),
             'start_option': self.start_option_combo.currentIndex(),
             'shift': self.shift_spin.value(),
@@ -2785,8 +2826,6 @@ class StockAnalysisApp(QWidget):
             'last_select_count': getattr(self, 'last_select_count', 10),
             'last_sort_mode': getattr(self, 'last_sort_mode', '最大值排序'),
             'direction': self.direction_checkbox.isChecked(),
-            'analysis_start_date': getattr(self, 'last_analysis_start_date', ''),
-            'analysis_end_date': getattr(self, 'last_analysis_end_date', ''),
             'component_analysis_start_date': getattr(self, 'last_component_analysis_start_date', ''),
             'component_analysis_end_date': getattr(self, 'last_component_analysis_end_date', ''),
             'cpu_cores': self.cpu_spin.value(),
@@ -2848,7 +2887,6 @@ class StockAnalysisApp(QWidget):
             'new_after_low2_flag': self.new_after_low2_flag_checkbox.isChecked(),
             # 新增：组合分析界面勾选框状态
             'component_generate_trading_plan': getattr(self, 'last_component_generate_trading_plan', False),
-            'component_only_better_trading_plan': getattr(self, 'last_component_only_better_trading_plan', False),
             # 新增：组合分析次数
             'component_analysis_count': getattr(self, 'last_component_analysis_count', 1),
             # 新增：组合输出锁定状态
@@ -2859,6 +2897,14 @@ class StockAnalysisApp(QWidget):
             'last_component_total_combinations': getattr(self, 'last_component_total_combinations', None),
             # 新增保存last_adjusted_value
             'last_adjusted_value': getattr(self, 'last_adjusted_value', None),
+            # 新增：保存组合分析率值区间参数
+            'component_hold_rate_min': getattr(self, 'last_component_hold_rate_min', 0),
+            'component_hold_rate_max': getattr(self, 'last_component_hold_rate_max', 100),
+            'component_profit_rate_min': getattr(self, 'last_component_profit_rate_min', 0),
+            'component_profit_rate_max': getattr(self, 'last_component_profit_rate_max', 100),
+            'component_loss_rate_min': getattr(self, 'last_component_loss_rate_min', 0),
+            'component_loss_rate_max': getattr(self, 'last_component_loss_rate_max', 100),
+            'component_only_better_trading_plan_percent': getattr(self, 'last_component_only_better_trading_plan_percent', 0.0),
         }
         # 保存公式选股控件状态
         if hasattr(self, 'formula_widget') and self.formula_widget is not None:
@@ -2896,11 +2942,6 @@ class StockAnalysisApp(QWidget):
         try:
             with open('config.json', 'r', encoding='utf-8') as f:
                 config = json.load(f)
-            if 'date' in config:
-                self.date_picker.blockSignals(True)
-                self.date_picker.setDate(QDate.fromString(config['date'], "yyyy-MM-dd"))
-                self.date_picker.blockSignals(False)
-                self.pending_date = config['date']  # 依然保留，等workdays加载后再做一次校验
             if 'width' in config:
                 self.width_spin.setValue(config['width'])
             if 'start_option' in config:
@@ -2941,11 +2982,6 @@ class StockAnalysisApp(QWidget):
                 self.last_sort_mode = config['last_sort_mode']
             if 'direction' in config:
                 self.direction_checkbox.setChecked(config['direction'])
-            # 加载自动分析子界面的日期配置
-            if 'analysis_start_date' in config:
-                self.last_analysis_start_date = config['analysis_start_date']
-            if 'analysis_end_date' in config:
-                self.last_analysis_end_date = config['analysis_end_date']
             # 加载组合分析子界面的日期配置
             if 'component_analysis_start_date' in config:
                 self.last_component_analysis_start_date = config['component_analysis_start_date']
@@ -3077,8 +3113,6 @@ class StockAnalysisApp(QWidget):
                 self.trading_plan_list = config['trading_plan_list']
             if 'component_generate_trading_plan' in config:
                 self.last_component_generate_trading_plan = config['component_generate_trading_plan']
-            if 'component_only_better_trading_plan' in config:
-                self.last_component_only_better_trading_plan = config['component_only_better_trading_plan']
             # 恢复trading_plan_end_date
             if 'trading_plan_end_date' in config:
                 self.last_trading_plan_end_date = config['trading_plan_end_date']
@@ -3097,6 +3131,21 @@ class StockAnalysisApp(QWidget):
             # 恢复组合分析次数
             if 'component_analysis_count' in config:
                 self.last_component_analysis_count = config['component_analysis_count']
+            # 新增：恢复组合分析率值区间参数
+            if 'component_hold_rate_min' in config:
+                self.last_component_hold_rate_min = config['component_hold_rate_min']
+            if 'component_hold_rate_max' in config:
+                self.last_component_hold_rate_max = config['component_hold_rate_max']
+            if 'component_profit_rate_min' in config:
+                self.last_component_profit_rate_min = config['component_profit_rate_min']
+            if 'component_profit_rate_max' in config:
+                self.last_component_profit_rate_max = config['component_profit_rate_max']
+            if 'component_loss_rate_min' in config:
+                self.last_component_loss_rate_min = config['component_loss_rate_min']
+            if 'component_loss_rate_max' in config:
+                self.last_component_loss_rate_max = config['component_loss_rate_max']
+            if 'component_only_better_trading_plan_percent' in config:
+                self.last_component_only_better_trading_plan_percent = config['component_only_better_trading_plan_percent']
         except Exception as e:
             print(f"加载配置失败: {e}")
 
