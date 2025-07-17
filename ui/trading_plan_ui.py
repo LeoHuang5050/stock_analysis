@@ -297,7 +297,7 @@ class TradingPlanWidget(QWidget):
         
         # 固定每行3个卡片，宽度600
         cards_per_row = 3
-        card_width = 600
+        card_width = 780
         
         # 按行分组显示卡片
         for row_start in range(0, len(current_page_plans), cards_per_row):
@@ -378,7 +378,7 @@ class TradingPlanWidget(QWidget):
             hbox.addWidget(del_btn)
             return card
         # 最大化内容（原有内容）
-        card.setFixedHeight(640)
+        card.setFixedHeight(840)
         card.setStyleSheet("background:#fff;")
         vbox = QVBoxLayout(card)
         vbox.setContentsMargins(6, 6, 6, 6)
@@ -416,6 +416,29 @@ class TradingPlanWidget(QWidget):
             label_formula.setStyleSheet("font-size:12px;")
             label_formula.setAlignment(Qt.AlignLeft)
             vbox.addWidget(label_formula)
+        
+        # 显示选股参数（按指定顺序分行输出）
+        params = plan.get('params', {})
+        params_text = []
+        params_text.append(f"选股数量: {params.get('last_select_count', 10)}")
+        params_text.append(f"排序方式: {params.get('last_sort_mode', '')}")
+        params_text.append(f"开始日期值选择: {params.get('start_option', '')}")
+        params_text.append(f"交易方式: {params.get('trade_mode', '')}")
+        params_text.append(f"操作值: {params.get('expr', '')}")
+        params_text.append(f"日期宽度: {params.get('width', '')}")
+        params_text.append(f"操作天数: {params.get('op_days', '')}")
+        params_text.append(f"止盈递增率: {params.get('inc_rate', '')}")
+        params_text.append(f"止盈后值大于结束值比例: {params.get('after_gt_end_edit', '')}")
+        params_text.append(f"止盈后值大于前值比例: {params.get('after_gt_prev_edit', '')}")
+        params_text.append(f"止损递增率: {params.get('stop_loss_inc_rate', '')}")
+        params_text.append(f"止损后值大于结束值比例: {params.get('stop_loss_after_gt_end_edit', '')}")
+        params_text.append(f"止损后值大于前值比例: {params.get('stop_loss_after_gt_start_edit', '')}")
+        
+        if params_text:
+            label_params = QLabel("选股参数：\n" + "\n".join(params_text))
+            label_params.setStyleSheet("font-size:12px;")
+            label_params.setAlignment(Qt.AlignLeft)
+            vbox.addWidget(label_params)
         
         # 添加空行
         empty_label = QLabel("")
