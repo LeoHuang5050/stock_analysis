@@ -475,7 +475,7 @@ class TradingPlanWidget(QWidget):
         line1.setStyleSheet("color:#ccc;")
         vbox.addWidget(line1)
         
-        # 第四行：是否参与实操（勾选框）
+        # 第四行：是否参与实操（勾选框）和恢复参数按钮
         real_trade_widget = QWidget()
         real_trade_layout = QHBoxLayout(real_trade_widget)
         real_trade_layout.setContentsMargins(0, 0, 0, 0)
@@ -487,6 +487,31 @@ class TradingPlanWidget(QWidget):
             plan['real_trade'] = (state == Qt.Checked)
         real_trade_checkbox.stateChanged.connect(on_real_trade_changed)
         real_trade_layout.addWidget(real_trade_checkbox)
+        
+        # 添加恢复参数按钮
+        restore_btn = QPushButton("恢复参数")
+        restore_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #2196F3;
+                color: white;
+                border: none;
+                padding: 5px 10px;
+                border-radius: 3px;
+                font-size: 12px;
+            }
+            QPushButton:hover {
+                background-color: #1976D2;
+            }
+            QPushButton:pressed {
+                background-color: #0D47A1;
+            }
+        """)
+        # 绑定恢复参数事件
+        def on_restore_params_clicked():
+            self.restore_plan_params(plan)
+        restore_btn.clicked.connect(on_restore_params_clicked)
+        real_trade_layout.addWidget(restore_btn)
+        
         real_trade_layout.addStretch()
         vbox.addWidget(real_trade_widget)
         
@@ -770,6 +795,263 @@ class TradingPlanWidget(QWidget):
         """
         if hasattr(self, 'end_date_picker'):
             self.main_window.last_trading_plan_end_date = self.end_date_picker.date().toString("yyyy-MM-dd")
+
+    def restore_plan_params(self, plan):
+        """恢复操盘方案参数到主窗口控件"""
+        try:
+            # 获取操盘方案的参数
+            params = plan.get('params', {})
+            formula = plan.get('formula', '')
+            
+            # 恢复基本参数
+            if 'width' in params and hasattr(self.main_window, 'width_spin'):
+                try:
+                    width_val = int(float(params['width']))
+                    self.main_window.width_spin.setValue(width_val)
+                    print(f"恢复日期宽度: {width_val}")
+                except:
+                    pass
+            
+            if 'start_option' in params and hasattr(self.main_window, 'start_option_combo'):
+                try:
+                    start_option = params['start_option']
+                    idx = self.main_window.start_option_combo.findText(start_option)
+                    if idx >= 0:
+                        self.main_window.start_option_combo.setCurrentIndex(idx)
+                        print(f"恢复开始日期值选择: {start_option}")
+                except:
+                    pass
+            
+            if 'shift' in params and hasattr(self.main_window, 'shift_spin'):
+                try:
+                    shift_val = int(float(params['shift']))
+                    self.main_window.shift_spin.setValue(shift_val)
+                    print(f"恢复前移天数: {shift_val}")
+                except:
+                    pass
+            
+            if 'direction' in params and hasattr(self.main_window, 'direction_checkbox'):
+                try:
+                    is_forward = bool(params['direction'])
+                    self.main_window.direction_checkbox.setChecked(is_forward)
+                    print(f"恢复是否计算向前: {is_forward}")
+                except:
+                    pass
+            
+            if 'trade_mode' in params and hasattr(self.main_window, 'trade_mode_combo'):
+                try:
+                    trade_mode = params['trade_mode']
+                    idx = self.main_window.trade_mode_combo.findText(trade_mode)
+                    if idx >= 0:
+                        self.main_window.trade_mode_combo.setCurrentIndex(idx)
+                        print(f"恢复交易方式: {trade_mode}")
+                except:
+                    pass
+            
+            # 恢复操作相关参数
+            if 'op_days' in params and hasattr(self.main_window, 'op_days_edit'):
+                try:
+                    self.main_window.op_days_edit.setText(str(params['op_days']))
+                    print(f"恢复操作天数: {params['op_days']}")
+                except:
+                    pass
+            
+            if 'inc_rate' in params and hasattr(self.main_window, 'inc_rate_edit'):
+                try:
+                    self.main_window.inc_rate_edit.setText(str(params['inc_rate']))
+                    print(f"恢复止盈递增率: {params['inc_rate']}")
+                except:
+                    pass
+            
+            if 'after_gt_end_edit' in params and hasattr(self.main_window, 'after_gt_end_edit'):
+                try:
+                    self.main_window.after_gt_end_edit.setText(str(params['after_gt_end_edit']))
+                    print(f"恢复止盈后值大于结束值比例: {params['after_gt_end_edit']}")
+                except:
+                    pass
+            
+            if 'after_gt_prev_edit' in params and hasattr(self.main_window, 'after_gt_prev_edit'):
+                try:
+                    self.main_window.after_gt_prev_edit.setText(str(params['after_gt_prev_edit']))
+                    print(f"恢复止盈后值大于前值比例: {params['after_gt_prev_edit']}")
+                except:
+                    pass
+            
+            # 恢复止损参数
+            if 'stop_loss_inc_rate' in params and hasattr(self.main_window, 'stop_loss_inc_rate_edit'):
+                try:
+                    self.main_window.stop_loss_inc_rate_edit.setText(str(params['stop_loss_inc_rate']))
+                    print(f"恢复止损递增率: {params['stop_loss_inc_rate']}")
+                except:
+                    pass
+            
+            if 'stop_loss_after_gt_end_edit' in params and hasattr(self.main_window, 'stop_loss_after_gt_end_edit'):
+                try:
+                    self.main_window.stop_loss_after_gt_end_edit.setText(str(params['stop_loss_after_gt_end_edit']))
+                    print(f"恢复止损后值大于结束值比例: {params['stop_loss_after_gt_end_edit']}")
+                except:
+                    pass
+            
+            if 'stop_loss_after_gt_start_edit' in params and hasattr(self.main_window, 'stop_loss_after_gt_start_edit'):
+                try:
+                    self.main_window.stop_loss_after_gt_start_edit.setText(str(params['stop_loss_after_gt_start_edit']))
+                    print(f"恢复止损后值大于前值比例: {params['stop_loss_after_gt_start_edit']}")
+                except:
+                    pass
+            
+            # 恢复其他参数
+            if 'n_days' in params and hasattr(self.main_window, 'n_days_spin'):
+                try:
+                    n_days_val = int(float(params['n_days']))
+                    self.main_window.n_days_spin.setValue(n_days_val)
+                    print(f"恢复第1组后N最大值逻辑: {n_days_val}")
+                except:
+                    pass
+            
+            if 'n_days_max' in params and hasattr(self.main_window, 'n_days_max_spin'):
+                try:
+                    n_days_max_val = int(float(params['n_days_max']))
+                    self.main_window.n_days_max_spin.setValue(n_days_max_val)
+                    print(f"恢复前1组结束地址后N日的最大值: {n_days_max_val}")
+                except:
+                    pass
+            
+            if 'range_value' in params and hasattr(self.main_window, 'range_value_edit'):
+                try:
+                    self.main_window.range_value_edit.setText(str(params['range_value']))
+                    print(f"恢复开始日到结束日之间最高价/最低价小于: {params['range_value']}")
+                except:
+                    pass
+            
+            if 'continuous_abs_threshold' in params and hasattr(self.main_window, 'continuous_abs_threshold_edit'):
+                try:
+                    self.main_window.continuous_abs_threshold_edit.setText(str(params['continuous_abs_threshold']))
+                    print(f"恢复开始日到结束日之间连续累加值绝对值小于: {params['continuous_abs_threshold']}")
+                except:
+                    pass
+            
+            if 'valid_abs_sum_threshold' in params and hasattr(self.main_window, 'valid_abs_sum_threshold_edit'):
+                try:
+                    self.main_window.valid_abs_sum_threshold_edit.setText(str(params['valid_abs_sum_threshold']))
+                    print(f"恢复开始日到结束日之间有效累加值绝对值小于: {params['valid_abs_sum_threshold']}")
+                except:
+                    pass
+            
+            if 'ops_change' in params and hasattr(self.main_window, 'ops_change_edit'):
+                try:
+                    self.main_window.ops_change_edit.setText(str(params['ops_change']))
+                    print(f"恢复操作涨幅: {params['ops_change']}")
+                except:
+                    pass
+            
+            # 恢复操作值表达式
+            if 'expr' in params:
+                try:
+                    self.main_window.last_expr = params['expr']
+                    print(f"恢复操作值表达式: {params['expr']}")
+                except:
+                    pass
+            
+            # 恢复选股数量和排序方式
+            if 'last_select_count' in params:
+                try:
+                    self.main_window.last_select_count = int(params['last_select_count'])
+                    print(f"恢复选股数量: {params['last_select_count']}")
+                except:
+                    pass
+            
+            if 'last_sort_mode' in params:
+                try:
+                    self.main_window.last_sort_mode = params['last_sort_mode']
+                    print(f"恢复排序方式: {params['last_sort_mode']}")
+                except:
+                    pass
+            
+            # 恢复创新高/创新低相关参数
+            new_high_low_params = [
+                'new_before_high_start', 'new_before_high_range', 'new_before_high_span',
+                'new_before_high2_start', 'new_before_high2_range', 'new_before_high2_span',
+                'new_after_high_start', 'new_after_high_range', 'new_after_high_span',
+                'new_after_high2_start', 'new_after_high2_range', 'new_after_high2_span',
+                'new_before_low_start', 'new_before_low_range', 'new_before_low_span',
+                'new_before_low2_start', 'new_before_low2_range', 'new_before_low2_span',
+                'new_after_low_start', 'new_after_low_range', 'new_after_low_span',
+                'new_after_low2_start', 'new_after_low2_range', 'new_after_low2_span'
+            ]
+            
+            for param_name in new_high_low_params:
+                if param_name in params and hasattr(self.main_window, param_name + '_spin'):
+                    try:
+                        spin_val = int(float(params[param_name]))
+                        getattr(self.main_window, param_name + '_spin').setValue(spin_val)
+                        print(f"恢复{param_name}: {spin_val}")
+                    except:
+                        pass
+            
+            # 恢复创新高/创新低逻辑参数
+            logic_params = [
+                'new_before_high_logic', 'new_before_high2_logic', 'new_after_high_logic', 'new_after_high2_logic',
+                'new_before_low_logic', 'new_before_low2_logic', 'new_after_low_logic', 'new_after_low2_logic'
+            ]
+            
+            for param_name in logic_params:
+                if param_name in params and hasattr(self.main_window, param_name + '_combo'):
+                    try:
+                        logic_val = params[param_name]
+                        combo = getattr(self.main_window, param_name + '_combo')
+                        idx = combo.findText(logic_val)
+                        if idx >= 0:
+                            combo.setCurrentIndex(idx)
+                            print(f"恢复{param_name}: {logic_val}")
+                    except:
+                        pass
+            
+            # 恢复创新高/创新低标志参数
+            flag_params = [
+                'new_before_high_flag', 'new_before_high2_flag', 'new_after_high_flag', 'new_after_high2_flag',
+                'new_before_low_flag', 'new_before_low2_flag', 'new_after_low_flag', 'new_after_low2_flag'
+            ]
+            
+            for param_name in flag_params:
+                if param_name in params and hasattr(self.main_window, param_name + '_checkbox'):
+                    try:
+                        flag_val = bool(params[param_name])
+                        getattr(self.main_window, param_name + '_checkbox').setChecked(flag_val)
+                        print(f"恢复{param_name}: {flag_val}")
+                    except:
+                        pass
+            
+            # 恢复公式相关状态
+            if 'last_formula_select_state' in params:
+                try:
+                    self.main_window.last_formula_select_state = params['last_formula_select_state']
+                    print(f"恢复公式选择状态")
+                except:
+                    pass
+            
+            if 'forward_param_state' in params:
+                try:
+                    self.main_window.forward_param_state = params['forward_param_state']
+                    print(f"恢复向前参数状态")
+                except:
+                    pass
+            
+            # 恢复公式表达式
+            if formula:
+                try:
+                    self.main_window.last_formula_expr = formula
+                    print(f"恢复公式表达式: {formula}")
+                except:
+                    pass
+            
+            # 显示成功消息
+            QMessageBox.information(self, "恢复成功", f"已成功恢复操盘方案参数！\n公式: {formula}\n排序方式: {params.get('last_sort_mode', '')}\n选股数量: {params.get('last_select_count', '')}\n开始日期值选择: {params.get('start_option', '')}\n前移天数: {params.get('shift', '')}\n是否计算向前: {params.get('direction', False)}\n交易方式: {params.get('trade_mode', '')}\n操作值: {params.get('expr', '')}\n开始日到结束日之间最高价/最低价小于: {params.get('range_value', '')}\n开始日到结束日之间连续累加值绝对值小于: {params.get('continuous_abs_threshold', '')}\n开始日到结束日之间有效累加值绝对值小于: {params.get('valid_abs_sum_threshold', '')}\n第1组后N最大值逻辑: {params.get('n_days', '')}\n前1组结束地址后N日的最大值: {params.get('n_days_max', '')}\n操作涨幅: {params.get('ops_change', '')}\n日期宽度: {params.get('width', '')}\n操作天数: {params.get('op_days', '')}\n止盈递增率: {params.get('inc_rate', '')}\n止盈后值大于结束值比例: {params.get('after_gt_end_edit', '')}\n止盈后值大于前值比例: {params.get('after_gt_prev_edit', '')}\n止损递增率: {params.get('stop_loss_inc_rate', '')}\n止损后值大于结束值比例: {params.get('stop_loss_after_gt_end_edit', '')}\n止损后值大于前值比例: {params.get('stop_loss_after_gt_start_edit', '')}")
+            
+        except Exception as e:
+            QMessageBox.critical(self, "恢复失败", f"恢复操盘方案参数失败：{e}")
+            print(f"恢复失败详细错误: {e}")
+            import traceback
+            traceback.print_exc()
 
     def edit_plan_name(self, idx):
         """编辑操盘方案名称"""
