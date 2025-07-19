@@ -124,6 +124,9 @@ def safe_val(val):
         return ""
     if isinstance(val, float) and (math.isnan(val) or str(val).lower() == 'nan'):
         return ""
+    # 如果是数字类型，保留两位小数
+    if isinstance(val, (int, float)):
+        return f"{val:.2f}"
     return val
 
 def show_continuous_sum_table(parent, all_results, price_data, as_widget=False):
@@ -1477,14 +1480,21 @@ def get_abbr_round_only_map():
 def get_special_abbr_map():
     """获取特殊变量映射"""
     abbrs = [
-        ("日期宽度", "width"),
+        #("日期宽度", "width"),
         ("操作天数", "op_days"),
         ("止盈递增率", "increment_rate"),
         ("止盈后值大于结束值比例", "after_gt_end_ratio"),
         ("止盈后值大于前值比例", "after_gt_start_ratio"),
         ("止损递增率", "stop_loss_inc_rate"),
         ("止损后值大于结束值比例", "stop_loss_after_gt_end_ratio"),
-        ("止损后值大于前值比例", "stop_loss_after_gt_start_ratio")
+        ("止损后值大于前值比例", "stop_loss_after_gt_start_ratio"),
+        # 创新高/创新低相关参数 - 两组通用参数
+        ("创前后新高低1开始日期距结束日期天数", "new_high_low1_start"),
+        ("创前后新高低1日期范围", "new_high_low1_range"),
+        ("创前后新高低1展宽期天数", "new_high_low1_span"),
+        ("创前后新高低2开始日期距结束日期天数", "new_high_low2_start"),
+        ("创前后新高低2日期范围", "new_high_low2_range"),
+        ("创前后新高低2展宽期天数", "new_high_low2_span")
     ]
     return {zh: en for zh, en in abbrs}
 
@@ -2785,7 +2795,7 @@ class FormulaSelectWidget(QWidget):
                         except ValueError:
                             continue
         
-        # 没勾选的用主界面参数
+        # 没勾选的基础特殊变量用主界面参数
         param_map = {
             'width': getattr(self.main_window, 'width_spin', None),
             'op_days': getattr(self.main_window, 'op_days_edit', None),
@@ -2823,6 +2833,10 @@ class FormulaSelectWidget(QWidget):
                     val = 30 if en == 'width' else 5 if en == 'op_days' else 0
                 special_vars[en] = {'values': [val]}
         
+        # 处理创新高/创新低参数，根据flag的勾选情况确定具体参数
+        new_high_low_params = self._get_new_high_low_params_from_flags()
+        special_vars.update(new_high_low_params)
+        
         # 生成笛卡尔积
         width_values = special_vars['width']['values']
         op_days_values = special_vars['op_days']['values']
@@ -2833,6 +2847,14 @@ class FormulaSelectWidget(QWidget):
         stop_loss_after_gt_end_ratio_values = special_vars['stop_loss_after_gt_end_ratio']['values']
         stop_loss_after_gt_start_ratio_values = special_vars['stop_loss_after_gt_start_ratio']['values']
         
+        # 创新高/创新低参数
+        new_high_low1_start_values = special_vars.get('new_high_low1_start', {'values': [0]})['values']
+        new_high_low1_range_values = special_vars.get('new_high_low1_range', {'values': [0]})['values']
+        new_high_low1_span_values = special_vars.get('new_high_low1_span', {'values': [0]})['values']
+        new_high_low2_start_values = special_vars.get('new_high_low2_start', {'values': [0]})['values']
+        new_high_low2_range_values = special_vars.get('new_high_low2_range', {'values': [0]})['values']
+        new_high_low2_span_values = special_vars.get('new_high_low2_span', {'values': [0]})['values']
+        
         for width in width_values:
             for op_days in op_days_values:
                 for increment_rate in increment_rate_values:
@@ -2841,13 +2863,153 @@ class FormulaSelectWidget(QWidget):
                             for stop_loss_inc_rate in stop_loss_inc_rate_values:
                                 for stop_loss_after_gt_end_ratio in stop_loss_after_gt_end_ratio_values:
                                     for stop_loss_after_gt_start_ratio in stop_loss_after_gt_start_ratio_values:
-                                        special_combinations.append((width, op_days, increment_rate, after_gt_end_ratio, after_gt_start_ratio, stop_loss_inc_rate, stop_loss_after_gt_end_ratio, stop_loss_after_gt_start_ratio))
+                                        for new_high_low1_start in new_high_low1_start_values:
+                                            for new_high_low1_range in new_high_low1_range_values:
+                                                for new_high_low1_span in new_high_low1_span_values:
+                                                    for new_high_low2_start in new_high_low2_start_values:
+                                                        for new_high_low2_range in new_high_low2_range_values:
+                                                            for new_high_low2_span in new_high_low2_span_values:
+                                                                special_combinations.append((
+                                                                    width, op_days, increment_rate, after_gt_end_ratio, after_gt_start_ratio, 
+                                                                    stop_loss_inc_rate, stop_loss_after_gt_end_ratio, stop_loss_after_gt_start_ratio,
+                                                                    new_high_low1_start, new_high_low1_range, new_high_low1_span,
+                                                                    new_high_low2_start, new_high_low2_range, new_high_low2_span
+                                                                ))
         
         for i, combination in enumerate(special_combinations):
             print(f"组合 {i+1}: {combination}")
             print()
         
         return special_combinations
+
+    def _get_new_high_low_params_from_flags(self):
+        """
+        根据创新高/创新低flag的勾选情况，确定具体使用哪个参数
+        返回: 字典，键为通用参数名，值为参数值字典
+        """
+        new_high_low_params = {}
+        
+        # 定义flag到具体参数的映射
+        flag_to_params = {
+            'new_before_high_flag': {
+                'new_high_low1_start': 'new_before_high_start',
+                'new_high_low1_range': 'new_before_high_range', 
+                'new_high_low1_span': 'new_before_high_span'
+            },
+            'new_before_high2_flag': {
+                'new_high_low2_start': 'new_before_high2_start',
+                'new_high_low2_range': 'new_before_high2_range',
+                'new_high_low2_span': 'new_before_high2_span'
+            },
+            'new_after_high_flag': {
+                'new_high_low1_start': 'new_after_high_start',
+                'new_high_low1_range': 'new_after_high_range',
+                'new_high_low1_span': 'new_after_high_span'
+            },
+            'new_after_high2_flag': {
+                'new_high_low2_start': 'new_after_high2_start',
+                'new_high_low2_range': 'new_after_high2_range',
+                'new_high_low2_span': 'new_after_high2_span'
+            },
+            'new_before_low_flag': {
+                'new_high_low1_start': 'new_before_low_start',
+                'new_high_low1_range': 'new_before_low_range',
+                'new_high_low1_span': 'new_before_low_span'
+            },
+            'new_before_low2_flag': {
+                'new_high_low2_start': 'new_before_low2_start',
+                'new_high_low2_range': 'new_before_low2_range',
+                'new_high_low2_span': 'new_before_low2_span'
+            },
+            'new_after_low_flag': {
+                'new_high_low1_start': 'new_after_low_start',
+                'new_high_low1_range': 'new_after_low_range',
+                'new_high_low1_span': 'new_after_low_span'
+            },
+            'new_after_low2_flag': {
+                'new_high_low2_start': 'new_after_low2_start',
+                'new_high_low2_range': 'new_after_low2_range',
+                'new_high_low2_span': 'new_after_low2_span'
+            }
+        }
+        
+        # 按组分类检查flag被勾选情况
+        group1_flags = ['new_before_high_flag', 'new_after_high_flag', 'new_before_low_flag', 'new_after_low_flag']
+        group2_flags = ['new_before_high2_flag', 'new_after_high2_flag', 'new_before_low2_flag', 'new_after_low2_flag']
+        
+        # 检查第一组flag
+        active_group1_flags = []
+        for flag_name in group1_flags:
+            flag_widget = getattr(self.main_window, flag_name + '_checkbox', None)
+            if flag_widget and flag_widget.isChecked():
+                active_group1_flags.append(flag_name)
+                print(f"检测到勾选的第一组创新高/创新低标志: {flag_name}")
+        
+        # 检查第二组flag
+        active_group2_flags = []
+        for flag_name in group2_flags:
+            flag_widget = getattr(self.main_window, flag_name + '_checkbox', None)
+            if flag_widget and flag_widget.isChecked():
+                active_group2_flags.append(flag_name)
+                print(f"检测到勾选的第二组创新高/创新低标志: {flag_name}")
+        
+        # 如果没有勾选任何flag，返回空字典
+        if not active_group1_flags and not active_group2_flags:
+            print("没有勾选任何创新高/创新低标志")
+            return new_high_low_params
+        
+        # 每组只使用第一个勾选的flag
+        final_active_flags = []
+        if active_group1_flags:
+            final_active_flags.append(active_group1_flags[0])
+            print(f"第一组使用第一个勾选的标志: {active_group1_flags[0]}")
+        if active_group2_flags:
+            final_active_flags.append(active_group2_flags[0])
+            print(f"第二组使用第一个勾选的标志: {active_group2_flags[0]}")
+        
+        # 处理最终选中的flag
+        for active_flag in final_active_flags:
+            print(f"处理创新高/创新低标志: {active_flag}")
+            param_mapping = flag_to_params[active_flag]
+            
+            # 检查对应的参数是否在特殊变量控件中被勾选
+            for generic_param, specific_param in param_mapping.items():
+                # 如果参数已经被处理过，跳过（避免覆盖）
+                if generic_param in new_high_low_params:
+                    print(f"参数 {generic_param} 已被处理，跳过")
+                    continue
+                    
+                if generic_param in self.var_widgets:
+                    widgets = self.var_widgets[generic_param]
+                    if 'checkbox' in widgets and widgets['checkbox'].isChecked():
+                        lower_text = widgets.get('lower', '').text().strip()
+                        upper_text = widgets.get('upper', '').text().strip()
+                        step_text = widgets.get('step', '').text().strip()
+                        if lower_text and upper_text and step_text:
+                            try:
+                                # 创新高/创新低参数都是整数
+                                lower_val = int(float(lower_text))
+                                upper_val = int(float(upper_text))
+                                step_val = int(float(step_text))
+                                values = list(range(lower_val, upper_val + 1, step_val))
+                                new_high_low_params[generic_param] = {'values': values}
+                                print(f"添加创新高/创新低参数: {generic_param} = {values} (对应具体参数: {specific_param})")
+                            except ValueError:
+                                continue
+                    else:
+                        # 如果没有勾选，从主界面获取对应的具体参数值
+                        specific_widget = getattr(self.main_window, specific_param + '_spin', None)
+                        if specific_widget is not None:
+                            try:
+                                val = specific_widget.value()
+                                new_high_low_params[generic_param] = {'values': [val]}
+                                print(f"从主界面获取创新高/创新低参数: {generic_param} = {val} (对应具体参数: {specific_param})")
+                            except (ValueError, AttributeError):
+                                new_high_low_params[generic_param] = {'values': [0]}
+                        else:
+                            new_high_low_params[generic_param] = {'values': [0]}
+        
+        return new_high_low_params
 
     def _frange(self, start, stop, step):
         """生成浮点数区间"""
