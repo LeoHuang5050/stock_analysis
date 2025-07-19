@@ -548,27 +548,14 @@ class ComponentAnalysisWidget(QWidget):
             # 所有分析完成
             self.show_analysis_results(self.all_analysis_results)
             
-            # 检查是否有更优结果（用于弹框提示，独立于勾选框状态）
-            if self.cached_analysis_results:
-                top_one = self.cached_analysis_results[0]
-                new_value = top_one.get('adjusted_value', None)
-                last_value = getattr(self.main_window, 'last_adjusted_value', None)
-                
-                if new_value is not None and last_value is not None:
-                    try:
-                        new_value_float = float(new_value)
-                        last_value_float = float(last_value)
-                        if new_value_float > last_value_float:
-                            QMessageBox.information(self, "最优方案提示", f"有最优方案出现！当前最优组合排序输出值：{new_value_float:.2f}，上次最优：{last_value_float:.2f}")
-                    except Exception:
-                        pass  # 转换失败时不处理
-            
             # 只在分析全部完成后，且勾选生成操盘方案时，添加一次方案
             if self.generate_trading_plan_checkbox.isChecked() and self.cached_analysis_results:
                 top_one = self.cached_analysis_results[0]
                 # 比较top_one的adjusted_value与上次的last_adjusted_value
                 new_value = top_one.get('adjusted_value', None)
                 last_value = getattr(self.main_window, 'last_adjusted_value', None)
+                new_value_float = float(new_value) if new_value is not None else None
+                last_value_float = float(last_value) if last_value is not None else None
                 
                 # 第一步：检查输出值是否大于0
                 should_generate = False
@@ -597,13 +584,11 @@ class ComponentAnalysisWidget(QWidget):
                     # 无论百分比是否为0，都需要进行判断
                     if new_value is not None and last_value is not None:
                         try:
-                            new_value_float = float(new_value)
-                            last_value_float = float(last_value)
                             # 计算需要超过的阈值：上次值 * (1 + 百分比/100)
-                            threshold = last_value_float * (1 + better_percent / 100)
+                            threshold = last_value_float * (better_percent / 100)
                             should_generate = new_value_float > threshold
                             if not should_generate:
-                                QMessageBox.warning(self, "方案无效", f"该组合分析最优方案的输出值 {new_value_float:.2f} 不大于上次最优值 {last_value_float:.2f} 的 {better_percent}%，此方案无效，不生成操盘方案")
+                                QMessageBox.warning(self, "方案无效", f"该组合分析最优方案的输出值 {new_value_float:.2f} 不大于上次最优值 {last_value_float:.2f} 的 {better_percent}% = {threshold:.2f}，此方案无效，不生成操盘方案")
                         except Exception:
                             should_generate = True  # 转换失败时默认生成
                     elif new_value is not None and last_value is None:
@@ -614,6 +599,7 @@ class ComponentAnalysisWidget(QWidget):
                 
                 # 第三步：如果满足生成条件，检查持有率、止盈率、止损率是否满足最小值要求
                 if should_generate:
+                    QMessageBox.information(self, "最优方案提示", f"有最优方案出现！当前最优组合排序输出值：{new_value_float:.2f}，大于上次最优值：{last_value_float:.2f} 的 {better_percent}% = {threshold:.2f}")
                     # 获取top_one的统计结果
                     analysis_stats = top_one.get('analysis', {}).get('analysis_stats', {})
                     summary = analysis_stats.get('summary', {})
@@ -1222,8 +1208,144 @@ class ComponentAnalysisWidget(QWidget):
                     self.main_window.component_analysis_detail_window = None
             
             window.destroyed.connect(on_window_destroyed)
+
         
-        def restore_formula_params(analysis_data):
+        for row, item in enumerate(top_three):
+            analysis = item['analysis']
+            table.setItem(row, 0, QTableWidgetItem(f"{item['adjusted_value']:.2f}"))
+            # 输出参数：显示勾选的get_abbr_round_only_map控件名称
+            selected_vars_with_values = analysis.get('selected_vars_with_values', [])
+            if selected_vars_with_values:
+                from function.stock_functions import get_abbr_round_only_map
+                abbr_map = get_abbr_round_only_map()
+                # 获取n_values用于替换第N位
+                n_values = analysis.get('n_values', {})
+                print(f"n_values: {n_values}")
+                # 直接使用selected_vars_with_values中的变量名和值
+                output_params = []
+                output_params_sum = 0
+                for var_name, value in selected_vars_with_values:
+                    for (zh, en) in abbr_map.keys():
+                        if en == var_name:
+                            # 处理第N位变量
+                            if "第N位" in zh:
+                                n_value = n_values.get(var_name, "N")
+                                zh_display = zh.replace("第N位", f"第{n_value}位")
+                            else:
+                                zh_display = zh
+                            
+                            # 直接使用预计算的值
+                            output_params_sum += value
+                            # 显示参数名称和数值
+                            output_params.append(f"{zh_display}: {value:.2f}")
+                            break
+                # 输出参数文本
+                output_params_text = "\n".join(output_params)
+                # 在最后一行加上总和
+                if output_params:
+                    output_params_text += f"\n总和: {output_params_sum:.2f}"
+                else:
+                    output_params_text = "无勾选参数"
+                output_params_item = QTableWidgetItem(output_params_text)
+                output_params_item.setTextAlignment(Qt.AlignLeft | Qt.AlignTop)
+                output_params_item.setToolTip(output_params_text)
+                table.setItem(row, 1, output_params_item)
+            else:
+                output_params_text = "无勾选参数"
+            
+            output_params_item = QTableWidgetItem(output_params_text)
+            output_params_item.setTextAlignment(Qt.AlignLeft | Qt.AlignTop)
+            output_params_item.setToolTip(output_params_text)
+            table.setItem(row, 1, output_params_item)
+            
+            # 第3列：选股公式
+            formula = analysis.get('formula', '')
+            formula_item = QTableWidgetItem(formula)
+            formula_item.setTextAlignment(Qt.AlignLeft | Qt.AlignTop)
+            formula_item.setToolTip(formula)
+            table.setItem(row, 2, formula_item)
+            
+            # 第4列：选股参数（按指定顺序分行输出）
+            params_text = []
+            params_text.append(f"选股数量: {analysis.get('select_count', 10)}")
+            params_text.append(f"排序方式: {analysis.get('sort_mode', '')}")
+            params_text.append(f"开始日期值选择: {analysis.get('start_option', '')}")
+            params_text.append(f"交易方式: {analysis.get('trade_mode', '')}")
+            params_text.append(f"操作值: {analysis.get('expr', '')}")
+            params_text.append(f"日期宽度: {analysis.get('width', '')}")
+            params_text.append(f"操作天数: {analysis.get('op_days', '')}")
+            params_text.append(f"止盈递增率: {analysis.get('increment_rate', '')}")
+            params_text.append(f"止盈后值大于结束值比例: {analysis.get('after_gt_end_ratio', '')}")
+            params_text.append(f"止盈后值大于前值比例: {analysis.get('after_gt_start_ratio', '')}")
+            params_text.append(f"止损递增率: {analysis.get('stop_loss_inc_rate', '')}")
+            params_text.append(f"止损后值大于结束值比例: {analysis.get('stop_loss_after_gt_end_ratio', '')}")
+            params_text.append(f"止损后值大于前值比例: {analysis.get('stop_loss_after_gt_start_ratio', '')}")
+            
+            params_item = QTableWidgetItem("\n".join(params_text))
+            params_item.setTextAlignment(Qt.AlignLeft | Qt.AlignTop)
+            params_item.setToolTip("\n".join(params_text))
+            table.setItem(row, 3, params_item)
+            
+            # 添加查看分析结果按钮（第5列，列名为空）
+            view_btn = QPushButton("查看详情")
+            view_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #4CAF50;
+                    color: white;
+                    border: none;
+                    padding: 5px 10px;
+                    border-radius: 3px;
+                    font-size: 12px;
+                }
+                QPushButton:hover {
+                    background-color: #45a049;
+                }
+                QPushButton:pressed {
+                    background-color: #3d8b40;
+                }
+            """)
+            view_btn.clicked.connect(lambda checked, data=analysis, idx=row: show_analysis_detail(data, idx))
+            table.setCellWidget(row, 4, view_btn)
+            
+            # 添加恢复参数按钮（第6列）
+            restore_btn = QPushButton("恢复参数")
+            restore_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #2196F3;
+                    color: white;
+                    border: none;
+                    padding: 5px 10px;
+                    border-radius: 3px;
+                    font-size: 12px;
+                }
+                QPushButton:hover {
+                    background-color: #1976D2;
+                }
+                QPushButton:pressed {
+                    background-color: #0D47A1;
+                }
+                         """)
+            restore_btn.clicked.connect(lambda checked, data=analysis: self.restore_formula_params(data))
+            table.setCellWidget(row, 5, restore_btn)
+            
+        table.resizeColumnsToContents()
+        # 设置列宽
+        table.setColumnWidth(0, 150)  # 输出值列宽度
+        table.setColumnWidth(1, 200)  # 输出参数列宽度
+        table.setColumnWidth(2, 300)  # 选股公式列宽度
+        table.setColumnWidth(3, 250)  # 选股参数列宽度
+        table.setColumnWidth(4, 100)  # 查看详情按钮列宽度
+        table.setColumnWidth(5, 100)  # 恢复参数按钮列宽度
+        # 自动调整行高以适配多行公式
+        for row in range(table.rowCount()):
+            table.resizeRowToContents(row)
+        self.result_layout.addWidget(table)
+        print(f"组合分析完成！输出前三名排序结果。")
+        # 新增：保存最优top1到主窗口缓存
+        if top_three:
+            self.main_window.last_component_analysis_top1 = top_three[0]
+
+    def restore_formula_params(self, analysis_data):
             """恢复选股参数到选股控件"""
             try:
                 # 获取当前组合的公式和参数
@@ -2221,141 +2343,6 @@ class ComponentAnalysisWidget(QWidget):
                 print(f"恢复失败详细错误: {e}")
                 import traceback
                 traceback.print_exc()
-        
-        for row, item in enumerate(top_three):
-            analysis = item['analysis']
-            table.setItem(row, 0, QTableWidgetItem(f"{item['adjusted_value']:.2f}"))
-            # 输出参数：显示勾选的get_abbr_round_only_map控件名称
-            selected_vars_with_values = analysis.get('selected_vars_with_values', [])
-            if selected_vars_with_values:
-                from function.stock_functions import get_abbr_round_only_map
-                abbr_map = get_abbr_round_only_map()
-                # 获取n_values用于替换第N位
-                n_values = analysis.get('n_values', {})
-                print(f"n_values: {n_values}")
-                # 直接使用selected_vars_with_values中的变量名和值
-                output_params = []
-                output_params_sum = 0
-                for var_name, value in selected_vars_with_values:
-                    for (zh, en) in abbr_map.keys():
-                        if en == var_name:
-                            # 处理第N位变量
-                            if "第N位" in zh:
-                                n_value = n_values.get(var_name, "N")
-                                zh_display = zh.replace("第N位", f"第{n_value}位")
-                            else:
-                                zh_display = zh
-                            
-                            # 直接使用预计算的值
-                            output_params_sum += value
-                            # 显示参数名称和数值
-                            output_params.append(f"{zh_display}: {value:.2f}")
-                            break
-                # 输出参数文本
-                output_params_text = "\n".join(output_params)
-                # 在最后一行加上总和
-                if output_params:
-                    output_params_text += f"\n总和: {output_params_sum:.2f}"
-                else:
-                    output_params_text = "无勾选参数"
-                output_params_item = QTableWidgetItem(output_params_text)
-                output_params_item.setTextAlignment(Qt.AlignLeft | Qt.AlignTop)
-                output_params_item.setToolTip(output_params_text)
-                table.setItem(row, 1, output_params_item)
-            else:
-                output_params_text = "无勾选参数"
-            
-            output_params_item = QTableWidgetItem(output_params_text)
-            output_params_item.setTextAlignment(Qt.AlignLeft | Qt.AlignTop)
-            output_params_item.setToolTip(output_params_text)
-            table.setItem(row, 1, output_params_item)
-            
-            # 第3列：选股公式
-            formula = analysis.get('formula', '')
-            formula_item = QTableWidgetItem(formula)
-            formula_item.setTextAlignment(Qt.AlignLeft | Qt.AlignTop)
-            formula_item.setToolTip(formula)
-            table.setItem(row, 2, formula_item)
-            
-            # 第4列：选股参数（按指定顺序分行输出）
-            params_text = []
-            params_text.append(f"选股数量: {analysis.get('select_count', 10)}")
-            params_text.append(f"排序方式: {analysis.get('sort_mode', '')}")
-            params_text.append(f"开始日期值选择: {analysis.get('start_option', '')}")
-            params_text.append(f"交易方式: {analysis.get('trade_mode', '')}")
-            params_text.append(f"操作值: {analysis.get('expr', '')}")
-            params_text.append(f"日期宽度: {analysis.get('width', '')}")
-            params_text.append(f"操作天数: {analysis.get('op_days', '')}")
-            params_text.append(f"止盈递增率: {analysis.get('increment_rate', '')}")
-            params_text.append(f"止盈后值大于结束值比例: {analysis.get('after_gt_end_ratio', '')}")
-            params_text.append(f"止盈后值大于前值比例: {analysis.get('after_gt_start_ratio', '')}")
-            params_text.append(f"止损递增率: {analysis.get('stop_loss_inc_rate', '')}")
-            params_text.append(f"止损后值大于结束值比例: {analysis.get('stop_loss_after_gt_end_ratio', '')}")
-            params_text.append(f"止损后值大于前值比例: {analysis.get('stop_loss_after_gt_start_ratio', '')}")
-            
-            params_item = QTableWidgetItem("\n".join(params_text))
-            params_item.setTextAlignment(Qt.AlignLeft | Qt.AlignTop)
-            params_item.setToolTip("\n".join(params_text))
-            table.setItem(row, 3, params_item)
-            
-            # 添加查看分析结果按钮（第5列，列名为空）
-            view_btn = QPushButton("查看详情")
-            view_btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #4CAF50;
-                    color: white;
-                    border: none;
-                    padding: 5px 10px;
-                    border-radius: 3px;
-                    font-size: 12px;
-                }
-                QPushButton:hover {
-                    background-color: #45a049;
-                }
-                QPushButton:pressed {
-                    background-color: #3d8b40;
-                }
-            """)
-            view_btn.clicked.connect(lambda checked, data=analysis, idx=row: show_analysis_detail(data, idx))
-            table.setCellWidget(row, 4, view_btn)
-            
-            # 添加恢复参数按钮（第6列）
-            restore_btn = QPushButton("恢复参数")
-            restore_btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #2196F3;
-                    color: white;
-                    border: none;
-                    padding: 5px 10px;
-                    border-radius: 3px;
-                    font-size: 12px;
-                }
-                QPushButton:hover {
-                    background-color: #1976D2;
-                }
-                QPushButton:pressed {
-                    background-color: #0D47A1;
-                }
-            """)
-            restore_btn.clicked.connect(lambda checked, data=analysis: restore_formula_params(data))
-            table.setCellWidget(row, 5, restore_btn)
-            
-        table.resizeColumnsToContents()
-        # 设置列宽
-        table.setColumnWidth(0, 150)  # 输出值列宽度
-        table.setColumnWidth(1, 200)  # 输出参数列宽度
-        table.setColumnWidth(2, 300)  # 选股公式列宽度
-        table.setColumnWidth(3, 250)  # 选股参数列宽度
-        table.setColumnWidth(4, 100)  # 查看详情按钮列宽度
-        table.setColumnWidth(5, 100)  # 恢复参数按钮列宽度
-        # 自动调整行高以适配多行公式
-        for row in range(table.rowCount()):
-            table.resizeRowToContents(row)
-        self.result_layout.addWidget(table)
-        print(f"组合分析完成！输出前三名排序结果。")
-        # 新增：保存最优top1到主窗口缓存
-        if top_three:
-            self.main_window.last_component_analysis_top1 = top_three[0]
 
     def create_component_result_table(self, analysis):
         """为单个组合分析结果创建类似主界面的表格"""
@@ -2590,7 +2577,9 @@ class ComponentAnalysisWidget(QWidget):
                 top1 = json.load(f)
             all_analysis_results = [top1]
             self.show_analysis_results(all_analysis_results)
-            QMessageBox.information(self, "导入成功", "已成功导入最优方案！")
+            # 自动恢复参数
+            analysis = top1.get('analysis', {})
+            self.restore_formula_params(analysis)
         except Exception as e:
             QMessageBox.critical(self, "导入失败", f"导入最优方案失败：{e}")
 
@@ -3131,6 +3120,57 @@ class ComponentAnalysisWidget(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "错误", f"生成操盘方案失败：{e}")
             
+    def _generate_default_plan_name(self, analysis, params, result):
+        """生成默认的操盘方案名称"""
+        from datetime import datetime
+        
+        # 1. 开始值选择方式
+        start_option = analysis.get('start_option', '')
+        
+        # 2. 交易方式
+        trade_mode = analysis.get('trade_mode', '')
+        
+        # 3. 创新低新高的一种（只会勾选其中一个）
+        new_high_low_type = ""
+        if params.get('new_before_high_flag', False):
+            new_high_low_type = "创前新高1"
+        elif params.get('new_before_high2_flag', False):
+            new_high_low_type = "创前新高2"
+        elif params.get('new_after_high_flag', False):
+            new_high_low_type = "创后新高1"
+        elif params.get('new_after_high2_flag', False):
+            new_high_low_type = "创后新高2"
+        elif params.get('new_before_low_flag', False):
+            new_high_low_type = "创前新低1"
+        elif params.get('new_before_low2_flag', False):
+            new_high_low_type = "创前新低2"
+        elif params.get('new_after_low_flag', False):
+            new_high_low_type = "创后新低1"
+        elif params.get('new_after_low2_flag', False):
+            new_high_low_type = "创后新低2"
+        
+        # 4. 组合输出值
+        adjusted_value = result.get('adjusted_value', 0)
+        adjusted_value_str = f"{adjusted_value:.2f}" if adjusted_value else "0.00"
+        
+        # 5. 生成的日期（today 2025/7/7 这种格式）
+        today = datetime.now().strftime("%Y/%m/%d")
+        
+        # 组合名称
+        plan_name_parts = []
+        if start_option:
+            plan_name_parts.append(start_option)
+        if trade_mode:
+            plan_name_parts.append(trade_mode)
+        if new_high_low_type:
+            plan_name_parts.append(new_high_low_type)
+        if adjusted_value_str:
+            plan_name_parts.append(adjusted_value_str)
+        if today:
+            plan_name_parts.append(today)
+        
+        return "-".join(plan_name_parts) if plan_name_parts else "操盘方案"
+
     def _generate_trading_plan_list(self):
         """根据组合分析结果生成操盘方案列表"""
         trading_plan_list = []
@@ -3159,9 +3199,13 @@ class ComponentAnalysisWidget(QWidget):
 
             print(f"component_analysis_ui selected_vars_with_values: {params.get('selected_vars_with_values', [])}")
             
+            # 生成默认的操盘方案名称
+            plan_name = self._generate_default_plan_name(analysis, params, result)
+            
             # 创建操盘方案
             trading_plan = {
                 'plan_id': i + 1,
+                'plan_name': plan_name,
                 'formula': analysis.get('formula', ''),
                 'params': params,
                 'adjusted_value': result.get('adjusted_value', 0),
@@ -3174,11 +3218,8 @@ class ComponentAnalysisWidget(QWidget):
             
             trading_plan_list.append(trading_plan)
             
-        # 排序后设置plan_name，确保索引一致
+        # 排序后返回
         sorted_plan_list = sorted(trading_plan_list, key=lambda x: float(x.get('adjusted_value', 0)), reverse=True)
-        for plan in sorted_plan_list:
-            if 'plan_name' not in plan:
-                plan['plan_name'] = "操盘方案"
         
         return sorted_plan_list
         
@@ -3280,9 +3321,13 @@ class ComponentAnalysisWidget(QWidget):
                 'n_values': analysis.get('n_values', [])
             })
             
+            # 生成默认的操盘方案名称
+            plan_name = self._generate_default_plan_name(analysis, params, top_result)
+            
             # 创建操盘方案
             trading_plan = {
                 'plan_id': len(self.main_window.trading_plan_list) + 1,
+                'plan_name': plan_name,
                 'formula': analysis.get('formula', ''),
                 'params': params,
                 'adjusted_value': top_result.get('adjusted_value', 0),
@@ -3296,11 +3341,8 @@ class ComponentAnalysisWidget(QWidget):
             # 添加到操盘方案列表
             self.main_window.trading_plan_list.append(trading_plan)
             
-            # 重新排序并更新所有plan_name
+            # 重新排序
             sorted_plan_list = sorted(self.main_window.trading_plan_list, key=lambda x: float(x.get('adjusted_value', 0)), reverse=True)
-            for plan in sorted_plan_list:
-                if 'plan_name' not in plan:
-                    plan['plan_name'] = "操盘方案"
             
             self.main_window.trading_plan_list = sorted_plan_list
             

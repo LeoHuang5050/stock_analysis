@@ -1176,6 +1176,9 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
         reverse = sort_mode == "最大值排序"
         filtered.sort(key=lambda x: x['score'], reverse=reverse)
         selected_result = filtered[:select_count]
+        if not selected_result:
+            QMessageBox.information(parent, "提示", "没有选股结果。")
+            return
         parent.last_formula_select_result_data = {'dates': {first_date: selected_result}}
         table = show_formula_select_table_result(parent, parent.last_formula_select_result_data, getattr(parent, 'init', None) and getattr(parent.init, 'price_data', None), is_select_action=True)
         # 弹窗展示 - 使用主窗口级别的窗口管理
@@ -1954,9 +1957,6 @@ class FormulaSelectWidget(QWidget):
         # 收集需要组合的变量控件
         combination_vars = []
         for en, widgets in self.var_widgets.items():
-            # 特殊处理：组合公式排除 "前1组结束地址前N最高值"
-            if en == 'n_days_max_value':
-                continue
                 
             if 'lower' in widgets and 'upper' in widgets and 'step' in widgets and 'direction' in widgets:
                 # 对于同时有圆框和方框的变量，需要方框勾选才参与组合
