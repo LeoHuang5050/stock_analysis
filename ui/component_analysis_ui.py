@@ -713,7 +713,19 @@ class ComponentAnalysisWidget(QWidget):
         formula_obj = self.formula_list[formula_idx]
         formula = formula_obj['formula']
         sort_mode = formula_obj['sort_mode']
-        width, op_days, increment_rate, after_gt_end_ratio, after_gt_start_ratio, stop_loss_inc_rate, stop_loss_after_gt_end_ratio, stop_loss_after_gt_start_ratio = self.special_params_combinations[param_idx]
+        # 解包特殊参数组合，包含14个参数（8个基础参数 + 6个创新高/创新低参数）
+        _, op_days, increment_rate, after_gt_end_ratio, after_gt_start_ratio, stop_loss_inc_rate, stop_loss_after_gt_end_ratio, stop_loss_after_gt_start_ratio, new_high_low1_start, new_high_low1_range, new_high_low1_span, new_high_low2_start, new_high_low2_range, new_high_low2_span = self.special_params_combinations[param_idx]
+        
+        # 根据第二组创新高/创新低flag的勾选情况决定width值
+        # 如果有勾选第二组，则使用new_high_low2_start作为width
+        if (self.main_window.new_before_high2_flag_checkbox.isChecked() or 
+            self.main_window.new_after_high2_flag_checkbox.isChecked() or 
+            self.main_window.new_before_low2_flag_checkbox.isChecked() or 
+            self.main_window.new_after_low2_flag_checkbox.isChecked()):
+            width = new_high_low2_start
+        else:
+            # 没有勾选第二组，使用主界面控件值
+            width = self.main_window.width_spin.value()
         # 打印当前执行的公式和参数
         print("正在执行分析，请不要切换界面导致分析中断...")
         print(f"\n{'='*80}")
@@ -730,6 +742,16 @@ class ComponentAnalysisWidget(QWidget):
         print(f"  止损递增值: {stop_loss_inc_rate}")
         print(f"  止损后值大于结束值比例: {stop_loss_after_gt_end_ratio}")
         print(f"  止损后值大于开始值比例: {stop_loss_after_gt_start_ratio}")
+        
+        # 获取创新高/创新低类型
+        new_high_low1_type, new_high_low2_type = self._get_new_high_low_types()
+        
+        print(f"  {new_high_low1_type}开始日期距结束日期天数: {new_high_low1_start}")
+        print(f"  {new_high_low1_type}日期范围: {new_high_low1_range}")
+        print(f"  {new_high_low1_type}展宽期天数: {new_high_low1_span}")
+        print(f"  {new_high_low2_type}开始日期距结束日期天数: {new_high_low2_start}")
+        print(f"  {new_high_low2_type}日期范围: {new_high_low2_range}")
+        print(f"  {new_high_low2_type}展宽期天数: {new_high_low2_span}")
         print(f"{'='*80}")
         # 显示当前进度
         progress_msg = f"正在执行分析，请不要切换界面导致分析中断...\n"
@@ -738,7 +760,8 @@ class ComponentAnalysisWidget(QWidget):
         progress_msg += f"{formula}\n"
         progress_msg += f"排序方式: {sort_mode}\n"
         progress_msg += f"参数组合 {param_idx + 1}/{len(self.special_params_combinations)}\n"
-        progress_msg += f"日期宽度={width}, 操作天数={op_days}, 递增值={increment_rate}, 后值大于结束值比例={after_gt_end_ratio}, 后值大于开始值比例={after_gt_start_ratio}, 止损递增值={stop_loss_inc_rate}, 止损后值大于结束值比例={stop_loss_after_gt_end_ratio}, 止损后值大于开始值比例={stop_loss_after_gt_start_ratio}"
+        
+        progress_msg += f"日期宽度={width}, 操作天数={op_days}, 递增值={increment_rate}, 后值大于结束值比例={after_gt_end_ratio}, 后值大于开始值比例={after_gt_start_ratio}, 止损递增值={stop_loss_inc_rate}, 止损后值大于结束值比例={stop_loss_after_gt_end_ratio}, 止损后值大于开始值比例={stop_loss_after_gt_start_ratio}, {new_high_low1_type}开始日期距结束日期天数={new_high_low1_start}, {new_high_low1_type}日期范围={new_high_low1_range}, {new_high_low1_type}展宽期天数={new_high_low1_span}, {new_high_low2_type}开始日期距结束日期天数={new_high_low2_start}, {new_high_low2_type}日期范围={new_high_low2_range}, {new_high_low2_type}展宽期天数={new_high_low2_span}"
         self.show_message(progress_msg)
         
         try:
@@ -746,7 +769,7 @@ class ComponentAnalysisWidget(QWidget):
             self.main_window.last_formula_expr = formula
             
             # 执行组合分析专用方法，直接传递参数
-            result = self._execute_component_analysis_single(formula, width, op_days, increment_rate, after_gt_end_ratio, after_gt_start_ratio, stop_loss_inc_rate, stop_loss_after_gt_end_ratio, stop_loss_after_gt_start_ratio, sort_mode)
+            result = self._execute_component_analysis_single(formula, width, op_days, increment_rate, after_gt_end_ratio, after_gt_start_ratio, stop_loss_inc_rate, stop_loss_after_gt_end_ratio, stop_loss_after_gt_start_ratio, sort_mode, new_high_low1_start, new_high_low1_range, new_high_low1_span, new_high_low2_start, new_high_low2_range, new_high_low2_span)
             
             # 再次检查是否被终止
             if self.analysis_terminated:
@@ -777,6 +800,12 @@ class ComponentAnalysisWidget(QWidget):
                     'stop_loss_inc_rate': stop_loss_inc_rate,
                     'stop_loss_after_gt_end_ratio': stop_loss_after_gt_end_ratio,
                     'stop_loss_after_gt_start_ratio': stop_loss_after_gt_start_ratio,
+                    'new_high_low1_start': new_high_low1_start,
+                    'new_high_low1_range': new_high_low1_range,
+                    'new_high_low1_span': new_high_low1_span,
+                    'new_high_low2_start': new_high_low2_start,
+                    'new_high_low2_range': new_high_low2_range,
+                    'new_high_low2_span': new_high_low2_span,
                     'select_count': select_count,  # 添加选股数量
                     'result': result,
                     'valid_items': valid_items,
@@ -860,7 +889,7 @@ class ComponentAnalysisWidget(QWidget):
         # 使用QTimer延迟执行下一次分析，确保当前分析完全完成
         QTimer.singleShot(3000, self.execute_next_analysis)  # 3秒后执行下一次分析
     
-    def _execute_component_analysis_single(self, formula, width, op_days, increment_rate, after_gt_end_ratio, after_gt_start_ratio, stop_loss_inc_rate, stop_loss_after_gt_end_ratio, stop_loss_after_gt_start_ratio, sort_mode):
+    def _execute_component_analysis_single(self, formula, width, op_days, increment_rate, after_gt_end_ratio, after_gt_start_ratio, stop_loss_inc_rate, stop_loss_after_gt_end_ratio, stop_loss_after_gt_start_ratio, sort_mode, new_high_low1_start=0, new_high_low1_range=0, new_high_low1_span=0, new_high_low2_start=0, new_high_low2_range=0, new_high_low2_span=0):
         """
         执行单次组合分析
         专门为组合分析创建的方法，避免依赖自动分析子界面的控件
@@ -1018,6 +1047,78 @@ class ComponentAnalysisWidget(QWidget):
         
         # 获取选股数量和排序方式
         select_count = getattr(self.main_window, 'last_select_count', 10)
+        
+        # 准备创新高/创新低参数，保持传递结构一致
+        new_high_low_params = {}
+        
+        # 第1组参数：根据勾选情况决定使用组合分析参数还是主界面控件值
+        if self.main_window.new_before_high_flag_checkbox.isChecked():
+            # 创前新高1被勾选，使用组合分析参数
+            new_high_low_params.update({
+                'new_before_high_start': new_high_low1_start,
+                'new_before_high_range': new_high_low1_range,
+                'new_before_high_span': new_high_low1_span
+            })
+        
+        if self.main_window.new_after_high_flag_checkbox.isChecked():
+            # 创后新高1被勾选，使用组合分析参数
+            new_high_low_params.update({
+                'new_after_high_start': new_high_low1_start,
+                'new_after_high_range': new_high_low1_range,
+                'new_after_high_span': new_high_low1_span
+            })
+        
+        if self.main_window.new_before_low_flag_checkbox.isChecked():
+            # 创前新低1被勾选，使用组合分析参数
+            new_high_low_params.update({
+                'new_before_low_start': new_high_low1_start,
+                'new_before_low_range': new_high_low1_range,
+                'new_before_low_span': new_high_low1_span
+            })
+        
+        if self.main_window.new_after_low_flag_checkbox.isChecked():
+            # 创后新低1被勾选，使用组合分析参数
+            new_high_low_params.update({
+                'new_after_low_start': new_high_low1_start,
+                'new_after_low_range': new_high_low1_range,
+                'new_after_low_span': new_high_low1_span
+            })
+        
+        # 第2组参数：根据勾选情况决定使用组合分析参数还是主界面控件值
+        if self.main_window.new_before_high2_flag_checkbox.isChecked():
+            # 创前新高2被勾选，使用组合分析参数
+            new_high_low_params.update({
+                'new_before_high2_start': new_high_low2_start,
+                'new_before_high2_range': new_high_low2_range,
+                'new_before_high2_span': new_high_low2_span
+            })
+        
+        if self.main_window.new_after_high2_flag_checkbox.isChecked():
+            # 创后新高2被勾选，使用组合分析参数
+            new_high_low_params.update({
+                'new_after_high2_start': new_high_low2_start,
+                'new_after_high2_range': new_high_low2_range,
+                'new_after_high2_span': new_high_low2_span
+            })
+        
+        if self.main_window.new_before_low2_flag_checkbox.isChecked():
+            # 创前新低2被勾选，使用组合分析参数
+            new_high_low_params.update({
+                'new_before_low2_start': new_high_low2_start,
+                'new_before_low2_range': new_high_low2_range,
+                'new_before_low2_span': new_high_low2_span
+            })
+        
+        if self.main_window.new_after_low2_flag_checkbox.isChecked():
+            # 创后新低2被勾选，使用组合分析参数
+            new_high_low_params.update({
+                'new_after_low2_start': new_high_low2_start,
+                'new_after_low2_range': new_high_low2_range,
+                'new_after_low2_span': new_high_low2_span
+            })
+
+        print(f"new_high_low_params = {new_high_low_params}")
+        
         # 调用主窗口的计算方法，直接传递参数
         # 获取比较变量列表
         comparison_vars = []
@@ -1044,7 +1145,8 @@ class ComponentAnalysisWidget(QWidget):
             stop_loss_inc_rate=stop_loss_inc_rate,
             stop_loss_after_gt_end_ratio=stop_loss_after_gt_end_ratio,
             stop_loss_after_gt_start_ratio=stop_loss_after_gt_start_ratio,
-            comparison_vars=comparison_vars
+            comparison_vars=comparison_vars,
+            new_high_low_params=new_high_low_params  # 直接传递
         )
         
         if result:
@@ -3497,6 +3599,35 @@ class ComponentAnalysisWidget(QWidget):
         """清空上次最优值"""
         self.main_window.last_adjusted_value = 0
         self._update_last_best_value_display()
+    
+    def _get_new_high_low_types(self):
+        """
+        根据勾选情况获取创新高/创新低类型
+        返回: (new_high_low1_type, new_high_low2_type)
+        """
+        new_high_low1_type = "未勾选创前后新高低1"
+        new_high_low2_type = "未勾选创前后新高低2"
+        
+        # 检查哪个flag被勾选了
+        if self.main_window.new_before_high_flag_checkbox.isChecked():
+            new_high_low1_type = "创前新高1"
+        elif self.main_window.new_after_high_flag_checkbox.isChecked():
+            new_high_low1_type = "创后新高1"
+        elif self.main_window.new_before_low_flag_checkbox.isChecked():
+            new_high_low1_type = "创前新低1"
+        elif self.main_window.new_after_low_flag_checkbox.isChecked():
+            new_high_low1_type = "创后新低1"
+            
+        if self.main_window.new_before_high2_flag_checkbox.isChecked():
+            new_high_low2_type = "创前新高2"
+        elif self.main_window.new_after_high2_flag_checkbox.isChecked():
+            new_high_low2_type = "创后新高2"
+        elif self.main_window.new_before_low2_flag_checkbox.isChecked():
+            new_high_low2_type = "创前新低2"
+        elif self.main_window.new_after_low2_flag_checkbox.isChecked():
+            new_high_low2_type = "创后新低2"
+        
+        return new_high_low1_type, new_high_low2_type
 
 
 class AnalysisDetailWindow(QMainWindow):

@@ -1231,7 +1231,8 @@ class StockAnalysisApp(QWidget):
                                 show_main_output=True, only_show_selected=None, is_auto_analysis=False, 
                                 end_date_start=None, end_date_end=None, comparison_vars=None, width=None, op_days=None, 
                                 inc_rate=None, after_gt_end_ratio=None, after_gt_start_ratio=None,
-                                stop_loss_inc_rate=None, stop_loss_after_gt_end_ratio=None, stop_loss_after_gt_start_ratio=None):
+                                stop_loss_inc_rate=None, stop_loss_after_gt_end_ratio=None, stop_loss_after_gt_start_ratio=None,
+                                new_high_low_params=None):
         # 直接在此处校验创新高/创新低日期范围
         workdays = getattr(self.init, 'workdays_str', None)
         end_date = self.date_picker.date().toString("yyyy-MM-dd")
@@ -1378,6 +1379,43 @@ class StockAnalysisApp(QWidget):
         # 选股计算公式
         params['formula_expr'] = current_formula
         # 新增：创新高/创新低相关SpinBox参数
+        # 如果有传递的new_high_low_params，使用传递的参数更新勾选的控件值
+        if new_high_low_params and is_auto_analysis:
+            # 更新勾选的创新高/创新低控件值
+            if 'new_before_high_start' in new_high_low_params:
+                self.new_before_high_start_spin.setValue(new_high_low_params['new_before_high_start'])
+                self.new_before_high_range_spin.setValue(new_high_low_params['new_before_high_range'])
+                self.new_before_high_span_spin.setValue(new_high_low_params['new_before_high_span'])
+            if 'new_before_high2_start' in new_high_low_params:
+                self.new_before_high2_start_spin.setValue(new_high_low_params['new_before_high2_start'])
+                self.new_before_high2_range_spin.setValue(new_high_low_params['new_before_high2_range'])
+                self.new_before_high2_span_spin.setValue(new_high_low_params['new_before_high2_span'])
+            if 'new_after_high_start' in new_high_low_params:
+                self.new_after_high_start_spin.setValue(new_high_low_params['new_after_high_start'])
+                self.new_after_high_range_spin.setValue(new_high_low_params['new_after_high_range'])
+                self.new_after_high_span_spin.setValue(new_high_low_params['new_after_high_span'])
+            if 'new_after_high2_start' in new_high_low_params:
+                self.new_after_high2_start_spin.setValue(new_high_low_params['new_after_high2_start'])
+                self.new_after_high2_range_spin.setValue(new_high_low_params['new_after_high2_range'])
+                self.new_after_high2_span_spin.setValue(new_high_low_params['new_after_high2_span'])
+            if 'new_before_low_start' in new_high_low_params:
+                self.new_before_low_start_spin.setValue(new_high_low_params['new_before_low_start'])
+                self.new_before_low_range_spin.setValue(new_high_low_params['new_before_low_range'])
+                self.new_before_low_span_spin.setValue(new_high_low_params['new_before_low_span'])
+            if 'new_before_low2_start' in new_high_low_params:
+                self.new_before_low2_start_spin.setValue(new_high_low_params['new_before_low2_start'])
+                self.new_before_low2_range_spin.setValue(new_high_low_params['new_before_low2_range'])
+                self.new_before_low2_span_spin.setValue(new_high_low_params['new_before_low2_span'])
+            if 'new_after_low_start' in new_high_low_params:
+                self.new_after_low_start_spin.setValue(new_high_low_params['new_after_low_start'])
+                self.new_after_low_range_spin.setValue(new_high_low_params['new_after_low_range'])
+                self.new_after_low_span_spin.setValue(new_high_low_params['new_after_low_span'])
+            if 'new_after_low2_start' in new_high_low_params:
+                self.new_after_low2_start_spin.setValue(new_high_low_params['new_after_low2_start'])
+                self.new_after_low2_range_spin.setValue(new_high_low_params['new_after_low2_range'])
+                self.new_after_low2_span_spin.setValue(new_high_low_params['new_after_low2_span'])
+        
+        # 收集创新高/创新低参数（使用更新后的控件值）
         params['new_before_high_start'] = self.new_before_high_start_spin.value()
         params['new_before_high_range'] = self.new_before_high_range_spin.value()
         params['new_before_high_span'] = self.new_before_high_span_spin.value()
