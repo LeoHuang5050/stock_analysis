@@ -23,7 +23,7 @@ cdef inline double round_to_2_nan(double x) nogil:
         return NAN
     return result
 
-cdef void calc_continuous_sum(
+cdef bint calc_continuous_sum(
     double[:] diff_slice,
     vector[double]& cont_sum
 ) nogil:
@@ -32,6 +32,8 @@ cdef void calc_continuous_sum(
     cdef double last_sign = 0
     cdef double v, sign
     cdef int i
+    cdef int consecutive_zeros = 0
+    cdef bint has_three_consecutive_zeros = 0
     
     cont_sum.clear()
     
@@ -40,8 +42,12 @@ cdef void calc_continuous_sum(
         if isnan(v):
             continue
         if v == 0:
+            consecutive_zeros += 1
+            if consecutive_zeros >= 3:
+                has_three_consecutive_zeros = 1
             sign = last_sign  # 0继承前一个数的符号
         else:
+            consecutive_zeros = 0
             sign = 1.0 if v > 0 else -1.0
         if i == 0 or sign == last_sign or last_sign == 0:
             cur_sum += v
@@ -52,6 +58,8 @@ cdef void calc_continuous_sum(
     
     if n > 0:
         cont_sum.push_back(round_to_2(cur_sum))
+    
+    return has_three_consecutive_zeros
 
 cdef void calc_valid_sum_and_pos_neg(
     vector[double]& arr,
@@ -368,9 +376,9 @@ def calculate_batch_cy(
     # 单线程处理每个股票
     for i in range(stock_idx_arr_view.shape[0]):
         stock_idx = stock_idx_arr_view[i]
-        if stock_idx == 0:
-            printf(b"Calculating stock_idx=%d\n", stock_idx)
-            printf(b"only_show_selected=%d\n", only_show_selected)
+        #if stock_idx == 0:
+            #printf(b"Calculating stock_idx=%d\n", stock_idx)
+            #printf(b"only_show_selected=%d\n", only_show_selected)
         for idx in range(end_date_start_idx, end_date_end_idx-1, -1):
             try:
                 with nogil:
@@ -433,7 +441,6 @@ def calculate_batch_cy(
                         # 如果没有创前新高1，跳过后续计算
                         if not start_with_new_before_high:
                             continue
-
                     # --- 创前新高2起始条件判断 ---
                     if start_with_new_before_high2_flag:
                         new_before_high2_start_idx = idx + new_before_high2_start
@@ -766,7 +773,7 @@ def calculate_batch_cy(
                             continue
 
                     # --- 创后新低2起始条件判断 ---
-                    if start_with_new_after_low2:
+                    if start_with_new_after_low2_flag:
                         new_after_low2_start_idx = idx + new_after_low2_start + new_after_low2_range
                         found_new_after_low2 = 0
                         if new_after_low2_logic == "与":
@@ -870,12 +877,13 @@ def calculate_batch_cy(
                     
                     # 计算连续累加值
                     if actual_idx >= 0 and actual_idx >= end_date_idx:
-                        calc_continuous_sum(diff_data_view[stock_idx, end_date_idx:actual_idx+1][::-1], cont_sum)
+                        has_three_consecutive_zeros = calc_continuous_sum(diff_data_view[stock_idx, end_date_idx:actual_idx+1][::-1], cont_sum)
+                        if has_three_consecutive_zeros:
+                            cont_sum.clear()
                     else:
                         cont_sum.clear()
                     # 计算连续累加值正加和与负加和
                     calc_pos_neg_sum(cont_sum, &cont_sum_pos_sum, &cont_sum_neg_sum)
-
                     cont_sum_pos_sum = round_to_2_nan(cont_sum_pos_sum)
                     cont_sum_neg_sum = round_to_2_nan(cont_sum_neg_sum)
 
@@ -907,7 +915,7 @@ def calculate_batch_cy(
                         forward_min_date_idx = end_date_idx + forward_min_idx_in_window if forward_min_idx_in_window >= 0 else -1
 
                         # 2. 计算向前最大连续累加值
-                        if forward_max_idx_in_window >= 0:
+                        if forward_max_idx_in_window >= 0 and not has_three_consecutive_zeros:
                             calc_continuous_sum(
                                 diff_data_view[stock_idx, end_date_idx:forward_max_date_idx][::-1],
                                 forward_max_result_c
@@ -916,7 +924,7 @@ def calculate_batch_cy(
                             forward_max_result_c.clear()
 
                         # 3. 计算向前最小连续累加值
-                        if forward_min_idx_in_window >= 0:
+                        if forward_min_idx_in_window >= 0 and not has_three_consecutive_zeros:
                             calc_continuous_sum(
                                 diff_data_view[stock_idx, end_date_idx:forward_min_date_idx][::-1],
                                 forward_min_result_c
@@ -1145,9 +1153,6 @@ def calculate_batch_cy(
                                 gs_end_state = 0
                                 gs_take_profit = NAN
                                 gs_stop_loss = NAN
-                    if stock_idx == 5415:
-                        printf("stock_idx=%d, increment_value=%.2f, increment_days=%d, after_gt_end_value=%.2f, after_gt_end_days=%d, after_gt_start_value=%.2f, after_gt_start_days=%d, increment_change=%.2f, after_gt_end_change=%.2f, after_gt_start_change=%.2f\n", 
-                               stock_idx, increment_value, increment_days, after_gt_end_value, after_gt_end_days, after_gt_start_value, after_gt_start_days, increment_change, after_gt_end_change, after_gt_start_change)
                     
                     # 处理NAN值
                     if isnan(increment_value):
@@ -1575,7 +1580,7 @@ def calculate_batch_cy(
                 start_with_new_before_low2_py = bool(start_with_new_before_low2)
                 start_with_new_after_low_py = bool(start_with_new_after_low)
                 start_with_new_after_low2_py = bool(start_with_new_after_low2)
-
+                has_three_consecutive_zeros_py = bool(has_three_consecutive_zeros)
                 # 计算range_ratio_is_less
                 range_ratio_is_less = False
                 if (min_price is not None and min_price != 0 and not isnan(min_price) and 
@@ -1647,8 +1652,8 @@ def calculate_batch_cy(
                 forward_max_valid_sum_arr = [forward_max_valid_sum_vec[j] for j in range(forward_max_valid_sum_vec.size())]
                 forward_min_valid_sum_arr = [forward_min_valid_sum_vec[j] for j in range(forward_min_valid_sum_vec.size())]
                 py_valid_sum_arr = [valid_sum_vec[j] for j in range(valid_sum_vec.size())]
-                if stock_idx == 0:
-                    print("running 5")
+                #if stock_idx == 0:
+                    #print("running 5")
                 # 递增值等都算好后，计算 ops_value
                 inc_value = increment_value
                 age_value = after_gt_end_value
@@ -1900,6 +1905,7 @@ def calculate_batch_cy(
                         'start_with_new_before_low2': start_with_new_before_low2_py,
                         'start_with_new_after_low': start_with_new_after_low_py,
                         'start_with_new_after_low2': start_with_new_after_low2_py,
+                        'has_three_consecutive_zeros': has_three_consecutive_zeros_py
                     }
 
                     # 在执行公式前检查每对比较变量
@@ -1914,21 +1920,26 @@ def calculate_batch_cy(
                                 should_exec_formula = False
                                 score = 0
                                 break
-                    
+
                     try:
                         # 根据flag决定是否执行选股公式
                         if should_exec_formula:
                             exec(formula_expr, {}, formula_vars)
                             score = formula_vars.get('result', None)
+                            if stock_idx == 0:
+                                print(f"公式内容: {formula_expr}")
+                                print(f"公式变量: {formula_vars}")
+                                print(f"score结果: {score}")
                             if score is not None and score != 0:
                                 score = round_to_2(score)
-                                
                     except Exception as e:
                         import traceback
                         print(f"[calculate_batch_cy] 执行公式异常: {e}")
                         print(f"公式内容: {formula_expr}")
                         print(traceback.format_exc())
                         score = None
+                
+                #print(f"score的值为: {score}")
                 
                 #print(f"stock_idx={stock_idx}, cont_sum_pos_sum={cont_sum_pos_sum}, valid_pos_sum={valid_pos_sum}, forward_min_cont_sum_pos_sum={forward_min_cont_sum_pos_sum}")
                 if only_show_selected:
@@ -2070,7 +2081,8 @@ def calculate_batch_cy(
                                 'end_state': end_state,
                                 'stop_loss': stop_loss,
                                 'take_profit': take_profit,
-                                'op_day_change': op_day_change
+                                'op_day_change': op_day_change,
+                                'has_three_consecutive_zeros': has_three_consecutive_zeros_py
                             }
                             current_stocks = all_results.get(date_columns[end_date_idx], [])
                             current_stocks.append(row_result)
@@ -2219,7 +2231,8 @@ def calculate_batch_cy(
                             'end_state': end_state,
                             'stop_loss': stop_loss,
                             'take_profit': take_profit,
-                            'op_day_change': op_day_change
+                            'op_day_change': op_day_change,
+                            'has_three_consecutive_zeros': has_three_consecutive_zeros_py
                         }
                     all_results[date_columns[end_date_idx]].append(row_result)
             except Exception as e:

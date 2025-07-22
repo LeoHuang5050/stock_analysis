@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTextEdit, QLineEdit, QSpinBox, QComboBox, QPushButton, QTableWidget, QTableWidgetItem, QSizePolicy, QDialog, QTabWidget, QMessageBox, QGridLayout, QDateEdit, QInputDialog, QAbstractItemView, QGroupBox, QCheckBox, QHeaderView, QScrollArea, QToolButton, QApplication, QMainWindow
 from PyQt5.QtCore import QDate, QObject, QEvent, Qt
-from PyQt5.QtGui import QDoubleValidator, QIntValidator
+from PyQt5.QtGui import QDoubleValidator, QIntValidator, QColor
 import time
 
 import math
@@ -193,8 +193,21 @@ def show_continuous_sum_table(parent, all_results, price_data, as_widget=False):
                 name = row.get('name', '')
                 # 实际开始日期值
                 actual_value_val = row.get('actual_value', '')
-                table1.setItem(row_idx, 0, QTableWidgetItem(str(code)))
-                table1.setItem(row_idx, 1, QTableWidgetItem(str(name)))
+                
+                # 检查是否有连续三个0
+                has_three_consecutive_zeros = row.get('has_three_consecutive_zeros', False)
+                
+                # 设置股票代码
+                code_item = QTableWidgetItem(str(code))
+                if has_three_consecutive_zeros:
+                    code_item.setForeground(QColor('red'))
+                table1.setItem(row_idx, 0, code_item)
+                
+                # 设置股票名称
+                name_item = QTableWidgetItem(str(name))
+                if has_three_consecutive_zeros:
+                    name_item.setForeground(QColor('red'))
+                table1.setItem(row_idx, 1, name_item)
                 table1.setItem(row_idx, 2, QTableWidgetItem(str(safe_val(actual_value_val))))
                 table1.setItem(row_idx, 3, QTableWidgetItem(str(safe_val(row.get('actual_value_date', '')))))
                 results = row.get('continuous_results', [])
@@ -628,6 +641,9 @@ def show_params_table(parent, all_results, end_date=None, n_days=0, n_days_max=0
             val = val[1]
         if val is None or val == '' or (isinstance(val, float) and (math.isnan(val) or str(val).lower() == 'nan')):
             return ''
+        # 如果是数值类型，保留两位小数
+        if isinstance(val, (int, float)):
+            return f"{val:.2f}"
         return val
 
     def get_percent(val):
@@ -1437,6 +1453,8 @@ def get_abbr_round_only_map():
         ("含空停盈停损涨跌幅均值", "mean_with_nan"),
         ("非空止盈止损涨跌幅均值", "mean_adjust_non_nan"),
         ("含空止盈止损涨跌幅均值", "mean_adjust_with_nan"),
+        ("综合止盈止损日均涨幅", "comprehensive_daily_change"),
+        ("综合停盈停损日均涨幅", "comprehensive_stop_daily_change"),
 
         ("从下往上的第1个停盈停损涨跌幅含空均值", "bottom_first_with_nan"),
         ("从下往上的第2个停盈停损涨跌幅含空均值", "bottom_second_with_nan"),
@@ -1480,7 +1498,7 @@ def get_abbr_round_only_map():
 def get_special_abbr_map():
     """获取特殊变量映射"""
     abbrs = [
-        #("日期宽度", "width"),
+        ("日期宽度", "width"),
         ("操作天数", "op_days"),
         ("止盈递增率", "increment_rate"),
         ("止盈后值大于结束值比例", "after_gt_end_ratio"),
@@ -2330,12 +2348,12 @@ class FormulaSelectWidget(QWidget):
                                 continue
                             
                             if var_combo['is_comparison']:
-                                # 比较控件：生成 v1 >= lower * v2 and v1 <= upper * v2 的条件
+                                # 比较控件：生成 v1 / v2 >= lower and v1 / v2 <= upper 的条件
                                 var1 = var_combo['var1']
                                 var2 = var_combo['var2']
                                 comp_conditions = []
-                                comp_conditions.append(f"{var1} >= {lower_val} * {var2}")
-                                comp_conditions.append(f"{var1} <= {upper_val} * {var2}")
+                                comp_conditions.append(f"{var1} / {var2} >= {lower_val}")
+                                comp_conditions.append(f"{var1} / {var2} <= {upper_val}")
                                 current_conditions.append(' and '.join(comp_conditions))
                                 print(f"    添加比较条件: {' and '.join(comp_conditions)}")
                             else:
@@ -2653,12 +2671,12 @@ class FormulaSelectWidget(QWidget):
                             continue
                         
                         if var_combo['is_comparison']:
-                            # 比较控件：生成 v1 >= lower * v2 and v1 <= upper * v2 的条件
+                            # 比较控件：生成 v1 / v2 >= lower and v1 / v2 <= upper 的条件
                             var1 = var_combo['var1']
                             var2 = var_combo['var2']
                             comp_conditions = []
-                            comp_conditions.append(f"{var1} >= {lower_val} * {var2}")
-                            comp_conditions.append(f"{var1} <= {upper_val} * {var2}")
+                            comp_conditions.append(f"{var1} / {var2} >= {lower_val}")
+                            comp_conditions.append(f"{var1} / {var2} <= {upper_val}")
                             current_conditions.append(' and '.join(comp_conditions))
                             print(f"    添加比较条件: {' and '.join(comp_conditions)}")
                         else:
@@ -3111,9 +3129,9 @@ class FormulaSelectWidget(QWidget):
                 var2_en = next((en for zh, en in self.abbr_map.items() if zh == var2), None)
                 comp_conds = []
                 if lower and var1_en and var2_en:
-                    comp_conds.append(f"{var1_en} >= {lower} * {var2_en}")
+                    comp_conds.append(f"{var1_en} / {var2_en} >= {lower}")
                 if upper and var1_en and var2_en:
-                    comp_conds.append(f"{var1_en} <= {upper} * {var2_en}")
+                    comp_conds.append(f"{var1_en} / {var2_en} <= {upper}")
                 if comp_conds:
                     conditions.append(' and '.join(comp_conds))
         # 3. 连接条件，全部用and拼接
@@ -4181,10 +4199,18 @@ def calculate_analysis_result(valid_items):
         adjust_with_nan_mean_list.append(adjust_with_nan_mean)
 
     # 计算总体统计
+    # 预先计算重复使用的safe_mean值，避免重复调用
+    mean_ops_change_val = safe_mean(ops_change_list)
+    mean_adjust_ops_change_val = safe_mean(adjust_ops_change_list)
+    adjust_days_val = safe_mean(adjust_days_list)
+    hold_days_val = safe_mean(hold_days_list)
+    
     summary = {
-        'mean_hold_days': safe_mean(hold_days_list),
-        'mean_ops_change': safe_mean(ops_change_list),
-        'mean_adjust_ops_change': safe_mean(adjust_ops_change_list),
+        'mean_hold_days': hold_days_val,
+        'mean_ops_change': mean_ops_change_val,
+        'comprehensive_stop_daily_change': round(mean_ops_change_val / adjust_days_val, 2) if mean_ops_change_val != '' and adjust_days_val != '' and adjust_days_val != 0 else '',
+        'mean_adjust_ops_change': mean_adjust_ops_change_val,
+        'comprehensive_daily_change': round(mean_adjust_ops_change_val / hold_days_val, 2) if mean_adjust_ops_change_val != '' and hold_days_val != '' and hold_days_val != 0 else '',
         'mean_daily_change': safe_mean(daily_change_list),
         'mean_adjust_daily_change': safe_mean(adjust_daily_change_list),
         'mean_non_nan': safe_mean(non_nan_mean_list),
@@ -4200,7 +4226,7 @@ def calculate_analysis_result(valid_items):
         'max_adjust_ops_incre_rate': max(adjust_ops_incre_rate_list) if adjust_ops_incre_rate_list else '',
         'min_adjust_ops_incre_rate': min(adjust_ops_incre_rate_list) if adjust_ops_incre_rate_list else '',
         # 新增：调整天数和止盈止损涨幅统计
-        'mean_adjust_days': safe_mean(adjust_days_list),
+        'mean_adjust_days': adjust_days_val,
         # 添加从下往上的前1~4个的非空均值和含空均值
         'bottom_first_with_nan': items[-1]['with_nan_mean'] if len(items) > 0 else None,
         'bottom_second_with_nan': items[-2]['with_nan_mean'] if len(items) > 1 else None,
