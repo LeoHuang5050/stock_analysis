@@ -427,12 +427,12 @@ class TradingPlanWidget(QWidget):
         params_text.append(f"操作值: {params.get('expr', '')}")
         params_text.append(f"日期宽度: {params.get('width', '')}")
         params_text.append(f"操作天数: {params.get('op_days', '')}")
-        params_text.append(f"止盈递增率: {params.get('inc_rate', '')}")
-        params_text.append(f"止盈后值大于结束值比例: {params.get('after_gt_end_edit', '')}")
-        params_text.append(f"止盈后值大于前值比例: {params.get('after_gt_prev_edit', '')}")
+        params_text.append(f"止盈递增率: {params.get('increment_rate', '')}")
+        params_text.append(f"止盈后值大于结束值比例: {params.get('after_gt_end_ratio', '')}")
+        params_text.append(f"止盈后值大于前值比例: {params.get('after_gt_start_ratio', '')}")
         params_text.append(f"止损递增率: {params.get('stop_loss_inc_rate', '')}")
-        params_text.append(f"止损后值大于结束值比例: {params.get('stop_loss_after_gt_end_edit', '')}")
-        params_text.append(f"止损后值大于前值比例: {params.get('stop_loss_after_gt_start_edit', '')}")
+        params_text.append(f"止损后值大于结束值比例: {params.get('stop_loss_after_gt_end_ratio', '')}")
+        params_text.append(f"止损后值大于前值比例: {params.get('stop_loss_after_gt_start_ratio', '')}")
         
         if params_text:
             label_params = QLabel("选股参数：\n" + "\n".join(params_text))
@@ -856,24 +856,24 @@ class TradingPlanWidget(QWidget):
                 except:
                     pass
             
-            if 'inc_rate' in params and hasattr(self.main_window, 'inc_rate_edit'):
+            if 'increment_rate' in params and hasattr(self.main_window, 'inc_rate_edit'):
                 try:
-                    self.main_window.inc_rate_edit.setText(str(params['inc_rate']))
-                    print(f"恢复止盈递增率: {params['inc_rate']}")
+                    self.main_window.inc_rate_edit.setText(str(params['increment_rate']))
+                    print(f"恢复止盈递增率: {params['increment_rate']}")
                 except:
                     pass
             
-            if 'after_gt_end_edit' in params and hasattr(self.main_window, 'after_gt_end_edit'):
+            if 'after_gt_end_ratio' in params and hasattr(self.main_window, 'after_gt_end_edit'):
                 try:
-                    self.main_window.after_gt_end_edit.setText(str(params['after_gt_end_edit']))
-                    print(f"恢复止盈后值大于结束值比例: {params['after_gt_end_edit']}")
+                    self.main_window.after_gt_end_edit.setText(str(params['after_gt_end_ratio']))
+                    print(f"恢复止盈后值大于结束值比例: {params['after_gt_end_ratio']}")
                 except:
                     pass
             
-            if 'after_gt_prev_edit' in params and hasattr(self.main_window, 'after_gt_prev_edit'):
+            if 'after_gt_start_ratio' in params and hasattr(self.main_window, 'after_gt_prev_edit'):
                 try:
-                    self.main_window.after_gt_prev_edit.setText(str(params['after_gt_prev_edit']))
-                    print(f"恢复止盈后值大于前值比例: {params['after_gt_prev_edit']}")
+                    self.main_window.after_gt_prev_edit.setText(str(params['after_gt_start_ratio']))
+                    print(f"恢复止盈后值大于前值比例: {params['after_gt_start_ratio']}")
                 except:
                     pass
             
@@ -885,17 +885,17 @@ class TradingPlanWidget(QWidget):
                 except:
                     pass
             
-            if 'stop_loss_after_gt_end_edit' in params and hasattr(self.main_window, 'stop_loss_after_gt_end_edit'):
+            if 'stop_loss_after_gt_end_ratio' in params and hasattr(self.main_window, 'stop_loss_after_gt_end_edit'):
                 try:
-                    self.main_window.stop_loss_after_gt_end_edit.setText(str(params['stop_loss_after_gt_end_edit']))
-                    print(f"恢复止损后值大于结束值比例: {params['stop_loss_after_gt_end_edit']}")
+                    self.main_window.stop_loss_after_gt_end_edit.setText(str(params['stop_loss_after_gt_end_ratio']))
+                    print(f"恢复止损后值大于结束值比例: {params['stop_loss_after_gt_end_ratio']}")
                 except:
                     pass
             
-            if 'stop_loss_after_gt_start_edit' in params and hasattr(self.main_window, 'stop_loss_after_gt_start_edit'):
+            if 'stop_loss_after_gt_start_ratio' in params and hasattr(self.main_window, 'stop_loss_after_gt_start_edit'):
                 try:
-                    self.main_window.stop_loss_after_gt_start_edit.setText(str(params['stop_loss_after_gt_start_edit']))
-                    print(f"恢复止损后值大于前值比例: {params['stop_loss_after_gt_start_edit']}")
+                    self.main_window.stop_loss_after_gt_start_edit.setText(str(params['stop_loss_after_gt_start_ratio']))
+                    print(f"恢复止损后值大于前值比例: {params['stop_loss_after_gt_start_ratio']}")
                 except:
                     pass
             
@@ -1043,6 +1043,419 @@ class TradingPlanWidget(QWidget):
                     print(f"恢复公式表达式: {formula}")
                 except:
                     pass
+            
+            # 设置组合输出锁定勾选框为勾选状态
+            try:
+                self.main_window.last_lock_output = True
+                print("设置组合输出锁定状态为: True")
+                
+                # 直接设置组合输出锁定勾选框控件状态
+                if hasattr(self.main_window, 'formula_widget') and self.main_window.formula_widget is not None:
+                    if hasattr(self.main_window.formula_widget, 'lock_output_checkbox'):
+                        self.main_window.formula_widget.lock_output_checkbox.setChecked(True)
+                        print("设置组合输出锁定勾选框为: True")
+            except:
+                pass
+            
+            # 恢复选股控件值上下限和勾选状态（参考组合分析的restore_formula_params方法）
+            try:
+                # 创建临时的公式选股控件来恢复选股参数
+                from function.stock_functions import get_abbr_map, get_abbr_logic_map, get_abbr_round_map, FormulaSelectWidget
+                import re
+                
+                abbr_map = get_abbr_map()
+                logic_map = get_abbr_logic_map()
+                round_map = get_abbr_round_map()
+                
+                temp_formula_widget = FormulaSelectWidget(abbr_map, logic_map, round_map, self.main_window)
+                
+                # 获取get_abbr_round_only_map中的变量名列表，用于排除重置
+                from function.stock_functions import get_abbr_round_only_map
+                round_only_vars = set()
+                for (zh, en), en_val in get_abbr_round_only_map().items():
+                    round_only_vars.add(en_val)
+                
+                # 重置所有控件状态（但不包括get_abbr_round_only_map的勾选状态）
+                for var_name, widgets in temp_formula_widget.var_widgets.items():
+                    print(f"重置变量控件: {var_name}")
+                    
+                    # 取消勾选所有复选框（但不包括round_checkbox，即get_abbr_round_only_map）
+                    if 'checkbox' in widgets:
+                        widgets['checkbox'].setChecked(False)
+                    
+                    # 对于get_abbr_round_only_map中的变量，不清空round_checkbox，保持勾选状态
+                    if var_name in round_only_vars:
+                        print(f"  跳过重置get_abbr_round_only_map变量: {var_name}")
+                        continue
+                    
+                    # 清空round_checkbox（非get_abbr_round_only_map变量）
+                    if 'round_checkbox' in widgets:
+                        widgets['round_checkbox'].setChecked(False)
+                        print(f"  重置round_checkbox: {var_name}")
+                    
+                    # 清空含逻辑选项
+                    if 'logic_check' in widgets:
+                        widgets['logic_check'].setChecked(False)
+                        print(f"  重置含逻辑选项: {var_name}")
+                    
+                    # 清空输入框
+                    if 'lower' in widgets:
+                        widgets['lower'].setText('')
+                    if 'upper' in widgets:
+                        widgets['upper'].setText('')
+                    if 'lower_input' in widgets:
+                        widgets['lower_input'].setText('')
+                    if 'upper_input' in widgets:
+                        widgets['upper_input'].setText('')
+                    
+                    # 清空其他输入框
+                    if 'step' in widgets:
+                        widgets['step'].setText('')
+                    if 'n_input' in widgets:
+                        widgets['n_input'].setText('')
+                    
+                    print(f"  已重置控件: {var_name}")
+                
+                # 重置比较控件状态
+                print("重置比较控件状态")
+                for comp in temp_formula_widget.comparison_widgets:
+                    print(f"重置比较控件")
+                    # 取消勾选复选框
+                    if 'checkbox' in comp:
+                        comp['checkbox'].setChecked(False)
+                    # 清空输入框
+                    if 'lower' in comp:
+                        comp['lower'].setText('')
+                    if 'upper' in comp:
+                        comp['upper'].setText('')
+                    if 'step' in comp:
+                        comp['step'].setText('')
+                    # 重置下拉框到默认值
+                    if 'var1' in comp and comp['var1'].count() > 0:
+                        comp['var1'].setCurrentIndex(0)
+                    if 'var2' in comp and comp['var2'].count() > 0:
+                        comp['var2'].setCurrentIndex(0)
+                    if 'direction' in comp and comp['direction'].count() > 0:
+                        comp['direction'].setCurrentIndex(0)
+                    # 取消勾选逻辑复选框
+                    if 'logic_check' in comp:
+                        comp['logic_check'].setChecked(False)
+                        print(f"  重置比较控件含逻辑选项")
+                    print(f"  已重置比较控件")
+                
+                # 重置forward_param_state中的向前参数控件状态
+                if hasattr(self.main_window, 'forward_param_state') and self.main_window.forward_param_state:
+                    for var_name, var_state in self.main_window.forward_param_state.items():
+                        if isinstance(var_state, dict):
+                            # 重置enable复选框状态
+                            var_state['enable'] = False
+                            # 重置round圆框状态
+                            var_state['round'] = False
+                            # 重置含逻辑选项
+                            if 'logic' in var_state:
+                                var_state['logic'] = False
+                            # 清空上下限值和步长
+                            var_state['lower'] = ''
+                            var_state['upper'] = ''
+                            if 'step' in var_state:
+                                var_state['step'] = ''
+                            print(f"重置向前参数: {var_name}")
+                        elif isinstance(var_state, bool):
+                            # 如果只是布尔值，重置为False
+                            self.main_window.forward_param_state[var_name] = False
+                            print(f"重置向前参数布尔值: {var_name} = False")
+                
+                # 解析公式并设置控件状态
+                if formula:
+                    print(f"开始解析公式: {formula}")
+                    
+                    # 先找出所有比较控件的变量，避免被当作普通上下限处理
+                    comparison_vars = set()
+                    for m in re.finditer(r'([a-zA-Z0-9_]+)\s*/\s*([a-zA-Z0-9_]+)\s*>=\s*([\-\d\.]+)', formula):
+                        var1, var2, lower = m.group(1), m.group(2), m.group(3)
+                        comparison_vars.add(var1)
+                        comparison_vars.add(var2)
+                        print(f"找到比较控件: {var1} / {var2} >= {lower}")
+                    
+                    for m in re.finditer(r'([a-zA-Z0-9_]+)\s*/\s*([a-zA-Z0-9_]+)\s*<=\s*([\-\d\.]+)', formula):
+                        var1, var2, upper = m.group(1), m.group(2), m.group(3)
+                        comparison_vars.add(var1)
+                        comparison_vars.add(var2)
+                        print(f"找到比较控件: {var1} / {var2} <= {upper}")
+                    
+                    # 记录已处理的变量，避免重复处理
+                    processed_vars = set()
+                    
+                    # 获取forward_param_state中的控件列表
+                    forward_widgets = {}
+                    if hasattr(self.main_window, 'forward_param_state') and self.main_window.forward_param_state:
+                        forward_widgets = self.main_window.forward_param_state
+                        print(f"forward_param_state中的控件: {list(forward_widgets.keys())}")
+                    
+                    # 1. 匹配 xxx >= a（排除比较控件的变量）
+                    for m in re.finditer(r'([a-zA-Z0-9_]+)\s*>=\s*([\-\d\.]+)', formula):
+                        var, lower = m.group(1), m.group(2)
+                        # 检查是否是比较控件的变量
+                        if var not in comparison_vars:
+                            print(f"找到下限条件: {var} >= {lower}")
+                            # 先检查是否在普通控件列表中
+                            if var in temp_formula_widget.var_widgets:
+                                widgets = temp_formula_widget.var_widgets[var]
+                                # 直接设置控件状态，但需要检查键是否存在
+                                if 'checkbox' in widgets:
+                                    widgets['checkbox'].setChecked(True)
+                                    print(f"勾选变量控件: {var}")
+                                if 'lower' in widgets:
+                                    widgets['lower'].setText(str(lower))
+                                    print(f"设置下限值: {var} = {lower}")
+                                processed_vars.add(var)  # 标记为已处理
+                            # 再检查是否在forward_param_state中
+                            elif var in forward_widgets:
+                                print(f"找到forward_param_state中的下限条件: {var} >= {lower}")
+                                var_state = forward_widgets[var]
+                                if isinstance(var_state, dict):
+                                    # 对于条件变量，enable直接设为true
+                                    print(f"设置forward_param_state下限复选框为true: {var}")
+                                    # 实际设置需要在主窗口的forward_param_state中更新
+                                    if hasattr(self.main_window, 'forward_param_state') and var in self.main_window.forward_param_state:
+                                        if isinstance(self.main_window.forward_param_state[var], dict):
+                                            self.main_window.forward_param_state[var]['enable'] = True
+                                            self.main_window.forward_param_state[var]['lower'] = lower
+                                            print(f"已更新forward_param_state下限: {var} enable=True, lower={lower}")
+                                processed_vars.add(var)  # 标记为已处理
+                            else:
+                                print(f"变量 {var} 不在控件列表中")
+                        else:
+                            print(f"跳过比较控件变量的下限条件: {var} >= {lower}")
+                    
+                    # 2. 匹配 xxx <= b（排除比较控件的变量）
+                    for m in re.finditer(r'([a-zA-Z0-9_]+)\s*<=\s*([\-\d\.]+)', formula):
+                        var, upper = m.group(1), m.group(2)
+                        # 检查是否是比较控件的变量
+                        if var not in comparison_vars:
+                            print(f"找到上限条件: {var} <= {upper}")
+                            # 先检查是否在普通控件列表中
+                            if var in temp_formula_widget.var_widgets:
+                                widgets = temp_formula_widget.var_widgets[var]
+                                # 直接设置控件状态，但需要检查键是否存在
+                                if 'checkbox' in widgets:
+                                    widgets['checkbox'].setChecked(True)
+                                    print(f"勾选变量控件: {var}")
+                                if 'upper' in widgets:
+                                    widgets['upper'].setText(str(upper))
+                                    print(f"设置上限值: {var} = {upper}")
+                                processed_vars.add(var)  # 标记为已处理
+                            # 再检查是否在forward_param_state中
+                            elif var in forward_widgets:
+                                print(f"找到forward_param_state中的上限条件: {var} <= {upper}")
+                                var_state = forward_widgets[var]
+                                if isinstance(var_state, dict):
+                                    # 对于条件变量，enable直接设为true
+                                    print(f"设置forward_param_state上限复选框为true: {var}")
+                                    # 实际设置需要在主窗口的forward_param_state中更新
+                                    if hasattr(self.main_window, 'forward_param_state') and var in self.main_window.forward_param_state:
+                                        if isinstance(self.main_window.forward_param_state[var], dict):
+                                            self.main_window.forward_param_state[var]['enable'] = True
+                                            self.main_window.forward_param_state[var]['upper'] = upper
+                                            print(f"已更新forward_param_state上限: {var} enable=True, upper={upper}")
+                                processed_vars.add(var)  # 标记为已处理
+                            else:
+                                print(f"变量 {var} 不在控件列表中")
+                        else:
+                            print(f"跳过比较控件变量的上限条件: {var} <= {upper}")
+                    
+                    # 3. 匹配逻辑变量（if ... and VAR ...）
+                    if_match = re.search(r'if\s*(.*?):', formula)
+                    if if_match:
+                        condition_text = if_match.group(1)
+                        print(f"if条件文本: {condition_text}")
+                        logic_vars = re.findall(r'\b([a-zA-Z_][a-zA-Z0-9_]*)\b', condition_text)
+                        print(f"从if条件中提取的变量: {logic_vars}")
+                        
+                        for var in logic_vars:
+                            print(f"处理if条件中的变量: {var}")
+                            
+                            # 先检查是否是比较控件变量
+                            if var in comparison_vars:
+                                print(f"跳过比较控件变量作为逻辑变量: {var}")
+                                continue
+                            
+                            # 再检查是否是关键字
+                            if var in {'if', 'else', 'result', 'and', 'or', 'not'}:
+                                print(f"跳过关键字: {var}")
+                                continue
+                            
+                            # 检查是否已经通过上下限处理过
+                            if var in processed_vars:
+                                print(f"跳过已处理的变量控件: {var}")
+                                continue
+                            
+                            # 最后检查是否是有效的控件变量
+                            if var in temp_formula_widget.var_widgets:
+                                print(f"找到逻辑变量: {var}")
+                                widgets = temp_formula_widget.var_widgets[var]
+                                # 直接设置控件状态，但需要检查键是否存在
+                                if 'checkbox' in widgets:
+                                    widgets['checkbox'].setChecked(True)
+                                    print(f"勾选逻辑变量控件: {var}")
+                            # 检查是否在forward_param_state中
+                            elif var in forward_widgets:
+                                print(f"找到forward_param_state中的逻辑变量: {var}")
+                                var_state = forward_widgets[var]
+                                if isinstance(var_state, dict):
+                                    # 对于条件变量，enable直接设为true
+                                    print(f"设置forward_param_state逻辑变量复选框为true: {var}")
+                                    # 实际设置需要在主窗口的forward_param_state中更新
+                                    if hasattr(self.main_window, 'forward_param_state') and var in self.main_window.forward_param_state:
+                                        if isinstance(self.main_window.forward_param_state[var], dict):
+                                            self.main_window.forward_param_state[var]['enable'] = True
+                                            print(f"已更新forward_param_state逻辑变量: {var} enable=True")
+                            else:
+                                print(f"跳过非控件变量: {var}")
+                    
+                    # 4. 匹配 result = xxx + yyy
+                    m = re.search(r'result\s*=\s*([a-zA-Z0-9_]+(?:\s*\+\s*[a-zA-Z0-9_]+)*)', formula)
+                    if m:
+                        result_text = m.group(1)
+                        print(f"result表达式: {result_text}")
+                        result_vars = re.findall(r'[a-zA-Z0-9_]+', result_text)
+                        print(f"从result中提取的变量: {result_vars}")
+                        
+                        for var in result_vars:
+                            print(f"处理result变量: {var}")
+                            # 先检查是否在普通控件列表中
+                            if var in temp_formula_widget.var_widgets:
+                                widgets = temp_formula_widget.var_widgets[var]
+                                # 直接设置圆框控件状态，但需要检查键是否存在
+                                if 'round_checkbox' in widgets:
+                                    widgets['round_checkbox'].setChecked(True)
+                                    print(f"勾选圆框控件: {var}")
+                            # 再检查是否在forward_param_state中
+                            elif var in forward_widgets:
+                                print(f"找到forward_param_state中的变量: {var}")
+                                var_state = forward_widgets[var]
+                                if isinstance(var_state, dict):
+                                    # 对于result变量，round直接设为true
+                                    print(f"设置forward_param_state圆框为true: {var}")
+                                    # 实际设置需要在主窗口的forward_param_state中更新
+                                    if hasattr(self.main_window, 'forward_param_state') and var in self.main_window.forward_param_state:
+                                        if isinstance(self.main_window.forward_param_state[var], dict):
+                                            self.main_window.forward_param_state[var]['round'] = True
+                                            print(f"已更新forward_param_state圆框: {var} = True")
+                            else:
+                                print(f"result变量 {var} 不在控件列表中")
+                    
+                    # 5. 处理比较控件
+                    from function.stock_functions import get_abbr_map
+                    abbr_map = get_abbr_map()  # {中文: 英文}
+                    en2zh = {en: zh for zh, en in abbr_map.items()}
+                    comparison_configs = []
+                    # >=
+                    for m in re.finditer(r'([a-zA-Z0-9_]+)\s*/\s*([a-zA-Z0-9_]+)\s*>=\s*([\-\d\.]+)', formula):
+                        var1, var2, lower = m.group(1), m.group(2), m.group(3)
+                        zh_var1 = en2zh.get(var1, var1)
+                        zh_var2 = en2zh.get(var2, var2)
+                        existing = next((c for c in comparison_configs if c['var1'] == zh_var1 and c['var2'] == zh_var2), None)
+                        if existing:
+                            existing['lower'] = lower
+                        else:
+                            comparison_configs.append({'var1': zh_var1, 'lower': lower, 'upper': '', 'var2': zh_var2})
+                    # <=
+                    for m in re.finditer(r'([a-zA-Z0-9_]+)\s*/\s*([a-zA-Z0-9_]+)\s*<=\s*([\-\d\.]+)', formula):
+                        var1, var2, upper = m.group(1), m.group(2), m.group(3)
+                        zh_var1 = en2zh.get(var1, var1)
+                        zh_var2 = en2zh.get(var2, var2)
+                        existing = next((c for c in comparison_configs if c['var1'] == zh_var1 and c['var2'] == zh_var2), None)
+                        if existing:
+                            existing['upper'] = upper
+                        else:
+                            comparison_configs.append({'var1': zh_var1, 'lower': '', 'upper': upper, 'var2': zh_var2})
+                    
+                    # 将比较控件配置应用到实际的比较控件上
+                    if comparison_configs:
+                        print(f"开始应用比较控件配置: {comparison_configs}")
+                        
+                        # 遍历所有比较控件配置
+                        for i, config in enumerate(comparison_configs):
+                            var1 = config['var1']
+                            var2 = config['var2']
+                            lower = config['lower']
+                            upper = config['upper']
+                            
+                            print(f"处理比较控件配置 {i+1}: {var1} vs {var2}, 下限: {lower}, 上限: {upper}")
+                            
+                            # 检查是否有足够的比较控件
+                            if i < len(temp_formula_widget.comparison_widgets):
+                                comp = temp_formula_widget.comparison_widgets[i]
+                                print(f"找到比较控件 {i+1}")
+                                
+                                # 勾选复选框
+                                if 'checkbox' in comp:
+                                    comp['checkbox'].setChecked(True)
+                                    print(f"  勾选比较控件复选框")
+                                
+                                # 设置下限
+                                if lower and 'lower' in comp:
+                                    comp['lower'].setText(str(lower))
+                                    print(f"  设置下限: {lower}")
+                                
+                                # 设置上限
+                                if upper and 'upper' in comp:
+                                    comp['upper'].setText(str(upper))
+                                    print(f"  设置上限: {upper}")
+                                
+                                # 设置var1下拉框
+                                if 'var1' in comp:
+                                    var1_combo = comp['var1']
+                                    var1_zh = None
+                                    for zh, en in abbr_map.items():
+                                        if en == var1:
+                                            var1_zh = zh
+                                            break
+                                    if var1_zh:
+                                        var1_combo.setCurrentText(var1_zh)
+                                        print(f"  设置var1: {var1_zh}")
+                                    else:
+                                        print(f"  未找到var1的中文名称: {var1}")
+                                
+                                # 设置var2下拉框
+                                if 'var2' in comp:
+                                    var2_combo = comp['var2']
+                                    var2_zh = None
+                                    for zh, en in abbr_map.items():
+                                        if en == var2:
+                                            var2_zh = zh
+                                            break
+                                    if var2_zh:
+                                        var2_combo.setCurrentText(var2_zh)
+                                        print(f"  设置var2: {var2_zh}")
+                                    else:
+                                        print(f"  未找到var2的中文名称: {var2}")
+                            else:
+                                print(f"比较控件 {i+1} 不存在，跳过")
+                        
+                        # 保存比较控件配置到状态中
+                        comparison_state = {
+                            'comparison_widgets': comparison_configs
+                        }
+                        print(f"保存比较控件配置到状态: {comparison_state}")
+                        
+                        # 获取当前状态并添加比较控件配置
+                        current_state = temp_formula_widget.get_state()
+                        if comparison_configs:
+                            current_state['comparison_widgets'] = comparison_configs
+                            print(f"添加比较控件配置到状态中")
+                        
+                        # 更新主窗口的last_formula_select_state
+                        self.main_window.last_formula_select_state = current_state
+                        print(f"已保存状态到主窗口: {len(current_state)} 个变量")
+                
+                print("选股控件状态恢复完成")
+                
+            except Exception as e:
+                print(f"恢复选股控件状态失败: {e}")
+                import traceback
+                traceback.print_exc()
             
             # 显示成功消息
             QMessageBox.information(self, "恢复成功", f"已成功恢复操盘方案参数！\n公式: {formula}\n排序方式: {params.get('last_sort_mode', '')}\n选股数量: {params.get('last_select_count', '')}\n开始日期值选择: {params.get('start_option', '')}\n前移天数: {params.get('shift', '')}\n是否计算向前: {params.get('direction', False)}\n交易方式: {params.get('trade_mode', '')}\n操作值: {params.get('expr', '')}\n开始日到结束日之间最高价/最低价小于: {params.get('range_value', '')}\n开始日到结束日之间连续累加值绝对值小于: {params.get('continuous_abs_threshold', '')}\n开始日到结束日之间有效累加值绝对值小于: {params.get('valid_abs_sum_threshold', '')}\n第1组后N最大值逻辑: {params.get('n_days', '')}\n前1组结束地址后N日的最大值: {params.get('n_days_max', '')}\n操作涨幅: {params.get('ops_change', '')}\n日期宽度: {params.get('width', '')}\n操作天数: {params.get('op_days', '')}\n止盈递增率: {params.get('inc_rate', '')}\n止盈后值大于结束值比例: {params.get('after_gt_end_edit', '')}\n止盈后值大于前值比例: {params.get('after_gt_prev_edit', '')}\n止损递增率: {params.get('stop_loss_inc_rate', '')}\n止损后值大于结束值比例: {params.get('stop_loss_after_gt_end_edit', '')}\n止损后值大于前值比例: {params.get('stop_loss_after_gt_start_edit', '')}")
