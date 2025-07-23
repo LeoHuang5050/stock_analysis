@@ -615,6 +615,13 @@ class TradingPlanWidget(QWidget):
     def on_select_btn_clicked(self):
         self.calculate_all_trading_plans()
         self.refresh_cards()
+        
+        # 统计参与实操的方案数量
+        plan_list = getattr(self.main_window, 'trading_plan_list', [])
+        real_trade_count = sum(1 for plan in plan_list if plan.get('real_trade', False))
+        if real_trade_count > 0:
+            QMessageBox.warning(self, "选股完成", "操盘方案选股已完成！")
+            
 
     def calculate_all_trading_plans(self):
         """
@@ -847,6 +854,17 @@ class TradingPlanWidget(QWidget):
                         print(f"恢复交易方式: {trade_mode}")
                 except:
                     pass
+            
+            # 恢复组合分析次数
+            if 'component_analysis_count' in params:
+                try:
+                    component_analysis_count = params['component_analysis_count']
+                    if component_analysis_count:
+                        count_val = int(float(component_analysis_count))
+                        self.main_window.last_component_analysis_count = count_val
+                        print(f"恢复组合分析次数: {count_val}")
+                except Exception as e:
+                    print(f"恢复组合分析次数失败: {e}")
             
             # 恢复操作相关参数
             if 'op_days' in params and hasattr(self.main_window, 'op_days_edit'):

@@ -310,7 +310,6 @@ class CalculateThread(QThread):
         start_with_new_before_low2_flag = params.get('start_with_new_before_low2_flag', False)
         start_with_new_after_low_flag = params.get('start_with_new_after_low_flag', False)
         start_with_new_after_low2_flag = params.get('start_with_new_after_low2_flag', False)
-        print(f"start_with_new_before_high_flag: {start_with_new_before_high_flag}, start_with_new_before_high2_flag: {start_with_new_before_high2_flag}, start_with_new_after_high_flag: {start_with_new_after_high_flag}, start_with_new_after_high2_flag: {start_with_new_after_high2_flag}, start_with_new_before_low_flag: {start_with_new_before_low_flag}, start_with_new_before_low2_flag: {start_with_new_before_low2_flag}, start_with_new_after_low_flag: {start_with_new_after_low_flag}, start_with_new_after_low2_flag: {start_with_new_after_low2_flag}")
         valid_abs_sum_threshold = self.safe_float(params.get('valid_abs_sum_threshold', None))
         new_before_high_logic = params.get('new_before_high_logic', '与')
         comparison_vars = params.get('comparison_vars', [])

@@ -441,6 +441,9 @@ def calculate_batch_cy(
                         # 如果没有创前新高1，跳过后续计算
                         if not start_with_new_before_high:
                             continue
+                    else:
+                        start_with_new_before_high = 0
+
                     # --- 创前新高2起始条件判断 ---
                     if start_with_new_before_high2_flag:
                         new_before_high2_start_idx = idx + new_before_high2_start
@@ -497,8 +500,9 @@ def calculate_batch_cy(
                         # 如果没有创前新高2，跳过后续计算
                         if not start_with_new_before_high2:
                             continue
+                    else:
+                        start_with_new_before_high2 = 0
 
-                    
                     # --- 创后新高起始条件判断 --- 
                     if start_with_new_after_high_flag:
                         new_after_high_start_idx = idx + new_after_high_start + new_after_high_range
@@ -561,6 +565,8 @@ def calculate_batch_cy(
                         # 如果没有创后新高1，跳过后续计算
                         if not start_with_new_after_high:
                             continue
+                    else:
+                        start_with_new_after_high = 0
 
                     # --- 创后新高2起始条件判断 ---
                     if start_with_new_after_high2_flag:
@@ -615,6 +621,8 @@ def calculate_batch_cy(
                         # 如果没有创后新高2，跳过后续计算
                         if not start_with_new_after_high2:
                             continue
+                    else:
+                        start_with_new_after_high2 = 0
 
                     #if stock_idx == 2:
                         #printf(b"stock_idx=%d, start_with_new_after_high=%d, found_new_after_high=%d, start_with_new_after_high2=%d, found_new_after_high2=%d\n", stock_idx, start_with_new_after_high, found_new_after_high, start_with_new_after_high2, found_new_after_high2)
@@ -669,6 +677,8 @@ def calculate_batch_cy(
                         # 如果没有创前新低1，跳过后续计算
                         if not start_with_new_before_low:
                             continue
+                    else:
+                        start_with_new_before_low = 0
 
                     # --- 创前新低2起始条件判断 ---
                     if start_with_new_before_low2_flag:
@@ -720,6 +730,8 @@ def calculate_batch_cy(
                         # 如果没有创前新低2，跳过后续计算
                         if not start_with_new_before_low2:
                             continue
+                    else:
+                        start_with_new_before_low2 = 0
 
                     # --- 创后新低1起始条件判断 ---
                     if start_with_new_after_low_flag:
@@ -771,6 +783,9 @@ def calculate_batch_cy(
                         # 如果没有创后新低1，跳过后续计算
                         if not start_with_new_after_low:
                             continue
+                    
+                    else:
+                        start_with_new_after_low = 0
 
                     # --- 创后新低2起始条件判断 ---
                     if start_with_new_after_low2_flag:
@@ -822,6 +837,9 @@ def calculate_batch_cy(
                         # 如果没有创后新低2，跳过后续计算
                         if not start_with_new_after_low2:
                             continue
+                    else:
+                        start_with_new_after_low2 = 0
+                        
                     # 原有的with nogil内容
                     end_date_idx = idx
                     start_date_idx = end_date_idx + width
@@ -1580,6 +1598,7 @@ def calculate_batch_cy(
                 start_with_new_before_low2_py = bool(start_with_new_before_low2)
                 start_with_new_after_low_py = bool(start_with_new_after_low)
                 start_with_new_after_low2_py = bool(start_with_new_after_low2)
+                
                 has_three_consecutive_zeros_py = bool(has_three_consecutive_zeros)
                 # 计算range_ratio_is_less
                 range_ratio_is_less = False
@@ -1926,10 +1945,6 @@ def calculate_batch_cy(
                         if should_exec_formula:
                             exec(formula_expr, {}, formula_vars)
                             score = formula_vars.get('result', None)
-                            if stock_idx == 0:
-                                print(f"公式内容: {formula_expr}")
-                                print(f"公式变量: {formula_vars}")
-                                print(f"score结果: {score}")
                             if score is not None and score != 0:
                                 score = round_to_2(score)
                     except Exception as e:
@@ -2094,8 +2109,8 @@ def calculate_batch_cy(
                             # 只保留指定数量的结果
                             all_results[date_columns[end_date_idx]] = current_stocks[:select_count]
                 else:
-                    if stock_idx == 0:
-                        print(f"only_show_selected = {only_show_selected}， cont_sum_pos_sum_first_half = {cont_sum_pos_sum_first_half}")
+                    #if stock_idx == 0:
+                        #print(f"only_show_selected = {only_show_selected}， cont_sum_pos_sum_first_half = {cont_sum_pos_sum_first_half}")
                     row_result = {
                             'stock_idx': stock_idx,
                             'max_value': max_price,
