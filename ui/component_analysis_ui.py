@@ -875,7 +875,10 @@ class ComponentAnalysisWidget(QWidget):
                     'new_before_low2_flag': self.main_window.new_before_low2_flag_checkbox.isChecked(),
                     'new_after_low_flag': self.main_window.new_after_low_flag_checkbox.isChecked(),
                     'new_after_low2_flag': self.main_window.new_after_low2_flag_checkbox.isChecked(),
-                    
+
+                    # 组合分析次数
+                    'component_analysis_count': self.analysis_count_spin.value(),
+
                     # 操作值表达式
                     'expr': getattr(self.main_window, 'last_expr', '')
                 }
@@ -2524,6 +2527,16 @@ class ComponentAnalysisWidget(QWidget):
                         print(f"设置new_after_low2_flag: {new_after_low2_flag}")
                     except:
                         pass
+
+                # 恢复组合分析次数
+                component_analysis_count = analysis_data.get('component_analysis_count', '')
+                if component_analysis_count:
+                    try:
+                        count_val = int(float(component_analysis_count))
+                        self.analysis_count_spin.setValue(count_val)
+                        print(f"恢复组合分析次数: {count_val}")
+                    except Exception as e:
+                        print(f"恢复组合分析次数失败: {e}")
                 
                 # 恢复操作值表达式
                 expr = analysis_data.get('expr', '')
@@ -3393,6 +3406,10 @@ class ComponentAnalysisWidget(QWidget):
         # 1. 开始值选择方式
         start_option = analysis.get('start_option', '')
         
+        # 1.1. 日期宽度
+        width = analysis.get('width', '')
+        width_str = f"{width}" if width else ""
+        
         # 2. 交易方式
         trade_mode = analysis.get('trade_mode', '')
         
@@ -3426,6 +3443,8 @@ class ComponentAnalysisWidget(QWidget):
         plan_name_parts = []
         if start_option:
             plan_name_parts.append(start_option)
+        if width_str:
+            plan_name_parts.append(width_str)
         if trade_mode:
             plan_name_parts.append(trade_mode)
         if new_high_low_type:
@@ -3474,6 +3493,10 @@ class ComponentAnalysisWidget(QWidget):
             })
 
             print(f"component_analysis_ui selected_vars_with_values: {params.get('selected_vars_with_values', [])}")
+            
+            # 确保component_analysis_count被正确添加到params中
+            if 'component_analysis_count' not in params:
+                params['component_analysis_count'] = analysis.get('component_analysis_count', '')
             
             # 生成默认的操盘方案名称
             plan_name = self._generate_default_plan_name(analysis, params, result)
@@ -3597,6 +3620,10 @@ class ComponentAnalysisWidget(QWidget):
                 'n_values': analysis.get('n_values', [])
             })
             
+            # 确保component_analysis_count被正确添加到params中
+            if 'component_analysis_count' not in params:
+                params['component_analysis_count'] = analysis.get('component_analysis_count', '')
+            
             # 生成默认的操盘方案名称
             plan_name = self._generate_default_plan_name(analysis, params, top_result)
             
@@ -3638,7 +3665,7 @@ class ComponentAnalysisWidget(QWidget):
             'after_gt_prev_edit', 'n_days', 'n_days_max', 'range_value', 'continuous_abs_threshold',
             'ops_change', 'expr', 'last_select_count', 'last_sort_mode', 'direction',
             'analysis_start_date', 'analysis_end_date', 'component_analysis_start_date',
-            'component_analysis_end_date', 'component_hold_rate_min', 'component_hold_rate_max', 'component_profit_rate_min', 'component_profit_rate_max', 'component_loss_rate_min', 'component_loss_rate_max', 'component_only_better_trading_plan_percent',
+            'component_analysis_end_date', 'component_analysis_count', 'component_hold_rate_min', 'component_hold_rate_max', 'component_profit_rate_min', 'component_profit_rate_max', 'component_loss_rate_min', 'component_loss_rate_max', 'component_only_better_trading_plan_percent',
             'cpu_cores',
             'trade_mode',
             'stop_loss_inc_rate', 'stop_loss_after_gt_end_edit', 'stop_loss_after_gt_start_edit',
@@ -3703,6 +3730,8 @@ class ComponentAnalysisWidget(QWidget):
                         v = float(self.only_better_trading_plan_edit.text())
                     except ValueError:
                         v = 0.0
+                elif k == 'component_analysis_count':
+                    v = self.analysis_count_spin.value()
                 # LineEdit - 优先处理，避免被当作直接控件名
                 elif hasattr(self.main_window, k + '_edit'):
                     edit_name = k + '_edit'

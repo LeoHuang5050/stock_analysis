@@ -653,10 +653,31 @@ def show_params_table(parent, all_results, end_date=None, n_days=0, n_days_max=0
         return f"{v}%"
 
     def get_bool(val):
+        # 直接处理布尔值，不经过get_val函数
+        if isinstance(val, bool):
+            return 'True' if val else 'False'
+        # 如果是数值类型（0/1），转换为布尔值
+        if isinstance(val, (int, float)):
+            return 'True' if val != 0 else 'False'
+        # 如果是字符串，尝试转换为布尔值
+        if isinstance(val, str):
+            v_lower = val.lower()
+            if v_lower in ['true', '1', 'yes', 'on']:
+                return 'True'
+            elif v_lower in ['false', '0', 'no', 'off', '']:
+                return 'False'
+        # 其他情况，使用get_val处理
         v = get_val(val)
         if v == '':
             return 'False'
-        return str(v)
+        # 如果get_val返回的是格式化后的数值字符串，转换回布尔值
+        if isinstance(v, str) and v.replace('.', '').replace('0', '').isdigit():
+            try:
+                num_val = float(v)
+                return 'True' if num_val != 0 else 'False'
+            except:
+                pass
+        return 'True' if v else 'False'
 
     def get_ops_value(val):
         # val 是 [值, 天数] 或 None
@@ -675,6 +696,15 @@ def show_params_table(parent, all_results, end_date=None, n_days=0, n_days_max=0
         table.setRowCount(len(stocks_data))
         for row_idx, row in enumerate(stocks_data):
             stock_idx = row.get('stock_idx', 0)
+            if stock_idx == 0:
+                print("stock_idx=0, start_with_new_before_high:", row.get('start_with_new_before_high', ''))
+                print("stock_idx=0, start_with_new_before_high2:", row.get('start_with_new_before_high2', ''))
+                print("stock_idx=0, start_with_new_after_high:", row.get('start_with_new_after_high', ''))
+                print("stock_idx=0, start_with_new_after_high2:", row.get('start_with_new_after_high2', ''))
+                print("stock_idx=0, start_with_new_before_low:", row.get('start_with_new_before_low', ''))
+                print("stock_idx=0, start_with_new_before_low2:", row.get('start_with_new_before_low2', ''))
+                print("stock_idx=0, start_with_new_after_low:", row.get('start_with_new_after_low', ''))
+                print("stock_idx=0, start_with_new_after_low2:", row.get('start_with_new_after_low2', ''))
             code = row.get('code', '')
             name = row.get('name', '')
             table.setItem(row_idx, 0, QTableWidgetItem(str(code)))
@@ -686,7 +716,7 @@ def show_params_table(parent, all_results, end_date=None, n_days=0, n_days_max=0
             table.setItem(row_idx, 6, QTableWidgetItem(str(get_val(row.get('actual_value', '')))))
             table.setItem(row_idx, 7, QTableWidgetItem(str(get_val(row.get('closest_value', '')))))
             table.setItem(row_idx, 8, QTableWidgetItem(str(get_val(row.get('n_days_max_value', '')))))
-            table.setItem(row_idx, 9, QTableWidgetItem(str(get_val(row.get('n_max_is_max', '')))))
+            table.setItem(row_idx, 9, QTableWidgetItem(get_bool(row.get('n_max_is_max', ''))))
             table.setItem(row_idx, 10, QTableWidgetItem(get_bool(row.get('range_ratio_is_less', ''))))
             table.setItem(row_idx, 11, QTableWidgetItem(get_bool(row.get('continuous_abs_is_less', ''))))
             table.setItem(row_idx, 12, QTableWidgetItem(get_bool(row.get('valid_abs_is_less', ''))))
