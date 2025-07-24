@@ -2559,11 +2559,38 @@ class ComponentAnalysisWidget(QWidget):
                             print("设置组合输出锁定勾选框为: True")
                 except:
                     pass
+
+                # 恢复get_abbr_round_only_map的圆框勾选状态
+                selected_vars_with_values = analysis_data.get('selected_vars_with_values', [])
+                if selected_vars_with_values:
+                    from function.stock_functions import get_abbr_round_only_map
+                    abbr_round_only_map = get_abbr_round_only_map()
+                    # 只处理英文名
+                    selected_en_vars = set(var_name for var_name, _ in selected_vars_with_values)
+                    for (zh, en), en_val in abbr_round_only_map.items():
+                        if en_val in temp_formula_widget.var_widgets:
+                            widgets = temp_formula_widget.var_widgets[en_val]
+                            if 'round_checkbox' in widgets:
+                                widgets['round_checkbox'].setChecked(en_val in selected_en_vars)
+                                print(f"恢复圆框变量 {en_val} 勾选状态: {en_val in selected_en_vars}")
+                
+                # 恢复n_values输入值（只恢复被勾选的变量）
+                n_values = analysis_data.get('n_values', {})
+                if n_values and selected_vars_with_values:
+                    print(f"恢复n_values: {n_values}")
+                    selected_var_names = set(var_name for var_name, _ in selected_vars_with_values)
+                    for var_name, n_value in n_values.items():
+                        # 只恢复在selected_vars_with_values中被勾选的变量
+                        if var_name in selected_var_names and var_name in temp_formula_widget.var_widgets:
+                            widgets = temp_formula_widget.var_widgets[var_name]
+                            if 'n_input' in widgets:
+                                widgets['n_input'].setText(str(n_value))
+                                print(f"恢复n_input变量 {var_name} 输入值: {n_value}")
                 
                 # 清理临时控件
                 temp_formula_widget.deleteLater()
-                
                 QMessageBox.information(self, "恢复成功", f"已成功恢复选股参数！\n公式: {formula}\n排序方式: {sort_mode}\n选股数量: {select_count}\n开始日期值选择: {analysis_data.get('start_option', '')}\n前移天数: {analysis_data.get('shift_days', '')}\n是否计算向前: {analysis_data.get('is_forward', False)}\n交易方式: {analysis_data.get('trade_mode', '')}\n操作值: {analysis_data.get('expr', '')}\n开始日到结束日之间最高价/最低价小于: {analysis_data.get('range_value', '')}\n开始日到结束日之间连续累加值绝对值小于: {analysis_data.get('continuous_abs_threshold', '')}\n开始日到结束日之间有效累加值绝对值小于: {analysis_data.get('valid_abs_sum_threshold', '')}\n第1组后N最大值逻辑: {analysis_data.get('n_days', '')}\n前1组结束地址后N日的最大值: {analysis_data.get('n_days_max', '')}\n操作涨幅: {analysis_data.get('ops_change', '')}\n日期宽度: {width}\n操作天数: {op_days}\n止盈递增率: {increment_rate}\n止盈后值大于结束值比例: {after_gt_end_ratio}\n止盈后值大于前值比例: {after_gt_start_ratio}\n止损递增率: {stop_loss_inc_rate}\n止损后值大于结束值比例: {stop_loss_after_gt_end_ratio}\n止损后值大于前值比例: {stop_loss_after_gt_start_ratio}")
+                
                 
             except Exception as e:
                 QMessageBox.critical(self, "恢复失败", f"恢复选股参数失败：{e}")

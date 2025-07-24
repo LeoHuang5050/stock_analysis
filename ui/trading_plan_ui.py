@@ -1468,6 +1468,34 @@ class TradingPlanWidget(QWidget):
                         self.main_window.last_formula_select_state = current_state
                         print(f"已保存状态到主窗口: {len(current_state)} 个变量")
                 
+                # 恢复get_abbr_round_only_map的圆框勾选状态
+                selected_vars_with_values = plan.get('params', {}).get('selected_vars_with_values', [])
+                print(f"selected_vars_with_values: {selected_vars_with_values}")
+                if selected_vars_with_values:
+                    from function.stock_functions import get_abbr_round_only_map
+                    abbr_round_only_map = get_abbr_round_only_map()
+                    # 只处理英文名
+                    selected_en_vars = set(var_name for var_name, _ in selected_vars_with_values)
+                    for (zh, en), en_val in abbr_round_only_map.items():
+                        if en_val in temp_formula_widget.var_widgets:
+                            widgets = temp_formula_widget.var_widgets[en_val]
+                            if 'round_checkbox' in widgets:
+                                widgets['round_checkbox'].setChecked(en_val in selected_en_vars)
+                                print(f"恢复圆框变量 {en_val} 勾选状态: {en_val in selected_en_vars}")
+                
+                # 恢复n_values输入值（只恢复被勾选的变量）
+                n_values = plan.get('params', {}).get('n_values', {})
+                if n_values and selected_vars_with_values:
+                    print(f"恢复n_values: {n_values}")
+                    selected_var_names = set(var_name for var_name, _ in selected_vars_with_values)
+                    for var_name, n_value in n_values.items():
+                        # 只恢复在selected_vars_with_values中被勾选的变量
+                        if var_name in selected_var_names and var_name in temp_formula_widget.var_widgets:
+                            widgets = temp_formula_widget.var_widgets[var_name]
+                            if 'n_input' in widgets:
+                                widgets['n_input'].setText(str(n_value))
+                                print(f"恢复n_input变量 {var_name} 输入值: {n_value}")
+                
                 print("选股控件状态恢复完成")
                 
             except Exception as e:
