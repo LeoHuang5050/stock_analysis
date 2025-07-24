@@ -427,7 +427,7 @@ class TradingPlanWidget(QWidget):
         params_text.append(f"操作值: {params.get('expr', '')}")
         params_text.append(f"日期宽度: {params.get('width', '')}")
         params_text.append(f"操作天数: {params.get('op_days', '')}")
-        params_text.append(f"止盈递增率: {params.get('increment_rate', '')}")
+        params_text.append(f"止盈递增率: {self._get_increment_rate_value(params)}")
         params_text.append(f"止盈后值大于结束值比例: {params.get('after_gt_end_ratio', '')}")
         params_text.append(f"止盈后值大于前值比例: {params.get('after_gt_start_ratio', '')}")
         params_text.append(f"止损递增率: {params.get('stop_loss_inc_rate', '')}")
@@ -452,8 +452,32 @@ class TradingPlanWidget(QWidget):
             # 构建参数显示文本
             param_lines = ["参加组合排序参数："]
             
+            # 获取中文名称映射
+            from function.stock_functions import get_abbr_round_only_map
+            abbr_map = get_abbr_round_only_map()
+            # 获取n_values用于替换第N位
+            n_values = params.get('n_values', {})
+            
+            param_sum = 0
             for var_name, value in selected_vars:  # 解包元组
-                param_lines.append(f"{var_name}: {value:.2f}")  # 直接使用中文名称
+                # 查找对应的中文名称
+                zh_display = var_name  # 默认使用英文名
+                for (zh, en) in abbr_map.keys():
+                    if en == var_name:
+                        # 处理第N位变量
+                        if "第N位" in zh:
+                            n_value = n_values.get(var_name, "N")
+                            zh_display = zh.replace("第N位", f"第{n_value}位")
+                        else:
+                            zh_display = zh
+                        break
+                
+                param_sum += value
+                param_lines.append(f"{zh_display}: {value:.2f}")
+            
+            # 添加总和
+            if param_sum != 0:
+                param_lines.append(f"总和: {param_sum:.2f}")
             
             # 添加组合排序输出值
             adjusted_value = plan.get('adjusted_value', 0)
@@ -475,7 +499,7 @@ class TradingPlanWidget(QWidget):
         line1.setStyleSheet("color:#ccc;")
         vbox.addWidget(line1)
         
-        # 第四行：是否参与实操（勾选框）和恢复参数按钮
+        # 第四行：是否参与实操（勾选框）、锁定方案（勾选框）和恢复参数按钮
         real_trade_widget = QWidget()
         real_trade_layout = QHBoxLayout(real_trade_widget)
         real_trade_layout.setContentsMargins(0, 0, 0, 0)
@@ -487,6 +511,15 @@ class TradingPlanWidget(QWidget):
             plan['real_trade'] = (state == Qt.Checked)
         real_trade_checkbox.stateChanged.connect(on_real_trade_changed)
         real_trade_layout.addWidget(real_trade_checkbox)
+        
+        # 添加锁定方案勾选框
+        lock_plan_checkbox = QCheckBox("锁定方案")
+        lock_plan_checkbox.setChecked(plan.get('locked', False))
+        # 绑定锁定方案勾选框状态变化事件
+        def on_lock_plan_changed(state):
+            plan['locked'] = (state == Qt.Checked)
+        lock_plan_checkbox.stateChanged.connect(on_lock_plan_changed)
+        real_trade_layout.addWidget(lock_plan_checkbox)
         
         # 添加恢复参数按钮
         restore_btn = QPushButton("恢复参数")
@@ -604,6 +637,11 @@ class TradingPlanWidget(QWidget):
             plan_to_delete = sorted_plan_list[idx]
             plan_id = plan_to_delete.get('plan_id')
             
+            # 检查方案是否被锁定
+            if plan_to_delete.get('locked', False):
+                QMessageBox.warning(self, "方案已锁定", "该方案已锁定，不能删除！")
+                return
+            
             # 从原始列表中删除对应的plan
             plan_list = getattr(self.main_window, 'trading_plan_list', [])
             plan_list = [plan for plan in plan_list if plan.get('plan_id') != plan_id]
@@ -622,6 +660,35 @@ class TradingPlanWidget(QWidget):
         if real_trade_count > 0:
             QMessageBox.warning(self, "选股完成", "操盘方案选股已完成！")
             
+
+    def _get_increment_rate_value(self, params):
+        """
+        兼容性函数：优先使用increment_rate，如果没有则使用inc_rate
+        返回止盈递增率的值
+        """
+        if 'increment_rate' in params:
+            return params['increment_rate']
+        elif 'inc_rate' in params:
+            return params['inc_rate']
+        else:
+            return ''
+
+    def _normalize_params_for_calculation(self, params):
+        """
+        标准化参数，确保兼容新旧版本的参数名称
+        """
+        # 处理止盈递增率：优先使用increment_rate，兼容inc_rate
+        if 'increment_rate' in params:
+            # 新版本，直接使用
+            params['inc_rate'] = float(params['increment_rate'])
+        elif 'inc_rate' in params:
+            # 旧版本，转换为新版本格式
+            params['increment_rate'] = float(params['inc_rate'])
+            params['inc_rate'] = float(params['inc_rate'])
+        else:
+            # 默认值
+            params['increment_rate'] = ''
+            params['inc_rate'] = ''
 
     def calculate_all_trading_plans(self):
         """
@@ -663,13 +730,14 @@ class TradingPlanWidget(QWidget):
             params['end_date_end'] = end_date
             params['max_cores'] = 1
             
+            # 标准化参数，确保兼容新旧版本
+            self._normalize_params_for_calculation(params)
+            
             # 参数名称映射和类型转换，确保与stock_analysis_ui_v2.py一致
             if 'after_gt_end_edit' in params:
                 params['after_gt_end_ratio'] = float(params.pop('after_gt_end_edit'))
             if 'after_gt_prev_edit' in params:
                 params['after_gt_start_ratio'] = float(params.pop('after_gt_prev_edit'))
-            if 'increment_rate' in params:
-                params['inc_rate'] = float(params.pop('increment_rate'))
             if 'shift' in params:
                 params['shift_days'] = params.pop('shift')
             if 'direction' in params:
@@ -874,10 +942,12 @@ class TradingPlanWidget(QWidget):
                 except:
                     pass
             
-            if 'increment_rate' in params and hasattr(self.main_window, 'inc_rate_edit'):
+            # 恢复止盈递增率（兼容新旧版本）
+            increment_rate_value = self._get_increment_rate_value(params)
+            if increment_rate_value and hasattr(self.main_window, 'inc_rate_edit'):
                 try:
-                    self.main_window.inc_rate_edit.setText(str(params['increment_rate']))
-                    print(f"恢复止盈递增率: {params['increment_rate']}")
+                    self.main_window.inc_rate_edit.setText(str(increment_rate_value))
+                    print(f"恢复止盈递增率: {increment_rate_value}")
                 except:
                     pass
             
@@ -1504,7 +1574,7 @@ class TradingPlanWidget(QWidget):
                 traceback.print_exc()
             
             # 显示成功消息
-            QMessageBox.information(self, "恢复成功", f"已成功恢复操盘方案参数！\n公式: {formula}\n排序方式: {params.get('last_sort_mode', '')}\n选股数量: {params.get('last_select_count', '')}\n开始日期值选择: {params.get('start_option', '')}\n前移天数: {params.get('shift', '')}\n是否计算向前: {params.get('direction', False)}\n交易方式: {params.get('trade_mode', '')}\n操作值: {params.get('expr', '')}\n开始日到结束日之间最高价/最低价小于: {params.get('range_value', '')}\n开始日到结束日之间连续累加值绝对值小于: {params.get('continuous_abs_threshold', '')}\n开始日到结束日之间有效累加值绝对值小于: {params.get('valid_abs_sum_threshold', '')}\n第1组后N最大值逻辑: {params.get('n_days', '')}\n前1组结束地址后N日的最大值: {params.get('n_days_max', '')}\n操作涨幅: {params.get('ops_change', '')}\n日期宽度: {params.get('width', '')}\n操作天数: {params.get('op_days', '')}\n止盈递增率: {params.get('inc_rate', '')}\n止盈后值大于结束值比例: {params.get('after_gt_end_edit', '')}\n止盈后值大于前值比例: {params.get('after_gt_prev_edit', '')}\n止损递增率: {params.get('stop_loss_inc_rate', '')}\n止损后值大于结束值比例: {params.get('stop_loss_after_gt_end_edit', '')}\n止损后值大于前值比例: {params.get('stop_loss_after_gt_start_edit', '')}")
+            QMessageBox.information(self, "恢复成功", f"已成功恢复操盘方案参数！\n公式: {formula}\n排序方式: {params.get('last_sort_mode', '')}\n选股数量: {params.get('last_select_count', '')}\n开始日期值选择: {params.get('start_option', '')}\n前移天数: {params.get('shift', '')}\n是否计算向前: {params.get('direction', False)}\n交易方式: {params.get('trade_mode', '')}\n操作值: {params.get('expr', '')}\n开始日到结束日之间最高价/最低价小于: {params.get('range_value', '')}\n开始日到结束日之间连续累加值绝对值小于: {params.get('continuous_abs_threshold', '')}\n开始日到结束日之间有效累加值绝对值小于: {params.get('valid_abs_sum_threshold', '')}\n第1组后N最大值逻辑: {params.get('n_days', '')}\n前1组结束地址后N日的最大值: {params.get('n_days_max', '')}\n操作涨幅: {params.get('ops_change', '')}\n日期宽度: {params.get('width', '')}\n操作天数: {params.get('op_days', '')}\n止盈递增率: {self._get_increment_rate_value(params)}\n止盈后值大于结束值比例: {params.get('after_gt_end_edit', '')}\n止盈后值大于前值比例: {params.get('after_gt_prev_edit', '')}\n止损递增率: {params.get('stop_loss_inc_rate', '')}\n止损后值大于结束值比例: {params.get('stop_loss_after_gt_end_edit', '')}\n止损后值大于前值比例: {params.get('stop_loss_after_gt_start_edit', '')}")
             
         except Exception as e:
             QMessageBox.critical(self, "恢复失败", f"恢复操盘方案参数失败：{e}")

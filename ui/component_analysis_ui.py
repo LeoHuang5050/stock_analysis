@@ -3466,6 +3466,9 @@ class ComponentAnalysisWidget(QWidget):
         # 5. 生成的日期（today 2025-7-7 这种格式，避免文件名中的非法字符）
         today = datetime.now().strftime("%Y-%m-%d")
         
+        # 6. 排序方式
+        sort_mode = analysis.get('sort_mode', '')
+        
         # 组合名称
         plan_name_parts = []
         if start_option:
@@ -3480,6 +3483,8 @@ class ComponentAnalysisWidget(QWidget):
             plan_name_parts.append(adjusted_value_str)
         if today:
             plan_name_parts.append(today)
+        if sort_mode:
+            plan_name_parts.append(sort_mode)
         
         filename = "-".join(plan_name_parts) if plan_name_parts else "操盘方案"
         
