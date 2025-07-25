@@ -7,6 +7,7 @@ from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTextEdit
 from PyQt5.QtCore import QDate, QObject, QEvent, Qt
 from PyQt5.QtGui import QDoubleValidator, QIntValidator, QColor
 import time
+from function.common_widgets import TableSearchDialog
 
 import math
 import concurrent.futures
@@ -89,10 +90,10 @@ forward_min_param_headers = [
 
 # 表格搜索事件过滤器
 class TableSearchFilter(QObject):
-
     def __init__(self, table):
         super().__init__()
         self.table = table
+        self.search_dialog = None
 
     def eventFilter(self, obj, event):
         if event.type() == QEvent.KeyPress and event.modifiers() == Qt.ControlModifier and event.key() == Qt.Key_F:
@@ -101,22 +102,12 @@ class TableSearchFilter(QObject):
         return super().eventFilter(obj, event)
 
     def show_search_dialog(self):
-        text, ok = QInputDialog.getText(self.table, "搜索", "请输入要查找的内容：")
-        if ok and text:
-            self.search_table(text)
-
-    def search_table(self, text):
-        found = False
-        for row in range(self.table.rowCount()):
-            for col in range(self.table.columnCount()):
-                item = self.table.item(row, col)
-                if item and text in item.text():
-                    self.table.setCurrentCell(row, col)
-                    self.table.scrollToItem(item, QAbstractItemView.PositionAtCenter)
-                    found = True
-                    return
-        if not found:
-            QMessageBox.information(self.table, "提示", "未找到相关内容。")
+        if self.search_dialog is None or not self.search_dialog.isVisible():
+            self.search_dialog = TableSearchDialog(self.table, self.table.parent())
+        self.search_dialog.show()
+        self.search_dialog.raise_()
+        self.search_dialog.activateWindow()
+        self.search_dialog.input.setFocus()
 
 def safe_val(val):
     import math
@@ -157,7 +148,7 @@ def show_continuous_sum_table(parent, all_results, price_data, as_widget=False):
 
         tab_widget = QTabWidget(parent)
         # 统计最大长度
-        max_len = max(row.get('continuous_len', 0) for row in stocks_data)
+        max_len = max(int(row.get('continuous_len', 0)) for row in stocks_data)
         max_valid_len = max(len(row.get('valid_sum_arr', [])) for row in stocks_data)
         max_forward_len = max(len(row.get('forward_max_result', [])) for row in stocks_data)
         max_forward_min_len = max(len(row.get('forward_min_result', [])) for row in stocks_data)
@@ -653,6 +644,10 @@ def show_params_table(parent, all_results, end_date=None, n_days=0, n_days_max=0
         return f"{v}%"
 
     def get_bool(val):
+        # 检查是否是统计行的特殊值（空字符串表示统计行中的布尔字段应该留空）
+        if val == '':
+            return ''
+            
         # 直接处理布尔值，不经过get_val函数
         if isinstance(val, bool):
             return 'True' if val else 'False'
@@ -696,15 +691,6 @@ def show_params_table(parent, all_results, end_date=None, n_days=0, n_days_max=0
         table.setRowCount(len(stocks_data))
         for row_idx, row in enumerate(stocks_data):
             stock_idx = row.get('stock_idx', 0)
-            if stock_idx == 0:
-                print("stock_idx=0, start_with_new_before_high:", row.get('start_with_new_before_high', ''))
-                print("stock_idx=0, start_with_new_before_high2:", row.get('start_with_new_before_high2', ''))
-                print("stock_idx=0, start_with_new_after_high:", row.get('start_with_new_after_high', ''))
-                print("stock_idx=0, start_with_new_after_high2:", row.get('start_with_new_after_high2', ''))
-                print("stock_idx=0, start_with_new_before_low:", row.get('start_with_new_before_low', ''))
-                print("stock_idx=0, start_with_new_before_low2:", row.get('start_with_new_before_low2', ''))
-                print("stock_idx=0, start_with_new_after_low:", row.get('start_with_new_after_low', ''))
-                print("stock_idx=0, start_with_new_after_low2:", row.get('start_with_new_after_low2', ''))
             code = row.get('code', '')
             name = row.get('name', '')
             table.setItem(row_idx, 0, QTableWidgetItem(str(code)))
@@ -965,6 +951,9 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
                     enable_cb.setFixedWidth(15)
 
                     label = QLabel(zh_name)
+    
+                    # 为向前参数对话框中的变量控件添加悬浮提示
+                    add_tooltip_to_variable(label, abbr_map[zh_name], self.parent())
                     
                     # 添加圆框勾选框
                     round_check = None
@@ -1105,6 +1094,8 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
                     if hasattr(self.parent(), 'save_config'):
                         self.parent().save_config()
                 super().closeEvent(event)
+                
+
         # parent为主窗口实例
         dlg = ForwardParamDialog(abbr_map, state=getattr(parent, 'forward_param_state', None), parent=parent)
         if dlg.exec_():
@@ -1186,11 +1177,14 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
         # 根据排序模式过滤结果
         filtered_results = {}
         for date, results in merged_results.items():
+            # 排除统计行（stock_idx为-3, -2, -1的行）
+            valid_results = [r for r in results if r.get('stock_idx', 0) >= 0]
+            
             # 根据排序模式过滤score
             if sort_mode == "最大值排序":
-                filtered_results[date] = [r for r in results if r.get('score') is not None and r.get('score', 0) > 0]
+                filtered_results[date] = [r for r in valid_results if r.get('score') is not None and r.get('score', 0) > 0]
             else:  # 最小值排序
-                filtered_results[date] = [r for r in results if r.get('score') is not None and r.get('score', 0) < 0]
+                filtered_results[date] = [r for r in valid_results if r.get('score') is not None and r.get('score', 0) < 0]
             
             # 按score排序
             if sort_mode == "最大值排序":
@@ -1456,8 +1450,8 @@ def show_formula_select_table_result(parent, result, price_data=None, output_edi
     mean_adjust_days = safe_mean(adjust_days_list)
     mean_adjust_ops_change = safe_mean(adjust_ops_change_list)
     
-    print(f"mean_hold_days={mean_hold_days}, mean_adjust_ops_change={mean_adjust_ops_change}")
-    print(f"mean_hold_days={mean_adjust_days}, mean_adjust_ops_change={mean_ops_incre_rate}")
+    #print(f"mean_hold_days={mean_hold_days}, mean_adjust_ops_change={mean_adjust_ops_change}")
+    #print(f"mean_hold_days={mean_adjust_days}, mean_adjust_ops_change={mean_ops_incre_rate}")
     # 计算日均涨幅均值
     mean_adjust_ops_incre_rate_daily = mean_adjust_ops_change / mean_hold_days if mean_adjust_ops_change != '' and mean_hold_days != '' and mean_hold_days != 0 else ''
     mean_ops_incre_rate_daily = mean_ops_change / mean_adjust_days if mean_ops_change != '' and mean_adjust_days != '' and mean_adjust_days != 0 else ''
@@ -1479,10 +1473,12 @@ def show_formula_select_table_result(parent, result, price_data=None, output_edi
 def get_abbr_round_only_map():
     """获取只有圆框的变量映射"""
     abbrs = [
-        ("非空停盈停损涨跌幅均值", "mean_non_nan"),
-        ("含空停盈停损涨跌幅均值", "mean_with_nan"),
-        ("非空止盈止损涨跌幅均值", "mean_adjust_non_nan"),
-        ("含空止盈止损涨跌幅均值", "mean_adjust_with_nan"),
+        ("非空停盈停损从下往上涨跌幅均值", "mean_non_nan"),
+        ("含空停盈停损从下往上涨跌幅均值", "mean_with_nan"),
+        ("停盈停损日均涨跌幅均值", "mean_daily_change"),
+        ("非空止盈止损从下往上涨跌幅均值", "mean_adjust_non_nan"),
+        ("含空止盈止损从下往上涨跌幅均值", "mean_adjust_with_nan"),
+        ("止盈止损日均涨跌幅均值", "mean_adjust_daily_change"),
         ("综合止盈止损日均涨幅", "comprehensive_daily_change"),
         ("综合停盈停损日均涨幅", "comprehensive_stop_daily_change"),
 
@@ -3322,6 +3318,9 @@ class FormulaSelectWidget(QWidget):
             name_label.setAlignment(Qt.AlignLeft)
             var_layout.addWidget(name_label)
 
+            # 为普通变量控件添加悬浮提示
+            add_tooltip_to_variable(name_label, en, self.main_window)
+
             # 添加下限输入框
             lower_input = QLineEdit()
             lower_input.setPlaceholderText("下限")
@@ -3618,6 +3617,8 @@ class FormulaSelectWidget(QWidget):
                     selected_vars.append(en_val)
         
         return selected_vars
+
+
 
 def get_abbr_map():
     """获取变量缩写映射字典"""
@@ -4077,7 +4078,7 @@ def calculate_analysis_result(valid_items):
         # 停盈停损日均涨跌幅
         #daily_change = mean_ops_incre_rate
         daily_change = round(mean_ops_change / mean_adjust_days, 2) if mean_ops_change != '' and mean_adjust_days != '' and mean_adjust_days != 0 else ''
-        print(f"mean_ops_change={mean_ops_change}, mean_adjust_days={mean_adjust_days}, daily_change={daily_change}")
+        #print(f"mean_ops_change={mean_ops_change}, mean_adjust_days={mean_adjust_days}, daily_change={daily_change}")
         # 止盈止损日均涨跌幅
         adjust_daily_change = round(mean_adjust_ops_change / mean_hold_days, 2) if mean_adjust_ops_change != '' and mean_hold_days != '' and mean_hold_days != 0 else ''
         
@@ -4374,3 +4375,46 @@ def get_component_analysis_variables():
         'bottom_nth_adjust_with_nan2',
         'bottom_nth_adjust_with_nan3',
     ]
+
+def add_tooltip_to_variable(name_label, variable_name, main_window):
+    """
+    为变量控件添加悬浮提示，显示该变量的统计信息
+    
+    Args:
+        name_label: 要添加悬浮提示的标签控件
+        variable_name: 变量名称
+        main_window: 主窗口实例，用于访问 all_row_results
+    """
+    try:
+        # 获取主窗口的all_row_results中的overall_stats
+        if hasattr(main_window, 'all_row_results') and main_window.all_row_results:
+            overall_stats = main_window.all_row_results.get('overall_stats', {})
+            
+            # 构建悬浮提示内容
+            tooltip_parts = []
+            
+            # 获取最大值、最小值、中值
+            max_key = f'{variable_name}_max'
+            min_key = f'{variable_name}_min'
+            median_key = f'{variable_name}_median'
+            
+            if max_key in overall_stats and overall_stats[max_key] is not None:
+                tooltip_parts.append(f"最大值: {overall_stats[max_key]}")
+            
+            if min_key in overall_stats and overall_stats[min_key] is not None:
+                tooltip_parts.append(f"最小值: {overall_stats[min_key]}")
+            
+            if median_key in overall_stats and overall_stats[median_key] is not None:
+                tooltip_parts.append(f"中值: {overall_stats[median_key]}")
+            
+            # 如果有统计信息，设置悬浮提示
+            if tooltip_parts:
+                tooltip_text = "\n".join(tooltip_parts)
+                name_label.setToolTip(tooltip_text)
+            else:
+                name_label.setToolTip("暂无统计信息")
+        else:
+            name_label.setToolTip("暂无统计信息")
+    except Exception as e:
+        # 如果出现异常，设置默认提示
+        name_label.setToolTip("暂无统计信息")

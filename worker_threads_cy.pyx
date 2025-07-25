@@ -1771,8 +1771,8 @@ def calculate_batch_cy(
                         ops_incre_rate = None
 
                  # 当stock_idx=0时打印相关参数
-                if stock_idx == 0:
-                    print(f"stock_idx={stock_idx}, ops_change={ops_change}, adjust_days={adjust_days}, ops_incre_rate={ops_incre_rate}")
+                #if stock_idx == 0:
+                    #print(f"stock_idx={stock_idx}, ops_change={ops_change}, adjust_days={adjust_days}, ops_incre_rate={ops_incre_rate}")
                     
                 # 调幅日均涨幅： 调整涨幅 / 持有天数 （止盈止损）
                 adjust_ops_incre_rate = None  # 先初始化为None

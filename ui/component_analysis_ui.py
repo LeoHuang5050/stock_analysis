@@ -3549,10 +3549,10 @@ class ComponentAnalysisWidget(QWidget):
             
             trading_plan_list.append(trading_plan)
             
-        # 排序后返回
-        sorted_plan_list = sorted(trading_plan_list, key=lambda x: float(x.get('adjusted_value', 0)), reverse=True)
+        # 直接按adjusted_value排序，保持排序状态
+        trading_plan_list.sort(key=lambda x: float(x.get('adjusted_value', 0)), reverse=True)
         
-        return sorted_plan_list
+        return trading_plan_list
         
     def _show_trading_plan(self, trading_plan_list):
         """显示操盘方案"""
@@ -3869,7 +3869,7 @@ class AnalysisDetailWindow(QMainWindow):
     def __init__(self, analysis_data, create_table_func, idx):
         super().__init__(None)
         self.setWindowTitle(f"组合分析结果详情 - 第{idx+1}行")
-        self.setMinimumSize(2040, 800)
+        self.setMinimumSize(2350, 800)
         flags = self.windowFlags()
         flags &= ~Qt.WindowStaysOnTopHint
         flags |= Qt.WindowMinimizeButtonHint

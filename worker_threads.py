@@ -3,6 +3,7 @@ from PyQt5.QtCore import QThread, pyqtSignal
 from function.stock_functions import unify_date_columns
 import numpy as np
 import time
+import math
 from multiprocessing import Pool, cpu_count
 import concurrent.futures
 import worker_threads_cy  # 这是你用Cython编译出来的模块
@@ -457,6 +458,156 @@ class CalculateThread(QThread):
                     reverse=(sort_mode == "最大值排序")
                 )[:select_count]
         
+        # 定义数值字段和非数值字段
+        numeric_fields = [
+            'score', 'hold_days', 'ops_change', 'ops_incre_rate', 
+            'adjust_days', 'adjust_ops_change', 'adjust_ops_incre_rate',
+            'max_value', 'min_value', 'end_value', 'start_value', 
+            'actual_value', 'closest_value', 'increment_value',
+            'after_gt_end_value', 'after_gt_start_value', 'ops_value',
+            'continuous_len', 'continuous_start_value', 'continuous_start_next_value', 
+            'continuous_start_next_next_value', 'continuous_end_value', 
+            'continuous_end_prev_value', 'continuous_end_prev_prev_value',
+            'continuous_abs_sum_first_half', 'continuous_abs_sum_second_half',
+            'continuous_abs_sum_block1', 'continuous_abs_sum_block2', 
+            'continuous_abs_sum_block3', 'continuous_abs_sum_block4',
+            'forward_max_result', 'forward_max_continuous_start_value',
+            'forward_max_continuous_start_next_value', 'forward_max_continuous_start_next_next_value',
+            'forward_max_continuous_end_value', 'forward_max_continuous_end_prev_value',
+            'forward_max_continuous_end_prev_prev_value', 'forward_max_abs_sum_first_half',
+            'forward_max_abs_sum_second_half', 'forward_max_abs_sum_block1',
+            'forward_max_abs_sum_block2', 'forward_max_abs_sum_block3', 'forward_max_abs_sum_block4',
+            'forward_min_result', 'forward_min_continuous_start_value',
+            'forward_min_continuous_start_next_value', 'forward_min_continuous_start_next_next_value',
+            'forward_min_continuous_end_value', 'forward_min_continuous_end_prev_value',
+            'forward_min_continuous_end_prev_prev_value', 'forward_min_abs_sum_first_half',
+            'forward_min_abs_sum_second_half', 'forward_min_abs_sum_block1',
+            'forward_min_abs_sum_block2', 'forward_min_abs_sum_block3', 'forward_min_abs_sum_block4',
+            'valid_sum_len', 'valid_pos_sum', 'valid_neg_sum',
+            'forward_max_valid_sum_len', 'forward_max_valid_pos_sum', 'forward_max_valid_neg_sum',
+            'forward_min_valid_sum_len', 'forward_min_valid_pos_sum', 'forward_min_valid_neg_sum',
+            'valid_abs_sum_first_half', 'valid_abs_sum_second_half',
+            'valid_abs_sum_block1', 'valid_abs_sum_block2', 'valid_abs_sum_block3', 'valid_abs_sum_block4',
+            'forward_max_valid_abs_sum_first_half', 'forward_max_valid_abs_sum_second_half',
+            'forward_max_valid_abs_sum_block1', 'forward_max_valid_abs_sum_block2',
+            'forward_max_valid_abs_sum_block3', 'forward_max_valid_abs_sum_block4',
+            'forward_min_valid_abs_sum_first_half', 'forward_min_valid_abs_sum_second_half',
+            'forward_min_valid_abs_sum_block1', 'forward_min_valid_abs_sum_block2',
+            'forward_min_valid_abs_sum_block3', 'forward_min_valid_abs_sum_block4',
+            'n_max_is_max', 'range_ratio_is_less', 'continuous_abs_is_less', 'valid_abs_is_less',
+            'forward_min_continuous_abs_is_less', 'forward_min_valid_abs_is_less',
+            'forward_max_continuous_abs_is_less', 'forward_max_valid_abs_is_less',
+            'n_days_max_value', 'prev_day_change', 'end_day_change', 'diff_end_value',
+            'increment_change', 'after_gt_end_change', 'after_gt_start_change',
+            'forward_max_result_len', 'forward_min_result_len',
+            'cont_sum_pos_sum', 'cont_sum_neg_sum',
+            'cont_sum_pos_sum_first_half', 'cont_sum_pos_sum_second_half',
+            'cont_sum_neg_sum_first_half', 'cont_sum_neg_sum_second_half',
+            'forward_max_cont_sum_pos_sum', 'forward_max_cont_sum_neg_sum',
+            'forward_min_cont_sum_pos_sum', 'forward_min_cont_sum_neg_sum',
+            'start_with_new_before_high', 'start_with_new_before_high2',
+            'start_with_new_after_high', 'start_with_new_after_high2',
+            'start_with_new_before_low', 'start_with_new_before_low2',
+            'start_with_new_after_low', 'start_with_new_after_low2',
+            'stop_loss', 'take_profit', 'op_day_change', 'has_three_consecutive_zeros'
+        ]
+        
+        # 定义非数值类型字段（数组对象和布尔对象）
+        non_numeric_fields = {
+            'forward_max_result', 'forward_min_result',  # 数组对象
+            'n_max_is_max', 'range_ratio_is_less', 'continuous_abs_is_less', 'valid_abs_is_less',
+            'forward_min_continuous_abs_is_less', 'forward_min_valid_abs_is_less',
+            'forward_max_continuous_abs_is_less', 'forward_max_valid_abs_is_less',
+            'start_with_new_before_high', 'start_with_new_before_high2',
+            'start_with_new_after_high', 'start_with_new_after_high2',
+            'start_with_new_before_low', 'start_with_new_before_low2',
+            'start_with_new_after_low', 'start_with_new_after_low2',
+            'has_three_consecutive_zeros'  # 布尔对象
+        }
+        
+        # 初始化总体统计收集器
+        overall_values = {field: [] for field in numeric_fields if field not in non_numeric_fields}
+        
+        # 添加统计行：最大值、最小值、中值
+        for end_date in merged_results:
+            stocks = merged_results[end_date]
+            if not stocks:
+                continue
+                
+            # 收集所有数值字段用于统计
+            stats = {}
+            for field in numeric_fields:
+                # 跳过非数值类型字段
+                if field in non_numeric_fields:
+                    continue
+                    
+                values = []
+                for stock in stocks:
+                    val = stock.get(field)
+                    if val is not None and val != '' and not (isinstance(val, float) and math.isnan(val)):
+                        try:
+                            float_val = float(val)
+                            values.append(float_val)
+                            # 同时收集总体统计值
+                            overall_values[field].append(float_val)
+                        except (ValueError, TypeError):
+                            continue
+                
+                if values:
+                    stats[f'{field}_max'] = max(values)
+                    stats[f'{field}_min'] = min(values)
+                    # 计算中值：如果是奇数个，取中间值；如果是偶数个，取中间两个值的平均值
+                    sorted_values = sorted(values)
+                    n = len(sorted_values)
+                    if n % 2 == 1:  # 奇数个
+                        stats[f'{field}_median'] = round(sorted_values[n // 2], 2)
+                    else:  # 偶数个
+                        stats[f'{field}_median'] = round((sorted_values[n // 2 - 1] + sorted_values[n // 2]) / 2, 2)
+                else:
+                    stats[f'{field}_max'] = None
+                    stats[f'{field}_min'] = None
+                    stats[f'{field}_median'] = None
+            
+            # 创建统计行
+            max_row = {'code': '', 'name': '统计最大值', 'stock_idx': -3}
+            min_row = {'code': '', 'name': '统计最小值', 'stock_idx': -2}
+            median_row = {'code': '', 'name': '统计中值', 'stock_idx': -1}
+            
+            # 填充统计值
+            for field in numeric_fields:
+                if field in non_numeric_fields:
+                    # 非数值类型字段在统计行中留空
+                    max_row[field] = ''
+                    min_row[field] = ''
+                    median_row[field] = ''
+                else:
+                    max_row[field] = stats.get(f'{field}_max')
+                    min_row[field] = stats.get(f'{field}_min')
+                    median_row[field] = stats.get(f'{field}_median')
+            
+            # 将统计行添加到结果中
+            merged_results[end_date].extend([max_row, min_row, median_row])
+        
+        # 计算总体统计值
+        overall_stats = {}
+        for field, values in overall_values.items():
+            if values:
+                overall_stats[f'{field}_max'] = max(values)
+                overall_stats[f'{field}_min'] = min(values)
+                # 计算中值：如果是奇数个，取中间值；如果是偶数个，取中间两个值的平均值
+                sorted_values = sorted(values)
+                n = len(sorted_values)
+                if n % 2 == 1:  # 奇数个
+                    overall_stats[f'{field}_median'] = round(sorted_values[n // 2], 2)
+                else:  # 偶数个
+                    overall_stats[f'{field}_median'] = round((sorted_values[n // 2 - 1] + sorted_values[n // 2]) / 2, 2)
+            else:
+                overall_stats[f'{field}_max'] = None
+                overall_stats[f'{field}_min'] = None
+                overall_stats[f'{field}_median'] = None
+
+        print(f"[SelectStockThread] overall_stats: {overall_stats}")
+        
         result = {
             "dates": merged_results,
             "shift_days": shift_days,
@@ -464,6 +615,7 @@ class CalculateThread(QThread):
             "start_date": date_columns[0],
             "end_date": date_columns[-1],
             "base_idx": None,
+            "overall_stats": overall_stats,  # 添加总体统计值
         }
         return result
 

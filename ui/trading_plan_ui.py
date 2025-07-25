@@ -283,17 +283,13 @@ class TradingPlanWidget(QWidget):
         # 创建标签按钮
         self.create_tab_buttons()
         
-        # 获取方案列表
+        # 获取方案列表（已经在创建时按adjusted_value排序）
         plan_list = getattr(self.main_window, 'trading_plan_list', [])
-        
-        # 保存排序后的列表到主窗口，确保索引一致
-        sorted_plan_list = sorted(plan_list, key=lambda x: float(x.get('adjusted_value', 0)), reverse=True)
-        self.main_window.sorted_trading_plan_list = sorted_plan_list
         
         # 计算当前页面显示的方案
         start_idx = self.current_page * self.cards_per_page
-        end_idx = min(start_idx + self.cards_per_page, len(sorted_plan_list))
-        current_page_plans = sorted_plan_list[start_idx:end_idx]
+        end_idx = min(start_idx + self.cards_per_page, len(plan_list))
+        current_page_plans = plan_list[start_idx:end_idx]
         
         # 固定每行3个卡片，宽度600
         cards_per_row = 3
@@ -310,7 +306,7 @@ class TradingPlanWidget(QWidget):
                 idx = row_start + col
                 if idx < len(current_page_plans):
                     plan = current_page_plans[idx]
-                    # 计算在原始列表中的索引
+                    # 计算在完整列表中的索引
                     original_idx = start_idx + idx
                     # 只根据用户操作记录的card_states决定最大/最小化，默认最大化
                     is_min = plan.get('card_minimized', False)
@@ -616,35 +612,26 @@ class TradingPlanWidget(QWidget):
         return card
 
     def set_card_minimized(self, idx, minimized):
-        # 使用排序后的列表来获取正确的plan
-        sorted_plan_list = getattr(self.main_window, 'sorted_trading_plan_list', [])
-        if 0 <= idx < len(sorted_plan_list):
-            plan_to_update = sorted_plan_list[idx]
-            plan_id = plan_to_update.get('plan_id')
-            
-            # 在原始列表中找到对应的plan并更新
-            plan_list = getattr(self.main_window, 'trading_plan_list', [])
-            for plan in plan_list:
-                if plan.get('plan_id') == plan_id:
-                    plan['card_minimized'] = minimized
-                    break
+        # 直接使用已排序的trading_plan_list
+        plan_list = getattr(self.main_window, 'trading_plan_list', [])
+        if 0 <= idx < len(plan_list):
+            plan_to_update = plan_list[idx]
+            plan_to_update['card_minimized'] = minimized
         self.refresh_cards()
 
     def delete_plan(self, idx):
-        # 使用排序后的列表来获取正确的plan
-        sorted_plan_list = getattr(self.main_window, 'sorted_trading_plan_list', [])
-        if 0 <= idx < len(sorted_plan_list):
-            plan_to_delete = sorted_plan_list[idx]
-            plan_id = plan_to_delete.get('plan_id')
+        # 直接使用已排序的trading_plan_list
+        plan_list = getattr(self.main_window, 'trading_plan_list', [])
+        if 0 <= idx < len(plan_list):
+            plan_to_delete = plan_list[idx]
             
             # 检查方案是否被锁定
             if plan_to_delete.get('locked', False):
                 QMessageBox.warning(self, "方案已锁定", "该方案已锁定，不能删除！")
                 return
             
-            # 从原始列表中删除对应的plan
-            plan_list = getattr(self.main_window, 'trading_plan_list', [])
-            plan_list = [plan for plan in plan_list if plan.get('plan_id') != plan_id]
+            # 直接从列表中删除对应的plan
+            plan_list.pop(idx)
             
             self.clean_plan_for_save(plan_list)
             self.main_window.trading_plan_list = plan_list
@@ -1584,10 +1571,10 @@ class TradingPlanWidget(QWidget):
 
     def edit_plan_name(self, idx):
         """编辑操盘方案名称"""
-        # 使用排序后的列表来获取正确的plan
-        sorted_plan_list = getattr(self.main_window, 'sorted_trading_plan_list', [])
-        if 0 <= idx < len(sorted_plan_list):
-            plan = sorted_plan_list[idx]
+        # 直接使用已排序的trading_plan_list
+        plan_list = getattr(self.main_window, 'trading_plan_list', [])
+        if 0 <= idx < len(plan_list):
+            plan = plan_list[idx]
             dialog = PlanNameEditDialog(plan, self)
             if dialog.exec_() == QDialog.Accepted:
                 # 更新方案名称
@@ -1597,14 +1584,6 @@ class TradingPlanWidget(QWidget):
                 # 更新对应的选股结果窗口标题
                 if 'result_window' in plan and plan['result_window'] is not None:
                     plan['result_window'].setWindowTitle(f"{new_name} 选股结果")
-                
-                # 更新原始列表中的plan
-                plan_list = getattr(self.main_window, 'trading_plan_list', [])
-                # 找到对应的plan并更新
-                for original_plan in plan_list:
-                    if original_plan.get('plan_id') == plan.get('plan_id'):
-                        original_plan['plan_name'] = new_name
-                        break
                 
                 self.main_window.trading_plan_list = plan_list
                 self.refresh_cards()
