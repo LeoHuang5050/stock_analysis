@@ -2949,6 +2949,8 @@ class StockAnalysisApp(QWidget):
             'component_only_better_trading_plan_percent': getattr(self, 'last_component_only_better_trading_plan_percent', 0.0),
             'component_comprehensive_daily_change_threshold': getattr(self, 'last_component_comprehensive_daily_change_threshold', 0.0),
             'component_comprehensive_stop_daily_change_threshold': getattr(self, 'last_component_comprehensive_stop_daily_change_threshold', 0.0),
+            # 新增：保存组合分析总体结果
+            'overall_stats': getattr(self, 'overall_stats', None),
         }
         # 保存公式选股控件状态
         if hasattr(self, 'formula_widget') and self.formula_widget is not None:
@@ -3195,6 +3197,9 @@ class StockAnalysisApp(QWidget):
                 self.last_component_comprehensive_daily_change_threshold = config['component_comprehensive_daily_change_threshold']
             if 'component_comprehensive_stop_daily_change_threshold' in config:
                 self.last_component_comprehensive_stop_daily_change_threshold = config['component_comprehensive_stop_daily_change_threshold']
+            # 新增：恢复组合分析总体结果
+            if 'overall_stats' in config:
+                self.overall_stats = config['overall_stats']
         except Exception as e:
             print(f"加载配置失败: {e}")
 

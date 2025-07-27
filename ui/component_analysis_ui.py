@@ -91,6 +91,9 @@ class ComponentAnalysisWidget(QWidget):
         self.analyze_btn = QPushButton("点击分析")
         self.analyze_btn.clicked.connect(self.on_analyze_clicked)
         
+        self.optimize_btn = QPushButton("二次分析")
+        self.optimize_btn.clicked.connect(self.on_optimize_clicked)
+        
         self.terminate_btn = QPushButton("终止分析")
         self.terminate_btn.clicked.connect(self.on_terminate_clicked)
         self.terminate_btn.setEnabled(False)  # 初始状态禁用
@@ -247,6 +250,7 @@ class ComponentAnalysisWidget(QWidget):
         row_layout.addWidget(self.analysis_count_label)
         row_layout.addWidget(self.analysis_count_spin)
         row_layout.addWidget(self.analyze_btn)
+        row_layout.addWidget(self.optimize_btn)
         row_layout.addWidget(self.terminate_btn)
         row_layout.addWidget(self.export_json_btn)
         row_layout.addWidget(self.import_json_btn)
@@ -521,6 +525,7 @@ class ComponentAnalysisWidget(QWidget):
             # 切换按钮状态
             self.analyze_btn.setEnabled(False)
             self.terminate_btn.setEnabled(True)
+            self.optimize_btn.setEnabled(False)
             
             # 开始执行组合分析
             self.execute_component_analysis(formula_list, special_params_combinations, start_date, end_date)
@@ -539,6 +544,104 @@ class ComponentAnalysisWidget(QWidget):
         # 切换按钮状态
         self.analyze_btn.setEnabled(True)
         self.terminate_btn.setEnabled(False)
+        self.optimize_btn.setEnabled(True)
+        
+    def on_optimize_clicked(self):
+        """二次分析按钮点击处理"""
+        try:
+            from PyQt5.QtWidgets import QMessageBox
+            
+            # 检查是否有分析结果
+            if not hasattr(self.main_window, 'overall_stats') or not self.main_window.overall_stats:
+                QMessageBox.warning(self, "提示", "请先进行组合分析，获取最优结果后再进行二次分析！")
+                return
+                
+            # 获取组合分析次数
+            analysis_count = self.analysis_count_spin.value()
+            
+            # 获取结束日期（使用主界面的date_picker）
+            end_date = self.main_window.date_picker.date().toString("yyyy-MM-dd")
+            
+            # 根据组合分析次数计算开始日期
+            workdays = getattr(self.main_window.init, 'workdays_str', None)
+            if not workdays:
+                QMessageBox.warning(self, "数据错误", "没有可用的日期范围，请先上传数据文件！")
+                return
+                
+            try:
+                # 获取结束日期在workdays中的索引
+                end_date_idx = workdays.index(end_date)
+                # 根据分析次数计算开始日期索引
+                start_date_idx = end_date_idx - (analysis_count - 1)
+                
+                # 检查索引是否有效
+                if start_date_idx < 0:
+                    QMessageBox.warning(self, "数据错误", f"组合分析次数 {analysis_count} 超出可用日期范围！\n当前结束日期索引: {end_date_idx}，需要开始日期索引: {start_date_idx}")
+                    return
+                    
+                # 获取开始日期
+                start_date = workdays[start_date_idx]
+                
+            except ValueError:
+                QMessageBox.warning(self, "日期错误", f"结束日期 {end_date} 不在交易日列表中！")
+                return
+            
+            # 保存当前设置
+            self.main_window.last_component_analysis_start_date = start_date
+            self.main_window.last_component_analysis_end_date = end_date
+            self.main_window.last_component_analysis_count = analysis_count
+            
+            # 创建临时的FormulaSelectWidget实例，避免访问已删除的控件
+            from function.stock_functions import FormulaSelectWidget, get_abbr_map, get_abbr_logic_map, get_abbr_round_map
+            
+            # 获取映射数据
+            abbr_map = get_abbr_map()
+            logic_map = get_abbr_logic_map()
+            round_map = get_abbr_round_map()
+            
+            # 传入所有必需的参数
+            temp_formula_widget = FormulaSelectWidget(abbr_map, logic_map, round_map, self.main_window)
+            
+            # 恢复上次保存的公式选股状态
+            if hasattr(self.main_window, 'last_formula_select_state'):
+                temp_formula_widget.set_state(self.main_window.last_formula_select_state)
+            
+            # 使用优化公式列表方法
+            formula_list = temp_formula_widget.optimize_formula_list()
+            
+            if not formula_list:
+                QMessageBox.warning(self, "提示", "没有生成任何优化公式，请检查变量设置和统计结果！")
+                temp_formula_widget.deleteLater()
+                return
+            
+            # 生成特殊参数组合
+            special_params_combinations = temp_formula_widget.generate_special_params_combinations()
+            
+            # 删除临时控件
+            temp_formula_widget.deleteLater()
+            
+            # 显示进度信息
+            total_analyses = len(formula_list) * len(special_params_combinations) * analysis_count
+            self.show_message(f"开始执行二次分析，总共 {total_analyses} 次分析...")
+            
+            # 重置终止标志
+            self.analysis_terminated = False
+            
+            # 切换按钮状态
+            self.analyze_btn.setEnabled(False)
+            self.terminate_btn.setEnabled(True)
+            self.optimize_btn.setEnabled(False)
+            
+            # 执行组合分析
+            self.execute_component_analysis(formula_list, special_params_combinations, start_date, end_date)
+                
+        except Exception as e:
+            print(f"二次分析出错: {e}")
+            QMessageBox.critical(self, "错误", f"二次分析出错: {e}")
+            # 恢复按钮状态
+            self.analyze_btn.setEnabled(True)
+            self.terminate_btn.setEnabled(False)
+            self.optimize_btn.setEnabled(True)
         
     def execute_component_analysis(self, formula_list, special_params_combinations, start_date, end_date):
         """
@@ -598,8 +701,8 @@ class ComponentAnalysisWidget(QWidget):
             # 所有分析完成
             self.show_analysis_results(self.all_analysis_results)
             
-            # 只在分析全部完成后，且勾选生成操盘方案时，添加一次方案
-            if self.generate_trading_plan_checkbox.isChecked() and self.cached_analysis_results:
+            # 分析全部完成后，检查最优方案是否满足条件（无论是否勾选生成操盘方案）
+            if self.cached_analysis_results:
                 top_one = self.cached_analysis_results[0]
                 # 比较top_one的adjusted_value与上次的last_adjusted_value
                 new_value = top_one.get('adjusted_value', None)
@@ -607,7 +710,7 @@ class ComponentAnalysisWidget(QWidget):
                 new_value_float = float(new_value) if new_value is not None else None
                 last_value_float = float(last_value) if last_value is not None else None
                 
-                # 检查是否满足百分比要求
+                # 检查是否满足条件（无论是否勾选生成操盘方案都检查）
                 should_generate = False
                 if new_value is not None:
                     try:
@@ -651,8 +754,8 @@ class ComponentAnalysisWidget(QWidget):
                 if should_generate:
                     QMessageBox.information(self, "最优方案提示", f"有最优方案出现！当前最优组合排序输出值：{new_value_float:.2f}，大于上次最优值：{last_value_float:.2f} 的 {better_percent}% = {threshold:.2f}")
                 
-                # 根据should_generate决定是否生成操盘方案
-                if should_generate:
+                # 只有在勾选生成操盘方案且满足条件时才生成操盘方案
+                if self.generate_trading_plan_checkbox.isChecked() and should_generate:
                     # 生成操盘方案
                     self._add_top_result_to_trading_plan(top_one)
                     # 更新上次最优值显示
@@ -667,6 +770,8 @@ class ComponentAnalysisWidget(QWidget):
                         # 只有当新值大于上次值时才更新
                         if last_value_float is None or new_value_float > last_value_float:
                             self.main_window.last_adjusted_value = new_value_float
+                            self.main_window.overall_stats = top_one.get('overall_stats')
+                            #print(f"check_analysis_completed result overall_stats: {self.main_window.overall_stats}")
                             # 更新上次最优值显示
                             self._update_last_best_value_display()
                     except Exception:
@@ -675,10 +780,13 @@ class ComponentAnalysisWidget(QWidget):
                             self.main_window.last_adjusted_value = new_value
                             # 更新上次最优值显示
                             self._update_last_best_value_display()
-            
+            else:
+                QMessageBox.information(self, "分析完成", "没有满足条件的组合分析结果")
+
             # 恢复按钮状态
             self.analyze_btn.setEnabled(True)
             self.terminate_btn.setEnabled(False)
+            self.optimize_btn.setEnabled(True)
             return
         
         # 如果是第一次分析，直接执行
@@ -791,6 +899,7 @@ class ComponentAnalysisWidget(QWidget):
                 
                 # 调用calculate_analysis_result计算统计结果
                 analysis_stats = calculate_analysis_result(valid_items)
+                #print(f"_execute_single_analysis result overall_stats: {result.get('overall_stats')}")
                 
                 # 获取选股数量
                 select_count = getattr(self.main_window, 'last_select_count', 10)
@@ -819,6 +928,7 @@ class ComponentAnalysisWidget(QWidget):
                     'result': result,
                     'valid_items': valid_items,
                     'analysis_stats': analysis_stats,  # 添加统计结果
+                    'overall_stats': result.get('overall_stats'),
                     
                     # 添加更多控件值用于参数恢复
                     'start_option': self.main_window.start_option_combo.currentText(),
@@ -1192,6 +1302,7 @@ class ComponentAnalysisWidget(QWidget):
                 analysis_with_sum = []
                 for i, analysis in enumerate(all_analysis_results):
                     analysis_stats = analysis.get('analysis_stats')
+                    overall_stats = analysis.get('overall_stats')
                     if not analysis_stats:
                         continue
                     summary = analysis_stats.get('summary', {})
@@ -1322,7 +1433,8 @@ class ComponentAnalysisWidget(QWidget):
                                 'op_days': op_days,
                                 'adjusted_value': adjusted_value,
                                 'comprehensive_stop_daily_change': comprehensive_stop_daily_change,
-                                'comprehensive_daily_change': comprehensive_daily_change
+                                'comprehensive_daily_change': comprehensive_daily_change,
+                                'overall_stats': overall_stats
                             })
                 analysis_with_sum.sort(key=lambda x: x['adjusted_value'], reverse=True)
                 top_three = analysis_with_sum[:3]
@@ -1537,7 +1649,7 @@ class ComponentAnalysisWidget(QWidget):
         table.resizeColumnsToContents()
         # 设置列宽
         table.setColumnWidth(0, 150)  # 输出值列宽度
-        table.setColumnWidth(1, 200)  # 输出参数列宽度
+        table.setColumnWidth(1, 240)  # 输出参数列宽度
         table.setColumnWidth(2, 300)  # 选股公式列宽度
         table.setColumnWidth(3, 250)  # 选股参数列宽度
         table.setColumnWidth(4, 100)  # 查看详情按钮列宽度

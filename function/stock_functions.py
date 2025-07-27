@@ -4,8 +4,8 @@ import chinese_calendar
 from datetime import datetime, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTextEdit, QLineEdit, QSpinBox, QComboBox, QPushButton, QTableWidget, QTableWidgetItem, QSizePolicy, QDialog, QTabWidget, QMessageBox, QGridLayout, QDateEdit, QInputDialog, QAbstractItemView, QGroupBox, QCheckBox, QHeaderView, QScrollArea, QToolButton, QApplication, QMainWindow
-from PyQt5.QtCore import QDate, QObject, QEvent, Qt
-from PyQt5.QtGui import QDoubleValidator, QIntValidator, QColor
+from PyQt5.QtCore import QDate, QObject, QEvent, Qt, QTimer
+from PyQt5.QtGui import QDoubleValidator, QIntValidator, QColor, QCursor
 import time
 from function.common_widgets import TableSearchDialog
 
@@ -2800,6 +2800,957 @@ class FormulaSelectWidget(QWidget):
             print("-" * 50)
         return formula_list
 
+    def optimize_formula_list(self):
+        """
+        生成优化公式列表，用于二次分析
+        根据统计值生成优化的变量范围组合：
+        - 下限固定为统计最小值，上限从统计最大值按步长减少到正值中值
+        - 上限固定为统计最大值，下限从统计最小值按步长增加到负值中值
+        步长值为 (正值中值 - 负值中值) / 20 的整数部分
+        """
+        
+        overall_stats = self.main_window.overall_stats
+        if not overall_stats:
+            print("没有可用的统计结果，无法进行优化")
+            return []
+        
+        # 检查是否锁定输出
+        lock_output = False
+        if hasattr(self.main_window, 'last_lock_output'):
+            lock_output = self.main_window.last_lock_output
+        
+        formula_list = []
+        
+        # 收集需要参与组合的逻辑控件（所有逻辑控件都参与）
+        logic_combination_vars = []
+        logic_map = get_abbr_logic_map()
+        
+        # 遍历所有逻辑控件
+        for en, widgets in self.var_widgets.items():
+            if 'checkbox' in widgets and 'lower' not in widgets:
+                if widgets['checkbox'].isChecked():
+                    # 查找对应的中文名称
+                    logic_zh = None
+                    for zh, en_name in logic_map.items():
+                        if en_name == en:
+                            logic_zh = zh
+                            break
+                    
+                    logic_combination_vars.append({
+                        'var_name': en,
+                        'zh_name': logic_zh or en
+                    })
+                    print(f"  添加逻辑控件到优化组合: {en} ({logic_zh or en})")
+        
+        # 收集需要优化的变量控件
+        optimization_vars = []
+        abbr_map = get_abbr_map()
+        
+        for zh_name, variable_name in abbr_map.items():
+            if variable_name in self.var_widgets:
+                widgets = self.var_widgets[variable_name]
+                if 'lower' in widgets and 'upper' in widgets and 'step' in widgets and 'direction' in widgets:
+                    # 对于同时有圆框和方框的变量，需要方框勾选才参与组合
+                    # 对于只有方框的变量，只需要方框勾选
+                    should_include = widgets['checkbox'].isChecked()
+                    if should_include:
+                        # 获取统计值
+                        max_key = f'{variable_name}_max'
+                        min_key = f'{variable_name}_min'
+                        positive_median_key = f'{variable_name}_positive_median'
+                        negative_median_key = f'{variable_name}_negative_median'
+                        
+                        max_value = overall_stats.get(max_key)
+                        min_value = overall_stats.get(min_key)
+                        positive_median = overall_stats.get(positive_median_key)
+                        negative_median = overall_stats.get(negative_median_key)
+                        
+                        # 获取当前输入框的值作为起始点
+                        current_lower = float(widgets['lower'].text()) if widgets['lower'].text() else 0
+                        current_upper = float(widgets['upper'].text()) if widgets['upper'].text() else 0
+                        
+                        # 获取步长值（直接使用控件输入框的值）
+                        step_value = float(widgets['step'].text()) if widgets['step'].text() else 1
+                        
+                        if max_value is not None and min_value is not None and step_value is not None and step_value > 0:
+                            has_logic = widgets.get('logic_check', None) and widgets['logic_check'].isChecked()
+                            
+                            print(f"  添加变量到优化组合: {variable_name}, 含逻辑: {has_logic}")
+                            print(f"    统计值: min={min_value}, max={max_value}, pos_median={positive_median}, neg_median={negative_median}, step={step_value}")
+                            print(f"    当前输入值: lower={current_lower}, upper={current_upper}")
+                            
+                            optimization_vars.append({
+                                'var_name': variable_name,
+                                'current_lower': current_lower,
+                                'current_upper': current_upper,
+                                'positive_median': positive_median,
+                                'negative_median': negative_median,
+                                'step_value': step_value,
+                                'has_logic': has_logic,
+                                'is_comparison': False  # 标记为普通变量
+                            })
+        
+        # 收集向前参数，也参与优化组合生成（使用中值优化逻辑）
+        if hasattr(self.main_window, 'forward_param_state') and self.main_window.forward_param_state:
+            for en, v in self.main_window.forward_param_state.items():
+                if v.get('enable'):
+                    # 获取统计值
+                    max_key = f'{en}_max'
+                    min_key = f'{en}_min'
+                    positive_median_key = f'{en}_positive_median'
+                    negative_median_key = f'{en}_negative_median'
+                    
+                    max_value = overall_stats.get(max_key)
+                    min_value = overall_stats.get(min_key)
+                    positive_median = overall_stats.get(positive_median_key)
+                    negative_median = overall_stats.get(negative_median_key)
+                    
+                    # 获取当前输入框的值作为起始点
+                    lower_text = v.get('lower', '').strip()
+                    upper_text = v.get('upper', '').strip()
+                    step_text = v.get('step', '').strip()
+                    
+                    if lower_text and upper_text:  # 只检查下限和上限，步长可以为空
+                        try:
+                            current_lower = float(lower_text)
+                            current_upper = float(upper_text)
+                            # 如果步长为空，设为1
+                            if step_text:
+                                step_value = float(step_text)
+                            else:
+                                step_value = 1
+                            
+                            if max_value is not None and min_value is not None and step_value is not None and step_value > 0:
+                                has_logic = v.get('logic', False)
+                                
+                                print(f"  添加向前参数到优化组合: {en}")
+                                print(f"    统计值: min={min_value}, max={max_value}, pos_median={positive_median}, neg_median={negative_median}, step={step_value}")
+                                print(f"    当前输入值: lower={current_lower}, upper={current_upper}")
+                                
+                                optimization_vars.append({
+                                    'var_name': en,
+                                    'current_lower': current_lower,
+                                    'current_upper': current_upper,
+                                    'positive_median': positive_median,
+                                    'negative_median': negative_median,
+                                    'step_value': step_value,
+                                    'has_logic': has_logic,
+                                    'is_comparison': False  # 标记为普通变量
+                                })
+                        except ValueError as e:
+                            print(f"  向前参数数值转换失败: {e}")
+                            continue
+                    else:
+                        print(f"  向前参数不完整，跳过")
+        
+        print(f"优化组合变量数量: {len(optimization_vars)}")
+        
+        # 收集圆框变量（这些在所有组合中都一样）
+        # 特殊处理四个变量的result组合
+        special_result_combinations = self._generate_special_result_combinations()
+        print(f"optimize_formula_list中特殊组合数量: {len(special_result_combinations)}")
+        
+        # 收集其他圆框变量（排除特殊变量和get_abbr_round_only_map中的变量）
+        other_result_vars = []
+        # 获取get_abbr_round_only_map中的变量名列表，用于排除
+        round_only_vars = set()
+        for (zh, en), en_val in self.abbr_round_only_map.items():
+            round_only_vars.add(en_val)
+        
+        for en, widgets in self.var_widgets.items():
+            # 排除特殊变量和get_abbr_round_only_map中的变量
+            if (en not in ['cont_sum_pos_sum', 'cont_sum_neg_sum', 'valid_pos_sum', 'valid_neg_sum'] and 
+                en not in round_only_vars):
+                if 'round_checkbox' in widgets and widgets['round_checkbox'].isChecked():
+                    other_result_vars.append(en)
+        
+        # 收集向前参数的圆框变量
+        # 8个特殊向前参数变量（正负相加值）不参与组合，直接加到result
+        special_forward_result_vars = []
+        other_forward_result_vars = []
+        
+        # 检查是否有基础变量，如果没有基础变量，8个特殊向前参数变量已经在_generate_special_result_combinations中处理了
+        has_basic_vars = any(
+            widgets.get('round_checkbox', None) and widgets['round_checkbox'].isChecked()
+            for en, widgets in self.var_widgets.items()
+            if en in ['cont_sum_pos_sum', 'cont_sum_neg_sum', 'valid_pos_sum', 'valid_neg_sum']
+        )
+        
+        if hasattr(self.main_window, 'forward_param_state') and self.main_window.forward_param_state:
+            for en, v in self.main_window.forward_param_state.items():
+                if v.get('round'):
+                    # 检查是否是8个特殊向前参数变量
+                    if en in ['forward_min_valid_pos_sum', 'forward_min_valid_neg_sum',
+                             'forward_max_valid_pos_sum', 'forward_max_valid_neg_sum',
+                             'forward_max_cont_sum_pos_sum', 'forward_max_cont_sum_neg_sum',
+                             'forward_min_cont_sum_pos_sum', 'forward_min_cont_sum_neg_sum']:
+                        # 只有当有基础变量时，才添加到special_forward_result_vars
+                        # 如果没有基础变量，这些变量已经在_generate_special_result_combinations中处理了
+                        if has_basic_vars:
+                            special_forward_result_vars.append(en)
+                    else:
+                        other_forward_result_vars.append(en)
+        
+        # 将其他向前参数的圆框变量添加到other_result_vars
+        other_result_vars.extend(other_forward_result_vars)
+        
+        # 收集比较控件条件
+        comparison_conditions = []
+        has_logic_comparison = False
+        # 收集比较控件到optimization_vars中，参与优化组合（使用generate_formula_list的规则）
+        for comp in self.comparison_widgets:
+            if comp['checkbox'].isChecked():
+                var1 = comp['var1'].currentText()
+                lower = comp['lower'].text().strip()
+                upper = comp['upper'].text().strip()
+                step = comp['step'].text().strip()
+                direction = comp['direction'].currentText()
+                var2 = comp['var2'].currentText()
+                has_logic = comp['logic_check'].isChecked()
+                
+                var1_en = next((en for zh, en in self.abbr_map.items() if zh == var1), None)
+                var2_en = next((en for zh, en in self.abbr_map.items() if zh == var2), None)
+                
+                if lower and upper and var1_en and var2_en:
+                    try:
+                        # 如果步长为空，设为0
+                        if step:
+                            step_val = float(step)
+                        else:
+                            step_val = 0
+                        lower_val = float(lower)
+                        upper_val = float(upper)
+                        
+                        # 将比较控件也加入到optimization_vars中，参与优化组合
+                        optimization_vars.append({
+                            'var1': var1_en,
+                            'var2': var2_en,
+                            'lower': lower_val,
+                            'upper': upper_val,
+                            'step': step_val,
+                            'direction': direction,
+                            'has_logic': has_logic,
+                            'is_comparison': True  # 标记为比较控件
+                        })
+                        
+                        if has_logic:
+                            has_logic_comparison = True
+                    except ValueError:
+                        continue
+        
+        # 生成优化组合
+        print(f"lock_output: {lock_output}")
+        
+        # 初始化logic_conditions，避免未定义错误
+        logic_conditions = []
+        
+        if lock_output:
+            # 锁定输出时，结果部分只生成一种组合（所有勾选的result变量直接加号拼接）
+            all_result_vars = []
+            for special_combo in special_result_combinations:
+                all_result_vars.extend(special_combo['result_vars'])
+            all_result_vars.extend(other_result_vars)
+            all_result_vars.extend(special_forward_result_vars)
+            # 去重
+            all_result_vars = list(dict.fromkeys(all_result_vars))
+            
+            # 排序方式：取主界面当前排序
+            user_sort_mode = self.sort_combo.currentText() if self.sort_combo else (self.main_window.last_sort_mode if hasattr(self.main_window, 'last_sort_mode') else '最大值排序')
+            
+            if not optimization_vars:
+                # 如果没有需要优化的变量，只生成一个公式
+                all_conditions = []
+                if all_conditions:
+                    cond_str = "if " + " and ".join(all_conditions) + ":"
+                else:
+                    cond_str = "if True:"
+                result_expr = "result = " + " + ".join(all_result_vars) if all_result_vars else "result = 0"
+                formula = f"{cond_str}\n    {result_expr}\nelse:\n    result = 0"
+                formula_list.append({
+                    'formula': formula,
+                    'sort_mode': user_sort_mode,
+                    'result_vars': all_result_vars
+                })
+                
+                # 如果有含逻辑的比较控件，额外生成一个if True的公式
+                if has_logic_comparison:
+                    true_formula = f"if True:\n    {result_expr}\nelse:\n    result = 0"
+                    formula_list.append({
+                        'formula': true_formula,
+                        'sort_mode': user_sort_mode,
+                        'result_vars': all_result_vars
+                    })
+            else:
+                # 如果有需要优化的变量，生成优化组合
+                var_combinations = []
+                
+                for var_info in optimization_vars:
+                    is_comparison = var_info.get('is_comparison', False)
+                    
+                    if is_comparison:
+                        # 比较控件 - 使用generate_formula_list的规则（不使用中值优化逻辑）
+                        var1 = var_info['var1']
+                        var2 = var_info['var2']
+                        lower_val = var_info['lower']
+                        upper_val = var_info['upper']
+                        step_val = var_info['step']
+                        direction = var_info['direction']
+                        has_logic = var_info['has_logic']
+                        
+                        print(f"比较控件优化组合 - {var1} vs {var2}:")
+                        print(f"  下限: {lower_val}, 上限: {upper_val}, 步长: {step_val}")
+                        print(f"  方向: {direction}, 含逻辑: {has_logic}")
+                        
+                        # 比较控件使用标准组合生成逻辑（不使用中值优化）
+                        combinations = []
+                        
+                        # 如果步长为0或空，生成单一组合
+                        if step_val == 0 or step_val == '' or step_val is None:
+                            combinations.append((round(lower_val, 2), round(upper_val, 2)))
+                            print(f"  步长为0或空，生成单一组合: ({round(lower_val, 2)}, {round(upper_val, 2)})")
+                        else:
+                            if direction == "右单向":
+                                # 最大值不变，最小值按步长变化
+                                current_lower = lower_val
+                                # 根据步长正负调整循环条件
+                                if step_val > 0:
+                                    while current_lower < upper_val:
+                                        combinations.append((round(current_lower, 2), round(upper_val, 2)))
+                                        current_lower += step_val
+                                else:  # step_val < 0
+                                    while current_lower > upper_val:
+                                        combinations.append((round(current_lower, 2), round(upper_val, 2)))
+                                        current_lower += step_val
+                            
+                            elif direction == "左单向":
+                                # 最小值不变，最大值按步长变化
+                                current_upper = upper_val
+                                # 根据步长正负调整循环条件
+                                if step_val > 0:
+                                    while current_upper > lower_val:
+                                        combinations.append((round(lower_val, 2), round(current_upper, 2)))
+                                        current_upper -= step_val
+                                else:  # step_val < 0
+                                    while current_upper < lower_val:
+                                        combinations.append((round(lower_val, 2), round(current_upper, 2)))
+                                        current_upper -= step_val
+                            
+                            elif direction == "全方向":
+                                combinations = []
+                                # 右单向：上限不变，下限不断加步长
+                                current_lower = lower_val
+                                if step_val > 0:
+                                    while current_lower < upper_val:
+                                        combinations.append((round(current_lower, 2), round(upper_val, 2)))
+                                        current_lower += step_val
+                                else:
+                                    while current_lower > upper_val:
+                                        combinations.append((round(current_lower, 2), round(upper_val, 2)))
+                                        current_lower += step_val
+                                # 左单向：下限不变，上限不断减步长
+                                current_upper = upper_val
+                                if step_val > 0:
+                                    while current_upper > lower_val:
+                                        combinations.append((round(lower_val, 2), round(current_upper, 2)))
+                                        current_upper -= step_val
+                                else:
+                                    while current_upper < lower_val:
+                                        combinations.append((round(lower_val, 2), round(current_upper, 2)))
+                                        current_upper -= step_val
+                                # 剔除重复项和下限=上限的情况
+                                combinations = list({(a, b) for a, b in combinations if a != b})
+                                combinations.sort()
+                        
+                        print(f"  比较控件 {var1} vs {var2} 生成 {len(combinations)} 个标准组合")
+                        for i, (lower, upper) in enumerate(combinations[:5]):  # 只显示前5个
+                            print(f"    组合 {i+1}: ({lower}, {upper})")
+                        if len(combinations) > 5:
+                            print(f"    ... 还有 {len(combinations) - 5} 个组合")
+                    else:
+                        # 普通变量 - 检查是否是abbr_map变量
+                        var_name = var_info['var_name']
+                        has_logic = var_info['has_logic']
+                        
+                        # 检查是否是abbr_map变量或向前参数（都需要使用中值优化逻辑）
+                        is_abbr_map_var = var_name in [en for zh, en in abbr_map.items()]
+                        is_forward_param = hasattr(self.main_window, 'forward_param_state') and self.main_window.forward_param_state and var_name in self.main_window.forward_param_state
+                        should_use_median_optimization = is_abbr_map_var or is_forward_param
+                        
+                        if should_use_median_optimization:
+                            # abbr_map变量使用中值优化逻辑
+                            current_lower = var_info['current_lower']
+                            current_upper = var_info['current_upper']
+                            positive_median = var_info['positive_median']
+                            negative_median = var_info['negative_median']
+                            step_value = var_info['step_value']
+                            
+                            # 生成上限值列表：从当前上限按步长减少到正值中值为止
+                            upper_values = []
+                            if positive_median is not None and current_upper > positive_median:
+                                upper_val = current_upper
+                                while upper_val >= positive_median:
+                                    upper_values.append(round(upper_val, 2))
+                                    upper_val -= step_value
+                            else:
+                                # 如果正值中值为空或当前上限不大于正值中值，使用当前上限
+                                upper_values.append(round(current_upper, 2))
+                            
+                            # 生成下限值列表：从当前下限按步长增加到负值中值为止
+                            lower_values = []
+                            if negative_median is not None and current_lower < negative_median:
+                                lower_val = current_lower
+                                while lower_val <= negative_median:
+                                    lower_values.append(round(lower_val, 2))
+                                    lower_val += step_value
+                            else:
+                                # 如果负值中值为空或当前下限不小于负值中值，使用当前下限
+                                lower_values.append(round(current_lower, 2))
+                            
+                            # 生成组合
+                            combinations = []
+                            
+                            # 如果正值中值和负值中值都为空，生成单一条件
+                            if positive_median is None and negative_median is None:
+                                combinations.append((round(current_lower, 2), round(current_upper, 2)))
+                                print(f"  正值中值和负值中值都为空，生成单一条件: ({round(current_lower, 2)}, {round(current_upper, 2)})")
+                            else:
+                                # 生成笛卡尔积组合
+                                for lower in lower_values:
+                                    for upper in upper_values:
+                                        if lower <= upper:  # 确保下限不大于上限
+                                            combinations.append((lower, upper))
+                                
+                                # 剔除重复项
+                                combinations = list({(a, b) for a, b in combinations})
+                                combinations.sort()
+                            
+                            print(f"  中值优化变量 {var_name} 生成 {len(combinations)} 个中值优化组合")
+                            for i, (lower, upper) in enumerate(combinations[:5]):  # 只显示前5个
+                                print(f"    组合 {i+1}: ({lower}, {upper})")
+                            if len(combinations) > 5:
+                                print(f"    ... 还有 {len(combinations) - 5} 个组合")
+                        else:
+                            # 非中值优化变量使用generate_formula_list的规则
+                            lower_val = var_info['lower']
+                            upper_val = var_info['upper']
+                            step_val = var_info['step']
+                            direction = var_info['direction']
+                            
+                            combinations = []
+                            
+                            # 如果步长为0或空，生成单一组合
+                            if step_val == 0 or step_val == '' or step_val is None:
+                                combinations.append((round(lower_val, 2), round(upper_val, 2)))
+                                print(f"  步长为0或空，生成单一组合: ({round(lower_val, 2)}, {round(upper_val, 2)})")
+                            else:
+                                if direction == "右单向":
+                                    # 最大值不变，最小值按步长变化
+                                    current_lower = lower_val
+                                    # 根据步长正负调整循环条件
+                                    if step_val > 0:
+                                        while current_lower < upper_val:
+                                            combinations.append((round(current_lower, 2), round(upper_val, 2)))
+                                            current_lower += step_val
+                                    else:  # step_val < 0
+                                        while current_lower > upper_val:
+                                            combinations.append((round(current_lower, 2), round(upper_val, 2)))
+                                            current_lower += step_val
+                                
+                                elif direction == "左单向":
+                                    # 最小值不变，最大值按步长变化
+                                    current_upper = upper_val
+                                    # 根据步长正负调整循环条件
+                                    if step_val > 0:
+                                        while current_upper > lower_val:
+                                            combinations.append((round(lower_val, 2), round(current_upper, 2)))
+                                            current_upper -= step_val
+                                    else:  # step_val < 0
+                                        while current_upper < lower_val:
+                                            combinations.append((round(lower_val, 2), round(current_upper, 2)))
+                                            current_upper -= step_val
+                                
+                                elif direction == "全方向":
+                                    combinations = []
+                                    # 右单向：上限不变，下限不断加步长
+                                    current_lower = lower_val
+                                    if step_val > 0:
+                                        while current_lower < upper_val:
+                                            combinations.append((round(current_lower, 2), round(upper_val, 2)))
+                                            current_lower += step_val
+                                    else:
+                                        while current_lower > upper_val:
+                                            combinations.append((round(current_lower, 2), round(upper_val, 2)))
+                                            current_lower += step_val
+                                    # 左单向：下限不变，上限不断减步长
+                                    current_upper = upper_val
+                                    if step_val > 0:
+                                        while current_upper > lower_val:
+                                            combinations.append((round(lower_val, 2), round(current_upper, 2)))
+                                            current_upper -= step_val
+                                    else:
+                                        while current_upper < lower_val:
+                                            combinations.append((round(lower_val, 2), round(current_upper, 2)))
+                                            current_upper -= step_val
+                                    # 剔除重复项和下限=上限的情况
+                                    combinations = list({(a, b) for a, b in combinations if a != b})
+                                    combinations.sort()
+                            
+                            print(f"  非中值优化变量 {var_name} 生成 {len(combinations)} 个标准组合")
+                            for i, (lower, upper) in enumerate(combinations[:5]):  # 只显示前5个
+                                print(f"    组合 {i+1}: ({lower}, {upper})")
+                            if len(combinations) > 5:
+                                print(f"    ... 还有 {len(combinations) - 5} 个组合")
+                    
+                    # 处理含逻辑：如果勾选了含逻辑，添加一个True条件
+                    if has_logic:
+                        combinations.append(('True', 'True'))
+                    
+                    if is_comparison:
+                        var_combinations.append({
+                            'var1': var1,
+                            'var2': var2,
+                            'combinations': combinations,
+                            'is_comparison': True  # 标记为比较控件
+                        })
+                    else:
+                        var_combinations.append({
+                            'var_name': var_name,
+                            'combinations': combinations,
+                            'is_comparison': False  # 标记为普通变量
+                        })
+                
+                # 生成笛卡尔积
+                if var_combinations:
+                    # 获取所有变量的组合数量
+                    total_combinations = 1
+                    for var_combo in var_combinations:
+                        total_combinations *= len(var_combo['combinations'])
+                    
+                    print(f"锁定输出模式：总共 {total_combinations} 个优化组合")
+                    
+                    # 为每个条件组合生成公式
+                    for i in range(total_combinations):
+                        # 计算当前组合的索引
+                        indices = []
+                        temp = i
+                        for var_combo in var_combinations:
+                            indices.append(temp % len(var_combo['combinations']))
+                            temp //= len(var_combo['combinations'])
+                        
+                        # 构建当前组合的条件 - 每个笛卡尔积组合都应该有独立的条件
+                        current_conditions = logic_conditions.copy()  # 复制逻辑条件，避免引用问题
+                        
+                        print(f"生成锁定输出优化组合 {i+1} 的条件:")
+                        print(f"  逻辑条件: {logic_conditions}")
+                        print(f"  比较条件: []")
+                        
+                        for j, var_combo in enumerate(var_combinations):
+                            combo_idx = indices[j]
+                            lower_val, upper_val = var_combo['combinations'][combo_idx]
+                            
+                            print(f"  变量组合 {j+1}: ({lower_val}, {upper_val})")
+                            
+                            # 如果是True条件，跳过该变量（不添加任何条件）
+                            if lower_val == 'True' and upper_val == 'True':
+                                print(f"    跳过True条件")
+                                continue
+                            
+                            if var_combo['is_comparison']:
+                                # 比较控件：生成 v1 / v2 >= lower and v1 / v2 <= upper 的条件
+                                var1 = var_combo['var1']
+                                var2 = var_combo['var2']
+                                comp_conditions = []
+                                comp_conditions.append(f"{var1} / {var2} >= {lower_val}")
+                                comp_conditions.append(f"{var1} / {var2} <= {upper_val}")
+                                current_conditions.append(' and '.join(comp_conditions))
+                                print(f"    添加比较条件: {' and '.join(comp_conditions)}")
+                            else:
+                                # 普通变量：生成 var >= lower and var <= upper 的条件
+                                var_name = var_combo['var_name']
+                                var_conditions = []
+                                var_conditions.append(f"{var_name} >= {lower_val}")
+                                var_conditions.append(f"{var_name} <= {upper_val}")
+                                current_conditions.append(' and '.join(var_conditions))
+                                print(f"    添加变量条件: {' and '.join(var_conditions)}")
+                        
+                        print(f"  最终条件: {current_conditions}")
+                        
+                        # 生成公式
+                        if current_conditions:
+                            cond_str = "if " + " and ".join(current_conditions) + ":"
+                        else:
+                            cond_str = "if True:"
+                        
+                        # 为每个特殊组合生成公式
+                        if special_result_combinations:
+                            print(f"有特殊组合 special_result_combinations :{special_result_combinations}")
+                            for special_combo in special_result_combinations:
+                                # 合并特殊组合和其他result变量
+                                all_result_vars = special_combo['result_vars'] + other_result_vars + special_forward_result_vars
+                                if all_result_vars:
+                                    result_expr = "result = " + " + ".join(all_result_vars)
+                                else:
+                                    result_expr = "result = 0"
+                                
+                                # 为每个排序方式生成一个公式
+                                for sort_mode in special_combo['sort_modes']:
+                                    formula = f"{cond_str}\n    {result_expr}\nelse:\n    result = 0"
+                                    formula_list.append({
+                                        'formula': formula,
+                                        'sort_mode': sort_mode,
+                                        'result_vars': all_result_vars
+                                    })
+                        else:
+                            # 容错处理：当没有特殊组合时，也要处理向前参数和其他result变量
+                            print(f"没有特殊组合")
+                            all_result_vars = other_result_vars + special_forward_result_vars
+                            if all_result_vars:
+                                result_expr = "result = " + " + ".join(all_result_vars)
+                            else:
+                                result_expr = "result = 0"
+                            
+                            # 向前相关参数不区分最大最小排序，以基础参数为准，如果没有基础参数，则按用户设置的排序
+                            # 获取用户设置的排序方式
+                            user_sort_mode = self.sort_combo.currentText() if self.sort_combo else '最大值排序'
+                            print(f"user_sort_mode: {user_sort_mode}")
+                            
+                            # 生成一个公式
+                            formula = f"{cond_str}\n    {result_expr}\nelse:\n    result = 0"
+                            formula_list.append({
+                                'formula': formula,
+                                'sort_mode': user_sort_mode,
+                                'result_vars': all_result_vars
+                            })
+            
+            # 锁定输出模式下也需要进行逻辑控件组合处理
+            if logic_combination_vars:
+                print(f"锁定输出模式下进行逻辑控件组合处理")
+                original_formula_list = formula_list.copy()
+                formula_list = []
+                
+                # 锁定输出模式下，逻辑控件也只生成一个组合（所有勾选的逻辑条件用and连接）
+                if logic_combination_vars:
+                    print(f"锁定输出模式：有 {len(logic_combination_vars)} 个逻辑控件参与组合，只生成一个组合")
+                    
+                    # 收集所有勾选的逻辑控件条件
+                    logic_conditions = [logic_var_info['var_name'] for logic_var_info in logic_combination_vars]
+                    logic_condition_str = " and ".join(logic_conditions)
+                    print(f"锁定输出模式逻辑控件组合: {logic_condition_str}")
+                    
+                    # 为每个公式添加逻辑控件条件
+                    for formula_obj in original_formula_list:
+                        original_formula = formula_obj['formula']
+                        if 'if ' in original_formula:
+                            # 找到if行的结束位置
+                            if_end_pos = original_formula.find(':')
+                            if if_end_pos != -1:
+                                # 获取原始if条件
+                                if_condition = original_formula[3:if_end_pos].strip()
+                                
+                                # 构建新的if条件 - 在原有条件基础上添加逻辑控件条件
+                                if if_condition == 'True':
+                                    new_condition = f"if {logic_condition_str}:"
+                                else:
+                                    new_condition = f"if {if_condition} and {logic_condition_str}:"
+                                
+                                # 完全重新构建公式
+                                new_formula = new_condition + original_formula[if_end_pos + 1:]  # +1 跳过冒号
+                                formula_obj['formula'] = new_formula
+                                
+                                print(f"  生成锁定输出逻辑组合公式: {logic_condition_str}")
+                        formula_list.append(formula_obj)
+                else:
+                    # 没有逻辑控件，直接添加原公式
+                    formula_list.extend(original_formula_list)
+            
+            for i, formula_obj in enumerate(formula_list):
+                print(f"锁定输出优化公式 {i+1} (排序方式: {formula_obj['sort_mode']}):")
+                print(formula_obj['formula'])
+                print("-" * 50)
+            return formula_list
+        elif not optimization_vars:
+            # 如果没有需要优化的变量，为每个特殊result组合生成一个公式
+            # 注意：逻辑控件条件在最后统一处理，这里不处理
+            all_conditions = []
+            if all_conditions:
+                cond_str = "if " + " and ".join(all_conditions) + ":"
+            else:
+                cond_str = "if True:"
+            
+            # 为每个特殊组合生成公式
+            if special_result_combinations:
+                print(f"有特殊组合 special_result_combinations :{special_result_combinations}")
+                for special_combo in special_result_combinations:
+                    # 合并特殊组合和其他result变量
+                    # 注意：8个特殊向前参数变量已经在special_combo['result_vars']中了（当没有基础变量时）
+                    # 所以这里只需要添加其他result变量
+                    all_result_vars = special_combo['result_vars'] + other_result_vars + special_forward_result_vars
+                    if all_result_vars:
+                        result_expr = "result = " + " + ".join(all_result_vars)
+                    else:
+                        result_expr = "result = 0"
+                    
+                    # 为每个排序方式生成一个公式
+                    for sort_mode in special_combo['sort_modes']:
+                        formula = f"{cond_str}\n    {result_expr}\nelse:\n    result = 0"
+                        formula_list.append({
+                            'formula': formula,
+                            'sort_mode': sort_mode,
+                            'result_vars': all_result_vars
+                        })
+                        
+                        # 如果有含逻辑的比较控件，额外生成一个if True的公式
+                        if has_logic_comparison:
+                            true_formula = f"if True:\n    {result_expr}\nelse:\n    result = 0"
+                            formula_list.append({
+                                'formula': true_formula,
+                                'sort_mode': sort_mode,
+                                'result_vars': all_result_vars
+                            })
+            else:
+                # 容错处理：当没有特殊组合时，也要处理向前参数和其他result变量
+                print(f"没有特殊组合")
+                all_result_vars = other_result_vars + special_forward_result_vars
+                if all_result_vars:
+                    result_expr = "result = " + " + ".join(all_result_vars)
+                else:
+                    result_expr = "result = 0"
+                
+                # 向前相关参数不区分最大最小排序，以基础参数为准，如果没有基础参数，则按用户设置的排序
+                # 获取用户设置的排序方式
+                user_sort_mode = self.sort_combo.currentText() if self.sort_combo else '最大值排序'
+                print(f"user_sort_mode: {user_sort_mode}")
+                
+                # 生成一个公式
+                formula = f"{cond_str}\n    {result_expr}\nelse:\n    result = 0"
+                formula_list.append({
+                    'formula': formula,
+                    'sort_mode': user_sort_mode,
+                    'result_vars': all_result_vars
+                })
+                
+                # 如果有含逻辑的比较控件，额外生成一个if True的公式
+                if has_logic_comparison:
+                    true_formula = f"if True:\n    {result_expr}\nelse:\n    result = 0"
+                    formula_list.append({
+                        'formula': true_formula,
+                        'sort_mode': user_sort_mode,
+                        'result_vars': all_result_vars
+                    })
+        else:
+            # 为每个变量生成优化组合
+            var_combinations = []
+            
+            for var_info in optimization_vars:
+                is_comparison = var_info.get('is_comparison', False)
+                
+                if is_comparison:
+                    # 比较控件
+                    var1 = var_info['var1']
+                    var2 = var_info['var2']
+                    min_value = var_info['min_value']
+                    max_value = var_info['max_value']
+                    positive_median = var_info['positive_median']
+                    negative_median = var_info['negative_median']
+                    step_value = var_info['step_value']
+                    has_logic = var_info['has_logic']
+                    
+                    print(f"比较控件优化组合 - {var1} vs {var2}:")
+                    print(f"  统计值: min={min_value}, max={max_value}, pos_median={positive_median}, neg_median={negative_median}, step={step_value}")
+                    print(f"  含逻辑: {has_logic}")
+                else:
+                    # 普通变量
+                    var_name = var_info['var_name']
+                    current_lower = var_info['current_lower']
+                    current_upper = var_info['current_upper']
+                    positive_median = var_info['positive_median']
+                    negative_median = var_info['negative_median']
+                    step_value = var_info['step_value']
+                    has_logic = var_info['has_logic']
+                
+                combinations = []
+                
+                # 生成优化组合：两个方向的变化
+                # 方向1：下限固定为当前输入值，上限从当前输入值按步长减少到正值中值
+                upper_val = current_upper
+                while upper_val >= positive_median:
+                    combinations.append((round(current_lower, 2), round(upper_val, 2)))
+                    upper_val -= step_value
+                
+                # 方向2：上限固定为当前输入值，下限从当前输入值按步长增加到负值中值
+                lower_val = current_lower
+                while lower_val <= negative_median:
+                    combinations.append((round(lower_val, 2), round(current_upper, 2)))
+                    lower_val += step_value
+                
+                # 剔除重复项
+                combinations = list({(a, b) for a, b in combinations})
+                combinations.sort()
+                
+                print(f"  生成 {len(combinations)} 个优化组合")
+                for i, (lower, upper) in enumerate(combinations[:5]):  # 只显示前5个
+                    print(f"    组合 {i+1}: ({lower}, {upper})")
+                if len(combinations) > 5:
+                    print(f"    ... 还有 {len(combinations) - 5} 个组合")
+                
+                # 处理含逻辑：如果勾选了含逻辑，添加一个True条件
+                if has_logic:
+                    combinations.append(('True', 'True'))
+                
+                if is_comparison:
+                    var_combinations.append({
+                        'var1': var1,
+                        'var2': var2,
+                        'combinations': combinations,
+                        'is_comparison': True  # 标记为比较控件
+                    })
+                else:
+                    var_combinations.append({
+                        'var_name': var_name,
+                        'combinations': combinations,
+                        'is_comparison': False  # 标记为普通变量
+                    })
+            
+            # 生成笛卡尔积
+            if var_combinations:
+                # 获取所有变量的组合数量
+                total_combinations = 1
+                for var_combo in var_combinations:
+                    total_combinations *= len(var_combo['combinations'])
+                
+                print(f"非锁定输出模式：总共 {total_combinations} 个优化组合")
+                
+                # 为每个条件组合生成公式
+                for i in range(total_combinations):
+                    # 计算当前组合的索引
+                    indices = []
+                    temp = i
+                    for var_combo in var_combinations:
+                        indices.append(temp % len(var_combo['combinations']))
+                        temp //= len(var_combo['combinations'])
+                    
+                    # 构建当前组合的条件
+                    current_conditions = logic_conditions.copy()
+                    
+                    print(f"生成非锁定输出优化组合 {i+1} 的条件:")
+                    print(f"  逻辑条件: {logic_conditions}")
+                    print(f"  比较条件: []")
+                    
+                    for j, var_combo in enumerate(var_combinations):
+                        combo_idx = indices[j]
+                        lower_val, upper_val = var_combo['combinations'][combo_idx]
+                        
+                        print(f"  变量组合 {j+1}: ({lower_val}, {upper_val})")
+                        
+                        # 如果是True条件，跳过该变量（不添加任何条件）
+                        if lower_val == 'True' and upper_val == 'True':
+                            print(f"    跳过True条件")
+                            continue
+                        
+                        if var_combo['is_comparison']:
+                            # 比较控件：生成 v1 / v2 >= lower and v1 / v2 <= upper 的条件
+                            var1 = var_combo['var1']
+                            var2 = var_combo['var2']
+                            comp_conditions = []
+                            comp_conditions.append(f"{var1} / {var2} >= {lower_val}")
+                            comp_conditions.append(f"{var1} / {var2} <= {upper_val}")
+                            current_conditions.append(' and '.join(comp_conditions))
+                            print(f"    添加比较条件: {' and '.join(comp_conditions)}")
+                        else:
+                            # 普通变量：生成 var >= lower and var <= upper 的条件
+                            var_name = var_combo['var_name']
+                            var_conditions = []
+                            var_conditions.append(f"{var_name} >= {lower_val}")
+                            var_conditions.append(f"{var_name} <= {upper_val}")
+                            current_conditions.append(' and '.join(var_conditions))
+                            print(f"    添加变量条件: {' and '.join(var_conditions)}")
+                    
+                    print(f"  最终条件: {current_conditions}")
+                    
+                    # 生成公式
+                    if current_conditions:
+                        cond_str = "if " + " and ".join(current_conditions) + ":"
+                    else:
+                        cond_str = "if True:"
+                    
+                    # 为每个特殊组合生成公式
+                    if special_result_combinations:
+                        print(f"有特殊组合 special_result_combinations :{special_result_combinations}")
+                        for special_combo in special_result_combinations:
+                            # 合并特殊组合和其他result变量
+                            all_result_vars = special_combo['result_vars'] + other_result_vars + special_forward_result_vars
+                            if all_result_vars:
+                                result_expr = "result = " + " + ".join(all_result_vars)
+                            else:
+                                result_expr = "result = 0"
+                            
+                            # 为每个排序方式生成一个公式
+                            for sort_mode in special_combo['sort_modes']:
+                                formula = f"{cond_str}\n    {result_expr}\nelse:\n    result = 0"
+                                formula_list.append({
+                                    'formula': formula,
+                                    'sort_mode': sort_mode,
+                                    'result_vars': all_result_vars
+                                })
+                    else:
+                        # 容错处理：当没有特殊组合时，也要处理向前参数和其他result变量
+                        print(f"没有特殊组合")
+                        all_result_vars = other_result_vars + special_forward_result_vars
+                        if all_result_vars:
+                            result_expr = "result = " + " + ".join(all_result_vars)
+                        else:
+                            result_expr = "result = 0"
+                        
+                        # 向前相关参数不区分最大最小排序，以基础参数为准，如果没有基础参数，则按用户设置的排序
+                        # 获取用户设置的排序方式
+                        user_sort_mode = self.sort_combo.currentText() if self.sort_combo else '最大值排序'
+                        print(f"user_sort_mode: {user_sort_mode}")
+                        
+                        # 生成一个公式
+                        formula = f"{cond_str}\n    {result_expr}\nelse:\n    result = 0"
+                        formula_list.append({
+                            'formula': formula,
+                            'sort_mode': user_sort_mode,
+                            'result_vars': all_result_vars
+                        })
+        
+        # 如果有逻辑控件参与组合，只生成一个组合（所有勾选的逻辑条件用and连接）
+        if logic_combination_vars:
+            print(f"有 {len(logic_combination_vars)} 个逻辑控件参与组合，只生成一个组合")
+            
+            # 收集所有勾选的逻辑控件条件
+            logic_conditions = [logic_var_info['var_name'] for logic_var_info in logic_combination_vars]
+            logic_condition_str = " and ".join(logic_conditions)
+            print(f"逻辑控件组合: {logic_condition_str}")
+            
+            # 为每个公式添加逻辑控件条件
+            for formula_obj in formula_list:
+                original_formula = formula_obj['formula']
+                if 'if ' in original_formula:
+                    # 找到if行的结束位置
+                    if_end_pos = original_formula.find(':')
+                    if if_end_pos != -1:
+                        # 获取原始if条件
+                        if_condition = original_formula[3:if_end_pos].strip()
+                        
+                        # 构建新的if条件 - 在原有条件基础上添加逻辑控件条件
+                        if if_condition == 'True':
+                            new_condition = f"if {logic_condition_str}:"
+                        else:
+                            new_condition = f"if {if_condition} and {logic_condition_str}:"
+                        
+                        # 完全重新构建公式
+                        new_formula = new_condition + original_formula[if_end_pos + 1:]  # +1 跳过冒号
+                        formula_obj['formula'] = new_formula
+                        
+                        print(f"  生成逻辑组合公式: {logic_condition_str}")
+        
+        for i, formula_obj in enumerate(formula_list):
+            print(f"优化公式 {i+1} (排序方式: {formula_obj['sort_mode']}):")
+            print(formula_obj['formula'])
+            print("-" * 50)
+        return formula_list
+
     def generate_special_params_combinations(self):
         """
         生成特殊变量的组合参数
@@ -3488,7 +4439,7 @@ class FormulaSelectWidget(QWidget):
             # 添加label
             if en_val in self.component_analysis_variables:
                 name_label = QLabel(zh)
-                name_label.setFixedWidth(140)  # 更紧凑
+                name_label.setFixedWidth(170)  # 更紧凑
             else:
                 name_label = QLabel(zh)
                 name_label.setFixedWidth(250)  # 保持原宽度
@@ -4386,35 +5337,161 @@ def add_tooltip_to_variable(name_label, variable_name, main_window):
         main_window: 主窗口实例，用于访问 all_row_results
     """
     try:
-        # 获取主窗口的all_row_results中的overall_stats
-        if hasattr(main_window, 'all_row_results') and main_window.all_row_results:
-            overall_stats = main_window.all_row_results.get('overall_stats', {})
-            
-            # 构建悬浮提示内容
-            tooltip_parts = []
-            
-            # 获取最大值、最小值、中值
+        if hasattr(main_window, 'overall_stats') and main_window.overall_stats:
+            overall_stats = main_window.overall_stats
             max_key = f'{variable_name}_max'
             min_key = f'{variable_name}_min'
             median_key = f'{variable_name}_median'
-            
+            positive_median_key = f'{variable_name}_positive_median'
+            negative_median_key = f'{variable_name}_negative_median'
+            stats_parts = []
             if max_key in overall_stats and overall_stats[max_key] is not None:
-                tooltip_parts.append(f"最大值: {overall_stats[max_key]}")
-            
+                stats_parts.append(f"最大值: {overall_stats[max_key]}")
             if min_key in overall_stats and overall_stats[min_key] is not None:
-                tooltip_parts.append(f"最小值: {overall_stats[min_key]}")
-            
+                stats_parts.append(f"最小值: {overall_stats[min_key]}")
             if median_key in overall_stats and overall_stats[median_key] is not None:
-                tooltip_parts.append(f"中值: {overall_stats[median_key]}")
-            
-            # 如果有统计信息，设置悬浮提示
-            if tooltip_parts:
-                tooltip_text = "\n".join(tooltip_parts)
-                name_label.setToolTip(tooltip_text)
+                stats_parts.append(f"中值: {overall_stats[median_key]}")
+            if positive_median_key in overall_stats and overall_stats[positive_median_key] is not None:
+                stats_parts.append(f"正值中值: {overall_stats[positive_median_key]}")
+            if negative_median_key in overall_stats and overall_stats[negative_median_key] is not None:
+                stats_parts.append(f"负值中值: {overall_stats[negative_median_key]}")
+            if stats_parts:
+                tooltip_widget = _create_tooltip_widget(stats_parts, variable_name, main_window, overall_stats)
+                # 延迟显示定时器
+                name_label._show_tooltip_timer = None
+                name_label.enterEvent = lambda event, ln=name_label, tw=tooltip_widget: _delayed_show_custom_tooltip(event, ln, tw)
+                name_label.leaveEvent = lambda event, tw=tooltip_widget: _cancel_show_and_delayed_hide(event, name_label, tw)
             else:
                 name_label.setToolTip("暂无统计信息")
         else:
             name_label.setToolTip("暂无统计信息")
     except Exception as e:
-        # 如果出现异常，设置默认提示
         name_label.setToolTip("暂无统计信息")
+
+from PyQt5.QtCore import QTimer
+
+def _create_tooltip_widget(stats_parts, variable_name, main_window, overall_stats):
+    from PyQt5.QtWidgets import QWidget, QHBoxLayout, QLabel, QPushButton
+    from PyQt5.QtCore import Qt
+    tooltip_widget = QWidget()
+    tooltip_widget.setWindowFlags(Qt.ToolTip | Qt.FramelessWindowHint)
+    tooltip_widget.setStyleSheet("""
+        QWidget {
+            background-color: #2b2b2b;
+            color: white;
+            border: 1px solid #555555;
+            border-radius: 5px;
+            padding: 5px;
+        }
+        QPushButton {
+            background-color: #4a90e2;
+            border: none;
+            border-radius: 3px;
+            padding: 5px 10px;
+            color: white;
+            font-weight: bold;
+        }
+        QPushButton:hover {
+            background-color: #357abd;
+        }
+    """)
+    # 横向布局
+    layout = QHBoxLayout(tooltip_widget)
+    layout.setSpacing(10)
+    layout.setContentsMargins(10, 10, 10, 10)
+    # 统计信息一行
+    stats_text = " , ".join(stats_parts)
+    stats_label = QLabel(stats_text)
+    stats_label.setWordWrap(False)
+    stats_label.setStyleSheet("font-size: 12px; margin-bottom: 0px;")
+    layout.addWidget(stats_label)
+    # 按钮同一行
+    optimize_button = QPushButton("二次优化设置")
+    optimize_button.clicked.connect(lambda: _on_optimize_click_button(variable_name, main_window, overall_stats, tooltip_widget))
+    layout.addWidget(optimize_button)
+    # 鼠标进入/离开事件，配合延迟隐藏
+    tooltip_widget.enterEvent = lambda event, tw=tooltip_widget: _cancel_hide_custom_tooltip(event, tw)
+    tooltip_widget.leaveEvent = lambda event, tw=tooltip_widget: _delayed_hide_custom_tooltip(event, tw)
+    tooltip_widget._hide_timer = None
+    return tooltip_widget
+
+def _show_custom_tooltip(event, name_label, tooltip_widget):
+    # 获取鼠标在屏幕上的位置，悬浮框显示在鼠标右下方
+    cursor_pos = QCursor.pos()
+    tooltip_widget.move(cursor_pos.x() + 10, cursor_pos.y() + 10)  # 鼠标右下方偏移10像素
+    tooltip_widget.show()
+    _cancel_hide_custom_tooltip(None, tooltip_widget)
+
+def _delayed_hide_custom_tooltip(event, tooltip_widget):
+    if hasattr(tooltip_widget, '_hide_timer') and tooltip_widget._hide_timer:
+        tooltip_widget._hide_timer.stop()
+    else:
+        from PyQt5.QtCore import QTimer
+        tooltip_widget._hide_timer = QTimer()
+    tooltip_widget._hide_timer.setSingleShot(True)
+    tooltip_widget._hide_timer.timeout.connect(tooltip_widget.hide)
+    tooltip_widget._hide_timer.start(1000)  # 1秒后隐藏
+
+def _cancel_hide_custom_tooltip(event, tooltip_widget):
+    if hasattr(tooltip_widget, '_hide_timer') and tooltip_widget._hide_timer:
+        tooltip_widget._hide_timer.stop()
+
+def _on_optimize_click_button(variable_name, main_window, overall_stats, tooltip_widget):
+    try:
+        from PyQt5.QtWidgets import QMessageBox
+        
+        max_key = f'{variable_name}_max'
+        min_key = f'{variable_name}_min'
+        positive_median_key = f'{variable_name}_positive_median'
+        negative_median_key = f'{variable_name}_negative_median'
+        max_value = overall_stats.get(max_key)
+        min_value = overall_stats.get(min_key)
+        positive_median = overall_stats.get(positive_median_key)
+        negative_median = overall_stats.get(negative_median_key)
+        step_value = None
+        if positive_median is not None and negative_median is not None:
+            step_value = int((positive_median - negative_median) / 20 + 0.5)
+        
+        if hasattr(main_window, 'formula_widget'):
+            print("进入二次优化设置")
+            formula_widget = main_window.formula_widget
+            if hasattr(formula_widget, 'var_widgets') and variable_name in formula_widget.var_widgets:
+                widgets = formula_widget.var_widgets[variable_name]
+                if 'lower' in widgets and min_value is not None:
+                    widgets['lower'].setText(str(min_value))
+                if 'upper' in widgets and max_value is not None:
+                    widgets['upper'].setText(str(max_value))
+                if 'step' in widgets and step_value is not None:
+                    widgets['step'].setText(str(step_value))
+                if tooltip_widget:
+                    tooltip_widget.hide()
+                QMessageBox.information(main_window, "设置成功", 
+                                      f"已为变量 {variable_name} 设置参数：\n"
+                                      f"最小值: {min_value}\n"
+                                      f"最大值: {max_value}\n"
+                                      f"步长: {step_value}")
+                return
+        QMessageBox.warning(main_window, "设置失败", f"未找到变量 {variable_name} 对应的控件")
+    except Exception as e:
+        QMessageBox.critical(main_window, "设置错误", f"设置参数时发生错误：{str(e)}")
+
+def _on_optimize_click(event, name_label, variable_name, main_window, overall_stats):
+    _on_optimize_click_button(variable_name, main_window, overall_stats, None)
+
+def _delayed_show_custom_tooltip(event, name_label, tooltip_widget):
+    # 鼠标进入时，0.5秒后才显示悬浮框
+    def show_tooltip():
+        _show_custom_tooltip(event, name_label, tooltip_widget)
+    if hasattr(name_label, '_show_tooltip_timer') and name_label._show_tooltip_timer:
+        name_label._show_tooltip_timer.stop()
+    else:
+        name_label._show_tooltip_timer = QTimer()
+    name_label._show_tooltip_timer.setSingleShot(True)
+    name_label._show_tooltip_timer.timeout.connect(show_tooltip)
+    name_label._show_tooltip_timer.start(500)  # 0.5秒后显示
+
+def _cancel_show_and_delayed_hide(event, name_label, tooltip_widget):
+    # 鼠标离开时，取消显示定时器，并启动延迟隐藏
+    if hasattr(name_label, '_show_tooltip_timer') and name_label._show_tooltip_timer:
+        name_label._show_tooltip_timer.stop()
+    _delayed_hide_custom_tooltip(event, tooltip_widget)

@@ -601,12 +601,34 @@ class CalculateThread(QThread):
                     overall_stats[f'{field}_median'] = round(sorted_values[n // 2], 2)
                 else:  # 偶数个
                     overall_stats[f'{field}_median'] = round((sorted_values[n // 2 - 1] + sorted_values[n // 2]) / 2, 2)
+                # 计算正值中值
+                positive_values = [v for v in sorted_values if v > 0]
+                n_pos = len(positive_values)
+                if n_pos > 0:
+                    if n_pos % 2 == 1:
+                        overall_stats[f'{field}_positive_median'] = round(positive_values[n_pos // 2], 2)
+                    else:
+                        overall_stats[f'{field}_positive_median'] = round((positive_values[n_pos // 2 - 1] + positive_values[n_pos // 2]) / 2, 2)
+                else:
+                    overall_stats[f'{field}_positive_median'] = None
+                # 计算负值中值
+                negative_values = [v for v in sorted_values if v < 0]
+                n_neg = len(negative_values)
+                if n_neg > 0:
+                    if n_neg % 2 == 1:
+                        overall_stats[f'{field}_negative_median'] = round(negative_values[n_neg // 2], 2)
+                    else:
+                        overall_stats[f'{field}_negative_median'] = round((negative_values[n_neg // 2 - 1] + negative_values[n_neg // 2]) / 2, 2)
+                else:
+                    overall_stats[f'{field}_negative_median'] = None
             else:
                 overall_stats[f'{field}_max'] = None
                 overall_stats[f'{field}_min'] = None
                 overall_stats[f'{field}_median'] = None
+                overall_stats[f'{field}_positive_median'] = None
+                overall_stats[f'{field}_negative_median'] = None
 
-        print(f"[SelectStockThread] overall_stats: {overall_stats}")
+        #print(f"[SelectStockThread] overall_stats: {overall_stats}")
         
         result = {
             "dates": merged_results,
