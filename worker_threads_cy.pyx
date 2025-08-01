@@ -1708,8 +1708,8 @@ def calculate_batch_cy(
                 if ops_value is not None and not isnan(ops_value) and hold_days is not None and hold_days != -1 and not isnan(hold_days) and end_value_for_ops not in (None, 0):
                     try:
                         ops_change = (ops_value - end_value_for_ops) / end_value_for_ops * 100  # 移除 round_to_2
-                        if stock_idx == 3373:
-                            print(f"stock_idx=3373, ops_value={ops_value}, end_value_for_ops={end_value_for_ops}, ops_change={ops_change}")
+                        #if stock_idx == 3373:
+                            #print(f"stock_idx=3373, ops_value={ops_value}, end_value_for_ops={end_value_for_ops}, ops_change={ops_change}")
                     except Exception:
                         ops_change = None  
 
@@ -1949,8 +1949,8 @@ def calculate_batch_cy(
                         score = None
                 
                 #print(f"score的值为: {score}")
-                if stock_idx == 129:
-                    print(f"stock_idx={stock_idx}, cont_sum_pos_sum={cont_sum_pos_sum}, valid_pos_sum={valid_pos_sum}, forward_min_cont_sum_pos_sum={forward_min_cont_sum_pos_sum}")
+                #if stock_idx == 129:
+                    #print(f"stock_idx={stock_idx}, cont_sum_pos_sum={cont_sum_pos_sum}, valid_pos_sum={valid_pos_sum}, forward_min_cont_sum_pos_sum={forward_min_cont_sum_pos_sum}")
                 if only_show_selected:
                     if score is not None and score != 0 and not isnan(end_value) and hold_days != -1:
                         # 根据排序模式过滤score
