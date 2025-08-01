@@ -87,6 +87,21 @@ class ComponentAnalysisWidget(QWidget):
         # 绑定信号，变更时同步变量
         self.analysis_count_spin.valueChanged.connect(self._on_analysis_count_changed_save)
         
+        # 二次分析次数设置控件
+        self.secondary_analysis_count_label = QLabel("二次分析次数:")
+        self.secondary_analysis_count_spin = QSpinBox()
+        self.secondary_analysis_count_spin.setMinimum(1)
+        self.secondary_analysis_count_spin.setMaximum(9999999)
+        self.secondary_analysis_count_spin.setValue(1)  # 默认1次
+        self.secondary_analysis_count_spin.setFixedWidth(45)
+        
+        # 恢复保存的二次分析次数
+        if hasattr(self.main_window, 'last_component_secondary_analysis_count'):
+            self.secondary_analysis_count_spin.setValue(self.main_window.last_component_secondary_analysis_count)
+        
+        # 绑定信号，变更时同步变量
+        self.secondary_analysis_count_spin.valueChanged.connect(self._on_secondary_analysis_count_changed_save)
+        
         # 功能按钮
         self.analyze_btn = QPushButton("点击分析")
         self.analyze_btn.clicked.connect(self.on_analyze_clicked)
@@ -249,6 +264,8 @@ class ComponentAnalysisWidget(QWidget):
         # row_layout.addWidget(self.valid_sum_logic_checkbox)
         row_layout.addWidget(self.analysis_count_label)
         row_layout.addWidget(self.analysis_count_spin)
+        row_layout.addWidget(self.secondary_analysis_count_label)
+        row_layout.addWidget(self.secondary_analysis_count_spin)
         row_layout.addWidget(self.analyze_btn)
         row_layout.addWidget(self.optimize_btn)
         row_layout.addWidget(self.terminate_btn)
@@ -315,6 +332,10 @@ class ComponentAnalysisWidget(QWidget):
     def _on_analysis_count_changed_save(self):
         """保存分析次数变更"""
         self.main_window.last_component_analysis_count = self.analysis_count_spin.value()
+        
+    def _on_secondary_analysis_count_changed_save(self):
+        """保存二次分析次数变更"""
+        self.main_window.last_component_secondary_analysis_count = self.secondary_analysis_count_spin.value()
         
     def _on_hold_rate_min_changed_save(self):
         """保存持有率最小值变更"""
@@ -550,14 +571,19 @@ class ComponentAnalysisWidget(QWidget):
         """二次分析按钮点击处理"""
         try:
             from PyQt5.QtWidgets import QMessageBox
+            import time
+            
+            # 记录开始时间
+            start_time = time.time()
             
             # 检查是否有分析结果
             if not hasattr(self.main_window, 'overall_stats') or not self.main_window.overall_stats:
                 QMessageBox.warning(self, "提示", "请先进行组合分析，获取最优结果后再进行二次分析！")
                 return
                 
-            # 获取组合分析次数
+            # 获取组合分析次数和二次分析次数
             analysis_count = self.analysis_count_spin.value()
+            secondary_analysis_count = self.secondary_analysis_count_spin.value()
             
             # 获取结束日期（使用主界面的date_picker）
             end_date = self.main_window.date_picker.date().toString("yyyy-MM-dd")
@@ -590,6 +616,7 @@ class ComponentAnalysisWidget(QWidget):
             self.main_window.last_component_analysis_start_date = start_date
             self.main_window.last_component_analysis_end_date = end_date
             self.main_window.last_component_analysis_count = analysis_count
+            self.main_window.last_component_secondary_analysis_count = secondary_analysis_count
             
             # 创建临时的FormulaSelectWidget实例，避免访问已删除的控件
             from function.stock_functions import FormulaSelectWidget, get_abbr_map, get_abbr_logic_map, get_abbr_round_map
@@ -606,11 +633,24 @@ class ComponentAnalysisWidget(QWidget):
             if hasattr(self.main_window, 'last_formula_select_state'):
                 temp_formula_widget.set_state(self.main_window.last_formula_select_state)
             
-            # 使用优化公式列表方法
-            formula_list = temp_formula_widget.optimize_formula_list()
+            # 使用优化公式列表方法，传入二次分析次数
+            formula_list = temp_formula_widget.optimize_formula_list(secondary_analysis_count)
+            
+            # 计算耗时
+            end_time = time.time()
             
             if not formula_list:
                 QMessageBox.warning(self, "提示", "没有生成任何优化公式，请检查变量设置和统计结果！")
+                temp_formula_widget.deleteLater()
+                return
+            
+            # 保存优化信息到主窗口
+            if formula_list:
+                self.main_window.component_analysis_formula_list = formula_list
+            
+            # 检查公式列表长度并显示警告
+            if len(formula_list) > 64:
+                QMessageBox.warning(self, "提示", f"组合分析公式超过64个（当前{len(formula_list)}个），没二次优化效果！")
                 temp_formula_widget.deleteLater()
                 return
             
@@ -622,7 +662,7 @@ class ComponentAnalysisWidget(QWidget):
             
             # 显示进度信息
             total_analyses = len(formula_list) * len(special_params_combinations) * analysis_count
-            self.show_message(f"开始执行二次分析，总共 {total_analyses} 次分析...")
+            self.show_message(f"生成了 {len(formula_list)} 个组合公式，开始执行二次分析，总共 {total_analyses} 次分析...")
             
             # 重置终止标志
             self.analysis_terminated = False
@@ -704,6 +744,8 @@ class ComponentAnalysisWidget(QWidget):
             # 分析全部完成后，检查最优方案是否满足条件（无论是否勾选生成操盘方案）
             if self.cached_analysis_results:
                 top_one = self.cached_analysis_results[0]
+                self.main_window.overall_stats = top_one.get('overall_stats')
+                #print(f"check_analysis_completed result overall_stats: {self.main_window.overall_stats}")
                 # 比较top_one的adjusted_value与上次的last_adjusted_value
                 new_value = top_one.get('adjusted_value', None)
                 last_value = getattr(self.main_window, 'last_adjusted_value', None)
@@ -770,8 +812,6 @@ class ComponentAnalysisWidget(QWidget):
                         # 只有当新值大于上次值时才更新
                         if last_value_float is None or new_value_float > last_value_float:
                             self.main_window.last_adjusted_value = new_value_float
-                            self.main_window.overall_stats = top_one.get('overall_stats')
-                            #print(f"check_analysis_completed result overall_stats: {self.main_window.overall_stats}")
                             # 更新上次最优值显示
                             self._update_last_best_value_display()
                     except Exception:
@@ -1475,7 +1515,7 @@ class ComponentAnalysisWidget(QWidget):
                 time_str = "未知"
             if hasattr(self.main_window, 'last_component_total_combinations') and self.main_window.last_component_total_combinations:
                 total_combinations = self.main_window.last_component_total_combinations
-        
+            
         info_label = QLabel(f"组合合计: {total_combinations} | 总耗时: {time_str}")
         info_label.setStyleSheet("font-size: 13px; color: #333; padding: 6px 10px; background-color: #f5f5f5; border: 1px solid #ddd; border-radius: 3px;")
         self.result_layout.addWidget(info_label)

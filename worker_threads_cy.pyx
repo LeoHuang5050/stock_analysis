@@ -971,6 +971,15 @@ def calculate_batch_cy(
                     increment_change = NAN
                     after_gt_end_change = NAN
                     after_gt_start_change = NAN
+                    # 止盈停损相关
+                    take_and_stop_increment_change = NAN
+                    take_and_stop_after_gt_end_change = NAN
+                    take_and_stop_after_gt_start_change = NAN
+                    # 停盈止损相关
+                    stop_and_take_increment_change = NAN
+                    stop_and_take_after_gt_end_change = NAN
+                    stop_and_take_after_gt_start_change = NAN
+
                     if op_days > 0:
                         end_value = price_data_view[stock_idx, end_date_idx]
                         
@@ -1011,9 +1020,11 @@ def calculate_batch_cy(
                                     prev_price = price_data_view[stock_idx, k + 1]
 
                                 if increment_threshold != 0 and (v - end_value) > increment_threshold:
-                                    increment_value = round_to_2(v)
+                                    increment_value = v
                                     increment_days = n
                                     increment_change = inc_rate * n * 100
+                                    take_and_stop_increment_change = increment_change
+                                    stop_and_take_increment_change = round_to_2(((v - end_value) / end_value) * 100)
                                     
                                     if not isnan(prev_price) and prev_price != 0:
                                         inc_take_profit = round_to_2(((v - prev_price) / prev_price) * 100)
@@ -1031,6 +1042,8 @@ def calculate_batch_cy(
                                     increment_value = round_to_2(v)
                                     increment_days = n
                                     increment_change = stop_loss_inc_rate * n * 100
+                                    take_and_stop_increment_change = round_to_2(((v - end_value) / end_value) * 100)
+                                    stop_and_take_increment_change = increment_change
 
                                     if not isnan(prev_price) and prev_price != 0:
                                         inc_stop_loss = round_to_2(((v - prev_price) / prev_price) * 100)
@@ -1047,6 +1060,8 @@ def calculate_batch_cy(
                                 inc_end_state = 0
                                 inc_take_profit = NAN
                                 inc_stop_loss = NAN
+                                take_and_stop_increment_change = NAN
+                                stop_and_take_increment_change = NAN
 
                             # after_gt_end_value 计算（方向：end_date_idx-1 向 end_date_idx-op_days）
                             found = False
@@ -1077,6 +1092,8 @@ def calculate_batch_cy(
                                     after_gt_end_value = round_to_2(v)
                                     after_gt_end_days = n
                                     after_gt_end_change = after_gt_end_ratio * 100
+                                    take_and_stop_after_gt_end_change = after_gt_end_change
+                                    stop_and_take_after_gt_end_change = round_to_2(((v - end_value) / end_value) * 100)
                                     found = True
                                     ge_end_state = 1
                                     if not isnan(prev_price) and prev_price != 0:
@@ -1093,6 +1110,8 @@ def calculate_batch_cy(
                                     after_gt_end_value = round_to_2(v)
                                     after_gt_end_days = n
                                     after_gt_end_change = stop_loss_after_gt_end_ratio * 100
+                                    take_and_stop_after_gt_end_change = round_to_2(((v - end_value) / end_value) * 100)
+                                    stop_and_take_after_gt_end_change = after_gt_end_change
                                     found = True
                                     ge_end_state = 2
                                     if not isnan(prev_price) and prev_price != 0:
@@ -1107,6 +1126,8 @@ def calculate_batch_cy(
                                 ge_end_state = 0
                                 ge_take_profit = NAN
                                 ge_stop_loss = NAN
+                                take_and_stop_after_gt_end_change = NAN
+                                stop_and_take_after_gt_end_change = NAN
 
                             # after_gt_start_value 计算（方向：end_date_idx 向 end_date_idx-op_days，判断k和k-1）
                             found = False
@@ -1134,6 +1155,10 @@ def calculate_batch_cy(
                                         after_gt_start_change = after_gt_start_ratio * 100
                                     else:
                                         after_gt_start_change = round_to_2(((1 + (v_now - end_value) / end_value) * (1 + after_gt_start_ratio) - 1) * 100)
+
+                                    take_and_stop_after_gt_start_change = after_gt_start_change
+                                    stop_and_take_after_gt_start_change = round_to_2(((v_prev - end_value) / end_value) * 100)
+
                                     #if stock_idx == 5377:
                                         #printf("stock_idx=%d, n=%d, v_now=%.2f, v_prev=%.2f, end_value=%.2f, after_gt_start_ratio=%.4f, after_gt_start_change=%.2f\n", 
                                             #stock_idx, n, v_now, v_prev, end_value, after_gt_start_ratio, after_gt_start_change)
@@ -1156,7 +1181,8 @@ def calculate_batch_cy(
                                         after_gt_start_change = stop_loss_after_gt_start_ratio  * 100
                                     else:
                                         after_gt_start_change = round_to_2(((1 + (v_now - end_value) / end_value) * (1 + stop_loss_after_gt_start_ratio) - 1) * 100)
-                                        
+                                    take_and_stop_after_gt_start_change = round_to_2(((v_prev - end_value) / end_value) * 100)
+                                    stop_and_take_after_gt_start_change = after_gt_start_change
                                     if not isnan(prev_price) and prev_price != 0:
                                         gs_stop_loss = round_to_2(((v - prev_price) / prev_price) * 100)
                                     else:
@@ -1171,6 +1197,8 @@ def calculate_batch_cy(
                                 gs_end_state = 0
                                 gs_take_profit = NAN
                                 gs_stop_loss = NAN
+                                take_and_stop_after_gt_start_change = NAN
+                                stop_and_take_after_gt_start_change = NAN
                     
                     # 处理NAN值
                     if isnan(increment_value):
@@ -1690,6 +1718,8 @@ def calculate_batch_cy(
                         end_state = inc_end_state
                         take_profit = inc_take_profit
                         stop_loss = inc_stop_loss
+                        take_and_stop_change = take_and_stop_increment_change
+                        stop_and_take_change = stop_and_take_increment_change
                     elif result_value == 'after_gt_end_value':
                         ops_value = after_gt_end_value
                         hold_days = after_gt_end_days
@@ -1697,6 +1727,8 @@ def calculate_batch_cy(
                         end_state = ge_end_state
                         take_profit = ge_take_profit
                         stop_loss = ge_stop_loss
+                        take_and_stop_change = take_and_stop_after_gt_end_change
+                        stop_and_take_change = stop_and_take_after_gt_end_change
                     elif result_value == 'after_gt_start_value':
                         ops_value = after_gt_start_value
                         hold_days = after_gt_start_days
@@ -1704,6 +1736,8 @@ def calculate_batch_cy(
                         end_state = gs_end_state
                         take_profit = gs_take_profit
                         stop_loss = gs_stop_loss
+                        take_and_stop_change = take_and_stop_after_gt_start_change
+                        stop_and_take_change = stop_and_take_after_gt_start_change
                     else:
                         ops_value = result_value
                         hold_days = None
@@ -1711,6 +1745,8 @@ def calculate_batch_cy(
                         end_state = 0
                         take_profit = 0
                         stop_loss = 0
+                        take_and_stop_change = None
+                        stop_and_take_change = None
 
                 except Exception as e:
                     ops_value = None
@@ -1719,6 +1755,8 @@ def calculate_batch_cy(
                     end_state = 0
                     take_profit = 0
                     stop_loss = 0
+                    take_and_stop_change = None
+                    stop_and_take_change = None
                 
                 # 新增：计算操作涨幅、调整天数、日均涨幅
                 ops_change = None
@@ -1730,6 +1768,8 @@ def calculate_batch_cy(
                 if ops_value is not None and not isnan(ops_value) and hold_days is not None and hold_days != -1 and not isnan(hold_days) and end_value_for_ops not in (None, 0):
                     try:
                         ops_change = round_to_2((ops_value - end_value_for_ops) / end_value_for_ops * 100)
+                        if stock_idx == 3373:
+                            print(f"stock_idx=3373, ops_value={ops_value}, end_value_for_ops={end_value_for_ops}, ops_change={ops_change}")
                     except Exception:
                         ops_change = None  
 
@@ -1781,6 +1821,22 @@ def calculate_batch_cy(
                         adjust_ops_incre_rate = round_to_2(adjust_ops_change / hold_days)
                     except Exception:
                         adjust_ops_incre_rate = None
+
+                # 交叉止盈停损，停盈止损 日均涨幅： 停盈止损 / 持有天数， 止盈停损 / 持有天数
+                take_and_stop_incre_rate = None
+                if take_and_stop_change is not None and not isnan(take_and_stop_change):
+                    try:
+                        take_and_stop_incre_rate = round_to_2(take_and_stop_change / hold_days)
+                    except Exception:
+                        take_and_stop_incre_rate = None
+
+                stop_and_take_incre_rate = None
+                if stop_and_take_change is not None and not isnan(stop_and_take_change):
+                    try:
+                        stop_and_take_incre_rate = round_to_2(stop_and_take_change / hold_days)
+                    except Exception:
+                        stop_and_take_incre_rate = None
+                    
                 
                 # 新增：score 计算
                 score = None
@@ -2072,6 +2128,16 @@ def calculate_batch_cy(
                                 'after_gt_start_change': after_gt_start_change,
                                 'adjust_ops_change': adjust_ops_change,
                                 'adjust_ops_incre_rate': adjust_ops_incre_rate,
+                                'take_and_stop_increment_change': take_and_stop_increment_change,
+                                'take_and_stop_after_gt_end_change': take_and_stop_after_gt_end_change,
+                                'take_and_stop_after_gt_start_change': take_and_stop_after_gt_start_change,
+                                'take_and_stop_change': take_and_stop_change,
+                                'take_and_stop_incre_rate': take_and_stop_incre_rate,
+                                'stop_and_take_increment_change': stop_and_take_increment_change,
+                                'stop_and_take_after_gt_end_change': stop_and_take_after_gt_end_change,
+                                'stop_and_take_after_gt_start_change': stop_and_take_after_gt_start_change,
+                                'stop_and_take_change': stop_and_take_change,
+                                'stop_and_take_incre_rate': stop_and_take_incre_rate,
                                 'score': score,
                                 'forward_max_result_len': forward_max_result_len,
                                 'forward_min_result_len': forward_min_result_len,
@@ -2222,6 +2288,16 @@ def calculate_batch_cy(
                             'after_gt_start_change': after_gt_start_change,
                             'adjust_ops_change': adjust_ops_change,
                             'adjust_ops_incre_rate': adjust_ops_incre_rate,
+                            'take_and_stop_increment_change': take_and_stop_increment_change,
+                            'take_and_stop_after_gt_end_change': take_and_stop_after_gt_end_change,
+                            'take_and_stop_after_gt_start_change': take_and_stop_after_gt_start_change,
+                            'take_and_stop_change': take_and_stop_change,
+                            'take_and_stop_incre_rate': take_and_stop_incre_rate,
+                            'stop_and_take_increment_change': stop_and_take_increment_change,
+                            'stop_and_take_after_gt_end_change': stop_and_take_after_gt_end_change,
+                            'stop_and_take_after_gt_start_change': stop_and_take_after_gt_start_change,
+                            'stop_and_take_change': stop_and_take_change,
+                            'stop_and_take_incre_rate': stop_and_take_incre_rate,
                             'score': score,
                             'forward_max_result_len': forward_max_result_len,
                             'forward_min_result_len': forward_min_result_len,

@@ -16,6 +16,27 @@ import re
 import gc
 import statistics
 
+def format_overall_stat_value(value):
+    """
+    格式化总体统计值：
+    - 正数向上取整，负数向下取整
+    - 如1.2取整为2，-1.2取整为-2
+    """
+    if value is None:
+        return None
+    
+    try:
+        value = float(value)
+        if value == 0:
+            return 0
+        # 正数向上取整，负数向下取整
+        if value > 0:
+            return math.ceil(value)  # 向上取整
+        else:
+            return math.floor(value)  # 向下取整
+    except (ValueError, TypeError):
+        return value
+
 EXPR_PLACEHOLDER_TEXT = (
     "需要严格按照python表达式规则填入。\n"
     "规则提醒：\n"
@@ -206,7 +227,7 @@ def show_continuous_sum_table(parent, all_results, price_data, as_widget=False):
                     val = results[col_idx] if col_idx < len(results) else ""
                     table1.setItem(row_idx, 4 + col_idx, QTableWidgetItem(str(safe_val(val))))
                 param_values = [
-                    len(results),
+                    row.get('continuous_len', ''),
                     row.get('cont_sum_pos_sum', ''),
                     row.get('cont_sum_neg_sum', ''),
                     row.get('cont_sum_pos_sum_first_half', ''),
@@ -576,7 +597,6 @@ def query_row_result(rows, keyword, n_days=0):
     if not results:
         return f"未找到与'{keyword}'相关的股票信息。"
     return '\n'.join(results)
-
 def show_params_table(parent, all_results, end_date=None, n_days=0, n_days_max=0, range_value=None, continuous_abs_threshold=None, as_widget=False, price_data=None):
     if not all_results or not all_results.get("dates"):
         QMessageBox.information(parent, "提示", "请先生成参数！")
@@ -616,8 +636,10 @@ def show_params_table(parent, all_results, end_date=None, n_days=0, n_days_max=0
         f'开始日到结束日之间向前最大有效累加值绝对值小于M',
         '前1组结束日地址值',
         '前1组结束地址前1日涨跌幅', '前1组结束日涨跌幅', '后1组结束地址值',
-        '递增值', '后值大于结束地址值', '后值大于前值返回值', '操作值', '持有天数', '调天操作涨幅', '调整天数', '调天日均涨幅',
-        '调幅递增涨幅', '调幅后值大于结束地址值涨幅', '调幅后值大于前值返回值涨幅', '调幅操作涨幅', '调幅日均涨幅',
+        '递增值', '后值大于结束地址值', '后值大于前值返回值', '操作值', '持有天数', '停盈停损操作涨幅', '调整天数', '停盈停损日均涨幅',
+        '止盈止损递增涨幅', '止盈止损后值大于结束地址值涨幅', '止盈止损后值大于前值返回值涨幅', '止盈止损操作涨幅', '止盈止损日均涨幅',
+        '止盈停损递增涨幅', '止盈停损后值大于结束地址值涨幅', '止盈停损后值大于前值返回值涨幅', '止盈停损操作涨幅', '止盈停损日均涨幅',
+        '停盈止损递增涨幅', '停盈止损后值大于结束地址值涨幅', '停盈止损后值大于前值返回值涨幅', '停盈止损操作涨幅', '停盈止损日均涨幅',
         '创前新高1', '创前新高2', '创后新高1', '创后新高2', '创前新低1', '创前新低2', '创后新低1', '创后新低2'  # 新增两列
     ]
     table = QTableWidget(len(stocks_data), len(headers))
@@ -727,15 +749,26 @@ def show_params_table(parent, all_results, end_date=None, n_days=0, n_days_max=0
             table.setItem(row_idx, 31, QTableWidgetItem(get_percent(row.get('after_gt_start_change', ''))))
             table.setItem(row_idx, 32, QTableWidgetItem(get_percent(row.get('adjust_ops_change', ''))))
             table.setItem(row_idx, 33, QTableWidgetItem(get_percent(row.get('adjust_ops_incre_rate', ''))))
+            # 止盈停损相关
+            table.setItem(row_idx, 34, QTableWidgetItem(get_percent(row.get('take_and_stop_increment_change', ''))))
+            table.setItem(row_idx, 35, QTableWidgetItem(get_percent(row.get('take_and_stop_after_gt_end_change', ''))))
+            table.setItem(row_idx, 36, QTableWidgetItem(get_percent(row.get('take_and_stop_after_gt_start_change', ''))))
+            table.setItem(row_idx, 37, QTableWidgetItem(get_percent(row.get('take_and_stop_change', ''))))
+            table.setItem(row_idx, 38, QTableWidgetItem(get_percent(row.get('take_and_stop_incre_rate', ''))))
+            table.setItem(row_idx, 39, QTableWidgetItem(get_percent(row.get('stop_and_take_increment_change', ''))))
+            table.setItem(row_idx, 40, QTableWidgetItem(get_percent(row.get('stop_and_take_after_gt_end_change', ''))))
+            table.setItem(row_idx, 41, QTableWidgetItem(get_percent(row.get('stop_and_take_after_gt_start_change', ''))))
+            table.setItem(row_idx, 42, QTableWidgetItem(get_percent(row.get('stop_and_take_change', ''))))
+            table.setItem(row_idx, 43, QTableWidgetItem(get_percent(row.get('stop_and_take_incre_rate', ''))))
             # 新增：创新高、创新低
-            table.setItem(row_idx, 34, QTableWidgetItem(get_bool(row.get('start_with_new_before_high', ''))))
-            table.setItem(row_idx, 35, QTableWidgetItem(get_bool(row.get('start_with_new_before_high2', ''))))
-            table.setItem(row_idx, 36, QTableWidgetItem(get_bool(row.get('start_with_new_after_high', ''))))
-            table.setItem(row_idx, 37, QTableWidgetItem(get_bool(row.get('start_with_new_after_high2', ''))))
-            table.setItem(row_idx, 38, QTableWidgetItem(get_bool(row.get('start_with_new_before_low', ''))))
-            table.setItem(row_idx, 39, QTableWidgetItem(get_bool(row.get('start_with_new_before_low2', ''))))
-            table.setItem(row_idx, 40, QTableWidgetItem(get_bool(row.get('start_with_new_after_low', ''))))
-            table.setItem(row_idx, 41, QTableWidgetItem(get_bool(row.get('start_with_new_after_low2', ''))))
+            table.setItem(row_idx, 44, QTableWidgetItem(get_bool(row.get('start_with_new_before_high', ''))))
+            table.setItem(row_idx, 45, QTableWidgetItem(get_bool(row.get('start_with_new_before_high2', ''))))
+            table.setItem(row_idx, 46, QTableWidgetItem(get_bool(row.get('start_with_new_after_high', ''))))
+            table.setItem(row_idx, 47, QTableWidgetItem(get_bool(row.get('start_with_new_after_high2', ''))))
+            table.setItem(row_idx, 48, QTableWidgetItem(get_bool(row.get('start_with_new_before_low', ''))))
+            table.setItem(row_idx, 49, QTableWidgetItem(get_bool(row.get('start_with_new_before_low2', ''))))
+            table.setItem(row_idx, 50, QTableWidgetItem(get_bool(row.get('start_with_new_after_low', ''))))
+            table.setItem(row_idx, 51, QTableWidgetItem(get_bool(row.get('start_with_new_after_low2', ''))))
         table.resizeColumnsToContents()
         table.horizontalHeader().setFixedHeight(50)
         table.horizontalHeader().setStyleSheet("font-size: 12px;")
@@ -930,10 +963,12 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
     def on_set_forward_param_btn_clicked():
         abbr_map = get_window_abbr_map()
         round_map = get_abbr_round_map()  # 获取需要圆框勾选的变量映射
-        class ForwardParamDialog(QDialog):
+        class ForwardParamDialog(QWidget):
             def __init__(self, abbr_map, state=None, parent=None):
                 super().__init__(parent)
                 self.setWindowTitle("设置向前参数")
+                # 设置窗口标志，使其行为类似对话框
+                self.setWindowFlags(Qt.Window | Qt.WindowCloseButtonHint | Qt.WindowMinimizeButtonHint)
                 grid = QGridLayout(self)
                 grid.setHorizontalSpacing(20)
                 grid.setVerticalSpacing(10)
@@ -951,10 +986,7 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
                     enable_cb.setFixedWidth(15)
 
                     label = QLabel(zh_name)
-    
-                    # 为向前参数对话框中的变量控件添加悬浮提示
-                    add_tooltip_to_variable(label, abbr_map[zh_name], self.parent())
-                    
+
                     # 添加圆框勾选框
                     round_check = None
                     if abbr_map[zh_name] in round_map.values():
@@ -1013,13 +1045,14 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
                     if round_check:
                         group_layout.addWidget(round_check)
                     group_layout.addWidget(label)
+                    # 为向前参数对话框中的变量控件添加悬浮提示
+                    add_tooltip_to_variable(label, abbr_map[zh_name], self.parent())
                     group_layout.addWidget(lower_edit)
                     group_layout.addWidget(upper_edit)
                     group_layout.addWidget(step_edit)
                     group_layout.addWidget(direction_combo)
                     group_layout.addWidget(logic_check)
                     group_layout.addWidget(logic_label)
-                    
                     group_widget.setLayout(group_layout)
                     grid.addWidget(group_widget, row, col)
                     
@@ -1041,7 +1074,13 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
                 btn_ok.setFixedHeight(32)
                 btn_ok.setStyleSheet("font-size: 14px;")
                 btn_ok.clicked.connect(self.accept)
-                grid.addWidget(btn_ok, row+1, 0, 1, 4)
+                
+                # 创建按钮布局
+                button_layout = QHBoxLayout()
+                button_layout.addStretch()
+                button_layout.addWidget(btn_ok)
+                
+                grid.addLayout(button_layout, row+1, 0, 1, 4)
                 # 设置拉伸策略：内容区不拉伸，只拉伸最右空白列和最下空白行
                 for i in range(4):
                     grid.setColumnStretch(i, 0)
@@ -1071,6 +1110,14 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
                                 w["round"].setChecked(v.get("round", False))
                 self.setLayout(grid)
                 
+                # 添加结果属性
+                self.result = None
+                
+            def accept(self):
+                """确定按钮的处理"""
+                self.result = True
+                self.close()
+                
             def get_params(self):
                 params = {}
                 for k, w in self.widgets.items():
@@ -1088,17 +1135,25 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
                 return params
                 
             def closeEvent(self, event):
+                # 关闭窗口时也保存参数，相当于确定
+                self.result = True
                 params = self.get_params()
                 if hasattr(self.parent(), 'forward_param_state'):
                     self.parent().forward_param_state = params
                     if hasattr(self.parent(), 'save_config'):
                         self.parent().save_config()
                 super().closeEvent(event)
-                
 
         # parent为主窗口实例
         dlg = ForwardParamDialog(abbr_map, state=getattr(parent, 'forward_param_state', None), parent=parent)
-        if dlg.exec_():
+        # 固定窗口位置
+        dlg.move(100, 300)
+        dlg.show()
+        # 等待窗口关闭
+        while dlg.isVisible():
+            QApplication.instance().processEvents()
+        
+        if dlg.result:
             params = dlg.get_params()
             parent.forward_param_state = params
             if hasattr(parent, 'save_config'):
@@ -1135,7 +1190,6 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
         parent.formula_select_result_window = None
     if not hasattr(parent, 'formula_select_result_table'):
         parent.formula_select_result_table = None
-
     # 选股逻辑
     def do_select():
         # 读取控件值
@@ -1330,6 +1384,7 @@ def show_formula_select_table_result(parent, result, price_data=None, output_edi
         CopyableTableWidget = QTableWidget
     
     merged_results = result.get('dates', {})
+   
     headers = ["股票代码", "股票名称", "持有天数", "止盈止损涨幅", "止盈止损日均涨幅", "调整天数", "停盈停损涨幅", "停盈停损日均涨幅", "选股公式输出值"]
     if not merged_results or not any(merged_results.values()):
         # 返回一个只有表头的空表格
@@ -1344,6 +1399,8 @@ def show_formula_select_table_result(parent, result, price_data=None, output_edi
     # 只展示第一个日期的数据
     first_date = list(merged_results.keys())[0]
     stocks = merged_results[first_date]
+    # 过滤掉统计行（stock_idx为-1到-3的数据）
+    stocks = [stock for stock in stocks if stock.get('stock_idx', 0) >= 0]
     if not stocks:
         table = CopyableTableWidget(0, len(headers), parent)
         table.setHorizontalHeaderLabels(headers)
@@ -1541,7 +1598,6 @@ def get_special_abbr_map():
         ("创前后新高低2展宽期天数", "new_high_low2_span")
     ]
     return {zh: en for zh, en in abbrs}
-
 class FormulaSelectWidget(QWidget):
     def __init__(self, abbr_map, abbr_logic_map, abbr_round_map, main_window, sort_combo=None):
         super().__init__()
@@ -1971,7 +2027,6 @@ class FormulaSelectWidget(QWidget):
                     print("没有发现向前参数变量")
         
         return combinations
-
     def generate_formula_list(self):
         """
         生成公式列表，用于组合分析，类似笛卡尔积
@@ -2534,7 +2589,7 @@ class FormulaSelectWidget(QWidget):
                 else:
                     result_expr = "result = 0"
                 
-                # 向前相关参数不区分最大最小排序，以基础参数为准，如果没有基础参数，则按用户设置的排序
+                # 向前相关参数不区分最大最小排序，以基础参数为准，如果没有基础参量，则按用户设置的排序
                 # 获取用户设置的排序方式
                 user_sort_mode = self.sort_combo.currentText() if self.sort_combo else '最大值排序'
                 print(f"user_sort_mode: {user_sort_mode}")
@@ -2800,13 +2855,18 @@ class FormulaSelectWidget(QWidget):
             print("-" * 50)
         return formula_list
 
-    def optimize_formula_list(self):
+    def optimize_formula_list(self, secondary_analysis_count=1):
         """
         生成优化公式列表，用于二次分析
         根据统计值生成优化的变量范围组合：
         - 下限固定为统计最小值，上限从统计最大值按步长减少到正值中值
         - 上限固定为统计最大值，下限从统计最小值按步长增加到负值中值
-        步长值为 (正值中值 - 负值中值) / 20 的整数部分
+        步长值为 (正值中值 - 负值中值) / 4 的整数部分
+        
+        新增二次分析逻辑：
+        - 当选择左单向时，最大值逐渐减步长，分析二次分析次数设置值（如果减超最小值停止）
+        - 当选择右单向时，最小值逐渐加步长，分析设置的次数（如果加超最大值停止）
+        - 当选择全方向时，两边各分析设置的二次分析次数，然后生成笛卡尔积组合
         """
         
         overall_stats = self.main_window.overall_stats
@@ -2869,13 +2929,15 @@ class FormulaSelectWidget(QWidget):
                         current_lower = float(widgets['lower'].text()) if widgets['lower'].text() else 0
                         current_upper = float(widgets['upper'].text()) if widgets['upper'].text() else 0
                         
-                        # 获取步长值（直接使用控件输入框的值）
-                        step_value = float(widgets['step'].text()) if widgets['step'].text() else 1
+                        # 获取步长值和方向
+                        # 如果步长输入框为空，按单一条件处理（步长为0）
+                        step_value = float(widgets['step'].text()) if widgets['step'].text() else 0
+                        direction = widgets['direction'].currentText() if 'direction' in widgets else ""
                         
-                        if max_value is not None and min_value is not None and step_value is not None and step_value > 0:
+                        if max_value is not None and min_value is not None and step_value is not None and step_value >= 0:
                             has_logic = widgets.get('logic_check', None) and widgets['logic_check'].isChecked()
                             
-                            print(f"  添加变量到优化组合: {variable_name}, 含逻辑: {has_logic}")
+                            print(f"  添加变量到优化组合: {variable_name}, 含逻辑: {has_logic}, 方向: {direction}")
                             print(f"    统计值: min={min_value}, max={max_value}, pos_median={positive_median}, neg_median={negative_median}, step={step_value}")
                             print(f"    当前输入值: lower={current_lower}, upper={current_upper}")
                             
@@ -2886,6 +2948,7 @@ class FormulaSelectWidget(QWidget):
                                 'positive_median': positive_median,
                                 'negative_median': negative_median,
                                 'step_value': step_value,
+                                'direction': direction,
                                 'has_logic': has_logic,
                                 'is_comparison': False  # 标记为普通变量
                             })
@@ -2914,16 +2977,17 @@ class FormulaSelectWidget(QWidget):
                         try:
                             current_lower = float(lower_text)
                             current_upper = float(upper_text)
-                            # 如果步长为空，设为1
+                            # 如果步长为空，按单一条件处理（步长为0）
                             if step_text:
                                 step_value = float(step_text)
                             else:
-                                step_value = 1
+                                step_value = 0
                             
-                            if max_value is not None and min_value is not None and step_value is not None and step_value > 0:
+                            if max_value is not None and min_value is not None and step_value is not None and step_value >= 0:
                                 has_logic = v.get('logic', False)
+                                direction = v.get('direction', '右单向')
                                 
-                                print(f"  添加向前参数到优化组合: {en}")
+                                print(f"  添加向前参数到优化组合: {en}, 方向: {direction}")
                                 print(f"    统计值: min={min_value}, max={max_value}, pos_median={positive_median}, neg_median={negative_median}, step={step_value}")
                                 print(f"    当前输入值: lower={current_lower}, upper={current_upper}")
                                 
@@ -2934,6 +2998,7 @@ class FormulaSelectWidget(QWidget):
                                     'positive_median': positive_median,
                                     'negative_median': negative_median,
                                     'step_value': step_value,
+                                    'direction': direction,
                                     'has_logic': has_logic,
                                     'is_comparison': False  # 标记为普通变量
                                 })
@@ -3037,13 +3102,10 @@ class FormulaSelectWidget(QWidget):
                             has_logic_comparison = True
                     except ValueError:
                         continue
-        
         # 生成优化组合
         print(f"lock_output: {lock_output}")
-        
         # 初始化logic_conditions，避免未定义错误
         logic_conditions = []
-        
         if lock_output:
             # 锁定输出时，结果部分只生成一种组合（所有勾选的result变量直接加号拼接）
             all_result_vars = []
@@ -3177,58 +3239,92 @@ class FormulaSelectWidget(QWidget):
                         should_use_median_optimization = is_abbr_map_var or is_forward_param
                         
                         if should_use_median_optimization:
-                            # abbr_map变量使用中值优化逻辑
+                            # abbr_map变量和向前参数使用二次分析逻辑
                             current_lower = var_info['current_lower']
                             current_upper = var_info['current_upper']
-                            positive_median = var_info['positive_median']
-                            negative_median = var_info['negative_median']
                             step_value = var_info['step_value']
+                            direction = var_info['direction']
                             
-                            # 生成上限值列表：从当前上限按步长减少到正值中值为止
-                            upper_values = []
-                            if positive_median is not None and current_upper > positive_median:
-                                upper_val = current_upper
-                                while upper_val >= positive_median:
-                                    upper_values.append(round(upper_val, 2))
-                                    upper_val -= step_value
-                            else:
-                                # 如果正值中值为空或当前上限不大于正值中值，使用当前上限
-                                upper_values.append(round(current_upper, 2))
+                            # 获取统计的最小值和最大值作为边界
+                            max_value = overall_stats.get(f'{var_name}_max')
+                            min_value = overall_stats.get(f'{var_name}_min')
                             
-                            # 生成下限值列表：从当前下限按步长增加到负值中值为止
-                            lower_values = []
-                            if negative_median is not None and current_lower < negative_median:
-                                lower_val = current_lower
-                                while lower_val <= negative_median:
-                                    lower_values.append(round(lower_val, 2))
-                                    lower_val += step_value
-                            else:
-                                # 如果负值中值为空或当前下限不小于负值中值，使用当前下限
-                                lower_values.append(round(current_lower, 2))
-                            
-                            # 生成组合
                             combinations = []
                             
-                            # 如果正值中值和负值中值都为空，生成单一条件
-                            if positive_median is None and negative_median is None:
+                            # 如果步长为0，生成单一组合
+                            if step_value == 0:
                                 combinations.append((round(current_lower, 2), round(current_upper, 2)))
-                                print(f"  正值中值和负值中值都为空，生成单一条件: ({round(current_lower, 2)}, {round(current_upper, 2)})")
+                                print(f"  步长为0，生成单一组合: ({round(current_lower, 2)}, {round(current_upper, 2)})")
                             else:
-                                # 生成笛卡尔积组合
-                                for lower in lower_values:
-                                    for upper in upper_values:
-                                        if lower <= upper:  # 确保下限不大于上限
-                                            combinations.append((lower, upper))
-                                
-                                # 剔除重复项
-                                combinations = list({(a, b) for a, b in combinations})
-                                combinations.sort()
-                            
-                            print(f"  中值优化变量 {var_name} 生成 {len(combinations)} 个中值优化组合")
-                            for i, (lower, upper) in enumerate(combinations[:5]):  # 只显示前5个
-                                print(f"    组合 {i+1}: ({lower}, {upper})")
-                            if len(combinations) > 5:
-                                print(f"    ... 还有 {len(combinations) - 5} 个组合")
+                                if direction == "左单向":
+                                    # 最大值逐渐减步长，分析二次分析次数设置值
+                                    current_upper_val = current_upper
+                                    for i in range(secondary_analysis_count):
+                                        if min_value is not None and current_upper_val < min_value:
+                                            # 如果减超最小值停止
+                                            break
+                                        combinations.append((round(current_lower, 2), round(current_upper_val, 2)))
+                                        current_upper_val -= step_value
+                                    
+                                    print(f"  左单向变量 {var_name} 生成 {len(combinations)} 个组合")
+                                    for i, (lower, upper) in enumerate(combinations[:5]):  # 只显示前5个
+                                        print(f"    组合 {i+1}: ({lower}, {upper})")
+                                    if len(combinations) > 5:
+                                        print(f"    ... 还有 {len(combinations) - 5} 个组合")
+                                        
+                                elif direction == "右单向":
+                                    # 最小值逐渐加步长，分析设置的次数
+                                    current_lower_val = current_lower
+                                    for i in range(secondary_analysis_count):
+                                        if max_value is not None and current_lower_val > max_value:
+                                            # 如果加超最大值停止
+                                            break
+                                        combinations.append((round(current_lower_val, 2), round(current_upper, 2)))
+                                        current_lower_val += step_value
+                                    
+                                    print(f"  右单向变量 {var_name} 生成 {len(combinations)} 个组合")
+                                    for i, (lower, upper) in enumerate(combinations[:5]):  # 只显示前5个
+                                        print(f"    组合 {i+1}: ({lower}, {upper})")
+                                    if len(combinations) > 5:
+                                        print(f"    ... 还有 {len(combinations) - 5} 个组合")
+                                        
+                                elif direction == "全方向":
+                                    # 两边各分析设置的二次分析次数，然后生成笛卡尔积
+                                    # 左方向：最大值逐渐减步长
+                                    left_upper_values = []
+                                    current_upper_val = current_upper
+                                    for i in range(secondary_analysis_count):
+                                        if min_value is not None and current_upper_val < min_value:
+                                            break
+                                        left_upper_values.append(round(current_upper_val, 2))
+                                        current_upper_val -= step_value
+                                    
+                                    # 右方向：最小值逐渐加步长
+                                    right_lower_values = []
+                                    current_lower_val = current_lower
+                                    for i in range(secondary_analysis_count):
+                                        if max_value is not None and current_lower_val > max_value:
+                                            break
+                                        right_lower_values.append(round(current_lower_val, 2))
+                                        current_lower_val += step_value
+                                    
+                                    # 生成笛卡尔积组合
+                                    for left_upper in left_upper_values:
+                                        for right_lower in right_lower_values:
+                                            if right_lower <= left_upper:  # 确保下限不大于上限
+                                                combinations.append((right_lower, left_upper))
+                                    
+                                    # 剔除重复项并排序
+                                    combinations = list({(a, b) for a, b in combinations})
+                                    combinations.sort()
+                                    
+                                    print(f"  全方向变量 {var_name} 生成 {len(combinations)} 个组合")
+                                    print(f"    左单向上限值: {left_upper_values}")
+                                    print(f"    右单向下限值: {right_lower_values}")
+                                    for i, (lower, upper) in enumerate(combinations[:5]):  # 只显示前5个
+                                        print(f"    组合 {i+1}: ({lower}, {upper})")
+                                    if len(combinations) > 5:
+                                        print(f"    ... 还有 {len(combinations) - 5} 个组合")
                         else:
                             # 非中值优化变量使用generate_formula_list的规则
                             lower_val = var_info['lower']
@@ -3545,53 +3641,228 @@ class FormulaSelectWidget(QWidget):
                 is_comparison = var_info.get('is_comparison', False)
                 
                 if is_comparison:
-                    # 比较控件
+                    # 比较控件 - 使用generate_formula_list的规则（不使用中值优化逻辑）
                     var1 = var_info['var1']
                     var2 = var_info['var2']
-                    min_value = var_info['min_value']
-                    max_value = var_info['max_value']
-                    positive_median = var_info['positive_median']
-                    negative_median = var_info['negative_median']
-                    step_value = var_info['step_value']
+                    lower_val = var_info['lower']
+                    upper_val = var_info['upper']
+                    step_val = var_info['step']
+                    direction = var_info['direction']
                     has_logic = var_info['has_logic']
                     
                     print(f"比较控件优化组合 - {var1} vs {var2}:")
-                    print(f"  统计值: min={min_value}, max={max_value}, pos_median={positive_median}, neg_median={negative_median}, step={step_value}")
-                    print(f"  含逻辑: {has_logic}")
+                    print(f"  下限: {lower_val}, 上限: {upper_val}, 步长: {step_val}")
+                    print(f"  方向: {direction}, 含逻辑: {has_logic}")
+                    
+                    # 比较控件使用标准组合生成逻辑（不使用中值优化）
+                    combinations = []
+                    
+                    # 如果步长为0或空，生成单一组合
+                    if step_val == 0 or step_val == '' or step_val is None:
+                        combinations.append((round(lower_val, 2), round(upper_val, 2)))
+                        print(f"  步长为0或空，生成单一组合: ({round(lower_val, 2)}, {round(upper_val, 2)})")
+                    else:
+                        if direction == "右单向":
+                            # 最大值不变，最小值按步长变化
+                            current_lower = lower_val
+                            # 根据步长正负调整循环条件
+                            if step_val > 0:
+                                while current_lower < upper_val:
+                                    combinations.append((round(current_lower, 2), round(upper_val, 2)))
+                                    current_lower += step_val
+                            else:  # step_val < 0
+                                while current_lower > upper_val:
+                                    combinations.append((round(current_lower, 2), round(upper_val, 2)))
+                                    current_lower += step_val
+                        
+                        elif direction == "左单向":
+                            # 最小值不变，最大值按步长变化
+                            current_upper = upper_val
+                            # 根据步长正负调整循环条件
+                            if step_val > 0:
+                                while current_upper > lower_val:
+                                    combinations.append((round(lower_val, 2), round(current_upper, 2)))
+                                    current_upper -= step_val
+                            else:  # step_val < 0
+                                while current_upper < lower_val:
+                                    combinations.append((round(lower_val, 2), round(current_upper, 2)))
+                                    current_upper -= step_val
+                        
+                        elif direction == "全方向":
+                            combinations = []
+                            # 右单向：上限不变，下限不断加步长
+                            current_lower = lower_val
+                            if step_val > 0:
+                                while current_lower < upper_val:
+                                    combinations.append((round(current_lower, 2), round(upper_val, 2)))
+                                    current_lower += step_val
+                            else:
+                                while current_lower > upper_val:
+                                    combinations.append((round(current_lower, 2), round(upper_val, 2)))
+                                    current_lower += step_val
+                            # 左单向：下限不变，上限不断减步长
+                            current_upper = upper_val
+                            if step_val > 0:
+                                while current_upper > lower_val:
+                                    combinations.append((round(lower_val, 2), round(current_upper, 2)))
+                                    current_upper -= step_val
+                            else:
+                                while current_upper < lower_val:
+                                    combinations.append((round(lower_val, 2), round(current_upper, 2)))
+                                    current_upper -= step_val
+                            # 剔除重复项和下限=上限的情况
+                            combinations = list({(a, b) for a, b in combinations if a != b})
+                            combinations.sort()
+                    
+                    print(f"  比较控件 {var1} vs {var2} 生成 {len(combinations)} 个标准组合")
+                    for i, (lower, upper) in enumerate(combinations[:5]):  # 只显示前5个
+                        print(f"    组合 {i+1}: ({lower}, {upper})")
+                    if len(combinations) > 5:
+                        print(f"    ... 还有 {len(combinations) - 5} 个组合")
                 else:
-                    # 普通变量
+                    # 普通变量 - 检查是否是abbr_map变量
                     var_name = var_info['var_name']
-                    current_lower = var_info['current_lower']
-                    current_upper = var_info['current_upper']
-                    positive_median = var_info['positive_median']
-                    negative_median = var_info['negative_median']
-                    step_value = var_info['step_value']
                     has_logic = var_info['has_logic']
-                
-                combinations = []
-                
-                # 生成优化组合：两个方向的变化
-                # 方向1：下限固定为当前输入值，上限从当前输入值按步长减少到正值中值
-                upper_val = current_upper
-                while upper_val >= positive_median:
-                    combinations.append((round(current_lower, 2), round(upper_val, 2)))
-                    upper_val -= step_value
-                
-                # 方向2：上限固定为当前输入值，下限从当前输入值按步长增加到负值中值
-                lower_val = current_lower
-                while lower_val <= negative_median:
-                    combinations.append((round(lower_val, 2), round(current_upper, 2)))
-                    lower_val += step_value
-                
-                # 剔除重复项
-                combinations = list({(a, b) for a, b in combinations})
-                combinations.sort()
-                
-                print(f"  生成 {len(combinations)} 个优化组合")
-                for i, (lower, upper) in enumerate(combinations[:5]):  # 只显示前5个
-                    print(f"    组合 {i+1}: ({lower}, {upper})")
-                if len(combinations) > 5:
-                    print(f"    ... 还有 {len(combinations) - 5} 个组合")
+                    
+                    # 检查是否是abbr_map变量或向前参数（都需要使用中值优化逻辑）
+                    is_abbr_map_var = var_name in [en for zh, en in abbr_map.items()]
+                    is_forward_param = hasattr(self.main_window, 'forward_param_state') and self.main_window.forward_param_state and var_name in self.main_window.forward_param_state
+                    should_use_median_optimization = is_abbr_map_var or is_forward_param
+                    
+                    if should_use_median_optimization:
+                        # abbr_map变量使用中值优化逻辑
+                        current_lower = var_info['current_lower']
+                        current_upper = var_info['current_upper']
+                        positive_median = var_info['positive_median']
+                        negative_median = var_info['negative_median']
+                        step_value = var_info['step_value']
+                        
+                        # 生成上限值列表：从当前上限按步长减少到正值中值为止
+                        upper_values = []
+                        if positive_median is not None and current_upper > positive_median:
+                            if step_value > 0:  # 只有当步长大于0时才进行循环
+                                upper_val = current_upper
+                                while upper_val >= positive_median:
+                                    upper_values.append(round(upper_val, 2))
+                                    upper_val -= step_value
+                            else:
+                                # 如果步长为0，只使用当前上限
+                                upper_values.append(round(current_upper, 2))
+                        else:
+                            # 如果正值中值为空或当前上限不大于正值中值，使用当前上限
+                            upper_values.append(round(current_upper, 2))
+                        
+                        # 生成下限值列表：从当前下限按步长增加到负值中值为止
+                        lower_values = []
+                        if negative_median is not None and current_lower < negative_median:
+                            if step_value > 0:  # 只有当步长大于0时才进行循环
+                                lower_val = current_lower
+                                while lower_val <= negative_median:
+                                    lower_values.append(round(lower_val, 2))
+                                    lower_val += step_value
+                            else:
+                                # 如果步长为0，只使用当前下限
+                                lower_values.append(round(current_lower, 2))
+                        else:
+                            # 如果负值中值为空或当前下限不小于负值中值，使用当前下限
+                            lower_values.append(round(current_lower, 2))
+                        
+                        # 生成组合
+                        combinations = []
+                        
+                        # 如果正值中值和负值中值都为空，生成单一条件
+                        if positive_median is None and negative_median is None:
+                            combinations.append((round(current_lower, 2), round(current_upper, 2)))
+                            print(f"  正值中值和负值中值都为空，生成单一条件: ({round(current_lower, 2)}, {round(current_upper, 2)})")
+                        else:
+                            # 生成笛卡尔积组合
+                            for lower in lower_values:
+                                for upper in upper_values:
+                                    if lower <= upper:  # 确保下限不大于上限
+                                        combinations.append((lower, upper))
+                            
+                            # 剔除重复项
+                            combinations = list({(a, b) for a, b in combinations})
+                            combinations.sort()
+                        
+                        print(f"  中值优化变量 {var_name} 生成 {len(combinations)} 个中值优化组合")
+                        for i, (lower, upper) in enumerate(combinations[:5]):  # 只显示前5个
+                            print(f"    组合 {i+1}: ({lower}, {upper})")
+                        if len(combinations) > 5:
+                            print(f"    ... 还有 {len(combinations) - 5} 个组合")
+                    else:
+                        # 非中值优化变量使用generate_formula_list的规则
+                        # 对于非中值优化变量，使用与锁定模式一致的字段名
+                        lower_val = var_info['current_lower']
+                        upper_val = var_info['current_upper']
+                        step_val = var_info['step_value']
+                        # 非中值优化变量没有direction字段，使用默认值
+                        direction = "全方向"
+                        
+                        combinations = []
+                        
+                        # 如果步长为0或空，生成单一组合
+                        if step_val == 0 or step_val == '' or step_val is None:
+                            combinations.append((round(lower_val, 2), round(upper_val, 2)))
+                            print(f"  步长为0或空，生成单一组合: ({round(lower_val, 2)}, {round(upper_val, 2)})")
+                        else:
+                            if direction == "右单向":
+                                # 最大值不变，最小值按步长变化
+                                current_lower = lower_val
+                                # 根据步长正负调整循环条件
+                                if step_val > 0:
+                                    while current_lower < upper_val:
+                                        combinations.append((round(current_lower, 2), round(upper_val, 2)))
+                                        current_lower += step_val
+                                else:  # step_val < 0
+                                    while current_lower > upper_val:
+                                        combinations.append((round(current_lower, 2), round(upper_val, 2)))
+                                        current_lower += step_val
+                            
+                            elif direction == "左单向":
+                                # 最小值不变，最大值按步长变化
+                                current_upper = upper_val
+                                # 根据步长正负调整循环条件
+                                if step_val > 0:
+                                    while current_upper > lower_val:
+                                        combinations.append((round(lower_val, 2), round(current_upper, 2)))
+                                        current_upper -= step_val
+                                else:  # step_val < 0
+                                    while current_upper < lower_val:
+                                        combinations.append((round(lower_val, 2), round(current_upper, 2)))
+                                        current_upper -= step_val
+                            
+                            elif direction == "全方向":
+                                combinations = []
+                                # 右单向：上限不变，下限不断加步长
+                                current_lower = lower_val
+                                if step_val > 0:
+                                    while current_lower < upper_val:
+                                        combinations.append((round(current_lower, 2), round(upper_val, 2)))
+                                        current_lower += step_val
+                                else:
+                                    while current_lower > upper_val:
+                                        combinations.append((round(current_lower, 2), round(upper_val, 2)))
+                                        current_lower += step_val
+                                # 左单向：下限不变，上限不断减步长
+                                current_upper = upper_val
+                                if step_val > 0:
+                                    while current_upper > lower_val:
+                                        combinations.append((round(lower_val, 2), round(current_upper, 2)))
+                                        current_upper -= step_val
+                                else:
+                                    while current_upper < lower_val:
+                                        combinations.append((round(lower_val, 2), round(current_upper, 2)))
+                                        current_upper -= step_val
+                                # 剔除重复项和下限=上限的情况
+                                combinations = list({(a, b) for a, b in combinations if a != b})
+                                combinations.sort()
+                        
+                        print(f"  非中值优化变量 {var_name} 生成 {len(combinations)} 个标准组合")
+                        for i, (lower, upper) in enumerate(combinations[:5]):  # 只显示前5个
+                            print(f"    组合 {i+1}: ({lower}, {upper})")
+                        if len(combinations) > 5:
+                            print(f"    ... 还有 {len(combinations) - 5} 个组合")
                 
                 # 处理含逻辑：如果勾选了含逻辑，添加一个True条件
                 if has_logic:
@@ -4005,7 +4276,6 @@ class FormulaSelectWidget(QWidget):
                             new_high_low_params[generic_param] = {'values': [0]}
         
         return new_high_low_params
-
     def _frange(self, start, stop, step):
         """生成浮点数区间"""
         vals = []
@@ -4643,7 +4913,6 @@ def get_abbr_logic_map():
         ("开始日到结束日之间向前最大有效累加值绝对值小于M", "forward_max_valid_abs_is_less"),
     ]
     return {zh: en for zh, en in abbrs}
-
 def get_abbr_round_map():
     """只需要圆框勾选的变量映射"""
     abbrs = [
@@ -4716,6 +4985,7 @@ def calculate_analysis_result(valid_items):
     Returns:
         dict: 包含分析结果的字典，结构如下：
         {
+            item： 是每天的选股结果，当天股票的均值
             'items': [
                 {
                     'date': '日期',
@@ -4729,6 +4999,7 @@ def calculate_analysis_result(valid_items):
                 },
                 ...
             ],
+            summary： 是统计每天选股结果均值的均值
             'summary': {
                 'mean_hold_days': '持有天数均值',
                 'mean_ops_change': '持有涨跌幅均值',
@@ -4880,12 +5151,23 @@ def calculate_analysis_result(valid_items):
     # 新增：调幅相关列表
     adjust_ops_incre_rate_list = []
     adjust_ops_incre_rate_list_with_nan = []  # 存储含空值的调幅日均涨跌幅列表
+    take_and_stop_daily_with_nan_list = []
+    stop_and_take_daily_with_nan_list = []
     adjust_non_nan_mean_list = []
     adjust_with_nan_mean_list = []
-    
+    # 新增：止盈停损相关列表
+    take_and_stop_non_nan_mean_list = []
+    take_and_stop_with_nan_mean_list = []
+    stop_and_take_non_nan_mean_list = []
+    stop_and_take_with_nan_mean_list = []
+
+    take_and_stop_change_list = []
+    stop_and_take_change_list = []
     # 新增：调整天数和止盈止损涨幅相关列表
     adjust_days_list = []
     adjust_ops_change_list = []
+    take_and_stop_daily_change_list = []
+    stop_and_take_daily_change_list = []
     adjust_daily_change_list = []
     adjust_daily_change_list_with_nan = []
     # 新增：统计止盈率、止损率、持有率
@@ -4907,6 +5189,8 @@ def calculate_analysis_result(valid_items):
         adjust_ops_incre_rate_list_per_date = []
         adjust_days_list_per_date = []
         adjust_ops_change_list_per_date = []
+        take_and_stop_change_list_per_date = []
+        stop_and_take_change_list_per_date = []
         
         # 新增：收集股票索引用于调试
         stock_indices_per_date = []
@@ -5017,11 +5301,29 @@ def calculate_analysis_result(valid_items):
                         adjust_ops_change_list_per_date.append(v)
             except Exception:
                 pass
-        
+            # 新增：收集止盈停损涨幅
+            try:
+                v = safe_val(stock.get('take_and_stop_change', ''))
+                if v != '':
+                    v = float(v)
+                    if not math.isnan(v):
+                        take_and_stop_change_list_per_date.append(v)
+            except Exception:
+                pass
+            # 新增：收集停盈止损涨幅
+            try:
+                v = safe_val(stock.get('stop_and_take_change', ''))
+                if v != '':
+                    v = float(v)
+                    if not math.isnan(v):
+                        stop_and_take_change_list_per_date.append(v)
+            except Exception:
+                pass
         mean_hold_days = safe_mean(hold_days_list_per_date)
         mean_adjust_days = safe_mean(adjust_days_list_per_date)
         mean_adjust_ops_change = safe_mean(adjust_ops_change_list_per_date)
-        
+        mean_take_and_stop_change = safe_mean(take_and_stop_change_list_per_date)
+        mean_stop_and_take_change = safe_mean(stop_and_take_change_list_per_date)
         mean_ops_change = safe_mean(ops_change_list_per_date)
         mean_ops_incre_rate = safe_mean(ops_incre_rate_list_per_date)
         
@@ -5032,6 +5334,10 @@ def calculate_analysis_result(valid_items):
         #print(f"mean_ops_change={mean_ops_change}, mean_adjust_days={mean_adjust_days}, daily_change={daily_change}")
         # 止盈止损日均涨跌幅
         adjust_daily_change = round(mean_adjust_ops_change / mean_hold_days, 2) if mean_adjust_ops_change != '' and mean_hold_days != '' and mean_hold_days != 0 else ''
+
+        # 新增：处理止盈停损日均涨幅, 停盈止损日均涨幅
+        take_and_stop_daily_change = round(mean_take_and_stop_change / mean_hold_days, 2) if mean_take_and_stop_change != '' and mean_hold_days != '' and mean_hold_days != 0 else ''
+        stop_and_take_daily_change = round(mean_stop_and_take_change / mean_hold_days, 2) if mean_stop_and_take_change != '' and mean_hold_days != '' and mean_hold_days != 0 else ''
         
         if mean_hold_days != '':
             hold_days_list.append(mean_hold_days)
@@ -5048,7 +5354,12 @@ def calculate_analysis_result(valid_items):
             adjust_daily_change_list_with_nan.append(adjust_daily_change)  # 添加到含空值列表
         else:
             adjust_daily_change_list_with_nan.append(0)  # 空值当作0处理
-            
+
+        if take_and_stop_daily_change != '':
+            take_and_stop_daily_change_list.append(take_and_stop_daily_change)
+        if stop_and_take_daily_change != '':
+            stop_and_take_daily_change_list.append(stop_and_take_daily_change)
+
         # 新增：处理调幅日均涨跌幅
         if adjust_daily_change != '':
             adjust_ops_incre_rate_list.append(adjust_daily_change)
@@ -5061,7 +5372,18 @@ def calculate_analysis_result(valid_items):
             adjust_days_list.append(mean_adjust_days)
         if mean_adjust_ops_change != '':
             adjust_ops_change_list.append(mean_adjust_ops_change)
-            
+        # 新增：处理止盈停损涨幅, 停盈止损涨幅
+        if mean_take_and_stop_change != '':
+            take_and_stop_change_list.append(mean_take_and_stop_change)
+        if mean_stop_and_take_change != '':
+            stop_and_take_change_list.append(mean_stop_and_take_change)
+
+        # 新增：处理止盈停损日均涨跌幅, 停盈止损日均涨跌幅
+        if take_and_stop_daily_change != '':
+            take_and_stop_daily_with_nan_list.append(take_and_stop_daily_change)
+        if stop_and_take_daily_change != '':
+            stop_and_take_daily_with_nan_list.append(stop_and_take_daily_change)
+
         # 添加到items列表
         items.append({
             'date': date_key,
@@ -5074,7 +5396,15 @@ def calculate_analysis_result(valid_items):
             'non_nan_mean': '',  # 将在后面计算
             'with_nan_mean': '',  # 将在后面计算
             'adjust_non_nan_mean': '',  # 新增：调幅从下往上非空均值
-            'adjust_with_nan_mean': ''  # 新增：调幅从下往上含空均值
+            'adjust_with_nan_mean': '',  # 新增：调幅从下往上含空均值
+            'take_and_stop_change': mean_take_and_stop_change, # 止盈停损涨幅
+            'stop_and_take_change': mean_stop_and_take_change, # 停盈止损涨幅
+            'take_and_stop_daily_change': take_and_stop_daily_change, # 止盈停损日均涨幅
+            'stop_and_take_daily_change': stop_and_take_daily_change, # 停盈止损日均涨幅
+            'take_and_stop_with_nan_mean': '', # 止盈停损含空均值
+            'take_and_stop_non_nan_mean': '', # 止盈停损从下往上非空均值
+            'stop_and_take_with_nan_mean': '', # 停盈止损含空均值
+            'stop_and_take_non_nan_mean': '', # 停盈止损从下往上非空均值
         })
         
         # 调试打印：股票索引和ops_change列表
@@ -5130,7 +5460,7 @@ def calculate_analysis_result(valid_items):
         # 更新items中的值
         items[i]['non_nan_mean'] = non_nan_mean
         items[i]['with_nan_mean'] = with_nan_mean
-        
+
         # 新增：计算调幅从下往上的均值
         adjust_sub_list = [item['adjust_daily_change'] for item in items[i:]]
         
@@ -5169,16 +5499,102 @@ def calculate_analysis_result(valid_items):
                     adjust_with_nan_vals.append(0)
                     
         adjust_with_nan_mean = sum(adjust_with_nan_vals) / len(adjust_sub_list) if adjust_sub_list else float('nan')
-        
+
         # 更新items中的调幅值
         items[i]['adjust_non_nan_mean'] = adjust_non_nan_mean
         items[i]['adjust_with_nan_mean'] = adjust_with_nan_mean
+
+        # 计算止盈停损含空均值
+        take_and_stop_sub_list = [item['take_and_stop_daily_change'] for item in items[i:]]
+
+        # 计算止盈停损非空均值
+        take_and_stop_non_nan_sum = 0
+        take_and_stop_non_nan_len = 0
+        for v in take_and_stop_sub_list:
+            if isinstance(v, str) and v == '':
+                continue
+            if isinstance(v, float) and math.isnan(v):
+                continue
+            try:
+                v = float(v) if isinstance(v, str) else v
+                take_and_stop_non_nan_sum += v
+                take_and_stop_non_nan_len += 1
+            except (ValueError, TypeError):
+                continue
+        if take_and_stop_non_nan_len > 0:
+            take_and_stop_non_nan_mean = float(Decimal(str(take_and_stop_non_nan_sum / take_and_stop_non_nan_len)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
+        else:
+            take_and_stop_non_nan_mean = float('nan')
+
+        # 计算止盈停损含空均值
+        take_and_stop_with_nan_vals = []
+        for v in take_and_stop_sub_list:
+            if isinstance(v, str) and v == '':
+                take_and_stop_with_nan_vals.append(0)
+            elif isinstance(v, float) and math.isnan(v):
+                take_and_stop_with_nan_vals.append(0)
+            else:
+                try:
+                    v = float(v) if isinstance(v, str) else v
+                    take_and_stop_with_nan_vals.append(v)
+                except (ValueError, TypeError):
+                    take_and_stop_with_nan_vals.append(0)
+                    
+        take_and_stop_with_nan_mean = sum(take_and_stop_with_nan_vals) / len(take_and_stop_sub_list) if take_and_stop_sub_list else float('nan')   
+
+        items[i]['take_and_stop_with_nan_mean'] = take_and_stop_with_nan_mean
+        items[i]['take_and_stop_non_nan_mean'] = take_and_stop_non_nan_mean
+
+        # 计算停盈止损含空均值
+        stop_and_take_sub_list = [item['stop_and_take_daily_change'] for item in items[i:]]
+
+        # 计算停盈止损非空均值
+        stop_and_take_non_nan_sum = 0
+        stop_and_take_non_nan_len = 0
+        for v in stop_and_take_sub_list:
+            if isinstance(v, str) and v == '':
+                continue
+            if isinstance(v, float) and math.isnan(v):
+                continue
+            try:
+                v = float(v) if isinstance(v, str) else v
+                stop_and_take_non_nan_sum += v
+                stop_and_take_non_nan_len += 1
+            except (ValueError, TypeError):
+                continue
+        if stop_and_take_non_nan_len > 0:
+            stop_and_take_non_nan_mean = float(Decimal(str(stop_and_take_non_nan_sum / stop_and_take_non_nan_len)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
+        else:
+            stop_and_take_non_nan_mean = float('nan')
+
+        # 计算停盈止损含空均值
+        stop_and_take_with_nan_vals = []
+        for v in stop_and_take_sub_list:
+            if isinstance(v, str) and v == '':
+                stop_and_take_with_nan_vals.append(0)
+            elif isinstance(v, float) and math.isnan(v):
+                stop_and_take_with_nan_vals.append(0)
+            else:
+                try:
+                    v = float(v) if isinstance(v, str) else v
+                    stop_and_take_with_nan_vals.append(v)
+                except (ValueError, TypeError):
+                    stop_and_take_with_nan_vals.append(0)
+
+        stop_and_take_with_nan_mean = sum(stop_and_take_with_nan_vals) / len(stop_and_take_sub_list) if stop_and_take_sub_list else float('nan')
+
+        items[i]['stop_and_take_with_nan_mean'] = stop_and_take_with_nan_mean
+        items[i]['stop_and_take_non_nan_mean'] = stop_and_take_non_nan_mean
         
         # 添加到均值列表
         non_nan_mean_list.append(non_nan_mean)
         with_nan_mean_list.append(with_nan_mean)
         adjust_non_nan_mean_list.append(adjust_non_nan_mean)
         adjust_with_nan_mean_list.append(adjust_with_nan_mean)
+        take_and_stop_with_nan_mean_list.append(take_and_stop_with_nan_mean)
+        take_and_stop_non_nan_mean_list.append(take_and_stop_non_nan_mean)
+        stop_and_take_with_nan_mean_list.append(stop_and_take_with_nan_mean)
+        stop_and_take_non_nan_mean_list.append(stop_and_take_non_nan_mean)
 
     # 计算总体统计
     # 预先计算重复使用的safe_mean值，避免重复调用
@@ -5186,7 +5602,8 @@ def calculate_analysis_result(valid_items):
     mean_adjust_ops_change_val = safe_mean(adjust_ops_change_list)
     adjust_days_val = safe_mean(adjust_days_list)
     hold_days_val = safe_mean(hold_days_list)
-    
+    mean_take_and_stop_change_val = safe_mean(take_and_stop_change_list)
+    mean_stop_and_take_change_val = safe_mean(stop_and_take_change_list)
     summary = {
         'mean_hold_days': hold_days_val,
         'mean_ops_change': mean_ops_change_val,
@@ -5195,18 +5612,31 @@ def calculate_analysis_result(valid_items):
         'comprehensive_daily_change': round(mean_adjust_ops_change_val / hold_days_val, 2) if mean_adjust_ops_change_val != '' and hold_days_val != '' and hold_days_val != 0 else '',
         'mean_daily_change': safe_mean(daily_change_list),
         'mean_adjust_daily_change': safe_mean(adjust_daily_change_list),
-        'mean_non_nan': safe_mean(non_nan_mean_list),
-        'mean_with_nan': safe_mean(with_nan_mean_list),  # 保持为从下往上含空均值
+        'mean_non_nan': safe_mean(non_nan_mean_list),    # 停盈停损从下往上非空均值
+        'mean_with_nan': safe_mean(with_nan_mean_list),  # 停盈停损从下往上含空均值
         'mean_daily_with_nan': safe_mean(daily_change_list_with_nan),  # 使用含空值的列表计算均值
         'max_change': max(daily_change_list) if daily_change_list else '',
         'min_change': min(daily_change_list) if daily_change_list else '',
         # 新增：调幅相关统计
         'mean_adjust_ops_incre_rate': safe_mean(adjust_ops_incre_rate_list),
-        'mean_adjust_non_nan': safe_mean(adjust_non_nan_mean_list),
-        'mean_adjust_with_nan': safe_mean(adjust_with_nan_mean_list),
+        'mean_adjust_non_nan': safe_mean(adjust_non_nan_mean_list), # 止盈止损从下往上非空均值
+        'mean_adjust_with_nan': safe_mean(adjust_with_nan_mean_list), # 止盈止损从下往上含空均值
         'mean_adjust_daily_with_nan': safe_mean(adjust_ops_incre_rate_list_with_nan),
         'max_adjust_ops_incre_rate': max(adjust_ops_incre_rate_list) if adjust_ops_incre_rate_list else '',
         'min_adjust_ops_incre_rate': min(adjust_ops_incre_rate_list) if adjust_ops_incre_rate_list else '',
+        # 新增：止盈停损相关统计，停盈止损相关统计
+        'mean_take_and_stop_change': mean_take_and_stop_change_val,
+        'comprehensive_take_and_stop_change': round(mean_take_and_stop_change_val / hold_days_val, 2) if mean_take_and_stop_change_val != '' and hold_days_val != '' and hold_days_val != 0 else '',
+        'mean_take_and_stop_daily_change': safe_mean(take_and_stop_daily_change_list),
+        'mean_take_and_stop_non_nan': safe_mean(take_and_stop_non_nan_mean_list),
+        'mean_take_and_stop_with_nan': safe_mean(take_and_stop_with_nan_mean_list),
+        'mean_take_and_stop_daily_with_nan': safe_mean(take_and_stop_daily_with_nan_list),
+        'mean_stop_and_take_change': mean_stop_and_take_change_val,
+        'comprehensive_stop_and_take_change': round(mean_stop_and_take_change_val / hold_days_val, 2) if mean_stop_and_take_change_val != '' and hold_days_val != '' and hold_days_val != 0 else '',
+        'mean_stop_and_take_daily_change': safe_mean(stop_and_take_daily_change_list),
+        'mean_stop_and_take_non_nan': safe_mean(stop_and_take_non_nan_mean_list),
+        'mean_stop_and_take_with_nan': safe_mean(stop_and_take_with_nan_mean_list),
+        'mean_stop_and_take_daily_with_nan': safe_mean(stop_and_take_daily_with_nan_list),
         # 新增：调整天数和止盈止损涨幅统计
         'mean_adjust_days': adjust_days_val,
         # 添加从下往上的前1~4个的非空均值和含空均值
@@ -5248,17 +5678,14 @@ def calculate_analysis_result(valid_items):
         except Exception as e:
             print(f"计算中位数时出错: {e}")
             return None
-    
     # 计算各数组中位数
     hold_median = calculate_median(hold_changes)
     profit_median = calculate_median(profit_changes)
     loss_median = calculate_median(loss_changes)
-    
     # 将中位数添加到summary中
     summary['hold_median'] = hold_median
     summary['profit_median'] = profit_median
     summary['loss_median'] = loss_median
-    
     # 打印各数组用于校验
     # print(f"持有涨跌幅数组 (end_state=0, op_day_change): {sorted(hold_changes) if hold_changes else '空'}")
     # print(f"止盈涨跌幅数组 (end_state=1, take_profit): {sorted(profit_changes) if profit_changes else '空'}")
@@ -5266,7 +5693,6 @@ def calculate_analysis_result(valid_items):
     # print(f"持有中位数: {hold_median}")
     # print(f"止盈中位数: {profit_median}")
     # print(f"止损中位数: {loss_median}")
-    
     # 新增：根据N位控件值动态计算从下往上第N位的值
     if items:
         # 调天非空均值
@@ -5346,15 +5772,25 @@ def add_tooltip_to_variable(name_label, variable_name, main_window):
             negative_median_key = f'{variable_name}_negative_median'
             stats_parts = []
             if max_key in overall_stats and overall_stats[max_key] is not None:
-                stats_parts.append(f"最大值: {overall_stats[max_key]}")
+                formatted_max = format_overall_stat_value(overall_stats[max_key])
+                overall_stats[max_key] = formatted_max  # 更新overall_stats中的值
+                stats_parts.append(f"最大值: {formatted_max}")
             if min_key in overall_stats and overall_stats[min_key] is not None:
-                stats_parts.append(f"最小值: {overall_stats[min_key]}")
+                formatted_min = format_overall_stat_value(overall_stats[min_key])
+                overall_stats[min_key] = formatted_min  # 更新overall_stats中的值
+                stats_parts.append(f"最小值: {formatted_min}")
             if median_key in overall_stats and overall_stats[median_key] is not None:
-                stats_parts.append(f"中值: {overall_stats[median_key]}")
+                formatted_median = format_overall_stat_value(overall_stats[median_key])
+                overall_stats[median_key] = formatted_median  # 更新overall_stats中的值
+                stats_parts.append(f"中值: {formatted_median}")
             if positive_median_key in overall_stats and overall_stats[positive_median_key] is not None:
-                stats_parts.append(f"正值中值: {overall_stats[positive_median_key]}")
+                formatted_positive_median = format_overall_stat_value(overall_stats[positive_median_key])
+                overall_stats[positive_median_key] = formatted_positive_median  # 更新overall_stats中的值
+                stats_parts.append(f"正值中值: {formatted_positive_median}")
             if negative_median_key in overall_stats and overall_stats[negative_median_key] is not None:
-                stats_parts.append(f"负值中值: {overall_stats[negative_median_key]}")
+                formatted_negative_median = format_overall_stat_value(overall_stats[negative_median_key])
+                overall_stats[negative_median_key] = formatted_negative_median  # 更新overall_stats中的值
+                stats_parts.append(f"负值中值: {formatted_negative_median}")
             if stats_parts:
                 tooltip_widget = _create_tooltip_widget(stats_parts, variable_name, main_window, overall_stats)
                 # 延迟显示定时器
@@ -5416,9 +5852,9 @@ def _create_tooltip_widget(stats_parts, variable_name, main_window, overall_stat
     return tooltip_widget
 
 def _show_custom_tooltip(event, name_label, tooltip_widget):
-    # 获取鼠标在屏幕上的位置，悬浮框显示在鼠标右下方
-    cursor_pos = QCursor.pos()
-    tooltip_widget.move(cursor_pos.x() + 10, cursor_pos.y() + 10)  # 鼠标右下方偏移10像素
+    # 获取label在屏幕上的位置，悬浮框显示在label的左下角
+    label_global_pos = name_label.mapToGlobal(name_label.rect().bottomLeft())
+    tooltip_widget.move(label_global_pos.x(), label_global_pos.y())  # 悬浮框左上角位于label左下角
     tooltip_widget.show()
     _cancel_hide_custom_tooltip(None, tooltip_widget)
 
@@ -5448,10 +5884,11 @@ def _on_optimize_click_button(variable_name, main_window, overall_stats, tooltip
         min_value = overall_stats.get(min_key)
         positive_median = overall_stats.get(positive_median_key)
         negative_median = overall_stats.get(negative_median_key)
-        step_value = None
-        if positive_median is not None and negative_median is not None:
-            step_value = int((positive_median - negative_median) / 20 + 0.5)
-        
+        # 如果中值为空，按0处理
+        positive_median = positive_median if positive_median is not None else 0
+        negative_median = negative_median if negative_median is not None else 0
+        # 步长默认为0
+        step_value = 0
         if hasattr(main_window, 'formula_widget'):
             print("进入二次优化设置")
             formula_widget = main_window.formula_widget
@@ -5463,6 +5900,35 @@ def _on_optimize_click_button(variable_name, main_window, overall_stats, tooltip
                     widgets['upper'].setText(str(max_value))
                 if 'step' in widgets and step_value is not None:
                     widgets['step'].setText(str(step_value))
+                if tooltip_widget:
+                    tooltip_widget.hide()
+                QMessageBox.information(main_window, "设置成功", 
+                                      f"已为变量 {variable_name} 设置参数：\n"
+                                      f"最小值: {min_value}\n"
+                                      f"最大值: {max_value}\n"
+                                      f"步长: {step_value}")
+                return
+            
+        # 向前参数设置
+        if hasattr(main_window, 'forward_param_state'):
+            print("进入向前参数设置")
+            forward_param_state = main_window.forward_param_state
+            if variable_name in forward_param_state:
+                
+                # 如果向前参数窗口是打开的，更新窗口中的控件值
+                for child in main_window.children():
+                    if hasattr(child, 'widgets') and hasattr(child, 'setWindowTitle'):
+                        if child.windowTitle() == "设置向前参数" and child.isVisible():
+                            if variable_name in child.widgets:
+                                widgets = child.widgets[variable_name]
+                                if 'lower' in widgets and min_value is not None:
+                                    widgets['lower'].setText(str(min_value))
+                                if 'upper' in widgets and max_value is not None:
+                                    widgets['upper'].setText(str(max_value))
+                                if 'step' in widgets and step_value is not None:
+                                    widgets['step'].setText(str(step_value))
+                                break
+                
                 if tooltip_widget:
                     tooltip_widget.hide()
                 QMessageBox.information(main_window, "设置成功", 

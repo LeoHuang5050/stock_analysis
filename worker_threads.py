@@ -149,9 +149,10 @@ class FileLoaderThread(QThread):
                 return
             price_data = df.iloc[:, 0:separator_idx]
             price_data = unify_date_columns(price_data)
-            # 只对price_data做0.0转为NaN
+            # 只对price_data做0.0转为NaN，并对数值进行传统四舍五入保留两位小数
             for col in price_data.columns:
                 price_data.loc[price_data[col] == 0.0, col] = np.nan
+            
             diff_data = df.iloc[:, separator_idx+1:]
             diff_data = unify_date_columns(diff_data)
             
@@ -509,7 +510,11 @@ class CalculateThread(QThread):
             'start_with_new_after_high', 'start_with_new_after_high2',
             'start_with_new_before_low', 'start_with_new_before_low2',
             'start_with_new_after_low', 'start_with_new_after_low2',
-            'stop_loss', 'take_profit', 'op_day_change', 'has_three_consecutive_zeros'
+            'stop_loss', 'take_profit', 'op_day_change', 'has_three_consecutive_zeros',
+            'take_and_stop_increment_change', 'take_and_stop_after_gt_end_change', 'take_and_stop_after_gt_start_change',
+            'take_and_stop_change', 'take_and_stop_incre_rate',
+            'stop_and_take_increment_change', 'stop_and_take_after_gt_end_change', 'stop_and_take_after_gt_start_change',
+            'stop_and_take_change', 'stop_and_take_incre_rate',
         ]
         
         # 定义非数值类型字段（数组对象和布尔对象）
@@ -621,6 +626,21 @@ class CalculateThread(QThread):
                         overall_stats[f'{field}_negative_median'] = round((negative_values[n_neg // 2 - 1] + negative_values[n_neg // 2]) / 2, 2)
                 else:
                     overall_stats[f'{field}_negative_median'] = None
+                
+                # 专门打印 diff_end_value 的统计信息
+                # if field == 'diff_end_value':
+                #     print(f"[worker_threads] diff_end_value 统计数组长度: {len(values)}")
+                #     print(f"[worker_threads] diff_end_value 统计数组前10个值: {values[:10]}")
+                #     print(f"[worker_threads] diff_end_value 统计数组后10个值: {values[-10:]}")
+                #     print(f"[worker_threads] diff_end_value 最终统计值:")
+                #     print(f"  最大值: {overall_stats[f'{field}_max']}")
+                #     print(f"  最小值: {overall_stats[f'{field}_min']}")
+                #     print(f"  中值: {overall_stats[f'{field}_median']}")
+                #     print(f"  正值中值: {overall_stats[f'{field}_positive_median']}")
+                #     print(f"  负值中值: {overall_stats[f'{field}_negative_median']}")
+                #     print(f"  正值数量: {len(positive_values)}")
+                #     print(f"  负值数量: {len(negative_values)}")
+                #     print(f"  零值数量: {len([v for v in values if v == 0])}")
             else:
                 overall_stats[f'{field}_max'] = None
                 overall_stats[f'{field}_min'] = None
