@@ -195,6 +195,108 @@ class CalculateThread(QThread):
         except Exception:
             return default
 
+    def _round_numeric_values(self, stock_data):
+        """
+        统一的数值四舍五入处理
+        对数值字段进行四舍五入保留两位小数
+        对使用 round_to_2_nan 的字段进行特殊处理（如果为0则设为None）
+        """
+        import math
+        
+        # 使用 round_to_2_nan 的字段列表（如果为0则设为None）
+        round_to_2_nan_fields = [
+            'cont_sum_pos_sum',
+            'cont_sum_neg_sum', 
+            'cont_sum_pos_sum_first_half',
+            'cont_sum_pos_sum_second_half',
+            'cont_sum_neg_sum_first_half',
+            'cont_sum_neg_sum_second_half',
+            'forward_max_cont_sum_pos_sum',
+            'forward_max_cont_sum_neg_sum',
+            'forward_min_cont_sum_pos_sum',
+            'forward_min_cont_sum_neg_sum',
+            'forward_max_valid_pos_sum',
+            'forward_max_valid_neg_sum',
+            'forward_min_valid_pos_sum',
+            'forward_min_valid_neg_sum'
+        ]
+        
+        # 需要四舍五入的数值字段列表（包含所有字段，包括 round_to_2_nan_fields）
+        numeric_fields = [
+            'score', 'hold_days', 'ops_change', 'ops_incre_rate', 
+            'adjust_days', 'adjust_ops_change', 'adjust_ops_incre_rate',
+            'max_value', 'min_value', 'end_value', 'start_value', 
+            'actual_value', 'closest_value', 'increment_value',
+            'after_gt_end_value', 'after_gt_start_value', 'ops_value',
+            'continuous_len', 'continuous_start_value', 'continuous_start_next_value', 
+            'continuous_start_next_next_value', 'continuous_end_value', 
+            'continuous_end_prev_value', 'continuous_end_prev_prev_value',
+            'continuous_abs_sum_first_half', 'continuous_abs_sum_second_half',
+            'continuous_abs_sum_block1', 'continuous_abs_sum_block2', 
+            'continuous_abs_sum_block3', 'continuous_abs_sum_block4',
+            'forward_max_result', 'forward_max_continuous_start_value',
+            'forward_max_continuous_start_next_value', 'forward_max_continuous_start_next_next_value',
+            'forward_max_continuous_end_value', 'forward_max_continuous_end_prev_value',
+            'forward_max_continuous_end_prev_prev_value', 'forward_max_abs_sum_first_half',
+            'forward_max_abs_sum_second_half', 'forward_max_abs_sum_block1',
+            'forward_max_abs_sum_block2', 'forward_max_abs_sum_block3', 'forward_max_abs_sum_block4',
+            'forward_min_result', 'forward_min_continuous_start_value',
+            'forward_min_continuous_start_next_value', 'forward_min_continuous_start_next_next_value',
+            'forward_min_continuous_end_value', 'forward_min_continuous_end_prev_value',
+            'forward_min_continuous_end_prev_prev_value', 'forward_min_abs_sum_first_half',
+            'forward_min_abs_sum_second_half', 'forward_min_abs_sum_block1',
+            'forward_min_abs_sum_block2', 'forward_min_abs_sum_block3', 'forward_min_abs_sum_block4',
+            'valid_sum_len', 'valid_pos_sum', 'valid_neg_sum',
+            'forward_max_valid_sum_len', 'forward_max_valid_pos_sum', 'forward_max_valid_neg_sum',
+            'forward_min_valid_sum_len', 'forward_min_valid_pos_sum', 'forward_min_valid_neg_sum',
+            'valid_abs_sum_first_half', 'valid_abs_sum_second_half',
+            'valid_abs_sum_block1', 'valid_abs_sum_block2', 'valid_abs_sum_block3', 'valid_abs_sum_block4',
+            'forward_max_valid_abs_sum_first_half', 'forward_max_valid_abs_sum_second_half',
+            'forward_max_valid_abs_sum_block1', 'forward_max_valid_abs_sum_block2',
+            'forward_max_valid_abs_sum_block3', 'forward_max_valid_abs_sum_block4',
+            'forward_min_valid_abs_sum_first_half', 'forward_min_valid_abs_sum_second_half',
+            'forward_min_valid_abs_sum_block1', 'forward_min_valid_abs_sum_block2',
+            'forward_min_valid_abs_sum_block3', 'forward_min_valid_abs_sum_block4',
+            'n_days_max_value', 'prev_day_change', 'end_day_change', 'diff_end_value',
+            'increment_change', 'after_gt_end_change', 'after_gt_start_change',
+            'forward_max_result_len', 'forward_min_result_len',
+            'n_max_is_max', 'range_ratio_is_less', 'continuous_abs_is_less', 'valid_abs_is_less',
+            'forward_min_continuous_abs_is_less', 'forward_min_valid_abs_is_less',
+            'forward_max_continuous_abs_is_less', 'forward_max_valid_abs_is_less',
+            'stop_loss', 'take_profit', 'op_day_change', 'has_three_consecutive_zeros',
+            'take_and_stop_increment_change', 'take_and_stop_after_gt_end_change', 'take_and_stop_after_gt_start_change',
+            'take_and_stop_change', 'take_and_stop_incre_rate',
+            'stop_and_take_increment_change', 'stop_and_take_after_gt_end_change', 'stop_and_take_after_gt_start_change',
+            'stop_and_take_change', 'stop_and_take_incre_rate',
+            # 添加 round_to_2_nan_fields 中的所有字段
+            'cont_sum_pos_sum', 'cont_sum_neg_sum', 
+            'cont_sum_pos_sum_first_half', 'cont_sum_pos_sum_second_half',
+            'cont_sum_neg_sum_first_half', 'cont_sum_neg_sum_second_half',
+            'forward_max_cont_sum_pos_sum', 'forward_max_cont_sum_neg_sum',
+            'forward_min_cont_sum_pos_sum', 'forward_min_cont_sum_neg_sum',
+            'forward_max_valid_pos_sum', 'forward_max_valid_neg_sum',
+            'forward_min_valid_pos_sum', 'forward_min_valid_neg_sum'
+        ]
+        
+        # 处理所有数值字段
+        for field in numeric_fields:
+            if field in stock_data:
+                val = stock_data[field]
+                if val is not None and val != '' and not (isinstance(val, float) and math.isnan(val)):
+                    try:
+                        float_val = float(val)
+                        # 对使用 round_to_2_nan 的字段进行特殊处理
+                        if field in round_to_2_nan_fields:
+                            if abs(float_val) == 0.0:  # 如果四舍五入后为0，设为None
+                                stock_data[field] = None
+                            else:
+                                stock_data[field] = round(float_val, 2)
+                        else:
+                            # 普通字段直接四舍五入
+                            stock_data[field] = round(float_val, 2)
+                    except (ValueError, TypeError):
+                        continue
+
     def expr_to_tuple(self, expr, abbr_map):
         # 1. 缩写转全名
         for abbr, full in abbr_map.items():
@@ -450,6 +552,11 @@ class CalculateThread(QThread):
                     
                     stock['code'] = code
                     stock['name'] = name if name is not None else ''
+                    if stock['name'] == '甘肃能化':
+                        print(f"stock['name']: {stock['name']}")
+                
+                # 统一的数值四舍五入处理
+                self._round_numeric_values(stock)
         
         if only_show_selected:
             for end_date in merged_results:
@@ -597,8 +704,8 @@ class CalculateThread(QThread):
         overall_stats = {}
         for field, values in overall_values.items():
             if values:
-                overall_stats[f'{field}_max'] = max(values)
-                overall_stats[f'{field}_min'] = min(values)
+                overall_stats[f'{field}_max'] = round(max(values), 2)
+                overall_stats[f'{field}_min'] = round(min(values), 2)
                 # 计算中值：如果是奇数个，取中间值；如果是偶数个，取中间两个值的平均值
                 sorted_values = sorted(values)
                 n = len(sorted_values)
