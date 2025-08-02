@@ -438,7 +438,7 @@ def show_formula_select_table_result_window(table, content_widget):
         layout_ = QVBoxLayout(central_widget)
         layout_.addWidget(table)
         result_window.setCentralWidget(central_widget)
-        result_window.resize(780, 450)
+        result_window.resize(1200, 450)
         result_window.show()
         content_widget.result_window = result_window
         content_widget.result_table = table
@@ -466,7 +466,7 @@ def show_formula_select_table_result_window(table, content_widget):
         layout_ = QVBoxLayout(central_widget)
         layout_.addWidget(table)
         result_window.setCentralWidget(central_widget)
-        result_window.resize(780, 450)
+        result_window.resize(1200, 450)
         result_window.show()
         parent.formula_select_result_window = result_window
         parent.formula_select_result_table = table
@@ -1291,7 +1291,7 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
         layout_ = QVBoxLayout(central_widget)
         layout_.addWidget(table)
         result_window.setCentralWidget(central_widget)
-        result_window.resize(780, 450)
+        result_window.resize(1200, 450)
         result_window.show()
         parent.formula_select_result_window = result_window
         parent.formula_select_result_table = table
@@ -1385,7 +1385,7 @@ def show_formula_select_table_result(parent, result, price_data=None, output_edi
     
     merged_results = result.get('dates', {})
    
-    headers = ["股票代码", "股票名称", "持有天数", "止盈止损涨幅", "止盈止损日均涨幅", "调整天数", "停盈停损涨幅", "停盈停损日均涨幅", "选股公式输出值"]
+    headers = ["股票代码", "股票名称", "持有天数", "止盈止损涨幅", "止盈止损日均涨幅", "止盈停损涨幅", "止盈停损日均涨幅", "调整天数", "停盈停损涨幅", "停盈停损日均涨幅", "停盈止损涨幅", "停盈止损日均涨幅", "选股公式输出值"]
     if not merged_results or not any(merged_results.values()):
         # 返回一个只有表头的空表格
         table = CopyableTableWidget(0, len(headers), parent)
@@ -1416,6 +1416,10 @@ def show_formula_select_table_result(parent, result, price_data=None, output_edi
     adjust_ops_incre_rate_list = []
     adjust_days_list = []
     adjust_ops_change_list = []
+    take_and_stop_change_list = []
+    take_and_stop_incre_rate_list = []
+    stop_and_take_change_list = []
+    stop_and_take_incre_rate_list = []
     def safe_val(val):
         if val is None:
             return ''
@@ -1436,20 +1440,33 @@ def show_formula_select_table_result(parent, result, price_data=None, output_edi
         adjust_ops_incre_rate = safe_val(stock.get('adjust_ops_incre_rate', ''))
         adjust_days = safe_val(stock.get('adjust_days', ''))
         adjust_ops_change = safe_val(stock.get('adjust_ops_change', ''))
+        take_and_stop_change = safe_val(stock.get('take_and_stop_change', ''))
+        take_and_stop_incre_rate = safe_val(stock.get('take_and_stop_incre_rate', ''))
+        stop_and_take_change = safe_val(stock.get('stop_and_take_change', ''))
+        stop_and_take_incre_rate = safe_val(stock.get('stop_and_take_incre_rate', ''))
         # 加%号显示
         ops_change_str = f"{ops_change}%" if ops_change != '' else ''
         ops_incre_rate_str = f"{ops_incre_rate}%" if ops_incre_rate != '' else ''
         adjust_ops_incre_rate_str = f"{adjust_ops_incre_rate}%" if adjust_ops_incre_rate != '' else ''
         adjust_ops_change_str = f"{adjust_ops_change}%" if adjust_ops_change != '' else ''
+        take_and_stop_change_str = f"{take_and_stop_change}%" if take_and_stop_change != '' else ''
+        take_and_stop_incre_rate_str = f"{take_and_stop_incre_rate}%" if take_and_stop_incre_rate != '' else ''
+        stop_and_take_change_str = f"{stop_and_take_change}%" if stop_and_take_change != '' else ''
+        stop_and_take_incre_rate_str = f"{stop_and_take_incre_rate}%" if stop_and_take_incre_rate != '' else ''
+
         table.setItem(row_idx, 0, QTableWidgetItem(str(code)))
         table.setItem(row_idx, 1, QTableWidgetItem(str(name)))
         table.setItem(row_idx, 2, QTableWidgetItem(str(hold_days)))
         table.setItem(row_idx, 3, QTableWidgetItem(adjust_ops_change_str))  # 止盈止损涨幅
         table.setItem(row_idx, 4, QTableWidgetItem(adjust_ops_incre_rate_str))  # 止盈止损日均涨幅
-        table.setItem(row_idx, 5, QTableWidgetItem(str(adjust_days)))
-        table.setItem(row_idx, 6, QTableWidgetItem(ops_change_str))  # 停盈停损涨幅
-        table.setItem(row_idx, 7, QTableWidgetItem(ops_incre_rate_str))  # 停盈停损日均涨幅
-        table.setItem(row_idx, 8, QTableWidgetItem(str(score)))
+        table.setItem(row_idx, 5, QTableWidgetItem(take_and_stop_change_str))  # 止盈停损涨幅
+        table.setItem(row_idx, 6, QTableWidgetItem(take_and_stop_incre_rate_str))  # 止盈停损日均涨幅
+        table.setItem(row_idx, 7, QTableWidgetItem(str(adjust_days)))
+        table.setItem(row_idx, 8, QTableWidgetItem(ops_change_str))  # 停盈停损涨幅
+        table.setItem(row_idx, 9, QTableWidgetItem(ops_incre_rate_str))  # 停盈停损日均涨幅
+        table.setItem(row_idx, 10, QTableWidgetItem(stop_and_take_change_str))  # 停盈止损涨幅
+        table.setItem(row_idx, 11, QTableWidgetItem(stop_and_take_incre_rate_str))  # 停盈止损日均涨幅
+        table.setItem(row_idx, 12, QTableWidgetItem(str(score)))
         # 收集用于均值计算的数据（只收集有效数值）
         try:
             if hold_days != '':
@@ -1493,6 +1510,20 @@ def show_formula_select_table_result(parent, result, price_data=None, output_edi
                     adjust_ops_change_list.append(v)
         except Exception:
             pass
+        try:
+            if take_and_stop_change != '':
+                v = float(take_and_stop_change)
+                if not math.isnan(v):
+                    take_and_stop_change_list.append(v)
+        except Exception:
+            pass   
+        try:
+            if stop_and_take_change != '':
+                v = float(stop_and_take_change)
+                if not math.isnan(v):
+                    stop_and_take_change_list.append(v)
+        except Exception:
+            pass
     # 插入空行
     empty_row_idx = len(stocks)
     for col in range(len(headers)):
@@ -1506,7 +1537,10 @@ def show_formula_select_table_result(parent, result, price_data=None, output_edi
     mean_adjust_ops_incre_rate = safe_mean(adjust_ops_incre_rate_list)
     mean_adjust_days = safe_mean(adjust_days_list)
     mean_adjust_ops_change = safe_mean(adjust_ops_change_list)
-    
+    mean_take_and_stop_change = safe_mean(take_and_stop_change_list)
+    mean_take_and_stop_incre_rate = safe_mean(take_and_stop_incre_rate_list)
+    mean_stop_and_take_change = safe_mean(stop_and_take_change_list)
+    mean_stop_and_take_incre_rate = safe_mean(stop_and_take_incre_rate_list)
     #print(f"mean_hold_days={mean_hold_days}, mean_adjust_ops_change={mean_adjust_ops_change}")
     #print(f"mean_hold_days={mean_adjust_days}, mean_adjust_ops_change={mean_ops_incre_rate}")
     # 计算日均涨幅均值
@@ -1519,9 +1553,13 @@ def show_formula_select_table_result(parent, result, price_data=None, output_edi
     table.setItem(mean_row_idx, 2, QTableWidgetItem(str(mean_hold_days)))
     table.setItem(mean_row_idx, 3, QTableWidgetItem(f"{mean_adjust_ops_change}%" if mean_adjust_ops_change != '' else ''))  # 止盈止损涨幅均值
     table.setItem(mean_row_idx, 4, QTableWidgetItem(f"{mean_adjust_ops_incre_rate_daily:.2f}%" if mean_adjust_ops_incre_rate_daily != '' else ''))  # 止盈止损日均涨幅均值
-    table.setItem(mean_row_idx, 5, QTableWidgetItem(str(mean_adjust_days)))
-    table.setItem(mean_row_idx, 6, QTableWidgetItem(f"{mean_ops_change}%" if mean_ops_change != '' else ''))  # 停盈停损涨幅均值
-    table.setItem(mean_row_idx, 7, QTableWidgetItem(f"{mean_ops_incre_rate_daily:.2f}%" if mean_ops_incre_rate_daily != '' else ''))  # 停盈停损日均涨幅均值
+    table.setItem(mean_row_idx, 5, QTableWidgetItem(f"{mean_take_and_stop_change}%" if mean_take_and_stop_change != '' else ''))  # 止盈停损涨幅均值
+    table.setItem(mean_row_idx, 6, QTableWidgetItem(f"{mean_take_and_stop_incre_rate:.2f}%" if mean_take_and_stop_incre_rate != '' else ''))  # 止盈停损日均涨幅均值
+    table.setItem(mean_row_idx, 7, QTableWidgetItem(str(mean_adjust_days)))
+    table.setItem(mean_row_idx, 8, QTableWidgetItem(f"{mean_ops_change}%" if mean_ops_change != '' else ''))  # 停盈停损涨幅均值
+    table.setItem(mean_row_idx, 9, QTableWidgetItem(f"{mean_ops_incre_rate_daily:.2f}%" if mean_ops_incre_rate_daily != '' else ''))  # 停盈停损日均涨幅均值
+    table.setItem(mean_row_idx, 10, QTableWidgetItem(f"{mean_stop_and_take_change}%" if mean_stop_and_take_change != '' else ''))  # 停盈止损涨幅均值
+    table.setItem(mean_row_idx, 11, QTableWidgetItem(f"{mean_stop_and_take_incre_rate:.2f}%" if mean_stop_and_take_incre_rate != '' else ''))  # 停盈止损日均涨幅均值
     table.resizeColumnsToContents()
     table.horizontalHeader().setFixedHeight(50)
     table.horizontalHeader().setStyleSheet("font-size: 12px;")
@@ -1531,10 +1569,14 @@ def get_abbr_round_only_map():
     """获取只有圆框的变量映射"""
     abbrs = [
         ("非空停盈停损从下往上涨跌幅均值", "mean_non_nan"),
-        ("含空停盈停损从下往上涨跌幅均值", "mean_with_nan"),
+        #("含空停盈停损从下往上涨跌幅均值", "mean_with_nan"),
         ("停盈停损日均涨跌幅均值", "mean_daily_change"),
-        ("非空止盈止损从下往上涨跌幅均值", "mean_adjust_non_nan"),
+        #("非空止盈止损从下往上涨跌幅均值", "mean_adjust_non_nan"),
         ("含空止盈止损从下往上涨跌幅均值", "mean_adjust_with_nan"),
+        ("止盈止损含空均值", "mean_adjust_daily_with_nan"),
+        ("止盈停损含空均值", "mean_take_and_stop_daily_with_nan"),
+        ("停盈停损含空均值", "mean_daily_with_nan"),
+        ("停盈止损含空均值", "mean_stop_and_take_daily_with_nan"),
         ("止盈止损日均涨跌幅均值", "mean_adjust_daily_change"),
         ("综合止盈止损日均涨幅", "comprehensive_daily_change"),
         ("综合停盈停损日均涨幅", "comprehensive_stop_daily_change"),
@@ -1543,30 +1585,30 @@ def get_abbr_round_only_map():
         ("从下往上的第2个停盈停损涨跌幅含空均值", "bottom_second_with_nan"),
         ("从下往上的第3个停盈停损涨跌幅含空均值", "bottom_third_with_nan"),
         ("从下往上的第4个停盈停损涨跌幅含空均值", "bottom_fourth_with_nan"),
-        ("从下往上的第1个停盈停损涨跌幅非空均值", "bottom_first_non_nan"),
-        ("从下往上的第2个停盈停损涨跌幅非空均值", "bottom_second_non_nan"),
-        ("从下往上的第3个停盈停损涨跌幅非空均值", "bottom_third_non_nan"),
-        ("从下往上的第4个停盈停损涨跌幅非空均值", "bottom_fourth_non_nan"),
+        ("从下往上的第1个停盈止损涨跌幅含空均值", "bottom_first_stop_and_take_with_nan"),
+        ("从下往上的第2个停盈止损涨跌幅含空均值", "bottom_second_stop_and_take_with_nan"),
+        ("从下往上的第3个停盈止损涨跌幅含空均值", "bottom_third_stop_and_take_with_nan"),
+        ("从下往上的第4个停盈止损涨跌幅含空均值", "bottom_fourth_stop_and_take_with_nan"),
 
         ("从下往上的第1个止盈止损涨跌幅含空均值", "adjust_bottom_first_with_nan"),
         ("从下往上的第2个止盈止损涨跌幅含空均值", "adjust_bottom_second_with_nan"),
         ("从下往上的第3个止盈止损涨跌幅含空均值", "adjust_bottom_third_with_nan"),
         ("从下往上的第4个止盈止损涨跌幅含空均值", "adjust_bottom_fourth_with_nan"),
-        ("从下往上的第1个止盈止损涨跌幅非空均值", "adjust_bottom_first_non_nan"),
-        ("从下往上的第2个止盈止损涨跌幅非空均值", "adjust_bottom_second_non_nan"),
-        ("从下往上的第3个止盈止损涨跌幅非空均值", "adjust_bottom_third_non_nan"),
-        ("从下往上的第4个止盈止损涨跌幅非空均值", "adjust_bottom_fourth_non_nan"),
-
-        ("从下往上第N位停盈停损非空均值", "bottom_nth_non_nan1"),
-        ("从下往上第N位停盈停损非空均值", "bottom_nth_non_nan2"),
-        ("从下往上第N位停盈停损非空均值", "bottom_nth_non_nan3"),
+        ("从下往上的第1个止盈停损涨跌幅含空均值", "bottom_first_take_and_stop_with_nan"),
+        ("从下往上的第2个止盈停损涨跌幅含空均值", "bottom_second_take_and_stop_with_nan"),
+        ("从下往上的第3个止盈停损涨跌幅含空均值", "bottom_third_take_and_stop_with_nan"),
+        ("从下往上的第4个止盈停损涨跌幅含空均值", "bottom_fourth_take_and_stop_with_nan"),
+        
+        ("从下往上第N位止盈停损含空均值", "bottom_nth_take_and_stop_with_nan1"),
+        ("从下往上第N位止盈停损含空均值", "bottom_nth_take_and_stop_with_nan2"),
+        ("从下往上第N位止盈停损含空均值", "bottom_nth_take_and_stop_with_nan3"),
         ("从下往上第N位停盈停损含空均值", "bottom_nth_with_nan1"),
         ("从下往上第N位停盈停损含空均值", "bottom_nth_with_nan2"),
         ("从下往上第N位停盈停损含空均值", "bottom_nth_with_nan3"),
 
-        ("从下往上第N位止盈止损非空均值", "bottom_nth_adjust_non_nan1"),
-        ("从下往上第N位止盈止损非空均值", "bottom_nth_adjust_non_nan2"),
-        ("从下往上第N位止盈止损非空均值", "bottom_nth_adjust_non_nan3"),
+        ("从下往上第N位停盈止损含空均值", "bottom_nth_stop_and_take_with_nan1"),
+        ("从下往上第N位停盈止损含空均值", "bottom_nth_stop_and_take_with_nan2"),
+        ("从下往上第N位停盈止损含空均值", "bottom_nth_stop_and_take_with_nan3"),
         ("从下往上第N位止盈止损含空均值", "bottom_nth_adjust_with_nan1"),
         ("从下往上第N位止盈止损含空均值", "bottom_nth_adjust_with_nan2"),
         ("从下往上第N位止盈止损含空均值", "bottom_nth_adjust_with_nan3"),
@@ -5113,27 +5155,27 @@ def calculate_analysis_result(valid_items):
                     print(f"从last_formula_select_state读取到N位控件值: {n_values}")
                 else:
                     # 使用默认值
-                    n_vars = ['bottom_nth_non_nan1', 'bottom_nth_non_nan2', 'bottom_nth_non_nan3',
-                             'bottom_nth_with_nan1', 'bottom_nth_with_nan2', 'bottom_nth_with_nan3',
-                             'bottom_nth_adjust_non_nan1', 'bottom_nth_adjust_non_nan2', 'bottom_nth_adjust_non_nan3',
-                             'bottom_nth_adjust_with_nan1', 'bottom_nth_adjust_with_nan2', 'bottom_nth_adjust_with_nan3']
+                    n_vars = ['bottom_nth_take_and_stop_with_nan1', 'bottom_nth_take_and_stop_with_nan2', 'bottom_nth_take_and_stop_with_nan3',
+                        'bottom_nth_with_nan1', 'bottom_nth_with_nan2', 'bottom_nth_with_nan3',
+                        'bottom_nth_stop_and_take_with_nan1', 'bottom_nth_stop_and_take_with_nan2', 'bottom_nth_stop_and_take_with_nan3',
+                        'bottom_nth_adjust_with_nan1', 'bottom_nth_adjust_with_nan2', 'bottom_nth_adjust_with_nan3']
                     n_values = {var: 1 for var in n_vars}
                     print(f"使用默认N位控件值: {n_values}")
             else:
-                # 使用默认值
-                n_vars = ['bottom_nth_non_nan1', 'bottom_nth_non_nan2', 'bottom_nth_non_nan3',
-                         'bottom_nth_with_nan1', 'bottom_nth_with_nan2', 'bottom_nth_with_nan3',
-                         'bottom_nth_adjust_non_nan1', 'bottom_nth_adjust_non_nan2', 'bottom_nth_adjust_non_nan3',
-                         'bottom_nth_adjust_with_nan1', 'bottom_nth_adjust_with_nan2', 'bottom_nth_adjust_with_nan3']
+                # 使用默认值bottom_nth_non_nan1
+                n_vars = ['bottom_nth_take_and_stop_with_nan1', 'bottom_nth_take_and_stop_with_nan2', 'bottom_nth_take_and_stop_with_nan3',
+                    'bottom_nth_with_nan1', 'bottom_nth_with_nan2', 'bottom_nth_with_nan3',
+                    'bottom_nth_stop_and_take_with_nan1', 'bottom_nth_stop_and_take_with_nan2', 'bottom_nth_stop_and_take_with_nan3',
+                    'bottom_nth_adjust_with_nan1', 'bottom_nth_adjust_with_nan2', 'bottom_nth_adjust_with_nan3']
                 n_values = {var: 1 for var in n_vars}
                 print(f"使用默认N位控件值: {n_values}")
                 
     except Exception as e:
         print(f"获取N位控件值时出错: {e}")
         # 使用默认值
-        n_vars = ['bottom_nth_non_nan1', 'bottom_nth_non_nan2', 'bottom_nth_non_nan3',
+        n_vars = ['bottom_nth_take_and_stop_with_nan1', 'bottom_nth_take_and_stop_with_nan2', 'bottom_nth_take_and_stop_with_nan3',
                  'bottom_nth_with_nan1', 'bottom_nth_with_nan2', 'bottom_nth_with_nan3',
-                 'bottom_nth_adjust_non_nan1', 'bottom_nth_adjust_non_nan2', 'bottom_nth_adjust_non_nan3',
+                 'bottom_nth_stop_and_take_with_nan1', 'bottom_nth_stop_and_take_with_nan2', 'bottom_nth_stop_and_take_with_nan3',
                  'bottom_nth_adjust_with_nan1', 'bottom_nth_adjust_with_nan2', 'bottom_nth_adjust_with_nan3']
         n_values = {var: 1 for var in n_vars}
         print(f"出错后使用默认N位控件值: {n_values}")
@@ -5644,19 +5686,19 @@ def calculate_analysis_result(valid_items):
         'bottom_second_with_nan': items[-2]['with_nan_mean'] if len(items) > 1 else None,
         'bottom_third_with_nan': items[-3]['with_nan_mean'] if len(items) > 2 else None,
         'bottom_fourth_with_nan': items[-4]['with_nan_mean'] if len(items) > 3 else None,
-        'bottom_first_non_nan': items[-1]['non_nan_mean'] if len(items) > 0 else None,
-        'bottom_second_non_nan': items[-2]['non_nan_mean'] if len(items) > 1 else None,
-        'bottom_third_non_nan': items[-3]['non_nan_mean'] if len(items) > 2 else None,
-        'bottom_fourth_non_nan': items[-4]['non_nan_mean'] if len(items) > 3 else None,
+        'bottom_first_take_and_stop_with_nan': items[-1]['take_and_stop_with_nan_mean'] if len(items) > 0 else None,
+        'bottom_second_take_and_stop_with_nan': items[-2]['take_and_stop_with_nan_mean'] if len(items) > 1 else None,
+        'bottom_third_take_and_stop_with_nan': items[-3]['take_and_stop_with_nan_mean'] if len(items) > 2 else None,
+        'bottom_fourth_take_and_stop_with_nan': items[-4]['take_and_stop_with_nan_mean'] if len(items) > 3 else None,
         # 新增：调幅从下往上的前1~4个的非空均值和含空均值
         'adjust_bottom_first_with_nan': items[-1]['adjust_with_nan_mean'] if len(items) > 0 else None,
         'adjust_bottom_second_with_nan': items[-2]['adjust_with_nan_mean'] if len(items) > 1 else None,
         'adjust_bottom_third_with_nan': items[-3]['adjust_with_nan_mean'] if len(items) > 2 else None,
         'adjust_bottom_fourth_with_nan': items[-4]['adjust_with_nan_mean'] if len(items) > 3 else None,
-        'adjust_bottom_first_non_nan': items[-1]['adjust_non_nan_mean'] if len(items) > 0 else None,
-        'adjust_bottom_second_non_nan': items[-2]['adjust_non_nan_mean'] if len(items) > 1 else None,
-        'adjust_bottom_third_non_nan': items[-3]['adjust_non_nan_mean'] if len(items) > 2 else None,
-        'adjust_bottom_fourth_non_nan': items[-4]['adjust_non_nan_mean'] if len(items) > 3 else None,
+        'bottom_first_stop_and_take_with_nan': items[-1]['stop_and_take_with_nan_mean'] if len(items) > 0 else None,
+        'bottom_second_stop_and_take_with_nan': items[-2]['stop_and_take_with_nan_mean'] if len(items) > 1 else None,
+        'bottom_third_stop_and_take_with_nan': items[-3]['stop_and_take_with_nan_mean'] if len(items) > 2 else None,
+        'bottom_fourth_stop_and_take_with_nan': items[-4]['stop_and_take_with_nan_mean'] if len(items) > 3 else None,
         # 新增：止盈率、止损率、持有率统计
         'total_stocks': total_stocks,
         'hold_rate': round(hold_count / total_stocks * 100, 2) if total_stocks > 0 else 0,
@@ -5703,6 +5745,24 @@ def calculate_analysis_result(valid_items):
                 summary[var_name] = items[-n]['non_nan_mean']
             else:
                 summary[var_name] = None
+
+        # 止盈停损含空均值
+        for i in range(1, 4):
+            var_name = f'bottom_nth_take_and_stop_with_nan{i}'
+            n = n_values.get(var_name, 1)
+            if n > 0 and n <= len(items):
+                summary[var_name] = items[-n]['take_and_stop_with_nan_mean']
+            else:
+                summary[var_name] = None
+
+        # 停盈止损含空均值
+        for i in range(1, 4):
+            var_name = f'bottom_nth_stop_and_take_with_nan{i}'
+            n = n_values.get(var_name, 1)
+            if n > 0 and n <= len(items):
+                summary[var_name] = items[-n]['stop_and_take_with_nan_mean']
+            else:
+                summary[var_name] = None
         
         # 调天含空均值
         for i in range(1, 4):
@@ -5739,15 +5799,15 @@ def calculate_analysis_result(valid_items):
 def get_component_analysis_variables():
     """获取组合分析元件变量列表"""
     return [
-        'bottom_nth_non_nan1',
-        'bottom_nth_non_nan2', 
-        'bottom_nth_non_nan3',
+        'bottom_nth_take_and_stop_with_nan1',
+        'bottom_nth_take_and_stop_with_nan2', 
+        'bottom_nth_take_and_stop_with_nan3',
         'bottom_nth_with_nan1',
         'bottom_nth_with_nan2',
         'bottom_nth_with_nan3',
-        'bottom_nth_adjust_non_nan1',
-        'bottom_nth_adjust_non_nan2',
-        'bottom_nth_adjust_non_nan3',
+        'bottom_nth_stop_and_take_with_nan1',
+        'bottom_nth_stop_and_take_with_nan2',
+        'bottom_nth_stop_and_take_with_nan3',
         'bottom_nth_adjust_with_nan1',
         'bottom_nth_adjust_with_nan2',
         'bottom_nth_adjust_with_nan3',

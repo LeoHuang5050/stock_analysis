@@ -1769,12 +1769,42 @@ def calculate_batch_cy(
                         take_and_stop_incre_rate = take_and_stop_change / hold_days  # 移除 round_to_2
                     except Exception:
                         take_and_stop_incre_rate = None
+                else:
+                    # 当交叉止盈停损为空时，参考操作值为空的情况处理
+                    hold_days = op_days
+                    op_days_when_take_stop_nan = min(hold_days, end_date_idx)
+                    if end_date_idx - hold_days >= 0:
+                        op_idx_when_take_stop_nan = end_date_idx - hold_days
+                    else:
+                        hold_days = end_date_idx
+                        op_idx_when_take_stop_nan = 0
+                    try:
+                        take_and_stop_change = (price_data_view[stock_idx, op_idx_when_take_stop_nan] - end_value_for_ops) / end_value_for_ops * 100
+                        take_and_stop_incre_rate = take_and_stop_change / hold_days
+                    except Exception:
+                        take_and_stop_change = None
+                        take_and_stop_incre_rate = None
 
                 stop_and_take_incre_rate = None
                 if stop_and_take_change is not None and not isnan(stop_and_take_change):
                     try:
                         stop_and_take_incre_rate = stop_and_take_change / hold_days  # 移除 round_to_2
                     except Exception:
+                        stop_and_take_incre_rate = None
+                else:
+                    # 当止盈停损为空时，参考操作值为空的情况处理
+                    hold_dayhold_dayss_for_stop_take = op_days
+                    op_days_when_stop_take_nan = min(hold_days, end_date_idx)
+                    if end_date_idx - hold_days >= 0:
+                        op_idx_when_stop_take_nan = end_date_idx - hold_days
+                    else:
+                        hold_days = end_date_idx
+                        op_idx_when_stop_take_nan = 0
+                    try:
+                        stop_and_take_change = (price_data_view[stock_idx, op_idx_when_stop_take_nan] - end_value_for_ops) / end_value_for_ops * 100
+                        stop_and_take_incre_rate = stop_and_take_change / hold_days
+                    except Exception:
+                        stop_and_take_change = None
                         stop_and_take_incre_rate = None
                     
                 

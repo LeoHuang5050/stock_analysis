@@ -552,8 +552,6 @@ class CalculateThread(QThread):
                     
                     stock['code'] = code
                     stock['name'] = name if name is not None else ''
-                    if stock['name'] == '甘肃能化':
-                        print(f"stock['name']: {stock['name']}")
                 
                 # 统一的数值四舍五入处理
                 self._round_numeric_values(stock)

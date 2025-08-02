@@ -2075,6 +2075,16 @@ class StockAnalysisApp(QWidget):
             self.result_text.setText("请先进行自动分析")
             self.output_stack.setCurrentWidget(self.result_text)
             return
+        
+        # 过滤掉stock_idx为-1、-2、-3的结果
+        filtered_merged_results = {}
+        for end_date, stocks in merged_results.items():
+            filtered_stocks = [stock for stock in stocks if stock.get('stock_idx') not in [-1, -2, -3]]
+            if filtered_stocks:  # 只保留有有效股票数据的日期
+                filtered_merged_results[end_date] = filtered_stocks
+        
+        merged_results = filtered_merged_results  # 使用过滤后的结果
+        
         group_size = 19
         end_dates = [d for d, stocks in merged_results.items() if stocks]
         blocks = [end_dates[i:i+group_size] for i in range(0, len(end_dates), group_size)]

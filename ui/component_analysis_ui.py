@@ -479,10 +479,10 @@ class ComponentAnalysisWidget(QWidget):
             
             # 获取N位控件值
             n_values = {}
-            n_vars = ['bottom_nth_non_nan1', 'bottom_nth_non_nan2', 'bottom_nth_non_nan3',
-                     'bottom_nth_with_nan1', 'bottom_nth_with_nan2', 'bottom_nth_with_nan3',
-                     'bottom_nth_adjust_non_nan1', 'bottom_nth_adjust_non_nan2', 'bottom_nth_adjust_non_nan3',
-                     'bottom_nth_adjust_with_nan1', 'bottom_nth_adjust_with_nan2', 'bottom_nth_adjust_with_nan3']
+            n_vars = ['bottom_nth_take_and_stop_with_nan1', 'bottom_nth_take_and_stop_with_nan2', 'bottom_nth_take_and_stop_with_nan3',
+                        'bottom_nth_with_nan1', 'bottom_nth_with_nan2', 'bottom_nth_with_nan3',
+                        'bottom_nth_stop_and_take_with_nan1', 'bottom_nth_stop_and_take_with_nan2', 'bottom_nth_stop_and_take_with_nan3',
+                        'bottom_nth_adjust_with_nan1', 'bottom_nth_adjust_with_nan2', 'bottom_nth_adjust_with_nan3']
             
             for var_name in n_vars:
                 try:
@@ -2780,11 +2780,13 @@ class ComponentAnalysisWidget(QWidget):
         formula = analysis.get('formula', '')
         row_count = len(items)
         
-        table = CopyableTableWidget(row_count + 2, 19, self.result_area)
+        table = CopyableTableWidget(row_count + 2, 23, self.result_area)  # 修正为23列
         table.setHorizontalHeaderLabels([
             "结束日期", 
-            "持有天数", "止盈止损涨幅", "综合止盈止损日均涨幅", "止盈止损日均涨跌幅", "止盈止损从下往上非空均值", "止盈止损从下往上含空均值", "止盈止损含空值均值", "止盈止损最大值", "止盈止损最小值",
-            "调整天数", "停盈停损涨幅", "综合停盈停损日均涨幅", "停盈停损日均涨跌幅", "停盈停损从下往上非空均值", "停盈停损从下往上含空均值", "停盈停损含空值均值", "停盈停损最大值", "停盈停损最小值"
+            "持有天数", "止盈止损涨幅", "综合止盈止损日均涨幅", "止盈止损日均涨跌幅", "止盈止损从下往上含空均值", "止盈止损含空均值",
+            "止盈停损涨幅", "综合止盈停损日均涨幅", "止盈停损日均涨跌幅", "止盈停损从下往上含空均值", "止盈停损含空均值",
+            "调整天数", "停盈停损涨幅", "综合停盈停损日均涨幅", "停盈停损日均涨跌幅", "停盈停损从下往上含空均值", "停盈停损含空均值",
+            "停盈止损涨幅", "综合停盈止损日均涨幅", "停盈止损日均涨跌幅", "停盈止损从下往上含空均值", "停盈止损含空均值"
         ])
         table.setSelectionBehavior(QTableWidget.SelectItems)
         table.setSelectionMode(QTableWidget.ExtendedSelection)
@@ -2793,49 +2795,73 @@ class ComponentAnalysisWidget(QWidget):
         # 设置第一行的均值数据
         if summary:
             table.setItem(0, 1, QTableWidgetItem(str(summary.get('mean_hold_days', ''))))
+            # 止盈止损
             table.setItem(0, 2, QTableWidgetItem(f"{summary.get('mean_adjust_ops_change', '')}%" if summary.get('mean_adjust_ops_change', '') != '' else ''))
             table.setItem(0, 3, QTableWidgetItem(f"{summary.get('comprehensive_daily_change', '')}%" if summary.get('comprehensive_daily_change', '') != '' else ''))
             table.setItem(0, 4, QTableWidgetItem(f"{summary.get('mean_adjust_daily_change', '')}%" if summary.get('mean_adjust_daily_change', '') != '' else ''))
-            table.setItem(0, 5, QTableWidgetItem(f"{summary.get('mean_adjust_non_nan', '')}%" if summary.get('mean_adjust_non_nan', '') != '' else ''))
-            table.setItem(0, 6, QTableWidgetItem(f"{summary.get('mean_adjust_with_nan', '')}%" if summary.get('mean_adjust_with_nan', '') != '' else ''))
-            table.setItem(0, 7, QTableWidgetItem(f"{summary.get('mean_adjust_daily_with_nan', '')}%" if summary.get('mean_adjust_daily_with_nan', '') != '' else ''))
-            table.setItem(0, 8, QTableWidgetItem(f"{summary.get('max_adjust_ops_incre_rate', '')}%" if summary.get('max_adjust_ops_incre_rate', '') != '' else ''))
-            table.setItem(0, 9, QTableWidgetItem(f"{summary.get('min_adjust_ops_incre_rate', '')}%" if summary.get('min_adjust_ops_incre_rate', '') != '' else ''))
-            table.setItem(0, 10, QTableWidgetItem(str(summary.get('mean_adjust_days', ''))))
-            table.setItem(0, 11, QTableWidgetItem(f"{summary.get('mean_ops_change', '')}%" if summary.get('mean_ops_change', '') != '' else ''))
-            table.setItem(0, 12, QTableWidgetItem(f"{summary.get('comprehensive_stop_daily_change', '')}%" if summary.get('comprehensive_stop_daily_change', '') != '' else ''))
-            table.setItem(0, 13, QTableWidgetItem(f"{summary.get('mean_daily_change', '')}%" if summary.get('mean_daily_change', '') != '' else ''))
-            table.setItem(0, 14, QTableWidgetItem(f"{summary.get('mean_non_nan', '')}%" if summary.get('mean_non_nan', '') != '' else ''))
-            table.setItem(0, 15, QTableWidgetItem(f"{summary.get('mean_with_nan', '')}%" if summary.get('mean_with_nan', '') != '' else ''))
-            table.setItem(0, 16, QTableWidgetItem(f"{summary.get('mean_daily_with_nan', '')}%" if summary.get('mean_daily_with_nan', '') != '' else ''))
-            table.setItem(0, 17, QTableWidgetItem(f"{summary.get('max_change', '')}%" if summary.get('max_change', '') != '' else ''))
-            table.setItem(0, 18, QTableWidgetItem(f"{summary.get('min_change', '')}%" if summary.get('min_change', '') != '' else ''))
+            table.setItem(0, 5, QTableWidgetItem(f"{summary.get('mean_adjust_with_nan', '')}%" if summary.get('mean_adjust_with_nan', '') != '' else ''))
+            table.setItem(0, 6, QTableWidgetItem(f"{summary.get('mean_adjust_daily_with_nan', '')}%" if summary.get('mean_adjust_daily_with_nan', '') != '' else ''))
+
+            # 止盈停损
+            table.setItem(0, 7, QTableWidgetItem(f"{summary.get('mean_take_and_stop_change', '')}%" if summary.get('mean_take_and_stop_change', '') != '' else ''))
+            table.setItem(0, 8, QTableWidgetItem(f"{summary.get('comprehensive_take_and_stop_change', '')}%" if summary.get('comprehensive_take_and_stop_change', '') != '' else ''))
+            table.setItem(0, 9, QTableWidgetItem(f"{summary.get('mean_take_and_stop_daily_change', '')}%" if summary.get('mean_take_and_stop_daily_change', '') != '' else ''))
+            table.setItem(0, 10, QTableWidgetItem(f"{summary.get('mean_take_and_stop_with_nan', '')}%" if summary.get('mean_take_and_stop_with_nan', '') != '' else ''))
+            table.setItem(0, 11, QTableWidgetItem(f"{summary.get('mean_take_and_stop_daily_with_nan', '')}%" if summary.get('mean_take_and_stop_daily_with_nan', '') != '' else ''))
+
+            table.setItem(0, 12, QTableWidgetItem(str(summary.get('mean_adjust_days', ''))))
+
+            # 停盈停损
+            table.setItem(0, 13, QTableWidgetItem(f"{summary.get('mean_ops_change', '')}%" if summary.get('mean_ops_change', '') != '' else ''))
+            table.setItem(0, 14, QTableWidgetItem(f"{summary.get('comprehensive_stop_daily_change', '')}%" if summary.get('comprehensive_stop_daily_change', '') != '' else ''))
+            table.setItem(0, 15, QTableWidgetItem(f"{summary.get('mean_daily_change', '')}%" if summary.get('mean_daily_change', '') != '' else ''))
+            table.setItem(0, 16, QTableWidgetItem(f"{summary.get('mean_with_nan', '')}%" if summary.get('mean_with_nan', '') != '' else ''))
+            table.setItem(0, 17, QTableWidgetItem(f"{summary.get('mean_daily_with_nan', '')}%" if summary.get('mean_daily_with_nan', '') != '' else ''))
+
+            # 停盈止损
+            table.setItem(0, 18, QTableWidgetItem(f"{summary.get('mean_stop_and_take_change', '')}%" if summary.get('mean_stop_and_take_change', '') != '' else ''))
+            table.setItem(0, 19, QTableWidgetItem(f"{summary.get('comprehensive_stop_and_take_change', '')}%" if summary.get('comprehensive_stop_and_take_change', '') != '' else ''))
+            table.setItem(0, 20, QTableWidgetItem(f"{summary.get('mean_stop_and_take_daily_change', '')}%" if summary.get('mean_stop_and_take_daily_change', '') != '' else ''))
+            table.setItem(0, 21, QTableWidgetItem(f"{summary.get('mean_stop_and_take_with_nan', '')}%" if summary.get('mean_stop_and_take_with_nan', '') != '' else ''))
+            table.setItem(0, 22, QTableWidgetItem(f"{summary.get('mean_stop_and_take_daily_with_nan', '')}%" if summary.get('mean_stop_and_take_daily_with_nan', '') != '' else ''))
 
         # 设置每行的数据
         for row_idx, item in enumerate(items):
             table.setItem(row_idx + 2, 0, QTableWidgetItem(str(item.get('date', ''))))
             table.setItem(row_idx + 2, 1, QTableWidgetItem(str(item.get('hold_days', ''))))
+            # 止盈止损
             table.setItem(row_idx + 2, 2, QTableWidgetItem(f"{item.get('adjust_ops_change', '')}%" if item.get('adjust_ops_change', '') != '' else ''))
             table.setItem(row_idx + 2, 3, QTableWidgetItem(""))
             table.setItem(row_idx + 2, 4, QTableWidgetItem(f"{item.get('adjust_daily_change', '')}%" if item.get('adjust_daily_change', '') != '' else ''))
-            adjust_non_nan_mean = item.get('adjust_non_nan_mean', '')
-            table.setItem(row_idx + 2, 5, QTableWidgetItem(f"{round(adjust_non_nan_mean, 2)}%" if adjust_non_nan_mean != '' and not (isinstance(adjust_non_nan_mean, float) and math.isnan(adjust_non_nan_mean)) else ''))
             adjust_with_nan_mean = item.get('adjust_with_nan_mean', '')
-            table.setItem(row_idx + 2, 6, QTableWidgetItem(f"{round(adjust_with_nan_mean, 2)}%" if adjust_with_nan_mean != '' and not (isinstance(adjust_with_nan_mean, float) and math.isnan(adjust_with_nan_mean)) else ''))
-            table.setItem(row_idx + 2, 7, QTableWidgetItem(""))  # 调幅含空值均值只在均值行
-            table.setItem(row_idx + 2, 8, QTableWidgetItem(""))  # 调幅最大值只在均值行
-            table.setItem(row_idx + 2, 9, QTableWidgetItem(""))  # 调幅最小值只在均值行
-            table.setItem(row_idx + 2, 10, QTableWidgetItem(str(item.get('adjust_days', ''))))
-            table.setItem(row_idx + 2, 11, QTableWidgetItem(f"{item.get('ops_change', '')}%" if item.get('ops_change', '') != '' else ''))
-            table.setItem(row_idx + 2, 12, QTableWidgetItem(""))
-            table.setItem(row_idx + 2, 13, QTableWidgetItem(f"{item.get('daily_change', '')}%" if item.get('daily_change', '') != '' else ''))
-            non_nan_mean = item.get('non_nan_mean', '')
-            table.setItem(row_idx + 2, 14, QTableWidgetItem(f"{round(non_nan_mean, 2)}%" if non_nan_mean != '' and not (isinstance(non_nan_mean, float) and math.isnan(non_nan_mean)) else ''))
+            table.setItem(row_idx + 2, 5, QTableWidgetItem(f"{round(adjust_with_nan_mean, 2)}%" if adjust_with_nan_mean != '' and not (isinstance(adjust_with_nan_mean, float) and math.isnan(adjust_with_nan_mean)) else ''))
+            table.setItem(row_idx + 2, 6, QTableWidgetItem(""))  # 调幅含空值均值只在均值行
+
+            # 止盈停损
+            table.setItem(row_idx + 2, 7, QTableWidgetItem(f"{item.get('take_and_stop_change', '')}%" if item.get('take_and_stop_change', '') != '' else ''))
+            table.setItem(row_idx + 2, 8, QTableWidgetItem(""))
+            table.setItem(row_idx + 2, 9, QTableWidgetItem(f"{item.get('take_and_stop_daily_change', '')}%" if item.get('take_and_stop_daily_change', '') != '' else ''))
+            take_and_stop_with_nan_mean = item.get('take_and_stop_with_nan_mean', '')
+            table.setItem(row_idx + 2, 10, QTableWidgetItem(f"{round(take_and_stop_with_nan_mean, 2)}%" if take_and_stop_with_nan_mean != '' and not (isinstance(take_and_stop_with_nan_mean, float) and math.isnan(take_and_stop_with_nan_mean)) else ''))
+            table.setItem(row_idx + 2, 11, QTableWidgetItem(""))
+
+            table.setItem(row_idx + 2, 12, QTableWidgetItem(str(item.get('adjust_days', ''))))
+
+            # 停盈停损
+            table.setItem(row_idx + 2, 13, QTableWidgetItem(f"{item.get('ops_change', '')}%" if item.get('ops_change', '') != '' else ''))
+            table.setItem(row_idx + 2, 14, QTableWidgetItem(""))
+            table.setItem(row_idx + 2, 15, QTableWidgetItem(f"{item.get('daily_change', '')}%" if item.get('daily_change', '') != '' else ''))
             with_nan_mean = item.get('with_nan_mean', '')
-            table.setItem(row_idx + 2, 15, QTableWidgetItem(f"{round(with_nan_mean, 2)}%" if with_nan_mean != '' and not (isinstance(with_nan_mean, float) and math.isnan(with_nan_mean)) else ''))
-            table.setItem(row_idx + 2, 16, QTableWidgetItem(""))  # 含空值均值在summary中，这里暂时留空
-            table.setItem(row_idx + 2, 17, QTableWidgetItem(""))  # 最大值在summary中，这里暂时留空
-            table.setItem(row_idx + 2, 18, QTableWidgetItem(""))  # 最小值在summary中，这里暂时留空
+            table.setItem(row_idx + 2, 16, QTableWidgetItem(f"{round(with_nan_mean, 2)}%" if with_nan_mean != '' and not (isinstance(with_nan_mean, float) and math.isnan(with_nan_mean)) else ''))
+            table.setItem(row_idx + 2, 17, QTableWidgetItem(""))  # 含空值均值在summary中，这里暂时留空
+
+            # 停盈止损
+            table.setItem(row_idx + 2, 18, QTableWidgetItem(f"{item.get('stop_and_take_change', '')}%" if item.get('stop_and_take_change', '') != '' else ''))
+            table.setItem(row_idx + 2, 19, QTableWidgetItem(""))
+            table.setItem(row_idx + 2, 20, QTableWidgetItem(f"{item.get('stop_and_take_daily_change', '')}%" if item.get('stop_and_take_daily_change', '') != '' else ''))
+            stop_and_take_with_nan_mean = item.get('stop_and_take_with_nan_mean', '')
+            table.setItem(row_idx + 2, 21, QTableWidgetItem(f"{round(stop_and_take_with_nan_mean, 2)}%" if stop_and_take_with_nan_mean != '' and not (isinstance(stop_and_take_with_nan_mean, float) and math.isnan(stop_and_take_with_nan_mean)) else ''))
+            table.setItem(row_idx + 2, 22, QTableWidgetItem(""))
 
         table.horizontalHeader().setFixedHeight(40)
         table.horizontalHeader().setStyleSheet("font-size: 12px;")
