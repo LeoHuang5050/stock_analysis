@@ -556,12 +556,20 @@ class TradingPlanWidget(QWidget):
         result_title.setAlignment(Qt.AlignCenter)
         vbox.addWidget(result_title)
         
-        # 选股结果表格区域
+        # 选股结果表格区域 - 使用QScrollArea来支持水平滚动
+        result_scroll_area = QScrollArea()
+        result_scroll_area.setWidgetResizable(True)
+        result_scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        result_scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        result_scroll_area.setStyleSheet("border:1px solid #ddd;background:#f9f9f9;")
+        result_scroll_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        
+        # 创建内容容器
         result_area = QWidget()
-        result_area.setStyleSheet("border:1px solid #ddd;background:#f9f9f9;")
-        result_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        result_area.setStyleSheet("background:#f9f9f9;")
+        result_scroll_area.setWidget(result_area)
         # 设置选股结果区域占用更多空间
-        vbox.addWidget(result_area, 1)  # 添加拉伸因子1，让它占用更多空间
+        vbox.addWidget(result_scroll_area, 1)  # 添加拉伸因子1，让它占用更多空间
         
         # 如果有选股结果，显示表格
         result = plan.get('result', None)
@@ -576,7 +584,7 @@ class TradingPlanWidget(QWidget):
                 if result_table:
                     # 设置表格完全展示，不限制高度
                     result_table.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-                    result_table.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+                    result_table.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)  # 启用水平滚动条
                     # 恢复正常字体大小
                     result_table.setStyleSheet("font-size:12px;")
                     # 列宽自适应内容
@@ -589,6 +597,11 @@ class TradingPlanWidget(QWidget):
                     # 设置合适的行高
                     result_table.verticalHeader().setDefaultSectionSize(25)
                     result_table.verticalHeader().setSectionResizeMode(QHeaderView.Fixed)
+                    # 设置表格大小策略，允许水平滚动
+                    result_table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+                    # 设置表格的最小宽度，确保所有列都能显示
+                    total_width = sum([result_table.columnWidth(i) for i in range(result_table.columnCount())])
+                    result_table.setMinimumWidth(total_width + 50)  # 添加一些额外空间
                     
                     # 将表格添加到结果区域
                     result_layout = QVBoxLayout(result_area)
@@ -596,6 +609,8 @@ class TradingPlanWidget(QWidget):
                     result_layout.addWidget(result_table)
                     # 设置表格大小策略，让它能够根据内容自动调整
                     result_table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+                    # 确保表格能够正确地在滚动区域中显示
+                    result_area.setMinimumWidth(result_table.minimumWidth())
             except Exception as e:
                 error_label = QLabel(f"选股结果加载失败: {e}")
                 error_label.setStyleSheet("color:red;font-size:10px;")

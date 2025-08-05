@@ -3043,3 +3043,283 @@ concurrent.futures.process.BrokenProcessPool: A process in the process pool was 
 concurrent.futures.process.BrokenProcessPool: A process in the process pool was terminated abruptly while the future was running or pending.
 
 --------------------------------------------------
+2025-08-03 00:30:08 - 子进程异常: too many values to unpack (expected 70)
+异常详情: concurrent.futures.process._RemoteTraceback: 
+"""
+Traceback (most recent call last):
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\process.py", line 254, in _process_worker
+    r = call_item.fn(*call_item.args, **call_item.kwargs)
+  File "E:\project\接单\stock\worker_threads.py", line 872, in cy_batch_worker
+    (
+    ^
+    ...<70 lines>...
+    ) = args
+    ^
+ValueError: too many values to unpack (expected 70)
+"""
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "E:\project\接单\stock\worker_threads.py", line 522, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+ValueError: too many values to unpack (expected 70)
+
+--------------------------------------------------
+2025-08-03 00:30:09 - 子进程异常: too many values to unpack (expected 70)
+异常详情: concurrent.futures.process._RemoteTraceback: 
+"""
+Traceback (most recent call last):
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\process.py", line 254, in _process_worker
+    r = call_item.fn(*call_item.args, **call_item.kwargs)
+  File "E:\project\接单\stock\worker_threads.py", line 872, in cy_batch_worker
+    (
+    ^
+    ...<70 lines>...
+    ) = args
+    ^
+ValueError: too many values to unpack (expected 70)
+"""
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "E:\project\接单\stock\worker_threads.py", line 522, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+ValueError: too many values to unpack (expected 70)
+
+--------------------------------------------------
+2025-08-03 00:30:09 - 子进程异常: too many values to unpack (expected 70)
+异常详情: concurrent.futures.process._RemoteTraceback: 
+"""
+Traceback (most recent call last):
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\process.py", line 254, in _process_worker
+    r = call_item.fn(*call_item.args, **call_item.kwargs)
+  File "E:\project\接单\stock\worker_threads.py", line 872, in cy_batch_worker
+    (
+    ^
+    ...<70 lines>...
+    ) = args
+    ^
+ValueError: too many values to unpack (expected 70)
+"""
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "E:\project\接单\stock\worker_threads.py", line 522, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+ValueError: too many values to unpack (expected 70)
+
+--------------------------------------------------
+2025-08-03 00:30:09 - 子进程异常: too many values to unpack (expected 70)
+异常详情: concurrent.futures.process._RemoteTraceback: 
+"""
+Traceback (most recent call last):
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\process.py", line 254, in _process_worker
+    r = call_item.fn(*call_item.args, **call_item.kwargs)
+  File "E:\project\接单\stock\worker_threads.py", line 872, in cy_batch_worker
+    (
+    ^
+    ...<70 lines>...
+    ) = args
+    ^
+ValueError: too many values to unpack (expected 70)
+"""
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "E:\project\接单\stock\worker_threads.py", line 522, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+ValueError: too many values to unpack (expected 70)
+
+--------------------------------------------------
+2025-08-03 00:30:09 - 子进程异常: too many values to unpack (expected 70)
+异常详情: concurrent.futures.process._RemoteTraceback: 
+"""
+Traceback (most recent call last):
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\process.py", line 254, in _process_worker
+    r = call_item.fn(*call_item.args, **call_item.kwargs)
+  File "E:\project\接单\stock\worker_threads.py", line 872, in cy_batch_worker
+    (
+    ^
+    ...<70 lines>...
+    ) = args
+    ^
+ValueError: too many values to unpack (expected 70)
+"""
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "E:\project\接单\stock\worker_threads.py", line 522, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+ValueError: too many values to unpack (expected 70)
+
+--------------------------------------------------
+2025-08-03 00:30:09 - 子进程异常: too many values to unpack (expected 70)
+异常详情: concurrent.futures.process._RemoteTraceback: 
+"""
+Traceback (most recent call last):
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\process.py", line 254, in _process_worker
+    r = call_item.fn(*call_item.args, **call_item.kwargs)
+  File "E:\project\接单\stock\worker_threads.py", line 872, in cy_batch_worker
+    (
+    ^
+    ...<70 lines>...
+    ) = args
+    ^
+ValueError: too many values to unpack (expected 70)
+"""
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "E:\project\接单\stock\worker_threads.py", line 522, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+ValueError: too many values to unpack (expected 70)
+
+--------------------------------------------------
+2025-08-03 00:30:09 - 子进程异常: too many values to unpack (expected 70)
+异常详情: concurrent.futures.process._RemoteTraceback: 
+"""
+Traceback (most recent call last):
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\process.py", line 254, in _process_worker
+    r = call_item.fn(*call_item.args, **call_item.kwargs)
+  File "E:\project\接单\stock\worker_threads.py", line 872, in cy_batch_worker
+    (
+    ^
+    ...<70 lines>...
+    ) = args
+    ^
+ValueError: too many values to unpack (expected 70)
+"""
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "E:\project\接单\stock\worker_threads.py", line 522, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+ValueError: too many values to unpack (expected 70)
+
+--------------------------------------------------
+2025-08-03 00:30:09 - 子进程异常: too many values to unpack (expected 70)
+异常详情: concurrent.futures.process._RemoteTraceback: 
+"""
+Traceback (most recent call last):
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\process.py", line 254, in _process_worker
+    r = call_item.fn(*call_item.args, **call_item.kwargs)
+  File "E:\project\接单\stock\worker_threads.py", line 872, in cy_batch_worker
+    (
+    ^
+    ...<70 lines>...
+    ) = args
+    ^
+ValueError: too many values to unpack (expected 70)
+"""
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "E:\project\接单\stock\worker_threads.py", line 522, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+ValueError: too many values to unpack (expected 70)
+
+--------------------------------------------------
+2025-08-03 00:30:09 - 子进程异常: too many values to unpack (expected 70)
+异常详情: concurrent.futures.process._RemoteTraceback: 
+"""
+Traceback (most recent call last):
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\process.py", line 254, in _process_worker
+    r = call_item.fn(*call_item.args, **call_item.kwargs)
+  File "E:\project\接单\stock\worker_threads.py", line 872, in cy_batch_worker
+    (
+    ^
+    ...<70 lines>...
+    ) = args
+    ^
+ValueError: too many values to unpack (expected 70)
+"""
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "E:\project\接单\stock\worker_threads.py", line 522, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+ValueError: too many values to unpack (expected 70)
+
+--------------------------------------------------
+2025-08-03 00:30:09 - 子进程异常: too many values to unpack (expected 70)
+异常详情: concurrent.futures.process._RemoteTraceback: 
+"""
+Traceback (most recent call last):
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\process.py", line 254, in _process_worker
+    r = call_item.fn(*call_item.args, **call_item.kwargs)
+  File "E:\project\接单\stock\worker_threads.py", line 872, in cy_batch_worker
+    (
+    ^
+    ...<70 lines>...
+    ) = args
+    ^
+ValueError: too many values to unpack (expected 70)
+"""
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "E:\project\接单\stock\worker_threads.py", line 522, in calculate_batch_16_cores
+    process_results = fut.result()
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 449, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+ValueError: too many values to unpack (expected 70)
+
+--------------------------------------------------

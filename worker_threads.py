@@ -345,6 +345,10 @@ class CalculateThread(QThread):
         formula_expr = params.get('formula_expr', '') or ''
         # formula_expr = replace_abbr(formula_expr, abbr_map)
         ops_change_input = params.get("ops_change", 0)
+        
+        # 盈损参数，默认为INC
+        profit_type = params.get('profit_type', 'INC')  # 盈的类型：INC, AGE, AGS
+        loss_type = params.get('loss_type', 'INC')      # 损的类型：INC, AGE, AGS
         select_count = int(params.get('select_count', 10))
         sort_mode = params.get('sort_mode', '最大值排序')
         only_show_selected = params.get('only_show_selected', False)
@@ -442,11 +446,13 @@ class CalculateThread(QThread):
                 stop_loss_inc_rate,
                 stop_loss_after_gt_end_ratio,
                 stop_loss_after_gt_start_ratio,
-                expr,
-                ops_change_input,
-                formula_expr,
-                select_count,
-                sort_mode,
+                expr, 
+                ops_change_input, 
+                formula_expr, 
+                profit_type,  # 盈的类型
+                loss_type,    # 损的类型
+                select_count, 
+                sort_mode, 
                 trade_t1_mode,
                 only_show_selected,
                 new_before_high_start,
@@ -889,6 +895,8 @@ def cy_batch_worker(args):
         expr, 
         ops_change_input, 
         formula_expr, 
+        profit_type,  # 盈的类型
+        loss_type,    # 损的类型
         select_count, 
         sort_mode, 
         trade_t1_mode,
@@ -962,6 +970,8 @@ def cy_batch_worker(args):
         expr, 
         ops_change_input, 
         formula_expr, 
+        profit_type,  # profit_type: 盈的类型，默认为INC
+        loss_type,  # loss_type: 损的类型，默认为INC
         select_count, 
         sort_mode, 
         trade_t1_mode,

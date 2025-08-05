@@ -1229,13 +1229,15 @@ class StockAnalysisApp(QWidget):
 
     def get_or_calculate_result(self, formula_expr=None, select_count=None, sort_mode=None, 
                                 show_main_output=True, only_show_selected=None, is_auto_analysis=False, 
-                                end_date_start=None, end_date_end=None, comparison_vars=None, width=None, op_days=None, 
+                                end_date_start=None, end_date_end=None, end_date=None, comparison_vars=None, width=None, op_days=None, 
                                 inc_rate=None, after_gt_end_ratio=None, after_gt_start_ratio=None,
                                 stop_loss_inc_rate=None, stop_loss_after_gt_end_ratio=None, stop_loss_after_gt_start_ratio=None,
-                                new_high_low_params=None):
+                                new_high_low_params=None, profit_type="INC", loss_type="INC"):
         # 直接在此处校验创新高/创新低日期范围
         workdays = getattr(self.init, 'workdays_str', None)
-        end_date = self.date_picker.date().toString("yyyy-MM-dd")
+        # 如果没有传入end_date，则从控件获取
+        if end_date is None:
+            end_date = self.date_picker.date().toString("yyyy-MM-dd")
         if hasattr(self.init, 'workdays_str'):
             if not self.init.workdays_str:
                 QMessageBox.warning(self, "提示", "请先上传数据文件！")
@@ -1455,6 +1457,10 @@ class StockAnalysisApp(QWidget):
         params['new_after_low2_span'] = self.new_after_low2_span_spin.value()
         params['new_after_low2_logic'] = self.new_after_low2_logic_combo.currentText()
         params['comparison_vars'] = comparison_vars
+        
+        # 添加盈损参数
+        params['profit_type'] = profit_type
+        params['loss_type'] = loss_type
 
         
         if only_show_selected is not None:
@@ -1587,11 +1593,14 @@ class StockAnalysisApp(QWidget):
         row = table.rowCount()
         table.insertRow(row)
         
+        # 根据当前选中的变量类别动态生成文本
+        profit_text, loss_text, profit_median_text, loss_median_text = self.get_profit_loss_text_by_category()
+        
         # 构建止盈止损率统计文本
         stats_text = f"总股票数: {summary.get('total_stocks', 0)} | "
         stats_text += f"持有率: {summary.get('hold_rate', 0)}% | "
-        stats_text += f"止盈率: {summary.get('profit_rate', 0)}% | "
-        stats_text += f"止损率: {summary.get('loss_rate', 0)}%"
+        stats_text += f"{profit_text}: {summary.get('profit_rate', 0)}% | "
+        stats_text += f"{loss_text}: {summary.get('loss_rate', 0)}%"
         
         item = QTableWidgetItem(stats_text)
         item.setFlags(item.flags() & ~Qt.ItemIsEditable)
@@ -1612,8 +1621,8 @@ class StockAnalysisApp(QWidget):
         loss_median = summary.get('loss_median')
         
         median_text = f"持有中位数: {hold_median}%" if hold_median is not None else "持有中位数: 无"
-        median_text += f" | 止盈中位数: {profit_median}%" if profit_median is not None else " | 止盈中位数: 无"
-        median_text += f" | 止损中位数: {loss_median}%" if loss_median is not None else " | 止损中位数: 无"
+        median_text += f" | {profit_median_text}: {profit_median}%" if profit_median is not None else f" | {profit_median_text}: 无"
+        median_text += f" | {loss_median_text}: {loss_median}%" if loss_median is not None else f" | {loss_median_text}: 无"
         
         item = QTableWidgetItem(median_text)
         item.setFlags(item.flags() & ~Qt.ItemIsEditable)
@@ -1814,6 +1823,8 @@ class StockAnalysisApp(QWidget):
         # 获取选股数量和排序方式
         select_count = getattr(self, 'last_select_count', 10)
         sort_mode = getattr(self, 'last_sort_mode', '最大值排序')
+        profit_type = getattr(self, 'last_profit_type', 'INC')
+        loss_type = getattr(self, 'last_loss_type', 'INC')
         
         # 获取比较变量列表 - 参考选股的do_select()函数
         comparison_vars = []
@@ -1848,7 +1859,9 @@ class StockAnalysisApp(QWidget):
             sort_mode=sort_mode,
             end_date_start=start_date,
             end_date_end=end_date,
-            comparison_vars=comparison_vars
+            comparison_vars=comparison_vars,
+            profit_type=profit_type,
+            loss_type=loss_type
         )
         self.last_auto_analysis_result = result  # 新增：只给自动分析用
         merged_results = result.get('dates', {}) if result else {}
@@ -1867,11 +1880,24 @@ class StockAnalysisApp(QWidget):
         # 创建新表格
         table = self.create_analysis_table(valid_items, start_date, end_date)
         self.analysis_result_layout.addWidget(table)
-        # 保存表格数据
+        # 保存表格数据和跨列信息
+        span_info = []
+        for row in range(table.rowCount()):
+            for col in range(table.columnCount()):
+                span = table.span(row, col)
+                if span.rowCount() > 1 or span.columnCount() > 1:
+                    span_info.append({
+                        'row': row,
+                        'col': col,
+                        'row_span': span.rowCount(),
+                        'col_span': span.columnCount()
+                    })
+        
         self.cached_table_data = {
             "headers": [table.horizontalHeaderItem(i).text() for i in range(table.columnCount())],
             "data": [[table.item(i, j).text() if table.item(i, j) else "" for j in range(table.columnCount())] for i in range(table.rowCount())],
-            "formula": formula
+            "formula": formula,
+            "span_info": span_info
         }
 
     def on_auto_analysis_btn_clicked(self):
@@ -2486,11 +2512,24 @@ class StockAnalysisApp(QWidget):
         for i in range(1, table.columnCount()):
             header.setSectionResizeMode(i, QHeaderView.ResizeToContents)
         self.analysis_result_layout.addWidget(table)
-        # 保存表格数据
+        # 保存表格数据和跨列信息
+        span_info = []
+        for row in range(table.rowCount()):
+            for col in range(table.columnCount()):
+                span = table.span(row, col)
+                if span.rowCount() > 1 or span.columnCount() > 1:
+                    span_info.append({
+                        'row': row,
+                        'col': col,
+                        'row_span': span.rowCount(),
+                        'col_span': span.columnCount()
+                    })
+        
         self.cached_table_data = {
             "headers": [table.horizontalHeaderItem(i).text() for i in range(table.columnCount())],
             "data": [[table.item(i, j).text() if table.item(i, j) else "" for j in range(table.columnCount())] for i in range(table.rowCount())],
-            "formula": formula
+            "formula": formula,
+            "span_info": span_info
         }
 
     def _restore_formula_controls_from_formula(self, formula):
@@ -2905,6 +2944,8 @@ class StockAnalysisApp(QWidget):
             'last_formula_expr': getattr(self, 'last_formula_expr', ''),
             'last_select_count': getattr(self, 'last_select_count', 10),
             'last_sort_mode': getattr(self, 'last_sort_mode', '最大值排序'),
+            'last_profit_type': getattr(self, 'last_profit_type', 'INC'),  # 新增：盈类型缓存
+            'last_loss_type': getattr(self, 'last_loss_type', 'INC'),      # 新增：损类型缓存
             'direction': self.direction_checkbox.isChecked(),
             'component_analysis_start_date': getattr(self, 'last_component_analysis_start_date', ''),
             'component_analysis_end_date': getattr(self, 'last_component_analysis_end_date', ''),
@@ -3064,6 +3105,10 @@ class StockAnalysisApp(QWidget):
                 self.last_select_count = config['last_select_count']
             if 'last_sort_mode' in config:
                 self.last_sort_mode = config['last_sort_mode']
+            if 'last_profit_type' in config:
+                self.last_profit_type = config['last_profit_type']
+            if 'last_loss_type' in config:
+                self.last_loss_type = config['last_loss_type']
             if 'direction' in config:
                 self.direction_checkbox.setChecked(config['direction'])
             # 加载组合分析子界面的日期配置
@@ -3266,3 +3311,64 @@ class StockAnalysisApp(QWidget):
         self.table_widget = trading_plan_widget
         self.output_stack.addWidget(trading_plan_widget)
         self.output_stack.setCurrentWidget(trading_plan_widget)
+
+    def get_profit_loss_text_by_category(self):
+        """
+        根据当前选中的变量类别动态生成止盈止损相关的文本
+        返回: (profit_text, loss_text, profit_median_text, loss_median_text)
+        """
+        # 默认文本
+        default_profit_text = "止盈率"
+        default_loss_text = "止损率"
+        default_profit_median_text = "止盈中位数"
+        default_loss_median_text = "止损中位数"
+        
+        # 如果没有公式选择状态，返回默认文本
+        if not hasattr(self, 'last_formula_select_state') or not self.last_formula_select_state:
+            return default_profit_text, default_loss_text, default_profit_median_text, default_loss_median_text
+        
+        # 获取当前选中的变量
+        from function.stock_functions import get_abbr_round_only_map
+        abbr_round_only_map = get_abbr_round_only_map()
+        
+        # 检查选中的变量属于哪个类别
+        selected_vars = []
+        for (zh, en), en_val in abbr_round_only_map.items():
+            if en_val in self.last_formula_select_state:
+                var_state = self.last_formula_select_state[en_val]
+                if var_state.get('round_checked', False):  # 检查圆框是否勾选
+                    selected_vars.append((zh, en_val))
+        
+        if not selected_vars:
+            return default_profit_text, default_loss_text, default_profit_median_text, default_loss_median_text
+        
+        # 根据选中的变量确定类别
+        category = None
+        for zh, en_val in selected_vars:
+            if "停盈停损" in zh:
+                category = "停盈停损"
+                break
+            elif "停盈止损" in zh:
+                category = "停盈止损"
+                break
+            elif "止盈止损" in zh:
+                category = "止盈止损"
+                break
+            elif "止盈停损" in zh:
+                category = "止盈停损"
+                break
+        
+        if not category:
+            return default_profit_text, default_loss_text, default_profit_median_text, default_loss_median_text
+        
+        # 根据类别返回相应的文本
+        if category == "停盈停损":
+            return "停盈率", "停损率", "停盈中位数", "停损中位数"
+        elif category == "停盈止损":
+            return "停盈率", "止损率", "停盈中位数", "止损中位数"
+        elif category == "止盈止损":
+            return "止盈率", "止损率", "止盈中位数", "止损中位数"
+        elif category == "止盈停损":
+            return "止盈率", "停损率", "止盈中位数", "停损中位数"
+        else:
+            return default_profit_text, default_loss_text, default_profit_median_text, default_loss_median_text

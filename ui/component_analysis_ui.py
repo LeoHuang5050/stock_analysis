@@ -411,6 +411,10 @@ class ComponentAnalysisWidget(QWidget):
         
     def on_analyze_clicked(self):
         
+        # 验证组合输出参数选择
+        if not self._validate_abbr_round_only_selection():
+            return
+        
         # 获取组合分析次数
         analysis_count = self.analysis_count_spin.value()
         
@@ -572,6 +576,10 @@ class ComponentAnalysisWidget(QWidget):
         try:
             from PyQt5.QtWidgets import QMessageBox
             import time
+            
+            # 验证组合输出参数选择
+            if not self._validate_abbr_round_only_selection():
+                return
             
             # 记录开始时间
             start_time = time.time()
@@ -1209,6 +1217,9 @@ class ComponentAnalysisWidget(QWidget):
         
         # 获取选股数量和排序方式
         select_count = getattr(self.main_window, 'last_select_count', 10)
+
+        profit_type = getattr(self.main_window, 'last_profit_type', 'INC')
+        loss_type = getattr(self.main_window, 'last_loss_type', 'INC')
         
         # 准备创新高/创新低参数，保持传递结构一致
         new_high_low_params = {}
@@ -1308,7 +1319,9 @@ class ComponentAnalysisWidget(QWidget):
             stop_loss_after_gt_end_ratio=stop_loss_after_gt_end_ratio,
             stop_loss_after_gt_start_ratio=stop_loss_after_gt_start_ratio,
             comparison_vars=comparison_vars,
-            new_high_low_params=new_high_low_params  # 直接传递
+            new_high_low_params=new_high_low_params,  # 直接传递
+            profit_type=profit_type,
+            loss_type=loss_type
         )
         
         if result:
@@ -2870,11 +2883,14 @@ class ComponentAnalysisWidget(QWidget):
         row = table.rowCount()
         table.insertRow(row)
         
+        # 获取动态文本
+        profit_text, loss_text, profit_median_text, loss_median_text = self.get_profit_loss_text_by_category()
+        
         # 构建止盈止损率统计文本
         stats_text = f"总股票数: {summary.get('total_stocks', 0)} | "
         stats_text += f"持有率: {summary.get('hold_rate', 0)}% | "
-        stats_text += f"止盈率: {summary.get('profit_rate', 0)}% | "
-        stats_text += f"止损率: {summary.get('loss_rate', 0)}%"
+        stats_text += f"{profit_text}: {summary.get('profit_rate', 0)}% | "
+        stats_text += f"{loss_text}: {summary.get('loss_rate', 0)}%"
         
         item = QTableWidgetItem(stats_text)
         item.setFlags(item.flags() & ~Qt.ItemIsEditable)
@@ -2895,8 +2911,8 @@ class ComponentAnalysisWidget(QWidget):
         loss_median = summary.get('loss_median')
         
         median_text = f"持有中位数: {hold_median}%" if hold_median is not None else "持有中位数: 无"
-        median_text += f" | 止盈中位数: {profit_median}%" if profit_median is not None else " | 止盈中位数: 无"
-        median_text += f" | 止损中位数: {loss_median}%" if loss_median is not None else " | 止损中位数: 无"
+        median_text += f" | {profit_median_text}: {profit_median}%" if profit_median is not None else f" | {profit_median_text}: 无"
+        median_text += f" | {loss_median_text}: {loss_median}%" if loss_median is not None else f" | {loss_median_text}: 无"
         
         item = QTableWidgetItem(median_text)
         item.setFlags(item.flags() & ~Qt.ItemIsEditable)
@@ -3582,6 +3598,51 @@ class ComponentAnalysisWidget(QWidget):
             self.show_analysis_results(results)
         # 更新上次最优值显示
         self._update_last_best_value_display()
+        
+    def get_profit_loss_text_by_category(self):
+        """根据选中的变量映射类别动态生成止盈止损相关文本"""
+        # 获取主窗口的公式选择状态
+        state = getattr(self.main_window, 'last_formula_select_state', {})
+        
+        # 检查选中的变量映射类别
+        profit_vars = []
+        loss_vars = []
+        
+        # 检查停盈停损相关变量
+        if any(key in state for key in ['ops_change', 'comprehensive_stop_daily_change', 'mean_daily_change', 'mean_with_nan', 'mean_daily_with_nan']):
+            profit_vars.append('停盈')
+            loss_vars.append('停损')
+        
+        # 检查停盈止损相关变量
+        if any(key in state for key in ['stop_and_take_change', 'comprehensive_stop_and_take_change', 'mean_stop_and_take_daily_change', 'mean_stop_and_take_with_nan', 'mean_stop_and_take_daily_with_nan']):
+            profit_vars.append('停盈')
+            loss_vars.append('止损')
+        
+        # 检查止盈停损相关变量
+        if any(key in state for key in ['take_and_stop_change', 'comprehensive_take_and_stop_change', 'mean_take_and_stop_daily_change', 'mean_take_and_stop_with_nan', 'mean_take_and_stop_daily_with_nan']):
+            profit_vars.append('止盈')
+            loss_vars.append('停损')
+        
+        # 检查止盈止损相关变量
+        if any(key in state for key in ['adjust_ops_change', 'comprehensive_daily_change', 'mean_adjust_daily_change', 'mean_adjust_with_nan', 'mean_adjust_daily_with_nan']):
+            profit_vars.append('止盈')
+            loss_vars.append('止损')
+        
+        # 如果找到了选中的类别，使用对应的文本
+        if profit_vars and loss_vars:
+            # 取第一个找到的类别（通常只会选中一个类别）
+            profit_text = f"{profit_vars[0]}率"
+            loss_text = f"{loss_vars[0]}率"
+            profit_median_text = f"{profit_vars[0]}中位数"
+            loss_median_text = f"{loss_vars[0]}中位数"
+        else:
+            # 默认使用止盈止损
+            profit_text = "止盈率"
+            loss_text = "止损率"
+            profit_median_text = "止盈中位数"
+            loss_median_text = "止损中位数"
+        
+        return profit_text, loss_text, profit_median_text, loss_median_text
             
     def on_generate_trading_plan(self):
         """生成操盘方案"""
@@ -4041,6 +4102,63 @@ class ComponentAnalysisWidget(QWidget):
             new_high_low2_type = "创后新低2"
         
         return new_high_low1_type, new_high_low2_type
+
+    def _validate_abbr_round_only_selection(self):
+        """验证组合输出参数选择"""
+        try:
+            # 创建临时的公式选股控件来获取当前选择状态
+            abbr_map = get_abbr_map()
+            logic_map = get_abbr_logic_map()
+            round_map = get_abbr_round_map()
+            
+            # 创建临时控件（不显示界面）
+            temp_formula_widget = FormulaSelectWidget(abbr_map, logic_map, round_map, self.main_window)
+            
+            # 恢复保存的状态（如果有的话）
+            if hasattr(self.main_window, 'last_formula_select_state'):
+                temp_formula_widget.set_state(self.main_window.last_formula_select_state)
+            
+            # 获取get_abbr_round_only_map的勾选状态
+            selected_vars = temp_formula_widget.get_round_only_map_selected_vars()
+            
+            # 清理临时控件
+            temp_formula_widget.deleteLater()
+            
+            # 如果没有任何变量被勾选，则提示错误
+            if not selected_vars:
+                QMessageBox.warning(self, "提示", "没有选择组合输出参数，请检查！")
+                return False
+            
+            # 检查选中的变量属于哪些类别
+            categories = self._categorize_selected_vars(selected_vars)
+            
+            # 如果有多于一个类别被选中，则提示错误
+            if len(categories) > 1:
+                QMessageBox.warning(self, "提示", "组合输出多重选择，请检查！")
+                return False
+            
+            return True
+            
+        except Exception as e:
+            print(f"验证组合输出参数选择时出错: {e}")
+            QMessageBox.warning(self, "错误", f"验证组合输出参数选择时出错: {e}")
+            return False
+    
+    def _categorize_selected_vars(self, selected_vars):
+        """将选中的变量按类别分组"""
+        categories = set()
+        
+        for var in selected_vars:
+            if any(keyword in var for keyword in ['mean_with_nan', 'mean_daily_change', 'comprehensive_stop_daily_change', 'bottom_first_with_nan', 'bottom_second_with_nan', 'bottom_third_with_nan', 'bottom_fourth_with_nan', 'bottom_nth_with_nan']):
+                categories.add('停盈停损')
+            elif any(keyword in var for keyword in ['mean_stop_and_take_with_nan', 'mean_stop_and_take_daily_change', 'comprehensive_stop_and_take_change', 'bottom_first_stop_and_take_with_nan', 'bottom_second_stop_and_take_with_nan', 'bottom_third_stop_and_take_with_nan', 'bottom_fourth_stop_and_take_with_nan', 'bottom_nth_stop_and_take_with_nan']):
+                categories.add('停盈止损')
+            elif any(keyword in var for keyword in ['mean_adjust_with_nan', 'mean_adjust_daily_change', 'comprehensive_daily_change', 'adjust_bottom_first_with_nan', 'adjust_bottom_second_with_nan', 'adjust_bottom_third_with_nan', 'adjust_bottom_fourth_with_nan', 'bottom_nth_adjust_with_nan']):
+                categories.add('止盈止损')
+            elif any(keyword in var for keyword in ['mean_take_and_stop_with_nan', 'mean_take_and_stop_daily_change', 'comprehensive_take_and_stop_change', 'bottom_first_take_and_stop_with_nan', 'bottom_second_take_and_stop_with_nan', 'bottom_third_take_and_stop_with_nan', 'bottom_fourth_take_and_stop_with_nan', 'bottom_nth_take_and_stop_with_nan']):
+                categories.add('止盈停损')
+        
+        return categories
 
 
 class AnalysisDetailWindow(QMainWindow):

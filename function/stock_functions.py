@@ -465,11 +465,246 @@ def show_formula_select_table_result_window(table, content_widget):
         central_widget = QWidget()
         layout_ = QVBoxLayout(central_widget)
         layout_.addWidget(table)
+        
+        # 添加导航按钮
+        if hasattr(parent, 'all_param_result') and parent.all_param_result:
+            # 创建按钮容器
+            button_container = QWidget()
+            button_layout = QHBoxLayout(button_container)
+            button_layout.setContentsMargins(10, 5, 10, 10)
+            button_layout.setSpacing(10)
+            
+            # 获取当前日期和可用日期列表
+            workdays_str = getattr(parent.init, 'workdays_str', [])
+            
+            # 使用缓存的日期索引，如果没有则使用第一个日期
+            if hasattr(parent, 'last_selected_date_idx_for_navigation') and parent.last_selected_date_idx_for_navigation is not None:
+                current_date_idx = parent.last_selected_date_idx_for_navigation
+                if 0 <= current_date_idx < len(workdays_str):
+                    current_date = workdays_str[current_date_idx]
+                else:
+                    current_date = workdays_str[0] if workdays_str else None
+                    current_date_idx = 0
+            else:
+                current_dates = list(parent.all_param_result.get('dates', {}).keys())
+                if current_dates and workdays_str:
+                    current_date = current_dates[0]  # 当前显示的日期
+                    current_date_idx = workdays_str.index(current_date) if current_date in workdays_str else -1
+                else:
+                    current_date = None
+                    current_date_idx = -1
+            
+            if current_date is not None and current_date_idx >= 0:
+                # 向左按钮
+                left_btn = QPushButton("向左")
+                left_btn.setFixedWidth(80)
+                left_btn.setEnabled(current_date_idx > 0)  # 如果不是第一个交易日，则启用
+                
+                # 向右按钮
+                right_btn = QPushButton("向右")
+                right_btn.setFixedWidth(80)
+                right_btn.setEnabled(current_date_idx < len(workdays_str) - 1)  # 如果不是最后一个交易日，则启用
+                
+                # 添加按钮到布局
+                button_layout.addStretch()  # 左侧弹性空间
+                button_layout.addWidget(left_btn)
+                button_layout.addWidget(right_btn)
+                button_layout.addStretch()  # 右侧弹性空间
+                
+                # 按钮点击事件
+                def on_left_clicked():
+                    if current_date_idx > 0:
+                        target_date = workdays_str[current_date_idx - 1]
+                        # 更新缓存的日期索引
+                        parent.last_selected_date_idx_for_navigation = current_date_idx - 1
+                        # 重新执行选股逻辑，使用新的日期
+                        perform_stock_selection_for_date(parent, target_date)
+                
+                def on_right_clicked():
+                    if current_date_idx < len(workdays_str) - 1:
+                        target_date = workdays_str[current_date_idx + 1]
+                        # 更新缓存的日期索引
+                        parent.last_selected_date_idx_for_navigation = current_date_idx + 1
+                        # 重新执行选股逻辑，使用新的日期
+                        perform_stock_selection_for_date(parent, target_date)
+                
+                left_btn.clicked.connect(on_left_clicked)
+                right_btn.clicked.connect(on_right_clicked)
+                
+                # 将按钮容器添加到主布局
+                layout_.addWidget(button_container)
+        
         result_window.setCentralWidget(central_widget)
         result_window.resize(1200, 450)
         result_window.show()
         parent.formula_select_result_window = result_window
         parent.formula_select_result_table = table
+
+def perform_stock_selection_for_date(parent, target_date):
+    """为指定日期重新执行选股逻辑"""
+    try:
+        # 获取当前的选股参数
+        formula_expr = getattr(parent, 'last_formula_expr', '')
+        select_count = getattr(parent, 'last_select_count', 10)
+        sort_mode = getattr(parent, 'last_sort_mode', '最大值排序')
+        profit_type = getattr(parent, 'last_profit_type', 'INC')
+        loss_type = getattr(parent, 'last_loss_type', 'INC')
+        
+        # 获取比较变量（如果有的话）
+        comparison_vars = []
+        if hasattr(parent, 'last_formula_select_state'):
+            # 这里需要根据实际情况获取比较变量
+            # 暂时使用空列表，可以根据需要扩展
+            pass
+        
+        # 重新执行选股
+        all_param_result = parent.get_or_calculate_result(
+            formula_expr=formula_expr,
+            select_count=select_count,
+            sort_mode=sort_mode,
+            show_main_output=False,
+            only_show_selected=False,
+            comparison_vars=comparison_vars,
+            profit_type=profit_type,
+            loss_type=loss_type,
+            end_date=target_date
+        )
+        
+        if all_param_result is None:
+            QMessageBox.information(parent, "提示", "无法获取选股结果")
+            return
+        
+        merged_results = all_param_result.get('dates', {})
+        
+        # 检查目标日期是否有数据
+        if target_date not in merged_results:
+            QMessageBox.information(parent, "提示", f"日期 {target_date} 没有选股数据")
+            return
+        
+        # 根据排序模式过滤结果
+        filtered_results = {}
+        for date, results in merged_results.items():
+            if date == target_date:
+                # 排除统计行（stock_idx为-3, -2, -1的行）
+                valid_results = [r for r in results if r.get('stock_idx', 0) >= 0]
+                
+                # 根据排序模式过滤score
+                if sort_mode == "最大值排序":
+                    filtered_results[date] = [r for r in valid_results if r.get('score') is not None and r.get('score', 0) > 0]
+                else:  # 最小值排序
+                    filtered_results[date] = [r for r in valid_results if r.get('score') is not None and r.get('score', 0) < 0]
+                
+                # 按score排序
+                if sort_mode == "最大值排序":
+                    filtered_results[date].sort(key=lambda x: x['score'], reverse=True)
+                else:  # 最小值排序
+                    filtered_results[date].sort(key=lambda x: x['score'])
+                
+                # 只保留指定数量的结果
+                filtered_results[date] = filtered_results[date][:select_count]
+        
+        # 使用过滤后的结果
+        if not filtered_results or not any(filtered_results.values()):
+            QMessageBox.information(parent, "提示", f"日期 {target_date} 没有选股结果")
+            return
+        
+        # 更新结果数据
+        parent.last_formula_select_result_data = {'dates': filtered_results}
+        
+        # 更新缓存的日期索引
+        workdays_str = getattr(parent.init, 'workdays_str', [])
+        if target_date in workdays_str:
+            parent.last_selected_date_idx_for_navigation = workdays_str.index(target_date)
+        
+        # 重新生成表格
+        table = show_formula_select_table_result(parent, parent.last_formula_select_result_data, 
+                                               getattr(parent, 'init', None) and getattr(parent.init, 'price_data', None), 
+                                               is_select_action=True)
+        
+        # 更新窗口内容
+        if hasattr(parent, 'formula_select_result_window') and parent.formula_select_result_window is not None:
+            # 获取当前窗口的中央部件
+            central_widget = parent.formula_select_result_window.centralWidget()
+            if central_widget:
+                # 清除旧的内容
+                layout = central_widget.layout()
+                if layout:
+                    # 移除旧的表格
+                    while layout.count() > 0:
+                        item = layout.takeAt(0)
+                        if item.widget():
+                            item.widget().deleteLater()
+                    
+                    # 添加新的表格
+                    layout.addWidget(table)
+                    
+                    # 重新添加导航按钮
+                    if hasattr(parent, 'all_param_result') and parent.all_param_result:
+                        # 创建按钮容器
+                        button_container = QWidget()
+                        button_layout = QHBoxLayout(button_container)
+                        button_layout.setContentsMargins(10, 5, 10, 10)
+                        button_layout.setSpacing(10)
+                        
+                        # 获取当前日期和可用日期列表
+                        workdays_str = getattr(parent.init, 'workdays_str', [])
+                        
+                        # 使用缓存的日期索引
+                        if hasattr(parent, 'last_selected_date_idx_for_navigation') and parent.last_selected_date_idx_for_navigation is not None:
+                            current_date_idx = parent.last_selected_date_idx_for_navigation
+                            if 0 <= current_date_idx < len(workdays_str):
+                                current_date = workdays_str[current_date_idx]
+                            else:
+                                current_date = workdays_str[0] if workdays_str else None
+                                current_date_idx = 0
+                        else:
+                            current_date = target_date  # 更新为新的目标日期
+                            current_date_idx = workdays_str.index(current_date) if current_date in workdays_str else -1
+                        
+                        if current_date is not None and current_date_idx >= 0:
+                            # 向左按钮
+                            left_btn = QPushButton("向左")
+                            left_btn.setFixedWidth(80)
+                            left_btn.setEnabled(current_date_idx > 0)
+                            
+                            # 向右按钮
+                            right_btn = QPushButton("向右")
+                            right_btn.setFixedWidth(80)
+                            right_btn.setEnabled(current_date_idx < len(workdays_str) - 1)
+                            
+                            # 添加按钮到布局
+                            button_layout.addStretch()
+                            button_layout.addWidget(left_btn)
+                            button_layout.addWidget(right_btn)
+                            button_layout.addStretch()
+                            
+                            # 按钮点击事件
+                            def on_left_clicked():
+                                if current_date_idx > 0:
+                                    new_target_date = workdays_str[current_date_idx - 1]
+                                    # 更新缓存的日期索引
+                                    parent.last_selected_date_idx_for_navigation = current_date_idx - 1
+                                    perform_stock_selection_for_date(parent, new_target_date)
+                            
+                            def on_right_clicked():
+                                if current_date_idx < len(workdays_str) - 1:
+                                    new_target_date = workdays_str[current_date_idx + 1]
+                                    # 更新缓存的日期索引
+                                    parent.last_selected_date_idx_for_navigation = current_date_idx + 1
+                                    perform_stock_selection_for_date(parent, new_target_date)
+                            
+                            left_btn.clicked.connect(on_left_clicked)
+                            right_btn.clicked.connect(on_right_clicked)
+                            
+                            # 将按钮容器添加到主布局
+                            layout.addWidget(button_container)
+                    
+                    # 更新表格引用
+                    parent.formula_select_result_table = table
+                    
+    except Exception as e:
+        QMessageBox.warning(parent, "错误", f"重新选股时出错: {str(e)}")
+        print(f"重新选股时出错: {e}")
 
 def unify_date_columns(df):
     new_columns = []
@@ -894,27 +1129,60 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
     select_count_spin.valueChanged.connect(sync_to_main)
     sort_combo.currentTextChanged.connect(sync_to_main)
 
-    # 新增：操作值控件
-    expr_label = QLabel("操作值")
+    # 新增：操作值控件 - 盈损选择
+    expr_label = QLabel("操作值：")
     expr_label.setFixedWidth(50)
     expr_label.setStyleSheet("border: none;")
-    expr_edit = parent.expr_edit if hasattr(parent, 'expr_edit') else None
-    if expr_edit is None:
-        from ui.stock_analysis_ui_v2 import ValidatedExprEdit
-        expr_edit = ValidatedExprEdit()
-        expr_edit.setPlainText("if INC != 0:\n    result = INC\nelse:\n    result = 0\n")
-    expr_edit.setFixedWidth(120)
-    expr_edit.setFixedHeight(20)
-    # 初始化内容
-    if hasattr(parent, 'last_expr') and parent.last_expr:
-        expr_edit.setPlainText(parent.last_expr)
-    def sync_expr_to_main():
-        if hasattr(parent, 'last_expr'):
-            parent.last_expr = expr_edit.toPlainText()
-    expr_edit.textChanged.connect(sync_expr_to_main)
+    
+    # 创建盈损选择容器
+    profit_loss_container = QWidget()
+    profit_loss_layout = QHBoxLayout(profit_loss_container)
+    profit_loss_layout.setContentsMargins(0, 0, 0, 0)
+    profit_loss_layout.setSpacing(5)
+    
+    # 盈选择框
+    profit_label = QLabel("盈")
+    profit_label.setFixedWidth(20)
+    profit_label.setStyleSheet("border: none;")
+    profit_combo = QComboBox()
+    profit_combo.addItems(["INC", "AGE", "AGS"])
+    profit_combo.setFixedWidth(50)
+    profit_combo.setFixedHeight(20)
+    
+    # 损选择框
+    loss_label = QLabel("损")
+    loss_label.setFixedWidth(20)
+    loss_label.setStyleSheet("border: none;")
+    loss_combo = QComboBox()
+    loss_combo.addItems(["INC", "AGE", "AGS"])
+    loss_combo.setFixedWidth(50)
+    loss_combo.setFixedHeight(20)
+    
+    # 添加到容器布局
+    profit_loss_layout.addWidget(profit_label)
+    profit_loss_layout.addWidget(profit_combo)
+    profit_loss_layout.addWidget(loss_label)
+    profit_loss_layout.addWidget(loss_combo)
+    
+    # 初始化选择值
+    if hasattr(parent, 'last_profit_type'):
+        profit_combo.setCurrentText(parent.last_profit_type)
+    if hasattr(parent, 'last_loss_type'):
+        loss_combo.setCurrentText(parent.last_loss_type)
+    
+    # 同步到主窗口
+    def sync_profit_loss_to_main():
+        if hasattr(parent, 'last_profit_type'):
+            parent.last_profit_type = profit_combo.currentText()
+        if hasattr(parent, 'last_loss_type'):
+            parent.last_loss_type = loss_combo.currentText()
+    
+    profit_combo.currentTextChanged.connect(sync_profit_loss_to_main)
+    loss_combo.currentTextChanged.connect(sync_profit_loss_to_main)
+    
     # 直接添加到top_layout
     top_layout.addWidget(expr_label)
-    top_layout.addWidget(expr_edit)
+    top_layout.addWidget(profit_loss_container)
 
     select_btn = QPushButton("进行选股")
     select_btn.setFixedSize(100, 20)
@@ -1215,13 +1483,20 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
         print(f"comparison_vars: {comparison_vars}")
         select_count = select_count_spin.value()
         sort_mode = sort_combo.currentText()
+        
+        # 获取盈损参数
+        profit_type = profit_combo.currentText()
+        loss_type = loss_combo.currentText()
+        
         all_param_result = parent.get_or_calculate_result(
             formula_expr=formula_expr,
             select_count=select_count,
             sort_mode=sort_mode,
             show_main_output=False,
             only_show_selected=False,  # 保持False以获取完整数据
-            comparison_vars=comparison_vars
+            comparison_vars=comparison_vars,
+            profit_type=profit_type,
+            loss_type=loss_type
         )
         if all_param_result is None:
             # QMessageBox.information(parent, "提示", "请先上传数据文件！")
@@ -1277,6 +1552,12 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
             QMessageBox.information(parent, "提示", "没有选股结果。")
             return
         parent.last_formula_select_result_data = {'dates': {first_date: selected_result}}
+        
+        # 保存当前日期的索引到缓存中
+        workdays_str = getattr(parent.init, 'workdays_str', [])
+        if first_date in workdays_str:
+            parent.last_selected_date_idx_for_navigation = workdays_str.index(first_date)
+        
         table = show_formula_select_table_result(parent, parent.last_formula_select_result_data, getattr(parent, 'init', None) and getattr(parent.init, 'price_data', None), is_select_action=True)
         # 弹窗展示 - 使用主窗口级别的窗口管理
         if hasattr(parent, 'formula_select_result_window') and parent.formula_select_result_window is not None:
@@ -1290,6 +1571,75 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
         central_widget = QWidget()
         layout_ = QVBoxLayout(central_widget)
         layout_.addWidget(table)
+        
+        # 添加导航按钮
+        if hasattr(parent, 'all_param_result') and parent.all_param_result:
+            # 创建按钮容器
+            button_container = QWidget()
+            button_layout = QHBoxLayout(button_container)
+            button_layout.setContentsMargins(10, 5, 10, 10)
+            button_layout.setSpacing(10)
+            
+            # 获取当前日期和可用日期列表
+            workdays_str = getattr(parent.init, 'workdays_str', [])
+            
+            # 使用缓存的日期索引，如果没有则使用第一个日期
+            if hasattr(parent, 'last_selected_date_idx_for_navigation') and parent.last_selected_date_idx_for_navigation is not None:
+                current_date_idx = parent.last_selected_date_idx_for_navigation
+                if 0 <= current_date_idx < len(workdays_str):
+                    current_date = workdays_str[current_date_idx]
+                else:
+                    current_date = workdays_str[0] if workdays_str else None
+                    current_date_idx = 0
+            else:
+                current_dates = list(parent.all_param_result.get('dates', {}).keys())
+                if current_dates and workdays_str:
+                    current_date = current_dates[0]  # 当前显示的日期
+                    current_date_idx = workdays_str.index(current_date) if current_date in workdays_str else -1
+                else:
+                    current_date = None
+                    current_date_idx = -1
+            
+            if current_date is not None and current_date_idx >= 0:
+                # 向左按钮
+                left_btn = QPushButton("向左")
+                left_btn.setFixedWidth(80)
+                left_btn.setEnabled(current_date_idx > 0)  # 如果不是第一个交易日，则启用
+                
+                # 向右按钮
+                right_btn = QPushButton("向右")
+                right_btn.setFixedWidth(80)
+                right_btn.setEnabled(current_date_idx < len(workdays_str) - 1)  # 如果不是最后一个交易日，则启用
+                
+                # 添加按钮到布局
+                button_layout.addStretch()  # 左侧弹性空间
+                button_layout.addWidget(left_btn)
+                button_layout.addWidget(right_btn)
+                button_layout.addStretch()  # 右侧弹性空间
+                
+                # 按钮点击事件
+                def on_left_clicked():
+                    if current_date_idx > 0:
+                        target_date = workdays_str[current_date_idx - 1]
+                        # 更新缓存的日期索引
+                        parent.last_selected_date_idx_for_navigation = current_date_idx - 1
+                        # 重新执行选股逻辑，使用新的日期
+                        perform_stock_selection_for_date(parent, target_date)
+                
+                def on_right_clicked():
+                    if current_date_idx < len(workdays_str) - 1:
+                        target_date = workdays_str[current_date_idx + 1]
+                        # 更新缓存的日期索引
+                        parent.last_selected_date_idx_for_navigation = current_date_idx + 1
+                        # 重新执行选股逻辑，使用新的日期
+                        perform_stock_selection_for_date(parent, target_date)
+                
+                left_btn.clicked.connect(on_left_clicked)
+                right_btn.clicked.connect(on_right_clicked)
+                
+                # 将按钮容器添加到主布局
+                layout_.addWidget(button_container)
+        
         result_window.setCentralWidget(central_widget)
         result_window.resize(1200, 450)
         result_window.show()
@@ -1315,13 +1665,23 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
                 # 替换弹窗内容
                 win = parent.formula_select_result_window
                 if win:
-                    for i in reversed(range(win.layout().count())):
-                        widget = win.layout().itemAt(i).widget()
-                        if widget is not None:
-                            widget.setParent(None)
-                    win.layout().addWidget(table2)
-                    parent.formula_select_result_table = table2
-                    table2.horizontalHeader().sectionClicked.connect(on_header_clicked)
+                    central_widget = win.centralWidget()
+                    if central_widget:
+                        layout = central_widget.layout()
+                        if layout:
+                            # 移除旧的表格，但保留按钮
+                            for i in reversed(range(layout.count())):
+                                item = layout.itemAt(i)
+                                if item.widget():
+                                    widget = item.widget()
+                                    if widget == parent.formula_select_result_table:
+                                        widget.setParent(None)
+                                        break
+                            
+                            # 添加新的表格
+                            layout.insertWidget(0, table2)
+                            parent.formula_select_result_table = table2
+                            table2.horizontalHeader().sectionClicked.connect(on_header_clicked)
         table.horizontalHeader().sectionClicked.connect(on_header_clicked)
 
     # 查看结果按钮逻辑
@@ -1568,19 +1928,28 @@ def show_formula_select_table_result(parent, result, price_data=None, output_edi
 def get_abbr_round_only_map():
     """获取只有圆框的变量映射"""
     abbrs = [
-        ("非空停盈停损从下往上涨跌幅均值", "mean_non_nan"),
-        #("含空停盈停损从下往上涨跌幅均值", "mean_with_nan"),
+        #("非空停盈停损从下往上涨跌幅均值", "mean_non_nan"),
+        ("含空停盈停损从下往上涨跌幅均值", "mean_with_nan"),
         ("停盈停损日均涨跌幅均值", "mean_daily_change"),
-        #("非空止盈止损从下往上涨跌幅均值", "mean_adjust_non_nan"),
-        ("含空止盈止损从下往上涨跌幅均值", "mean_adjust_with_nan"),
-        ("止盈止损含空均值", "mean_adjust_daily_with_nan"),
-        ("止盈停损含空均值", "mean_take_and_stop_daily_with_nan"),
         ("停盈停损含空均值", "mean_daily_with_nan"),
-        ("停盈止损含空均值", "mean_stop_and_take_daily_with_nan"),
-        ("止盈止损日均涨跌幅均值", "mean_adjust_daily_change"),
-        ("综合止盈止损日均涨幅", "comprehensive_daily_change"),
         ("综合停盈停损日均涨幅", "comprehensive_stop_daily_change"),
 
+        ("含空停盈止损从下往上涨跌幅均值", "mean_stop_and_take_with_nan"),
+        ("停盈止损日均涨跌幅均值", "mean_stop_and_take_daily_change"),
+        ("停盈止损含空均值", "mean_stop_and_take_daily_with_nan"),
+        ("综合停盈止损日均涨幅", "comprehensive_stop_and_take_change"),
+
+        #("非空止盈止损从下往上涨跌幅均值", "mean_adjust_non_nan"),
+        ("含空止盈止损从下往上涨跌幅均值", "mean_adjust_with_nan"),
+        ("止盈止损日均涨跌幅均值", "mean_adjust_daily_change"),
+        ("止盈止损含空均值", "mean_adjust_daily_with_nan"),
+        ("综合止盈止损日均涨幅", "comprehensive_daily_change"),
+
+        ("含空止盈停损从下往上涨跌幅均值", "mean_take_and_stop_with_nan"),
+        ("止盈停损日均涨跌幅均值", "mean_take_and_stop_daily_change"),
+        ("止盈停损含空均值", "mean_take_and_stop_daily_with_nan"),
+        ("综合止盈停损日均涨幅", "comprehensive_take_and_stop_change"),
+        
         ("从下往上的第1个停盈停损涨跌幅含空均值", "bottom_first_with_nan"),
         ("从下往上的第2个停盈停损涨跌幅含空均值", "bottom_second_with_nan"),
         ("从下往上的第3个停盈停损涨跌幅含空均值", "bottom_third_with_nan"),
