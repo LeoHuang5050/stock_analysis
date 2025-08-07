@@ -1880,24 +1880,11 @@ class StockAnalysisApp(QWidget):
         # 创建新表格
         table = self.create_analysis_table(valid_items, start_date, end_date)
         self.analysis_result_layout.addWidget(table)
-        # 保存表格数据和跨列信息
-        span_info = []
-        for row in range(table.rowCount()):
-            for col in range(table.columnCount()):
-                span = table.span(row, col)
-                if span.rowCount() > 1 or span.columnCount() > 1:
-                    span_info.append({
-                        'row': row,
-                        'col': col,
-                        'row_span': span.rowCount(),
-                        'col_span': span.columnCount()
-                    })
         
         self.cached_table_data = {
             "headers": [table.horizontalHeaderItem(i).text() for i in range(table.columnCount())],
             "data": [[table.item(i, j).text() if table.item(i, j) else "" for j in range(table.columnCount())] for i in range(table.rowCount())],
-            "formula": formula,
-            "span_info": span_info
+            "formula": formula
         }
 
     def on_auto_analysis_btn_clicked(self):
@@ -1983,11 +1970,15 @@ class StockAnalysisApp(QWidget):
             formula = self.cached_table_data["formula"]
             table = QTableWidget(len(data), len(self.cached_table_data["headers"]), self.analysis_widget)
             table.setHorizontalHeaderLabels(self.cached_table_data["headers"])
+            
+            # 获取动态文本
+            profit_text, loss_text, profit_median_text, loss_median_text = self.get_profit_loss_text_by_category()
+            
             # 填充数据
             for i, row in enumerate(data):
                 for j, cell in enumerate(row):
                     # 检查是否是止盈止损率统计行
-                    if j == 0 and '总股票数' in cell and '持有率' in cell and '止盈率' in cell and '止损率' in cell:
+                    if j == 0 and '总股票数' in cell and '持有率' in cell and profit_text in cell and loss_text in cell:
                         item = QTableWidgetItem(cell)
                         item.setFlags(item.flags() & ~Qt.ItemIsEditable)
                         item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
@@ -1997,7 +1988,7 @@ class StockAnalysisApp(QWidget):
                         table.setWordWrap(True)
                         table.resizeRowToContents(i)
                     # 检查是否是中位数统计行
-                    elif j == 0 and '持有中位数' in cell and '止盈中位数' in cell and '止损中位数' in cell:
+                    elif j == 0 and '持有中位数' in cell and profit_median_text in cell and loss_median_text in cell:
                         item = QTableWidgetItem(cell)
                         item.setFlags(item.flags() & ~Qt.ItemIsEditable)
                         item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
@@ -2512,24 +2503,11 @@ class StockAnalysisApp(QWidget):
         for i in range(1, table.columnCount()):
             header.setSectionResizeMode(i, QHeaderView.ResizeToContents)
         self.analysis_result_layout.addWidget(table)
-        # 保存表格数据和跨列信息
-        span_info = []
-        for row in range(table.rowCount()):
-            for col in range(table.columnCount()):
-                span = table.span(row, col)
-                if span.rowCount() > 1 or span.columnCount() > 1:
-                    span_info.append({
-                        'row': row,
-                        'col': col,
-                        'row_span': span.rowCount(),
-                        'col_span': span.columnCount()
-                    })
         
         self.cached_table_data = {
             "headers": [table.horizontalHeaderItem(i).text() for i in range(table.columnCount())],
             "data": [[table.item(i, j).text() if table.item(i, j) else "" for j in range(table.columnCount())] for i in range(table.rowCount())],
-            "formula": formula,
-            "span_info": span_info
+            "formula": formula
         }
 
     def _restore_formula_controls_from_formula(self, formula):

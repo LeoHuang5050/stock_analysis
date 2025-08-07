@@ -415,6 +415,13 @@ class ComponentAnalysisWidget(QWidget):
         if not self._validate_abbr_round_only_selection():
             return
         
+        # 验证组合分析输出值类别选择
+        is_valid, error_message = self._validate_category_selection()
+        if not is_valid:
+            from PyQt5.QtWidgets import QMessageBox
+            QMessageBox.warning(self, "提示", error_message)
+            return
+        
         # 获取组合分析次数
         analysis_count = self.analysis_count_spin.value()
         
@@ -579,6 +586,12 @@ class ComponentAnalysisWidget(QWidget):
             
             # 验证组合输出参数选择
             if not self._validate_abbr_round_only_selection():
+                return
+            
+            # 验证组合分析输出值类别选择
+            is_valid, error_message = self._validate_category_selection()
+            if not is_valid:
+                QMessageBox.warning(self, "提示", error_message)
                 return
             
             # 记录开始时间
@@ -2885,12 +2898,18 @@ class ComponentAnalysisWidget(QWidget):
         
         # 获取动态文本
         profit_text, loss_text, profit_median_text, loss_median_text = self.get_profit_loss_text_by_category()
+        print(f"profit_text = {profit_text}, loss_text = {loss_text}, profit_median_text = {profit_median_text}, loss_median_text = {loss_median_text}")
         
-        # 构建止盈止损率统计文本
-        stats_text = f"总股票数: {summary.get('total_stocks', 0)} | "
-        stats_text += f"持有率: {summary.get('hold_rate', 0)}% | "
-        stats_text += f"{profit_text}: {summary.get('profit_rate', 0)}% | "
-        stats_text += f"{loss_text}: {summary.get('loss_rate', 0)}%"
+        # 检查是否返回了None（表示选择了不同类别）
+        if profit_text is None or loss_text is None:
+            # 如果选择了不同类别，不显示统计信息
+            stats_text = f"总股票数: {summary.get('total_stocks', 0)} | 持有率: {summary.get('hold_rate', 0)}%"
+        else:
+            # 构建止盈止损率统计文本
+            stats_text = f"总股票数: {summary.get('total_stocks', 0)} | "
+            stats_text += f"持有率: {summary.get('hold_rate', 0)}% | "
+            stats_text += f"{profit_text}: {summary.get('profit_rate', 0)}% | "
+            stats_text += f"{loss_text}: {summary.get('loss_rate', 0)}%"
         
         item = QTableWidgetItem(stats_text)
         item.setFlags(item.flags() & ~Qt.ItemIsEditable)
@@ -2910,9 +2929,13 @@ class ComponentAnalysisWidget(QWidget):
         profit_median = summary.get('profit_median')
         loss_median = summary.get('loss_median')
         
-        median_text = f"持有中位数: {hold_median}%" if hold_median is not None else "持有中位数: 无"
-        median_text += f" | {profit_median_text}: {profit_median}%" if profit_median is not None else f" | {profit_median_text}: 无"
-        median_text += f" | {loss_median_text}: {loss_median}%" if loss_median is not None else f" | {loss_median_text}: 无"
+        if profit_median_text is None or loss_median_text is None:
+            # 如果选择了不同类别，只显示持有中位数
+            median_text = f"持有中位数: {hold_median}%" if hold_median is not None else "持有中位数: 无"
+        else:
+            median_text = f"持有中位数: {hold_median}%" if hold_median is not None else "持有中位数: 无"
+            median_text += f" | {profit_median_text}: {profit_median}%" if profit_median is not None else f" | {profit_median_text}: 无"
+            median_text += f" | {loss_median_text}: {loss_median}%" if loss_median is not None else f" | {loss_median_text}: 无"
         
         item = QTableWidgetItem(median_text)
         item.setFlags(item.flags() & ~Qt.ItemIsEditable)
@@ -3600,50 +3623,110 @@ class ComponentAnalysisWidget(QWidget):
         self._update_last_best_value_display()
         
     def get_profit_loss_text_by_category(self):
-        """根据选中的变量映射类别动态生成止盈止损相关文本"""
-        # 获取主窗口的公式选择状态
-        state = getattr(self.main_window, 'last_formula_select_state', {})
+        """
+        根据当前选中的变量类别动态生成止盈止损相关的文本
+        返回: (profit_text, loss_text, profit_median_text, loss_median_text)
+        """
+        # 默认文本
+        default_profit_text = "止盈率"
+        default_loss_text = "止损率"
+        default_profit_median_text = "止盈中位数"
+        default_loss_median_text = "止损中位数"
         
-        # 检查选中的变量映射类别
-        profit_vars = []
-        loss_vars = []
+        # 如果没有公式选择状态，返回默认文本
+        if not hasattr(self.main_window, 'last_formula_select_state') or not self.main_window.last_formula_select_state:
+            return default_profit_text, default_loss_text, default_profit_median_text, default_loss_median_text
         
-        # 检查停盈停损相关变量
-        if any(key in state for key in ['ops_change', 'comprehensive_stop_daily_change', 'mean_daily_change', 'mean_with_nan', 'mean_daily_with_nan']):
-            profit_vars.append('停盈')
-            loss_vars.append('停损')
+        # 获取当前选中的变量
+        from function.stock_functions import get_abbr_round_only_map
+        abbr_round_only_map = get_abbr_round_only_map()
         
-        # 检查停盈止损相关变量
-        if any(key in state for key in ['stop_and_take_change', 'comprehensive_stop_and_take_change', 'mean_stop_and_take_daily_change', 'mean_stop_and_take_with_nan', 'mean_stop_and_take_daily_with_nan']):
-            profit_vars.append('停盈')
-            loss_vars.append('止损')
+        # 检查选中的变量属于哪个类别
+        selected_vars = []
+        for (zh, en), en_val in abbr_round_only_map.items():
+            if en_val in self.main_window.last_formula_select_state:
+                var_state = self.main_window.last_formula_select_state[en_val]
+                if var_state.get('round_checked', False):  # 检查圆框是否勾选
+                    selected_vars.append((zh, en_val))
         
-        # 检查止盈停损相关变量
-        if any(key in state for key in ['take_and_stop_change', 'comprehensive_take_and_stop_change', 'mean_take_and_stop_daily_change', 'mean_take_and_stop_with_nan', 'mean_take_and_stop_daily_with_nan']):
-            profit_vars.append('止盈')
-            loss_vars.append('停损')
+        if not selected_vars:
+            return default_profit_text, default_loss_text, default_profit_median_text, default_loss_median_text
         
-        # 检查止盈止损相关变量
-        if any(key in state for key in ['adjust_ops_change', 'comprehensive_daily_change', 'mean_adjust_daily_change', 'mean_adjust_with_nan', 'mean_adjust_daily_with_nan']):
-            profit_vars.append('止盈')
-            loss_vars.append('止损')
+        # 根据选中的变量确定类别
+        categories = set()
+        for zh, en_val in selected_vars:
+            if "停盈停损" in zh:
+                categories.add("停盈停损")
+            elif "停盈止损" in zh:
+                categories.add("停盈止损")
+            elif "止盈止损" in zh:
+                categories.add("止盈止损")
+            elif "止盈停损" in zh:
+                categories.add("止盈停损")
         
-        # 如果找到了选中的类别，使用对应的文本
-        if profit_vars and loss_vars:
-            # 取第一个找到的类别（通常只会选中一个类别）
-            profit_text = f"{profit_vars[0]}率"
-            loss_text = f"{loss_vars[0]}率"
-            profit_median_text = f"{profit_vars[0]}中位数"
-            loss_median_text = f"{loss_vars[0]}中位数"
+        # 检查是否选择了多种不同类别
+        if len(categories) > 1:
+            return None, None, None, None
+        
+        if not categories:
+            return default_profit_text, default_loss_text, default_profit_median_text, default_loss_median_text
+        
+        category = list(categories)[0]
+        
+        # 根据类别返回相应的文本
+        if category == "停盈停损":
+            return "停盈率", "停损率", "停盈中位数", "停损中位数"
+        elif category == "停盈止损":
+            return "停盈率", "止损率", "停盈中位数", "止损中位数"
+        elif category == "止盈止损":
+            return "止盈率", "止损率", "止盈中位数", "止损中位数"
+        elif category == "止盈停损":
+            return "止盈率", "停损率", "止盈中位数", "停损中位数"
         else:
-            # 默认使用止盈止损
-            profit_text = "止盈率"
-            loss_text = "止损率"
-            profit_median_text = "止盈中位数"
-            loss_median_text = "止损中位数"
+            return default_profit_text, default_loss_text, default_profit_median_text, default_loss_median_text
+    
+    def _validate_category_selection(self):
+        """
+        验证组合分析输出值类别选择
+        返回: (is_valid, error_message)
+        """
+        # 如果没有公式选择状态，返回有效
+        if not hasattr(self.main_window, 'last_formula_select_state') or not self.main_window.last_formula_select_state:
+            return True, None
         
-        return profit_text, loss_text, profit_median_text, loss_median_text
-            
+        # 获取当前选中的变量
+        from function.stock_functions import get_abbr_round_only_map
+        abbr_round_only_map = get_abbr_round_only_map()
+        
+        # 检查选中的变量属于哪个类别
+        selected_vars = []
+        for (zh, en), en_val in abbr_round_only_map.items():
+            if en_val in self.main_window.last_formula_select_state:
+                var_state = self.main_window.last_formula_select_state[en_val]
+                if var_state.get('round_checked', False):  # 检查圆框是否勾选
+                    selected_vars.append((zh, en_val))
+        
+        if not selected_vars:
+            return False, "请选择组合分析输出值"
+        
+        # 根据选中的变量确定类别
+        categories = set()
+        for zh, en_val in selected_vars:
+            if "停盈停损" in zh:
+                categories.add("停盈停损")
+            elif "停盈止损" in zh:
+                categories.add("停盈止损")
+            elif "止盈止损" in zh:
+                categories.add("止盈止损")
+            elif "止盈停损" in zh:
+                categories.add("止盈停损")
+        
+        # 检查是否选择了多种不同类别
+        if len(categories) > 1:
+            return False, "多重组合分析输出选择，请检查"
+        
+        return True, None
+
     def on_generate_trading_plan(self):
         """生成操盘方案"""
         if not self.cached_analysis_results:

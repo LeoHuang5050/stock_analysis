@@ -5620,14 +5620,15 @@ def calculate_analysis_result(valid_items):
                     if end_state == 0:
                         hold_count += 1
                         # 收集持有涨跌幅：只使用op_day_change
-                        op_day_change_raw = stock.get('op_day_change', '')
-                        op_day_change = safe_val(op_day_change_raw)
+                        ops_change_raw = stock.get('ops_change', '')
+                        ops_change = safe_val(ops_change_raw)
                         
-                        if op_day_change != '' and op_day_change is not None:
+                        if ops_change != '' and ops_change is not None:
                             try:
-                                op_day_change = float(op_day_change)
-                                if not math.isnan(op_day_change):
-                                    hold_changes.append(op_day_change)
+                                ops_change = float(ops_change)
+                                if not math.isnan(ops_change):
+                                    hold_changes.append(ops_change)
+                                    print(f"stock_name = {stock.get('stock_name', '')}, 持有涨跌幅 = {ops_change}")
                             except (ValueError, TypeError):
                                 pass
                     elif end_state == 1:
@@ -5640,6 +5641,7 @@ def calculate_analysis_result(valid_items):
                                 take_profit = float(take_profit)
                                 if not math.isnan(take_profit):
                                     profit_changes.append(take_profit)
+                                    print(f"stock_name = {stock.get('stock_name', '')}, 止盈涨跌幅 = {take_profit}")
                             except (ValueError, TypeError):
                                 pass
                     elif end_state == 2:
@@ -5652,6 +5654,7 @@ def calculate_analysis_result(valid_items):
                                 stop_loss = float(stop_loss)
                                 if not math.isnan(stop_loss):
                                     loss_changes.append(stop_loss)
+                                    print(f"stock_name = {stock.get('stock_name', '')}, 止损涨跌幅 = {stop_loss}")
                             except (ValueError, TypeError):
                                 pass
             except Exception as e:

@@ -958,11 +958,19 @@ def calculate_batch_cy(
                     # 递增值计算逻辑
                     # 停盈停损
                     increment_value = NAN
+                    loss_increment_value = NAN
                     increment_days = -1
+                    loss_increment_days = -1
+
                     after_gt_end_value = NAN
+                    loss_after_gt_end_value = NAN
                     after_gt_end_days = -1
+                    loss_after_gt_end_days = -1
+                    
                     after_gt_start_value = NAN
+                    loss_after_gt_start_value = NAN
                     after_gt_start_days = -1
+                    loss_after_gt_start_days = -1
 
                     # 止盈止损
                     increment_change = NAN
@@ -1061,7 +1069,7 @@ def calculate_batch_cy(
 
                                 if stop_loss_inc_threshold != 0 and (v - end_value) < stop_loss_inc_threshold:
                                     increment_value = v  # 移除 round_to_2
-                                    increment_days = n
+                                    loss_increment_days = n
                                     increment_change = stop_loss_inc_rate * n * 100
                                     take_loss_inc = stop_loss_inc_rate * n * 100
                                     stop_loss_inc = ((v - end_value) / end_value) * 100
@@ -1083,6 +1091,7 @@ def calculate_batch_cy(
                             if not found:
                                 increment_value = NAN
                                 increment_days = -1
+                                loss_increment_days = -1
                                 increment_change = NAN
                                 inc_end_state = 0
                                 inc_take_profit = NAN
@@ -1146,7 +1155,7 @@ def calculate_batch_cy(
 
                                 if stop_loss_after_gt_end_ratio != 0 and (v - end_value) < stop_loss_after_gt_end_threshold:
                                     after_gt_end_value = v  # 移除 round_to_2
-                                    after_gt_end_days = n
+                                    loss_after_gt_end_days = n
                                     after_gt_end_change = stop_loss_after_gt_end_ratio * 100
                                     take_loss_age = stop_loss_after_gt_end_ratio * 100
                                     stop_loss_age = ((v - end_value) / end_value) * 100
@@ -1167,6 +1176,7 @@ def calculate_batch_cy(
                             if not found:
                                 after_gt_end_value = NAN
                                 after_gt_end_days = -1
+                                loss_after_gt_end_days = -1
                                 ge_end_state = 0
                                 ge_take_profit = NAN
                                 ge_stop_loss = NAN
@@ -1227,7 +1237,7 @@ def calculate_batch_cy(
                                 stop_loss_after_gt_start_threshold = v_now * stop_loss_after_gt_start_ratio
                                 if stop_loss_after_gt_start_ratio != 0 and (v_prev - v_now) < stop_loss_after_gt_start_threshold:
                                     after_gt_start_value = v_prev  # 移除 round_to_2
-                                    after_gt_start_days = n
+                                    loss_after_gt_start_days = n
                                     gs_end_state = 2
                                     if n == 1:
                                         after_gt_start_change = stop_loss_after_gt_start_ratio  * 100
@@ -1252,6 +1262,7 @@ def calculate_batch_cy(
                             if not found:
                                 after_gt_start_value = NAN
                                 after_gt_start_days = -1
+                                loss_after_gt_start_days = -1
                                 after_gt_start_change = NAN
                                 gs_end_state = 0
                                 gs_take_profit = NAN
@@ -1722,77 +1733,123 @@ def calculate_batch_cy(
                 stop_loss = 0
 
                 # INC 止盈止损，止盈停损，停盈停损，停盈止损
+                                # 获取profit_type对应的天数
+                profit_days = -1
+                profit_ops_value = None
+                profit_end_state = 0
                 if profit_type == "INC":
                     take_profit_var = take_inc
                     stop_profit_var = stop_inc
                     take_profit = inc_take_profit
                     if not isnan(increment_value):
-                        ops_value = increment_value
+                        profit_ops_value = increment_value
                     if increment_days != -1:
-                        hold_days = increment_days
+                        profit_days = increment_days
                     if inc_end_state != 0:
-                        end_state = inc_end_state
+                        profit_end_state = inc_end_state
                 elif profit_type == "AGE":
                     take_profit_var = take_age
                     stop_profit_var = stop_age
                     take_profit = ge_take_profit
                     if not isnan(after_gt_end_value):
-                        ops_value = after_gt_end_value
+                        profit_ops_value = after_gt_end_value
                     if after_gt_end_days != -1:
-                        hold_days = after_gt_end_days
+                        profit_days = after_gt_end_days
                     if ge_end_state != 0:
-                        end_state = ge_end_state
+                        profit_end_state = ge_end_state
                 elif profit_type == "AGS":
                     take_profit_var = take_ags
                     stop_profit_var = stop_ags
                     take_profit = gs_take_profit
                     if not isnan(after_gt_start_value):
-                        ops_value = after_gt_start_value
+                        profit_ops_value = after_gt_start_value
                     if after_gt_start_days != -1:
-                        hold_days = after_gt_start_days
+                        profit_days = after_gt_start_days
                     if gs_end_state != 0:
-                        end_state = gs_end_state
+                        profit_end_state = gs_end_state
 
+                # 获取loss_type对应的天数
+                loss_days = -1
+                loss_ops_value = None
+                loss_end_state = 0
+                ops_value = 0
                 if loss_type == "INC":
                     take_loss_var = take_loss_inc 
                     stop_loss_var = stop_loss_inc
                     stop_loss = inc_stop_loss
-                    if not isnan(increment_value):
-                        ops_value = increment_value
-                    if increment_days != -1:
-                        hold_days = increment_days
+                    if not isnan(loss_increment_value):
+                        loss_ops_value = loss_increment_value
+                    if loss_increment_days != -1:
+                        loss_days = loss_increment_days
                     if inc_end_state != 0:
-                        end_state = inc_end_state
+                        loss_end_state = inc_end_state
                 elif loss_type == "AGE":
                     take_loss_var = take_loss_age 
                     stop_loss_var = stop_loss_age
                     stop_loss = ge_stop_loss
-                    if not isnan(after_gt_end_value):
-                        ops_value = after_gt_end_value
-                    if after_gt_end_days != -1:
-                        hold_days = after_gt_end_days
+                    if not isnan(loss_after_gt_end_value):
+                        loss_ops_value = loss_after_gt_end_value
+                    if loss_after_gt_end_days != -1:
+                        loss_days = loss_after_gt_end_days
                     if ge_end_state != 0:
-                        end_state = ge_end_state
+                        loss_end_state = ge_end_state
                 elif loss_type == "AGS":
                     take_loss_var = take_loss_ags
                     stop_loss_var = stop_loss_ags
                     stop_loss = gs_stop_loss
-                    if not isnan(after_gt_start_value):
-                        ops_value = after_gt_start_value
-                    if after_gt_start_days != -1:
-                        hold_days = after_gt_start_days
+                    if not isnan(loss_after_gt_start_value):
+                        loss_ops_value = loss_after_gt_start_value
+                    if loss_after_gt_start_days != -1:
+                        loss_days = loss_after_gt_start_days
                     if gs_end_state != 0:
-                        end_state = gs_end_state
+                        loss_end_state = gs_end_state
+
+                # 比较profit_days和loss_days，取较小的值作为hold_days
+                if profit_days != -1 and loss_days != -1:
+                    # 两个都有有效值，比较天数选择较小的
+                    hold_days = min(profit_days, loss_days)
+                    # 根据较小的天数设置对应的ops_value和end_state
+                    if profit_days <= loss_days:
+                        ops_value = profit_ops_value
+                        end_state = profit_end_state
+                    else:
+                        ops_value = loss_ops_value
+                        end_state = loss_end_state
+                elif profit_days != -1:
+                    # 只有profit_days有效
+                    hold_days = profit_days
+                    ops_value = profit_ops_value
+                    end_state = profit_end_state
+                elif loss_days != -1:
+                    # 只有loss_days有效
+                    hold_days = loss_days
+                    ops_value = loss_ops_value
+                    end_state = loss_end_state
+
+                #if stock_idx == 2394:
+                    #print(f"stock_idx={stock_idx}, profit_type={profit_type}, loss_type={loss_type}, profit_days={profit_days}, loss_days={loss_days}, hold_days={hold_days}, profit_ops_value={profit_ops_value}, loss_ops_value={loss_ops_value}, ops_value={ops_value}")
+                    #print(f"take_loss_inc={take_loss_inc}, stop_loss_inc={stop_loss_inc}, inc_stop_loss={inc_stop_loss}, loss_after_gt_start_value={loss_after_gt_start_value}, loss_increment_days={loss_increment_days}")
+                    #print(f"take_age={take_age}, stop_age={stop_age}, ge_take_profit={ge_take_profit}, after_gt_end_value={after_gt_end_value}, loss_after_gt_start_days={loss_after_gt_start_days}")
+                    
 
                 #if stock_idx == 1805:
                     #print(f"profit_type={profit_type}, loss_type={loss_type}, take_age={take_age}, stop_age={stop_age}, take_loss_age={take_loss_age}, stop_loss_age={stop_loss_age}, take_loss_var={take_loss_var}, stop_loss_var={stop_loss_var}")
                         
-                # 止盈止损
-                if not isnan(take_profit_var):
-                    take_profit_and_take_loss_change = take_profit_var
-                elif not isnan(take_loss_var):
-                    take_profit_and_take_loss_change = take_loss_var
+                # 止盈止损 - 根据天数选择较小的值
+                if profit_days != -1 and loss_days != -1:
+                    # 两个都有有效值，比较天数选择较小的
+                    if profit_days <= loss_days:
+                        take_profit_and_take_loss_change = take_profit_var if not isnan(take_profit_var) else take_loss_var
+                    else:
+                        take_profit_and_take_loss_change = take_loss_var if not isnan(take_loss_var) else take_profit_var
+                elif profit_days != -1:
+                    # 只有profit_days有效
+                    take_profit_and_take_loss_change = take_profit_var if not isnan(take_profit_var) else take_loss_var
+                elif loss_days != -1:
+                    # 只有loss_days有效
+                    take_profit_and_take_loss_change = take_loss_var if not isnan(take_loss_var) else take_profit_var
                 else:
+                    # 两个都无效，使用默认逻辑
                     hold_days = op_days
                     op_days_when_take_stop_nan = min(hold_days, end_date_idx)
                     if end_date_idx - hold_days >= 0:
@@ -1802,12 +1859,21 @@ def calculate_batch_cy(
                         op_idx_when_take_stop_nan = 0
                     take_profit_and_take_loss_change = (price_data_view[stock_idx, op_idx_when_take_stop_nan] - end_value) / end_value * 100
 
-                # 止盈停损
-                if not isnan(take_profit_var):
-                    take_profit_and_stop_loss_change = take_profit_var
-                elif not isnan(stop_loss_var):
-                    take_profit_and_stop_loss_change = stop_loss_var
+                # 止盈停损 - 根据天数选择较小的值
+                if profit_days != -1 and loss_days != -1:
+                    # 两个都有有效值，比较天数选择较小的
+                    if profit_days <= loss_days:
+                        take_profit_and_stop_loss_change = take_profit_var if not isnan(take_profit_var) else stop_loss_var
+                    else:
+                        take_profit_and_stop_loss_change = stop_loss_var if not isnan(stop_loss_var) else take_profit_var
+                elif profit_days != -1:
+                    # 只有profit_days有效
+                    take_profit_and_stop_loss_change = take_profit_var if not isnan(take_profit_var) else stop_loss_var
+                elif loss_days != -1:
+                    # 只有loss_days有效
+                    take_profit_and_stop_loss_change = stop_loss_var if not isnan(stop_loss_var) else take_profit_var
                 else:
+                    # 两个都无效，使用默认逻辑
                     hold_days = op_days
                     op_days_when_take_stop_nan = min(hold_days, end_date_idx)
                     if end_date_idx - hold_days >= 0:
@@ -1817,12 +1883,21 @@ def calculate_batch_cy(
                         op_idx_when_take_stop_nan = 0
                     take_profit_and_stop_loss_change = (price_data_view[stock_idx, op_idx_when_take_stop_nan] - end_value) / end_value * 100
 
-                # 停盈停损
-                if not isnan(stop_profit_var):
-                    stop_profit_and_stop_loss_change = stop_profit_var
-                elif not isnan(stop_loss_var):
-                    stop_profit_and_stop_loss_change = stop_loss_var
+                # 停盈停损 - 根据天数选择较小的值
+                if profit_days != -1 and loss_days != -1:
+                    # 两个都有有效值，比较天数选择较小的
+                    if profit_days <= loss_days:
+                        stop_profit_and_stop_loss_change = stop_profit_var if not isnan(stop_profit_var) else stop_loss_var
+                    else:
+                        stop_profit_and_stop_loss_change = stop_loss_var if not isnan(stop_loss_var) else stop_profit_var
+                elif profit_days != -1:
+                    # 只有profit_days有效
+                    stop_profit_and_stop_loss_change = stop_profit_var if not isnan(stop_profit_var) else stop_loss_var
+                elif loss_days != -1:
+                    # 只有loss_days有效
+                    stop_profit_and_stop_loss_change = stop_loss_var if not isnan(stop_loss_var) else stop_profit_var
                 else:
+                    # 两个都无效，使用默认逻辑
                     hold_days = op_days
                     op_days_when_take_stop_nan = min(hold_days, end_date_idx)
                     if end_date_idx - hold_days >= 0:
@@ -1835,12 +1910,22 @@ def calculate_batch_cy(
                 #if stock_idx == 2315:
                     #print(f"stop_profit_var={stop_profit_var}, stop_loss_var={stop_loss_var}, stop_profit_and_stop_loss_change={stop_profit_and_stop_loss_change}")
 
-                # 停盈止损
-                if not isnan(stop_profit_var):
-                    stop_profit_and_take_loss_change = stop_profit_var
-                elif not isnan(take_loss_var):
-                    stop_profit_and_take_loss_change = take_loss_var
+                # 停盈止损 - 根据天数选择较小的值
+                if profit_days != -1 and loss_days != -1:
+                    # 两个都有有效值，比较天数选择较小的
+                    if profit_days <= loss_days:
+                        stop_profit_and_take_loss_change = stop_profit_var if not isnan(stop_profit_var) else take_loss_var
+                    else:
+                        stop_profit_and_take_loss_change = take_loss_var if not isnan(take_loss_var) else stop_profit_var
+                elif profit_days != -1:
+                    # 只有profit_days有效
+                    stop_profit_and_take_loss_change = stop_profit_var if not isnan(stop_profit_var) else take_loss_var
+                elif loss_days != -1:
+                    # 只有loss_days有效
+                    stop_profit_and_take_loss_change = take_loss_var if not isnan(take_loss_var) else stop_profit_var
                 else:
+                    # 两个都无效，使用默认逻辑
+                    hold_days = op_days
                     op_days_when_take_stop_nan = min(hold_days, end_date_idx)
                     if end_date_idx - hold_days >= 0:
                         op_idx_when_take_stop_nan = end_date_idx - hold_days
@@ -1853,7 +1938,14 @@ def calculate_batch_cy(
                     #print(f"stop_profit_var={stop_profit_var}, stop_loss_var={stop_loss_var}, stop_profit_and_take_loss_change={stop_profit_and_take_loss_change}")
 
                 # 新增：计算操作涨幅、调整天数、日均涨幅
-                ops_change = stop_profit_and_stop_loss_change
+                if end_date_idx - hold_days >= 0:
+                    op_idx_when_take_stop_nan = end_date_idx - hold_days
+                else:
+                    op_idx_when_take_stop_nan = 0
+                ops_change = (price_data_view[stock_idx, op_idx_when_take_stop_nan] - end_value) / end_value * 100
+                
+                #if stock_idx == 2315:
+                    #print(f"stock_idx=2315, ops_value={price_data_view[stock_idx, op_idx_when_take_stop_nan]}, end_value={end_value}")
                 adjust_days = None
                 ops_incre_rate = None
                 end_value_for_ops = end_value if not isnan(end_value) else None
