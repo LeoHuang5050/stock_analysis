@@ -242,10 +242,15 @@ class ComponentAnalysisWidget(QWidget):
         self.comprehensive_daily_change_edit.textChanged.connect(self._on_comprehensive_daily_change_threshold_changed_save)
         self.comprehensive_stop_daily_change_edit.textChanged.connect(self._on_comprehensive_stop_daily_change_threshold_changed_save)
         
-        # 上次最优值显示标签
-        self.last_best_value_label = QLabel("上次最优值：")
+        # 上次分析最优值显示标签
+        self.last_best_value_label = QLabel("上次分析最优值：")
         self.last_best_value_display = QLabel("无")
         self.last_best_value_display.setStyleSheet("color: #2196F3; font-weight: bold;")
+        
+        # 新增：锁定最优值显示标签
+        self.locked_best_value_label = QLabel("锁定最优值：")
+        self.locked_best_value_display = QLabel("无")
+        self.locked_best_value_display.setStyleSheet("color: #2196F3; font-weight: bold;")
         
         # 新增：清空按钮
         self.clear_best_value_btn = QPushButton("清空")
@@ -295,6 +300,8 @@ class ComponentAnalysisWidget(QWidget):
         row_layout.addWidget(self.comprehensive_stop_daily_change_percent_label)
         row_layout.addWidget(self.last_best_value_label)
         row_layout.addWidget(self.last_best_value_display)
+        row_layout.addWidget(self.locked_best_value_label)
+        row_layout.addWidget(self.locked_best_value_display)
         row_layout.addWidget(self.clear_best_value_btn)
         row_layout.addStretch()
         
@@ -762,18 +769,20 @@ class ComponentAnalysisWidget(QWidget):
             # 所有分析完成
             self.show_analysis_results(self.all_analysis_results)
             
-            # 分析全部完成后，检查最优方案是否满足条件（无论是否勾选生成操盘方案）
+            # 分析全部完成后，检查最优方案是否满足条件
             if self.cached_analysis_results:
                 top_one = self.cached_analysis_results[0]
                 self.main_window.overall_stats = top_one.get('overall_stats')
-                #print(f"check_analysis_completed result overall_stats: {self.main_window.overall_stats}")
-                # 比较top_one的adjusted_value与上次的last_adjusted_value
+                
+                # 获取新值和上次分析最优值
                 new_value = top_one.get('adjusted_value', None)
                 last_value = getattr(self.main_window, 'last_adjusted_value', None)
+                locked_value = getattr(self.main_window, 'locked_adjusted_value', None)
                 new_value_float = float(new_value) if new_value is not None else None
                 last_value_float = float(last_value) if last_value is not None else None
+                locked_value_float = float(locked_value) if locked_value is not None else None
                 
-                # 检查是否满足条件（无论是否勾选生成操盘方案都检查）
+                # 检查是否满足条件
                 should_generate = False
                 if new_value is not None:
                     try:
@@ -797,14 +806,24 @@ class ComponentAnalysisWidget(QWidget):
                     except ValueError:
                         better_percent = 0.0
                     
-                    # 无论百分比是否为0，都需要进行判断
+                    # 判断是否大于上次分析最优值
                     if new_value is not None and last_value is not None:
                         try:
-                            # 计算需要超过的阈值：上次值 * (1 + 百分比/100)
+                            # 计算需要超过的阈值：上次分析最优值 * (1 + 百分比/100)
                             threshold = last_value_float * (better_percent / 100)
                             should_generate = new_value_float > threshold
                             if not should_generate:
-                                QMessageBox.warning(self, "方案无效", f"该组合分析最优方案的输出值 {new_value_float:.2f} 不大于上次最优值 {last_value_float:.2f} 的 {better_percent}% = {threshold:.2f}，此方案无效，不生成操盘方案")
+                                # 构建提示信息
+                                message = f"该组合分析最优方案的输出值 {new_value_float:.2f} 不大于上次分析最优值 {last_value_float:.2f} 的 {better_percent}% = {threshold:.2f}，此方案无效，不生成操盘方案"
+                                
+                                # 如果有锁定最优值，也提示是否大于锁定最优值
+                                if locked_value_float is not None:
+                                    if new_value_float > locked_value_float:
+                                        message += f"\n\n但大于锁定最优值 {locked_value_float:.2f}"
+                                    else:
+                                        message += f"\n\n且不大于锁定最优值 {locked_value_float:.2f}"
+                                
+                                QMessageBox.warning(self, "方案无效", message)
                         except Exception:
                             should_generate = True  # 转换失败时默认生成
                     elif new_value is not None and last_value is None:
@@ -815,32 +834,50 @@ class ComponentAnalysisWidget(QWidget):
                 
                 # 如果满足所有条件，显示成功提示
                 if should_generate:
-                    QMessageBox.information(self, "最优方案提示", f"有最优方案出现！当前最优组合排序输出值：{new_value_float:.2f}，大于上次最优值：{last_value_float:.2f} 的 {better_percent}% = {threshold:.2f}")
+                    message = f"有最优方案出现！当前最优组合排序输出值：{new_value_float:.2f}，大于上次分析最优值：{last_value_float:.2f} 的 {better_percent}% = {threshold:.2f}"
+                    
+                    # 如果有锁定最优值，也提示是否大于锁定最优值
+                    if locked_value_float is not None:
+                        if new_value_float > locked_value_float:
+                            message += f"\n\n且大于锁定最优值 {locked_value_float:.2f}"
+                        else:
+                            message += f"\n\n但不大于锁定最优值 {locked_value_float:.2f}"
+                    
+                    QMessageBox.information(self, "最优方案提示", message)
                 
                 # 只有在勾选生成操盘方案且满足条件时才生成操盘方案
                 if self.generate_trading_plan_checkbox.isChecked() and should_generate:
                     # 生成操盘方案
                     self._add_top_result_to_trading_plan(top_one)
-                    # 更新上次最优值显示
+                    # 更新锁定最优值（生成操盘方案后更新）
+                    if new_value is not None:
+                        try:
+                            new_value_float = float(new_value)
+                            locked_value_float = float(locked_value) if locked_value is not None else None
+                            
+                            # 只有当新值大于锁定值时才更新
+                            if locked_value_float is None or new_value_float > locked_value_float:
+                                self.main_window.locked_adjusted_value = new_value_float
+                        except Exception:
+                            # 转换失败时，如果locked_value为None则设置，否则保持原值
+                            if locked_value is None:
+                                self.main_window.locked_adjusted_value = new_value
+                    
+                    # 更新显示
                     self._update_last_best_value_display()
                 
-                # 更新last_adjusted_value（只有在满足所有条件时才更新）
-                if new_value is not None and should_generate:
+                # 更新last_adjusted_value（每次分析都更新，表示上次分析的最优值）
+                if new_value is not None:
                     try:
                         new_value_float = float(new_value)
-                        last_value_float = float(last_value) if last_value is not None else None
-                        
-                        # 只有当新值大于上次值时才更新
-                        if last_value_float is None or new_value_float > last_value_float:
-                            self.main_window.last_adjusted_value = new_value_float
-                            # 更新上次最优值显示
-                            self._update_last_best_value_display()
+                        self.main_window.last_adjusted_value = new_value_float
                     except Exception:
                         # 转换失败时，如果last_value为None则设置，否则保持原值
                         if last_value is None:
                             self.main_window.last_adjusted_value = new_value
-                            # 更新上次最优值显示
-                            self._update_last_best_value_display()
+                    
+                    # 更新显示
+                    self._update_last_best_value_display()
             else:
                 QMessageBox.information(self, "分析完成", "没有满足条件的组合分析结果")
 
@@ -4139,7 +4176,7 @@ class ComponentAnalysisWidget(QWidget):
 
         
     def _update_last_best_value_display(self):
-        """更新上次最优值显示"""
+        """更新上次分析最优值显示"""
         last_value = getattr(self.main_window, 'last_adjusted_value', None)
         if last_value is not None:
             try:
@@ -4151,10 +4188,24 @@ class ComponentAnalysisWidget(QWidget):
                 self.last_best_value_display.setText(str(last_value))
         else:
             self.last_best_value_display.setText("无")
+        
+        # 更新锁定最优值显示
+        locked_value = getattr(self.main_window, 'locked_adjusted_value', None)
+        if locked_value is not None:
+            try:
+                # 尝试转换为浮点数并格式化显示
+                locked_value_float = float(locked_value)
+                self.locked_best_value_display.setText(f"{locked_value_float:.2f}")
+            except (ValueError, TypeError):
+                # 如果转换失败，直接显示原值
+                self.locked_best_value_display.setText(str(locked_value))
+        else:
+            self.locked_best_value_display.setText("无")
 
     def _on_clear_best_value(self):
-        """清空上次最优值"""
-        self.main_window.last_adjusted_value = 0
+        """清空上次分析最优值和锁定最优值"""
+        self.main_window.last_adjusted_value = None
+        self.main_window.locked_adjusted_value = None
         self._update_last_best_value_display()
     
     def _get_new_high_low_types(self):

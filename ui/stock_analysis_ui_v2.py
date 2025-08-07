@@ -2996,6 +2996,8 @@ class StockAnalysisApp(QWidget):
             'last_component_total_combinations': getattr(self, 'last_component_total_combinations', None),
             # 新增保存last_adjusted_value
             'last_adjusted_value': getattr(self, 'last_adjusted_value', None),
+            # 新增保存locked_adjusted_value
+            'locked_adjusted_value': getattr(self, 'locked_adjusted_value', None),
             # 新增：保存组合分析率值区间参数
             'component_hold_rate_min': getattr(self, 'last_component_hold_rate_min', 0),
             'component_hold_rate_max': getattr(self, 'last_component_hold_rate_max', 100),
@@ -3235,6 +3237,9 @@ class StockAnalysisApp(QWidget):
             # 新增：恢复last_adjusted_value
             if 'last_adjusted_value' in config:
                 self.last_adjusted_value = config['last_adjusted_value']
+            # 新增：恢复locked_adjusted_value
+            if 'locked_adjusted_value' in config:
+                self.locked_adjusted_value = config['locked_adjusted_value']
             # 恢复组合分析次数
             if 'component_analysis_count' in config:
                 self.last_component_analysis_count = config['component_analysis_count']
