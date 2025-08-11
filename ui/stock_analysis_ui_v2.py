@@ -148,6 +148,13 @@ class StockAnalysisApp(QWidget):
         self.last_analysis_start_date = ''
         self.last_analysis_end_date = ''
         self.cached_component_analysis_results = None
+        # 新增：三次分析相关变量
+        self.last_analysis_was_three_stage = False
+        # 新增：组合-三次连续分析勾选框状态
+        self.last_component_auto_three_stage = False
+        # 新增：三次分析统计信息
+        self.last_three_stage_total_elapsed_time = None
+        self.last_three_stage_total_formulas = 0
         self.init_ui()
         self.connect_signals()
         # 默认最大化显示
@@ -2986,6 +2993,7 @@ class StockAnalysisApp(QWidget):
             'new_after_low2_flag': self.new_after_low2_flag_checkbox.isChecked(),
             # 新增：组合分析界面勾选框状态
             'component_generate_trading_plan': getattr(self, 'last_component_generate_trading_plan', False),
+            'component_auto_three_stage': getattr(self, 'last_component_auto_three_stage', False),
             # 新增：组合分析次数
             'component_analysis_count': getattr(self, 'last_component_analysis_count', 1),
             # 新增：组合输出锁定状态
@@ -3010,6 +3018,12 @@ class StockAnalysisApp(QWidget):
             'component_comprehensive_stop_daily_change_threshold': getattr(self, 'last_component_comprehensive_stop_daily_change_threshold', 0.0),
             # 新增：保存组合分析总体结果
             'overall_stats': getattr(self, 'overall_stats', None),
+            # 新增：保存三次分析相关数据
+            'last_analysis_was_three_stage': getattr(self, 'last_analysis_was_three_stage', False),
+            'cached_component_analysis_results': getattr(self, 'cached_component_analysis_results', None),
+            # 新增：保存三次分析统计信息
+            'last_three_stage_total_elapsed_time': getattr(self, 'last_three_stage_total_elapsed_time', None),
+            'last_three_stage_total_formulas': getattr(self, 'last_three_stage_total_formulas', 0),
         }
         # 保存公式选股控件状态
         if hasattr(self, 'formula_widget') and self.formula_widget is not None:
@@ -3222,6 +3236,8 @@ class StockAnalysisApp(QWidget):
                 self.trading_plan_list = config['trading_plan_list']
             if 'component_generate_trading_plan' in config:
                 self.last_component_generate_trading_plan = config['component_generate_trading_plan']
+            if 'component_auto_three_stage' in config:
+                self.last_component_auto_three_stage = config['component_auto_three_stage']
             # 恢复trading_plan_end_date
             if 'trading_plan_end_date' in config:
                 self.last_trading_plan_end_date = config['trading_plan_end_date']
@@ -3266,6 +3282,16 @@ class StockAnalysisApp(QWidget):
             # 新增：恢复组合分析总体结果
             if 'overall_stats' in config:
                 self.overall_stats = config['overall_stats']
+            # 新增：恢复三次分析相关数据
+            if 'last_analysis_was_three_stage' in config:
+                self.last_analysis_was_three_stage = config['last_analysis_was_three_stage']
+            if 'cached_component_analysis_results' in config:
+                self.cached_component_analysis_results = config['cached_component_analysis_results']
+            # 新增：恢复三次分析统计信息
+            if 'last_three_stage_total_elapsed_time' in config:
+                self.last_three_stage_total_elapsed_time = config['last_three_stage_total_elapsed_time']
+            if 'last_three_stage_total_formulas' in config:
+                self.last_three_stage_total_formulas = config['last_three_stage_total_formulas']
         except Exception as e:
             print(f"加载配置失败: {e}")
 

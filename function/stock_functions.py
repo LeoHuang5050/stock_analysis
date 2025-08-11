@@ -578,7 +578,94 @@ def perform_stock_selection_for_date(parent, target_date):
         
         # 检查目标日期是否有数据
         if target_date not in merged_results:
-            QMessageBox.information(parent, "提示", f"日期 {target_date} 没有选股数据")
+            # 不弹窗结束窗口，而是显示空数据
+            # 创建空的表格数据
+            empty_table = show_formula_select_table_result(parent, {'dates': {target_date: []}}, 
+                                                         getattr(parent, 'init', None) and getattr(parent.init, 'price_data', None), 
+                                                         is_select_action=True)
+            
+            # 更新窗口内容显示空表格
+            if hasattr(parent, 'formula_select_result_window') and parent.formula_select_result_window is not None:
+                central_widget = parent.formula_select_result_window.centralWidget()
+                if central_widget:
+                    layout = central_widget.layout()
+                    if layout:
+                        # 移除旧的内容
+                        while layout.count() > 0:
+                            item = layout.takeAt(0)
+                            if item.widget():
+                                item.widget().deleteLater()
+                        
+                        # 添加空的表格
+                        layout.addWidget(empty_table)
+                        
+                        # 重新添加导航按钮
+                        if hasattr(parent, 'all_param_result') and parent.all_param_result:
+                            # 创建按钮容器
+                            button_container = QWidget()
+                            button_layout = QHBoxLayout(button_container)
+                            button_layout.setContentsMargins(10, 5, 10, 10)
+                            button_layout.setSpacing(10)
+                            
+                            # 获取当前日期和可用日期列表
+                            workdays_str = getattr(parent.init, 'workdays_str', [])
+                            
+                            # 使用缓存的日期索引
+                            if hasattr(parent, 'last_selected_date_idx_for_navigation') and parent.last_selected_date_idx_for_navigation is not None:
+                                current_date_idx = parent.last_selected_date_idx_for_navigation
+                                if 0 <= current_date_idx < len(workdays_str):
+                                    current_date = workdays_str[current_date_idx]
+                                else:
+                                    current_date = workdays_str[0] if workdays_str else None
+                                    current_date_idx = 0
+                            else:
+                                current_date = target_date
+                                current_date_idx = workdays_str.index(current_date) if current_date in workdays_str else -1
+                            
+                            if current_date is not None and current_date_idx >= 0:
+                                # 向左按钮
+                                left_btn = QPushButton("向左")
+                                left_btn.setFixedWidth(80)
+                                left_btn.setEnabled(current_date_idx > 0)
+                                
+                                # 向右按钮
+                                right_btn = QPushButton("向右")
+                                right_btn.setFixedWidth(80)
+                                right_btn.setEnabled(current_date_idx < len(workdays_str) - 1)
+                                
+                                # 添加按钮到布局
+                                button_layout.addStretch()
+                                button_layout.addWidget(left_btn)
+                                button_layout.addWidget(right_btn)
+                                button_layout.addStretch()
+                                
+                                # 按钮点击事件
+                                def on_left_clicked():
+                                    if current_date_idx > 0:
+                                        new_target_date = workdays_str[current_date_idx - 1]
+                                        parent.last_selected_date_idx_for_navigation = current_date_idx - 1
+                                        perform_stock_selection_for_date(parent, new_target_date)
+                                
+                                def on_right_clicked():
+                                    if current_date_idx < len(workdays_str) - 1:
+                                        new_target_date = workdays_str[current_date_idx + 1]
+                                        parent.last_selected_date_idx_for_navigation = current_date_idx + 1
+                                        perform_stock_selection_for_date(parent, new_target_date)
+                                
+                                left_btn.clicked.connect(on_left_clicked)
+                                right_btn.clicked.connect(on_right_clicked)
+                                
+                                # 将按钮容器添加到主布局
+                                layout.addWidget(button_container)
+            
+            # 更新结果数据为空
+            parent.last_formula_select_result_data = {'dates': {target_date: []}}
+            
+            # 更新缓存的日期索引
+            workdays_str = getattr(parent.init, 'workdays_str', [])
+            if target_date in workdays_str:
+                parent.last_selected_date_idx_for_navigation = workdays_str.index(target_date)
+            
             return
         
         # 根据排序模式过滤结果
@@ -605,7 +692,94 @@ def perform_stock_selection_for_date(parent, target_date):
         
         # 使用过滤后的结果
         if not filtered_results or not any(filtered_results.values()):
-            QMessageBox.information(parent, "提示", f"日期 {target_date} 没有选股结果")
+            # 不弹窗结束窗口，而是显示空数据
+            # 创建空的表格数据
+            empty_table = show_formula_select_table_result(parent, {'dates': {target_date: []}}, 
+                                                         getattr(parent, 'init', None) and getattr(parent.init, 'price_data', None), 
+                                                         is_select_action=True)
+            
+            # 更新窗口内容显示空表格
+            if hasattr(parent, 'formula_select_result_window') and parent.formula_select_result_window is not None:
+                central_widget = parent.formula_select_result_window.centralWidget()
+                if central_widget:
+                    layout = central_widget.layout()
+                    if layout:
+                        # 移除旧的内容
+                        while layout.count() > 0:
+                            item = layout.takeAt(0)
+                            if item.widget():
+                                item.widget().deleteLater()
+                        
+                        # 添加空的表格
+                        layout.addWidget(empty_table)
+                        
+                        # 重新添加导航按钮
+                        if hasattr(parent, 'all_param_result') and parent.all_param_result:
+                            # 创建按钮容器
+                            button_container = QWidget()
+                            button_layout = QHBoxLayout(button_container)
+                            button_layout.setContentsMargins(10, 5, 10, 10)
+                            button_layout.setSpacing(10)
+                            
+                            # 获取当前日期和可用日期列表
+                            workdays_str = getattr(parent.init, 'workdays_str', [])
+                            
+                            # 使用缓存的日期索引
+                            if hasattr(parent, 'last_selected_date_idx_for_navigation') and parent.last_selected_date_idx_for_navigation is not None:
+                                current_date_idx = parent.last_selected_date_idx_for_navigation
+                                if 0 <= current_date_idx < len(workdays_str):
+                                    current_date = workdays_str[current_date_idx]
+                                else:
+                                    current_date = workdays_str[0] if workdays_str else None
+                                    current_date_idx = 0
+                            else:
+                                current_date = target_date
+                                current_date_idx = workdays_str.index(current_date) if current_date in workdays_str else -1
+                            
+                            if current_date is not None and current_date_idx >= 0:
+                                # 向左按钮
+                                left_btn = QPushButton("向左")
+                                left_btn.setFixedWidth(80)
+                                left_btn.setEnabled(current_date_idx > 0)
+                                
+                                # 向右按钮
+                                right_btn = QPushButton("向右")
+                                right_btn.setFixedWidth(80)
+                                right_btn.setEnabled(current_date_idx < len(workdays_str) - 1)
+                                
+                                # 添加按钮到布局
+                                button_layout.addStretch()
+                                button_layout.addWidget(left_btn)
+                                button_layout.addWidget(right_btn)
+                                button_layout.addStretch()
+                                
+                                # 按钮点击事件
+                                def on_left_clicked():
+                                    if current_date_idx > 0:
+                                        new_target_date = workdays_str[current_date_idx - 1]
+                                        parent.last_selected_date_idx_for_navigation = current_date_idx - 1
+                                        perform_stock_selection_for_date(parent, new_target_date)
+                                
+                                def on_right_clicked():
+                                    if current_date_idx < len(workdays_str) - 1:
+                                        new_target_date = workdays_str[current_date_idx + 1]
+                                        parent.last_selected_date_idx_for_navigation = current_date_idx + 1
+                                        perform_stock_selection_for_date(parent, new_target_date)
+                                
+                                left_btn.clicked.connect(on_left_clicked)
+                                right_btn.clicked.connect(on_right_clicked)
+                                
+                                # 将按钮容器添加到主布局
+                                layout.addWidget(button_container)
+            
+            # 更新结果数据为空
+            parent.last_formula_select_result_data = {'dates': {target_date: []}}
+            
+            # 更新缓存的日期索引
+            workdays_str = getattr(parent.init, 'workdays_str', [])
+            if target_date in workdays_str:
+                parent.last_selected_date_idx_for_navigation = workdays_str.index(target_date)
+            
             return
         
         # 更新结果数据
@@ -1309,6 +1483,17 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
                     logic_label = QLabel("含逻辑")
                     logic_label.setStyleSheet("border: none;")
                     
+                    # 添加排序下拉框
+                    sort_input = QComboBox()
+                    sort_input.setFixedWidth(45)
+                    sort_input.setToolTip("设置参数分析优先级，数字越小优先级越高")
+                    # 添加排序选项：0-99，每个数字一个选项
+                    sort_options = [str(i) for i in range(0, 100)]
+                    sort_input.addItems(sort_options)
+                    sort_input.setCurrentText("0")  # 默认选择最高优先级
+                    # 设置下拉框高度，显示10个选项，超出时可滚动
+                    sort_input.setMaxVisibleItems(10)
+                    
                     group_layout.addWidget(enable_cb)
                     if round_check:
                         group_layout.addWidget(round_check)
@@ -1321,6 +1506,7 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
                     group_layout.addWidget(direction_combo)
                     group_layout.addWidget(logic_check)
                     group_layout.addWidget(logic_label)
+                    group_layout.addWidget(sort_input)
                     group_widget.setLayout(group_layout)
                     grid.addWidget(group_widget, row, col)
                     
@@ -1330,7 +1516,8 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
                         "upper": upper_edit,
                         "step": step_edit,
                         "direction": direction_combo,
-                        "logic": logic_check
+                        "logic": logic_check,
+                        "sort": sort_input
                     }
                     if round_check:
                         widget_dict["round"] = round_check
@@ -1374,6 +1561,8 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
                             if idx >= 0:
                                 w["direction"].setCurrentIndex(idx)
                             w["logic"].setChecked(v.get("logic", False))
+                            if "sort" in w:
+                                w["sort"].setCurrentText(v.get("sort", ""))
                             if "round" in w:
                                 w["round"].setChecked(v.get("round", False))
                 self.setLayout(grid)
@@ -1395,12 +1584,33 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
                         "upper": w["upper"].text(),
                         "step": w["step"].text(),
                         "direction": w["direction"].currentText(),
-                        "logic": w["logic"].isChecked()
+                        "logic": w["logic"].isChecked(),
+                        "sort": w["sort"].currentText()
                     }
                     if "round" in w:
                         param_dict["round"] = w["round"].isChecked()
                     params[k] = param_dict
                 return params
+            
+            def get_sorted_forward_params(self):
+                """
+                获取排序后的向前参数列表
+                返回格式：[(变量名, 排序值), ...]，按排序值升序排列
+                """
+                forward_params = []
+                for k, w in self.widgets.items():
+                    if w["enable"].isChecked():
+                        sort_value = 999  # 默认最大值
+                        if w["sort"].currentText().strip():
+                            try:
+                                sort_value = int(w["sort"].currentText().strip())
+                            except ValueError:
+                                pass
+                        forward_params.append((k, sort_value))
+                
+                # 按排序值升序排列
+                forward_params.sort(key=lambda x: x[1])
+                return forward_params
                 
             def closeEvent(self, event):
                 # 关闭窗口时也保存参数，相当于确定
@@ -1747,14 +1957,41 @@ def show_formula_select_table_result(parent, result, price_data=None, output_edi
    
     headers = ["股票代码", "股票名称", "持有天数", "止盈止损涨幅", "止盈止损日均涨幅", "止盈停损涨幅", "止盈停损日均涨幅", "调整天数", "停盈停损涨幅", "停盈停损日均涨幅", "停盈止损涨幅", "停盈止损日均涨幅", "选股公式输出值"]
     if not merged_results or not any(merged_results.values()):
-        # 返回一个只有表头的空表格
-        table = CopyableTableWidget(0, len(headers), parent)
+        # 返回一个包含结束日期行的空表格
+        table = CopyableTableWidget(1, len(headers), parent)  # 1行用于显示结束日期
         table.setHorizontalHeaderLabels(headers)
+        
+        # 获取目标日期（从result中提取，如果没有则使用当前日期）
+        target_date = None
+        if merged_results:
+            target_date = list(merged_results.keys())[0]
+        else:
+            # 如果没有日期信息，尝试从parent获取
+            if hasattr(parent, 'last_formula_select_result_data') and parent.last_formula_select_result_data:
+                target_date = list(parent.last_formula_select_result_data.get('dates', {}).keys())[0]
+            elif hasattr(parent, 'init') and hasattr(parent.init, 'workdays_str') and parent.init.workdays_str:
+                target_date = parent.init.workdays_str[-1]  # 使用最后一个工作日
+        
+        # 在表格中显示结束日期信息
+        if target_date:
+            # 第一列显示"结束日期"
+            table.setItem(0, 0, QTableWidgetItem("结束日期"))
+            # 第二列显示具体日期
+            table.setItem(0, 1, QTableWidgetItem(str(target_date)))
+            # 其他列留空
+            for col in range(2, len(headers)):
+                table.setItem(0, col, QTableWidgetItem(""))
+        else:
+            # 如果没有日期信息，显示提示信息
+            table.setItem(0, 0, QTableWidgetItem("无选股结果"))
+            table.setItem(0, 1, QTableWidgetItem("请检查选股条件"))
+            # 其他列留空
+            for col in range(2, len(headers)):
+                table.setItem(0, col, QTableWidgetItem(""))
+        
         table.resizeColumnsToContents()
         table.horizontalHeader().setFixedHeight(50)
         table.horizontalHeader().setStyleSheet("font-size: 12px;")
-        if is_select_action:
-            QMessageBox.information(parent, "提示", "无匹配结果")
         return table
     # 只展示第一个日期的数据
     first_date = list(merged_results.keys())[0]
@@ -1762,8 +1999,17 @@ def show_formula_select_table_result(parent, result, price_data=None, output_edi
     # 过滤掉统计行（stock_idx为-1到-3的数据）
     stocks = [stock for stock in stocks if stock.get('stock_idx', 0) >= 0]
     if not stocks:
-        table = CopyableTableWidget(0, len(headers), parent)
+        # 返回一个包含结束日期行的空表格
+        table = CopyableTableWidget(1, len(headers), parent)  # 1行用于显示结束日期
         table.setHorizontalHeaderLabels(headers)
+        
+        # 显示结束日期信息
+        table.setItem(0, 0, QTableWidgetItem("结束日期"))
+        table.setItem(0, 1, QTableWidgetItem(str(first_date)))
+        # 其他列留空
+        for col in range(2, len(headers)):
+            table.setItem(0, col, QTableWidgetItem(""))
+        
         table.resizeColumnsToContents()
         table.horizontalHeader().setFixedHeight(50)
         table.horizontalHeader().setStyleSheet("font-size: 12px;")
@@ -2043,6 +2289,8 @@ class FormulaSelectWidget(QWidget):
                 item['lower'] = widgets['lower'].text()
             if 'upper' in widgets:
                 item['upper'] = widgets['upper'].text()
+            if 'sort' in widgets:
+                item['sort'] = widgets['sort'].currentText()
             if 'step' in widgets:
                 item['step'] = widgets['step'].text()
             if 'direction' in widgets:
@@ -2105,6 +2353,8 @@ class FormulaSelectWidget(QWidget):
                     widgets['round_checkbox'].setChecked(data['round_checked'])
                 if 'lower' in widgets and 'lower' in data:
                     widgets['lower'].setText(data['lower'])
+                if 'sort' in widgets and 'sort' in data:
+                    widgets['sort'].setCurrentText(data['sort'])
                 if 'upper' in widgets and 'upper' in data:
                     widgets['upper'].setText(data['upper'])
                 if 'step' in widgets and 'step' in data:
@@ -4990,8 +5240,21 @@ class FormulaSelectWidget(QWidget):
             var_layout.addWidget(logic_check)
             var_layout.addWidget(logic_label)
 
+            # 添加排序下拉框
+            sort_input = QComboBox()
+            sort_input.setFixedWidth(45)
+            sort_input.setToolTip("设置参数分析优先级，数字越小优先级越高")
+            # 添加排序选项：0-99，每个数字一个选项
+            sort_options = [str(i) for i in range(0, 100)]
+            sort_input.addItems(sort_options)
+            sort_input.setCurrentText("0")  # 默认选择最高优先级
+            # 设置下拉框高度，显示10个选项，超出时可滚动
+            sort_input.setMaxVisibleItems(10)
+            var_layout.addWidget(sort_input)
+
             widget_dict = {
                 'checkbox': checkbox,
+                'sort': sort_input,
                 'lower': lower_input,
                 'upper': upper_input,
                 'step': step_input,
@@ -5135,6 +5398,7 @@ class FormulaSelectWidget(QWidget):
                 n_input.setFixedWidth(30)
                 n_input.textChanged.connect(self._sync_to_main)  # 自动保存
                 var_layout.addWidget(n_input)
+                
                 widget_dict = {
                     'round_checkbox': round_checkbox,
                     'n_input': n_input
@@ -5220,6 +5484,8 @@ class FormulaSelectWidget(QWidget):
                 widgets['checkbox'].stateChanged.connect(self._sync_to_main)
             if 'round_checkbox' in widgets:
                 widgets['round_checkbox'].stateChanged.connect(self._sync_to_main)
+            if 'sort' in widgets:
+                widgets['sort'].currentTextChanged.connect(self._sync_to_main)
             if 'lower' in widgets:
                 widgets['lower'].textChanged.connect(self._sync_to_main)
             if 'upper' in widgets:
@@ -5249,6 +5515,102 @@ class FormulaSelectWidget(QWidget):
                     selected_vars.append(en_val)
         
         return selected_vars
+
+    def get_sorted_output_params(self):
+        """
+        获取排序后的输出参数列表（get_abbr_round_map中的变量，包括向前输出参数）
+        返回格式：[(变量名, 排序值), ...]，按排序值升序排列
+        注意：只有当sort_value不为0时才参与排序，为0时不参与排序
+        """
+        output_params = []
+        for zh, en in self.abbr_round_map.items():
+            if en in self.var_widgets:
+                widgets = self.var_widgets[en]
+                # 获取排序值，如果为0则不参与排序
+                sort_value = 0  # 默认值
+                if 'sort' in widgets and widgets['sort'].currentText().strip():
+                    try:
+                        sort_value = int(widgets['sort'].currentText().strip())
+                    except ValueError:
+                        sort_value = 0
+                
+                # 只有当sort_value不为0时才添加到排序列表
+                if sort_value > 0:
+                    output_params.append((en, sort_value))
+        
+        # 添加向前输出参数（在abbr_round_map中的向前参数）
+        if hasattr(self.main_window, 'forward_param_state') and self.main_window.forward_param_state:
+            forward_round_map = get_abbr_round_map()  # 获取输出参数映射
+            forward_round_values = set(forward_round_map.values())  # 获取英文名称集合
+            for var_name, var_config in self.main_window.forward_param_state.items():
+                if var_name in forward_round_values:
+                    sort_value = 0  # 默认值
+                    if var_config.get('sort', '').strip():
+                        try:
+                            sort_value = int(var_config['sort'].strip())
+                        except ValueError:
+                            sort_value = 0
+                    
+                    # 只有当sort_value不为0时才添加到排序列表
+                    if sort_value > 0:
+                        output_params.append((var_name, sort_value))
+                        print(f"添加向前输出参数: {var_name}")
+        
+        # 按排序值升序排列
+        output_params.sort(key=lambda x: x[1])
+        return output_params
+
+    def get_sorted_auxiliary_params(self):
+        """
+        获取排序后的辅助参数列表（get_abbr_map中的变量，排除get_abbr_round_map中的变量，包括向前辅助参数）
+        返回格式：[(变量名, 排序值), ...]，按排序值升序排列
+        注意：只有当sort_value不为0时才参与排序，为0时不参与排序
+        """
+        auxiliary_params = []
+        # 获取get_abbr_round_map中的变量集合，用于排除
+        output_vars = set(self.abbr_round_map.values())
+        
+        for zh, en in self.abbr_map.items():
+            if en in self.var_widgets and en not in output_vars:
+                widgets = self.var_widgets[en]
+                # 获取排序值，如果为0则不参与排序
+                sort_value = 0  # 默认值
+                if 'sort' in widgets and widgets['sort'].currentText().strip():
+                    try:
+                        sort_value = int(widgets['sort'].currentText().strip())
+                    except ValueError:
+                        sort_value = 0
+                
+                # 只有当sort_value不为0时才添加到排序列表
+                if sort_value > 0:
+                    auxiliary_params.append((en, sort_value))
+        
+        # 添加向前辅助参数（在abbr_map中但不在abbr_round_map中的向前参数）
+        if hasattr(self.main_window, 'forward_param_state') and self.main_window.forward_param_state:
+            forward_abbr_map = get_abbr_map()  # 获取辅助参数映射
+            forward_round_map = get_abbr_round_map()  # 获取输出参数映射
+            forward_abbr_values = set(forward_abbr_map.values())  # 获取英文名称集合
+            forward_round_values = set(forward_round_map.values())  # 获取英文名称集合
+            for var_name, var_config in self.main_window.forward_param_state.items():
+                if (var_name in forward_abbr_values and 
+                    var_name not in forward_round_values):
+                    sort_value = 0  # 默认值
+                    if var_config.get('sort', '').strip():
+                        try:
+                            sort_value = int(var_config['sort'].strip())
+                        except ValueError:
+                            sort_value = 0
+                    
+                    # 只有当sort_value不为0时才添加到排序列表
+                    if sort_value > 0:
+                        auxiliary_params.append((var_name, sort_value))
+                        print(f"添加向前辅助参数: {var_name}")
+        else:
+            print("没有向前辅助参数")
+        
+        # 按排序值升序排列
+        auxiliary_params.sort(key=lambda x: x[1])
+        return auxiliary_params
 
 
 
@@ -5341,6 +5703,25 @@ def get_abbr_round_map():
         ("向前最小有效累加值负加值和", "forward_min_valid_neg_sum"),
     ]
     return {zh: en for zh, en in abbrs}
+
+def get_sorted_params_from_widget(formula_widget):
+    """
+    从FormulaSelectWidget获取排序后的参数列表
+    返回格式：{
+        'output_params': [(变量名, 排序值), ...],  # 输出参数，按排序值升序
+        'auxiliary_params': [(变量名, 排序值), ...],  # 辅助参数，按排序值升序
+    }
+    """
+    if not formula_widget:
+        return {
+            'output_params': [],
+            'auxiliary_params': []
+        }
+    
+    return {
+        'output_params': formula_widget.get_sorted_output_params(),
+        'auxiliary_params': formula_widget.get_sorted_auxiliary_params()
+    }
 
 def parse_formula_to_config(formula, abbr_map=None):
     """
@@ -5628,7 +6009,7 @@ def calculate_analysis_result(valid_items):
                                 ops_change = float(ops_change)
                                 if not math.isnan(ops_change):
                                     hold_changes.append(ops_change)
-                                    print(f"stock_name = {stock.get('stock_name', '')}, 持有涨跌幅 = {ops_change}")
+                                    #print(f"stock_name = {stock.get('stock_name', '')}, 持有涨跌幅 = {ops_change}")
                             except (ValueError, TypeError):
                                 pass
                     elif end_state == 1:
@@ -5641,7 +6022,7 @@ def calculate_analysis_result(valid_items):
                                 take_profit = float(take_profit)
                                 if not math.isnan(take_profit):
                                     profit_changes.append(take_profit)
-                                    print(f"stock_name = {stock.get('stock_name', '')}, 止盈涨跌幅 = {take_profit}")
+                                    #print(f"stock_name = {stock.get('stock_name', '')}, 止盈涨跌幅 = {take_profit}")
                             except (ValueError, TypeError):
                                 pass
                     elif end_state == 2:
@@ -5654,7 +6035,7 @@ def calculate_analysis_result(valid_items):
                                 stop_loss = float(stop_loss)
                                 if not math.isnan(stop_loss):
                                     loss_changes.append(stop_loss)
-                                    print(f"stock_name = {stock.get('stock_name', '')}, 止损涨跌幅 = {stop_loss}")
+                                    #print(f"stock_name = {stock.get('stock_name', '')}, 止损涨跌幅 = {stop_loss}")
                             except (ValueError, TypeError):
                                 pass
             except Exception as e:

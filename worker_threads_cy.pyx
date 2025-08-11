@@ -1714,13 +1714,18 @@ def calculate_batch_cy(
                 forward_min_continuous_end_prev_value = forward_min_result_c[forward_min_result_c.size()-2] if forward_min_result_c.size() > 1 else None
                 forward_min_continuous_end_prev_prev_value = forward_min_result_c[forward_min_result_c.size()-3] if forward_min_result_c.size() > 2 else None
                 
+                # 传统四舍五入函数（向远离零的方向舍入）
+                def traditional_round(value, decimals=2):
+                    multiplier = 10 ** decimals
+                    return int(value * multiplier + (0.5 if value >= 0 else -0.5)) / multiplier
+                
                 # 最后只在返回时转为Python对象
                 py_cont_sum = list(cont_sum)
-                forward_max_result = [forward_max_result_c[j] for j in range(forward_max_result_c.size())]
-                forward_min_result = [forward_min_result_c[j] for j in range(forward_min_result_c.size())]
+                forward_max_result = [traditional_round(forward_max_result_c[j], 2) for j in range(forward_max_result_c.size())]
+                forward_min_result = [traditional_round(forward_min_result_c[j], 2) for j in range(forward_min_result_c.size())]
                 
-                forward_max_valid_sum_arr = [forward_max_valid_sum_vec[j] for j in range(forward_max_valid_sum_vec.size())]
-                forward_min_valid_sum_arr = [forward_min_valid_sum_vec[j] for j in range(forward_min_valid_sum_vec.size())]
+                forward_max_valid_sum_arr = [traditional_round(forward_max_valid_sum_vec[j], 2) for j in range(forward_max_valid_sum_vec.size())]
+                forward_min_valid_sum_arr = [traditional_round(forward_min_valid_sum_vec[j], 2) for j in range(forward_min_valid_sum_vec.size())]
                 py_valid_sum_arr = [valid_sum_vec[j] for j in range(valid_sum_vec.size())]
                 #if stock_idx == 0:
                     #print("running 5")

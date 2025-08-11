@@ -1,0 +1,248 @@
+获取到的输出参数: ['cont_sum_pos_sum', 'forward_max_cont_sum_neg_sum']
+获取到的辅助参数: ['forward_max_valid_abs_sum_block1', 'cont_sum_pos_sum_second_half']
+三次分析目标变量: ['cont_sum_pos_sum', 'forward_max_cont_sum_neg_sum', 'forward_max_valid_abs_sum_block1', 'cont_sum_pos_sum_second_half']
+生成了 1 个特殊参数组合
+三次分析-目标参数cont_sum_pos_sum第1次 下限=5626 上限=8454 步长=845 生成的全部公式:
+  [1] if cont_sum_pos_sum_second_half >= 0.0 and cont_sum_pos_sum_second_half <= 5000.0 and cont_sum_pos_sum >= 5626 and cont_sum_pos_sum <= 7609:
+    result = cont_sum_pos_sum + forward_max_cont_sum_neg_sum
+else:
+    result = 0
+  [2] if cont_sum_pos_sum_second_half >= 0.0 and cont_sum_pos_sum_second_half <= 5000.0 and cont_sum_pos_sum >= 5626 and cont_sum_pos_sum <= 8454:
+    result = cont_sum_pos_sum + forward_max_cont_sum_neg_sum
+else:
+    result = 0
+  [3] if cont_sum_pos_sum_second_half >= 0.0 and cont_sum_pos_sum_second_half <= 5000.0 and cont_sum_pos_sum >= 6471 and cont_sum_pos_sum <= 7609:
+    result = cont_sum_pos_sum + forward_max_cont_sum_neg_sum
+else:
+    result = 0
+  [4] if cont_sum_pos_sum_second_half >= 0.0 and cont_sum_pos_sum_second_half <= 5000.0 and cont_sum_pos_sum >= 6471 and cont_sum_pos_sum <= 8454:
+    result = cont_sum_pos_sum + forward_max_cont_sum_neg_sum
+else:
+    result = 0
+执行三次分析第1次
+【三次分析第1次完成】全局top_three更新:
+  第1名: 14.99 - if cont_sum_pos_sum_second_half >= 0.0 and cont_sum_pos_sum_second_half <= 5000.0 and cont_sum_pos_sum >= 5713.39 and cont_sum_pos_sum <= 5790.95 and forward_max_cont_sum_neg_sum >= -211.28 and forward_max_cont_sum_neg_sum <= -211.28:
+    result = cont_sum_pos_sum + forward_max_cont_sum_neg_sum
+else:
+    result = 0
+  第2名: 14.99 - if cont_sum_pos_sum >= 5713.39 and cont_sum_pos_sum <= 5790.95 and forward_max_cont_sum_neg_sum >= -211.28 and forward_max_cont_sum_neg_sum <= -211.28 and cont_sum_pos_sum_second_half >= 2431.5 and cont_sum_pos_sum_second_half <= 2431.5:
+    result = cont_sum_pos_sum + forward_max_cont_sum_neg_sum
+else:
+    result = 0
+  第3名: 14.99 - if cont_sum_pos_sum >= 5713.39 and cont_sum_pos_sum <= 5790.95 and cont_sum_pos_sum_second_half >= 2431.5 and cont_sum_pos_sum_second_half <= 2431.5 and forward_max_cont_sum_neg_sum >= -211.28 and forward_max_cont_sum_neg_sum <= -211.28:
+    result = cont_sum_pos_sum + forward_max_cont_sum_neg_sum
+else:
+    result = 0
+本次最优值 10.37 不小于上一次最优值 9.02，更新 overall_stats
+参数cont_sum_pos_sum第1次最优公式: if cont_sum_pos_sum_second_half >= 0.0 and cont_sum_pos_sum_second_half <= 5000.0 and cont_sum_pos_sum >= 5626 and cont_sum_pos_sum <= 7609:
+    result = cont_sum_pos_sum + forward_max_cont_sum_neg_sum
+else:
+    result = 0
+三次分析：第一次 cont_sum_pos_sum 下限：5626，上限：7609，有较优方案。上次分析最优值：9.02，本次分析最优值：10.37
+三次分析-目标参数cont_sum_pos_sum第2次 下限=5713.39 上限=6226.13 步长=311 生成的全部公式:
+  [1] if cont_sum_pos_sum_second_half >= 0.0 and cont_sum_pos_sum_second_half <= 5000.0 and cont_sum_pos_sum >= 5713.39 and cont_sum_pos_sum <= 5915.13:
+    result = cont_sum_pos_sum + forward_max_cont_sum_neg_sum
+else:
+    result = 0
+  [2] if cont_sum_pos_sum_second_half >= 0.0 and cont_sum_pos_sum_second_half <= 5000.0 and cont_sum_pos_sum >= 5713.39 and cont_sum_pos_sum <= 6226.13:
+    result = cont_sum_pos_sum + forward_max_cont_sum_neg_sum
+else:
+    result = 0
+  [3] if cont_sum_pos_sum_second_half >= 0.0 and cont_sum_pos_sum_second_half <= 5000.0 and cont_sum_pos_sum >= 6024.39 and cont_sum_pos_sum <= 6226.13:
+    result = cont_sum_pos_sum + forward_max_cont_sum_neg_sum
+else:
+    result = 0
+执行三次分析第2次
+【三次分析第2次完成】全局top_three更新:
+  第1名: 14.99 - if cont_sum_pos_sum_second_half >= 0.0 and cont_sum_pos_sum_second_half <= 5000.0 and cont_sum_pos_sum >= 5713.39 and cont_sum_pos_sum <= 5790.95 and forward_max_cont_sum_neg_sum >= -211.28 and forward_max_cont_sum_neg_sum <= -211.28:
+    result = cont_sum_pos_sum + forward_max_cont_sum_neg_sum
+else:
+    result = 0
+  第2名: 14.99 - if cont_sum_pos_sum >= 5713.39 and cont_sum_pos_sum <= 5790.95 and forward_max_cont_sum_neg_sum >= -211.28 and forward_max_cont_sum_neg_sum <= -211.28 and cont_sum_pos_sum_second_half >= 2431.5 and cont_sum_pos_sum_second_half <= 2431.5:
+    result = cont_sum_pos_sum + forward_max_cont_sum_neg_sum
+else:
+    result = 0
+  第3名: 14.99 - if cont_sum_pos_sum >= 5713.39 and cont_sum_pos_sum <= 5790.95 and cont_sum_pos_sum_second_half >= 2431.5 and cont_sum_pos_sum_second_half <= 2431.5 and forward_max_cont_sum_neg_sum >= -211.28 and forward_max_cont_sum_neg_sum <= -211.28:
+    result = cont_sum_pos_sum + forward_max_cont_sum_neg_sum
+else:
+    result = 0
+本次最优值 11.95 不小于上一次最优值 10.37，更新 overall_stats
+参数cont_sum_pos_sum第2次最优公式: if cont_sum_pos_sum_second_half >= 0.0 and cont_sum_pos_sum_second_half <= 5000.0 and cont_sum_pos_sum >= 5713.39 and cont_sum_pos_sum <= 5915.13:
+    result = cont_sum_pos_sum + forward_max_cont_sum_neg_sum
+else:
+    result = 0
+三次分析：第二次 cont_sum_pos_sum 下限：5713.39，上限：5915.13，有较优方案。上次分析最优值：10.37，本次分析最优值：11.95
+三次分析-目标参数cont_sum_pos_sum第3次 下限=5713.39 上限=5790.95 步长=144 生成的全部公式:
+  [1] if cont_sum_pos_sum_second_half >= 0.0 and cont_sum_pos_sum_second_half <= 5000.0 and cont_sum_pos_sum >= 5713.39 and cont_sum_pos_sum <= 5790.95:
+    result = cont_sum_pos_sum + forward_max_cont_sum_neg_sum
+else:
+    result = 0
+执行三次分析第3次
+【三次分析第3次完成】全局top_three更新:
+  第1名: 14.99 - if cont_sum_pos_sum_second_half >= 0.0 and cont_sum_pos_sum_second_half <= 5000.0 and cont_sum_pos_sum >= 5713.39 and cont_sum_pos_sum <= 5790.95 and forward_max_cont_sum_neg_sum >= -211.28 and forward_max_cont_sum_neg_sum <= -211.28:
+    result = cont_sum_pos_sum + forward_max_cont_sum_neg_sum
+else:
+    result = 0
+  第2名: 14.99 - if cont_sum_pos_sum >= 5713.39 and cont_sum_pos_sum <= 5790.95 and forward_max_cont_sum_neg_sum >= -211.28 and forward_max_cont_sum_neg_sum <= -211.28 and cont_sum_pos_sum_second_half >= 2431.5 and cont_sum_pos_sum_second_half <= 2431.5:
+    result = cont_sum_pos_sum + forward_max_cont_sum_neg_sum
+else:
+    result = 0
+  第3名: 14.99 - if cont_sum_pos_sum >= 5713.39 and cont_sum_pos_sum <= 5790.95 and cont_sum_pos_sum_second_half >= 2431.5 and cont_sum_pos_sum_second_half <= 2431.5 and forward_max_cont_sum_neg_sum >= -211.28 and forward_max_cont_sum_neg_sum <= -211.28:
+    result = cont_sum_pos_sum + forward_max_cont_sum_neg_sum
+else:
+    result = 0
+本次最优值 11.95 不小于上一次最优值 11.95，更新 overall_stats
+参数cont_sum_pos_sum第3次最优公式: if cont_sum_pos_sum_second_half >= 0.0 and cont_sum_pos_sum_second_half <= 5000.0 and cont_sum_pos_sum >= 5713.39 and cont_sum_pos_sum <= 5790.95:
+    result = cont_sum_pos_sum + forward_max_cont_sum_neg_sum
+else:
+    result = 0
+三次分析：第三次 cont_sum_pos_sum 下限：5713.39，上限：5790.95，有较优方案。上次分析最优值：11.95，本次分析最优值：11.95
+记录参数cont_sum_pos_sum的最优条件：最优条件为：下限5713.39，上限5790.95
+三次分析-目标参数forward_max_cont_sum_neg_sum第1次 下限=-211.28 上限=-211.28 步长=21 生成的全部公式:
+  [1] if cont_sum_pos_sum_second_half >= 0.0 and cont_sum_pos_sum_second_half <= 5000.0 and cont_sum_pos_sum >= 5713.39 and cont_sum_pos_sum <= 5790.95 and forward_max_cont_sum_neg_sum >= -211.28 and forward_max_cont_sum_neg_sum <= -211.28:
+    result = cont_sum_pos_sum + forward_max_cont_sum_neg_sum
+else:
+    result = 0
+执行三次分析第1次
+【三次分析第1次完成】全局top_three更新:
+  第1名: 14.99 - if cont_sum_pos_sum_second_half >= 0.0 and cont_sum_pos_sum_second_half <= 5000.0 and cont_sum_pos_sum >= 5713.39 and cont_sum_pos_sum <= 5790.95 and forward_max_cont_sum_neg_sum >= -211.28 and forward_max_cont_sum_neg_sum <= -211.28:
+    result = cont_sum_pos_sum + forward_max_cont_sum_neg_sum
+else:
+    result = 0
+  第2名: 14.99 - if cont_sum_pos_sum >= 5713.39 and cont_sum_pos_sum <= 5790.95 and forward_max_cont_sum_neg_sum >= -211.28 and forward_max_cont_sum_neg_sum <= -211.28 and cont_sum_pos_sum_second_half >= 2431.5 and cont_sum_pos_sum_second_half <= 2431.5:
+    result = cont_sum_pos_sum + forward_max_cont_sum_neg_sum
+else:
+    result = 0
+  第3名: 14.99 - if cont_sum_pos_sum >= 5713.39 and cont_sum_pos_sum <= 5790.95 and cont_sum_pos_sum_second_half >= 2431.5 and cont_sum_pos_sum_second_half <= 2431.5 and forward_max_cont_sum_neg_sum >= -211.28 and forward_max_cont_sum_neg_sum <= -211.28:
+    result = cont_sum_pos_sum + forward_max_cont_sum_neg_sum
+else:
+    result = 0
+本次最优值 14.99 不小于上一次最优值 11.95，更新 overall_stats
+参数forward_max_cont_sum_neg_sum第1次最优公式: if cont_sum_pos_sum_second_half >= 0.0 and cont_sum_pos_sum_second_half <= 5000.0 and cont_sum_pos_sum >= 5713.39 and cont_sum_pos_sum <= 5790.95 and forward_max_cont_sum_neg_sum >= -211.28 and forward_max_cont_sum_neg_sum <= -211.28:
+    result = cont_sum_pos_sum + forward_max_cont_sum_neg_sum
+else:
+    result = 0
+三次分析：第一次 forward_max_cont_sum_neg_sum 下限：-211.28，上限：-211.28，有较优方案。上次分析最优值：11.95，本次分析最优值：14.99
+三次分析-目标参数forward_max_cont_sum_neg_sum第2次 下限=-211.28 上限=-211.28 步长=10 生成的全部公式:
+  [1] if cont_sum_pos_sum_second_half >= 0.0 and cont_sum_pos_sum_second_half <= 5000.0 and cont_sum_pos_sum >= 5713.39 and cont_sum_pos_sum <= 5790.95 and forward_max_cont_sum_neg_sum >= -211.28 and forward_max_cont_sum_neg_sum <= -211.28:
+    result = cont_sum_pos_sum + forward_max_cont_sum_neg_sum
+else:
+    result = 0
+执行三次分析第2次
+【三次分析第2次完成】全局top_three更新:
+  第1名: 14.99 - if cont_sum_pos_sum_second_half >= 0.0 and cont_sum_pos_sum_second_half <= 5000.0 and cont_sum_pos_sum >= 5713.39 and cont_sum_pos_sum <= 5790.95 and forward_max_cont_sum_neg_sum >= -211.28 and forward_max_cont_sum_neg_sum <= -211.28:
+    result = cont_sum_pos_sum + forward_max_cont_sum_neg_sum
+else:
+    result = 0
+  第2名: 14.99 - if cont_sum_pos_sum >= 5713.39 and cont_sum_pos_sum <= 5790.95 and forward_max_cont_sum_neg_sum >= -211.28 and forward_max_cont_sum_neg_sum <= -211.28 and cont_sum_pos_sum_second_half >= 2431.5 and cont_sum_pos_sum_second_half <= 2431.5:
+    result = cont_sum_pos_sum + forward_max_cont_sum_neg_sum
+else:
+    result = 0
+  第3名: 14.99 - if cont_sum_pos_sum >= 5713.39 and cont_sum_pos_sum <= 5790.95 and cont_sum_pos_sum_second_half >= 2431.5 and cont_sum_pos_sum_second_half <= 2431.5 and forward_max_cont_sum_neg_sum >= -211.28 and forward_max_cont_sum_neg_sum <= -211.28:
+    result = cont_sum_pos_sum + forward_max_cont_sum_neg_sum
+else:
+    result = 0
+本次最优值 14.99 不小于上一次最优值 14.99，更新 overall_stats
+参数forward_max_cont_sum_neg_sum第2次最优公式: if cont_sum_pos_sum_second_half >= 0.0 and cont_sum_pos_sum_second_half <= 5000.0 and cont_sum_pos_sum >= 5713.39 and cont_sum_pos_sum <= 5790.95 and forward_max_cont_sum_neg_sum >= -211.28 and forward_max_cont_sum_neg_sum <= -211.28:
+    result = cont_sum_pos_sum + forward_max_cont_sum_neg_sum
+else:
+    result = 0
+三次分析：第二次 forward_max_cont_sum_neg_sum 下限：-211.28，上限：-211.28，有较优方案。上次分析最优值：14.99，本次分析最优值：14.99
+三次分析-目标参数forward_max_cont_sum_neg_sum第3次 下限=-211.28 上限=-211.28 步长=5 生成的全部公式:
+  [1] if cont_sum_pos_sum_second_half >= 0.0 and cont_sum_pos_sum_second_half <= 5000.0 and cont_sum_pos_sum >= 5713.39 and cont_sum_pos_sum <= 5790.95 and forward_max_cont_sum_neg_sum >= -211.28 and forward_max_cont_sum_neg_sum <= -211.28:
+    result = cont_sum_pos_sum + forward_max_cont_sum_neg_sum
+else:
+    result = 0
+执行三次分析第3次
+【三次分析第3次完成】全局top_three更新:
+  第1名: 14.99 - if cont_sum_pos_sum_second_half >= 0.0 and cont_sum_pos_sum_second_half <= 5000.0 and cont_sum_pos_sum >= 5713.39 and cont_sum_pos_sum <= 5790.95 and forward_max_cont_sum_neg_sum >= -211.28 and forward_max_cont_sum_neg_sum <= -211.28:
+    result = cont_sum_pos_sum + forward_max_cont_sum_neg_sum
+else:
+    result = 0
+  第2名: 14.99 - if cont_sum_pos_sum >= 5713.39 and cont_sum_pos_sum <= 5790.95 and forward_max_cont_sum_neg_sum >= -211.28 and forward_max_cont_sum_neg_sum <= -211.28 and cont_sum_pos_sum_second_half >= 2431.5 and cont_sum_pos_sum_second_half <= 2431.5:
+    result = cont_sum_pos_sum + forward_max_cont_sum_neg_sum
+else:
+    result = 0
+  第3名: 14.99 - if cont_sum_pos_sum >= 5713.39 and cont_sum_pos_sum <= 5790.95 and cont_sum_pos_sum_second_half >= 2431.5 and cont_sum_pos_sum_second_half <= 2431.5 and forward_max_cont_sum_neg_sum >= -211.28 and forward_max_cont_sum_neg_sum <= -211.28:
+    result = cont_sum_pos_sum + forward_max_cont_sum_neg_sum
+else:
+    result = 0
+本次最优值 14.99 不小于上一次最优值 14.99，更新 overall_stats
+参数forward_max_cont_sum_neg_sum第3次最优公式: if cont_sum_pos_sum_second_half >= 0.0 and cont_sum_pos_sum_second_half <= 5000.0 and cont_sum_pos_sum >= 5713.39 and cont_sum_pos_sum <= 5790.95 and forward_max_cont_sum_neg_sum >= -211.28 and forward_max_cont_sum_neg_sum <= -211.28:
+    result = cont_sum_pos_sum + forward_max_cont_sum_neg_sum
+else:
+    result = 0
+三次分析：第三次 forward_max_cont_sum_neg_sum 下限：-211.28，上限：-211.28，有较优方案。上次分析最优值：14.99，本次分析最优值：14.99
+记录参数forward_max_cont_sum_neg_sum的最优条件：最优条件为：下限-211.28，上限-211.28
+变量 forward_max_valid_abs_sum_block1 缺少统计值，无法进行三次分析
+三次分析：第1次未生成公式
+【跳过】参数forward_max_valid_abs_sum_block1（无统计值），切换到下一个参数：cont_sum_pos_sum_second_half
+三次分析-目标参数cont_sum_pos_sum_second_half第1次 下限=2431.5 上限=2431.5 步长=243 生成的全部公式:
+  [1] if cont_sum_pos_sum >= 5713.39 and cont_sum_pos_sum <= 5790.95 and forward_max_cont_sum_neg_sum >= -211.28 and forward_max_cont_sum_neg_sum <= -211.28 and cont_sum_pos_sum_second_half >= 2431.5 and cont_sum_pos_sum_second_half <= 2431.5:
+    result = cont_sum_pos_sum + forward_max_cont_sum_neg_sum
+else:
+    result = 0
+执行三次分析第1次
+三次分析-目标参数cont_sum_pos_sum_second_half第1次 下限=2431.5 上限=2431.5 步长=243 生成的全部公式:
+执行三次分析第1次
+本次最优值 14.99 不小于上一次最优值 14.99，更新 overall_stats
+参数cont_sum_pos_sum_second_half第1次最优公式: if cont_sum_pos_sum_second_half >= 0.0 and cont_sum_pos_sum_second_half <= 5000.0 and cont_sum_pos_sum >= 5713.39 and cont_sum_pos_sum <= 5790.95 and forward_max_cont_sum_neg_sum >= -211.28 and forward_max_cont_sum_neg_sum <= -211.28:
+    result = cont_sum_pos_sum + forward_max_cont_sum_neg_sum
+else:
+    result = 0
+三次分析：第一次 cont_sum_pos_sum_second_half 下限：None，上限：None，有较优方案。上次分析最优值：14.99，本次分析最优值：14.99
+三次分析-目标参数cont_sum_pos_sum_second_half第2次 下限=2431.5 上限=2431.5 步长=121 生成的全部公式:
+  [1] if cont_sum_pos_sum >= 5713.39 and cont_sum_pos_sum <= 5790.95 and forward_max_cont_sum_neg_sum >= -211.28 and forward_max_cont_sum_neg_sum <= -211.28 and cont_sum_pos_sum_second_half >= 2431.5 and cont_sum_pos_sum_second_half <= 2431.5:
+    result = cont_sum_pos_sum + forward_max_cont_sum_neg_sum
+else:
+    result = 0
+执行三次分析第2次
+【三次分析第2次完成】全局top_three更新:
+  第1名: 14.99 - if cont_sum_pos_sum_second_half >= 0.0 and cont_sum_pos_sum_second_half <= 5000.0 and cont_sum_pos_sum >= 5713.39 and cont_sum_pos_sum <= 5790.95 and forward_max_cont_sum_neg_sum >= -211.28 and forward_max_cont_sum_neg_sum <= -211.28:
+    result = cont_sum_pos_sum + forward_max_cont_sum_neg_sum
+else:
+    result = 0
+  第2名: 14.99 - if cont_sum_pos_sum >= 5713.39 and cont_sum_pos_sum <= 5790.95 and forward_max_cont_sum_neg_sum >= -211.28 and forward_max_cont_sum_neg_sum <= -211.28 and cont_sum_pos_sum_second_half >= 2431.5 and cont_sum_pos_sum_second_half <= 2431.5:
+    result = cont_sum_pos_sum + forward_max_cont_sum_neg_sum
+else:
+    result = 0
+  第3名: 14.99 - if cont_sum_pos_sum >= 5713.39 and cont_sum_pos_sum <= 5790.95 and cont_sum_pos_sum_second_half >= 2431.5 and cont_sum_pos_sum_second_half <= 2431.5 and forward_max_cont_sum_neg_sum >= -211.28 and forward_max_cont_sum_neg_sum <= -211.28:
+    result = cont_sum_pos_sum + forward_max_cont_sum_neg_sum
+else:
+    result = 0
+本次最优值 14.99 不小于上一次最优值 14.99，更新 overall_stats
+参数cont_sum_pos_sum_second_half第2次最优公式: if cont_sum_pos_sum >= 5713.39 and cont_sum_pos_sum <= 5790.95 and forward_max_cont_sum_neg_sum >= -211.28 and forward_max_cont_sum_neg_sum <= -211.28 and cont_sum_pos_sum_second_half >= 2431.5 and cont_sum_pos_sum_second_half <= 2431.5:
+    result = cont_sum_pos_sum + forward_max_cont_sum_neg_sum
+else:
+    result = 0
+三次分析：第二次 cont_sum_pos_sum_second_half 下限：2431.5，上限：2431.5，有较优方案。上次分析最优值：14.99，本次分析最优值：14.99
+三次分析-目标参数cont_sum_pos_sum_second_half第3次 下限=2431.5 上限=2431.5 步长=60 生成的全部公式:
+  [1] if cont_sum_pos_sum >= 5713.39 and cont_sum_pos_sum <= 5790.95 and forward_max_cont_sum_neg_sum >= -211.28 and forward_max_cont_sum_neg_sum <= -211.28 and cont_sum_pos_sum_second_half >= 2431.5 and cont_sum_pos_sum_second_half <= 2431.5:
+    result = cont_sum_pos_sum + forward_max_cont_sum_neg_sum
+else:
+    result = 0
+执行三次分析第3次
+【三次分析第3次完成】全局top_three更新:
+  第1名: 14.99 - if cont_sum_pos_sum_second_half >= 0.0 and cont_sum_pos_sum_second_half <= 5000.0 and cont_sum_pos_sum >= 5713.39 and cont_sum_pos_sum <= 5790.95 and forward_max_cont_sum_neg_sum >= -211.28 and forward_max_cont_sum_neg_sum <= -211.28:
+    result = cont_sum_pos_sum + forward_max_cont_sum_neg_sum
+else:
+    result = 0
+  第2名: 14.99 - if cont_sum_pos_sum >= 5713.39 and cont_sum_pos_sum <= 5790.95 and forward_max_cont_sum_neg_sum >= -211.28 and forward_max_cont_sum_neg_sum <= -211.28 and cont_sum_pos_sum_second_half >= 2431.5 and cont_sum_pos_sum_second_half <= 2431.5:
+    result = cont_sum_pos_sum + forward_max_cont_sum_neg_sum
+else:
+    result = 0
+  第3名: 14.99 - if cont_sum_pos_sum >= 5713.39 and cont_sum_pos_sum <= 5790.95 and cont_sum_pos_sum_second_half >= 2431.5 and cont_sum_pos_sum_second_half <= 2431.5 and forward_max_cont_sum_neg_sum >= -211.28 and forward_max_cont_sum_neg_sum <= -211.28:
+    result = cont_sum_pos_sum + forward_max_cont_sum_neg_sum
+else:
+    result = 0
+本次最优值 14.99 不小于上一次最优值 14.99，更新 overall_stats
+参数cont_sum_pos_sum_second_half第3次最优公式: if cont_sum_pos_sum >= 5713.39 and cont_sum_pos_sum <= 5790.95 and forward_max_cont_sum_neg_sum >= -211.28 and forward_max_cont_sum_neg_sum <= -211.28 and cont_sum_pos_sum_second_half >= 2431.5 and cont_sum_pos_sum_second_half <= 2431.5:
+    result = cont_sum_pos_sum + forward_max_cont_sum_neg_sum
+else:
+    result = 0
+三次分析：第三次 cont_sum_pos_sum_second_half 下限：2431.5，上限：2431.5，有较优方案。上次分析最优值：14.99，本次分析最优值：14.99
+记录参数cont_sum_pos_sum_second_half的最优条件：最优条件为：下限2431.5，上限2431.5
+三次分析完成，总共记录了3个参数的最优条件
+【第最终次】有最优方案出现！当前最优组合排序输出值：14.99，大于上次分析最优值：9.02 的 100.0% = 9.02
+
+但不大于锁定最优值 14.99
