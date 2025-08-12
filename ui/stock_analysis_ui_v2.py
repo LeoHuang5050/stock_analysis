@@ -155,6 +155,11 @@ class StockAnalysisApp(QWidget):
         # 新增：三次分析统计信息
         self.last_three_stage_total_elapsed_time = None
         self.last_three_stage_total_formulas = 0
+        # 新增：三次分析关键状态，便于程序重启后继续导出
+        self.three_stage_best_top_one = None
+        self.three_stage_param_best_conditions = {}
+        self.best_param_condition_list = []
+        self.current_three_stage_variable = None
         self.init_ui()
         self.connect_signals()
         # 默认最大化显示
@@ -2263,6 +2268,16 @@ class StockAnalysisApp(QWidget):
         if hasattr(self, '_pending_component_analysis_results'):
             component_widget.set_cached_analysis_results(self._pending_component_analysis_results)
             del self._pending_component_analysis_results
+        
+        # 恢复三次分析状态，便于程序重启后继续导出
+        if hasattr(self, 'three_stage_best_top_one'):
+            component_widget.three_stage_best_top_one = self.three_stage_best_top_one
+        if hasattr(self, 'three_stage_param_best_conditions'):
+            component_widget.three_stage_param_best_conditions = self.three_stage_param_best_conditions
+        if hasattr(self, 'best_param_condition_list'):
+            component_widget.best_param_condition_list = self.best_param_condition_list
+        if hasattr(self, 'current_three_stage_variable'):
+            component_widget.current_three_stage_variable = self.current_three_stage_variable
 
     def on_export_excel(self):
         # 获取当前表格数据
@@ -3024,6 +3039,11 @@ class StockAnalysisApp(QWidget):
             # 新增：保存三次分析统计信息
             'last_three_stage_total_elapsed_time': getattr(self, 'last_three_stage_total_elapsed_time', None),
             'last_three_stage_total_formulas': getattr(self, 'last_three_stage_total_formulas', 0),
+            # 新增：保存三次分析关键状态，便于程序重启后继续导出
+            'three_stage_best_top_one': getattr(self, 'three_stage_best_top_one', None),
+            'three_stage_param_best_conditions': getattr(self, 'three_stage_param_best_conditions', {}),
+            'best_param_condition_list': getattr(self, 'best_param_condition_list', []),
+            'current_three_stage_variable': getattr(self, 'current_three_stage_variable', None),
         }
         # 保存公式选股控件状态
         if hasattr(self, 'formula_widget') and self.formula_widget is not None:
@@ -3292,6 +3312,15 @@ class StockAnalysisApp(QWidget):
                 self.last_three_stage_total_elapsed_time = config['last_three_stage_total_elapsed_time']
             if 'last_three_stage_total_formulas' in config:
                 self.last_three_stage_total_formulas = config['last_three_stage_total_formulas']
+            # 新增：恢复三次分析关键状态，便于程序重启后继续导出
+            if 'three_stage_best_top_one' in config:
+                self.three_stage_best_top_one = config['three_stage_best_top_one']
+            if 'three_stage_param_best_conditions' in config:
+                self.three_stage_param_best_conditions = config['three_stage_param_best_conditions']
+            if 'best_param_condition_list' in config:
+                self.best_param_condition_list = config['best_param_condition_list']
+            if 'current_three_stage_variable' in config:
+                self.current_three_stage_variable = config['current_three_stage_variable']
         except Exception as e:
             print(f"加载配置失败: {e}")
 

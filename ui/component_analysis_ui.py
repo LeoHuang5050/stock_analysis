@@ -30,6 +30,7 @@ class ComponentAnalysisWidget(QWidget):
         self.is_three_stage_mode = False  # 三次分析模式标记
         self.three_stage_round_better = None  # 本轮是否优于上一轮（用于三次分析）
         self.best_param_condition_list = []  # 跟踪每个参数的最优条件，用于导出JSON
+        self.analysis_completed_callback = None  # 分析完成后的回调函数
         self.init_ui()
         
         # 连接勾选框状态改变信号
@@ -600,11 +601,14 @@ class ComponentAnalysisWidget(QWidget):
             # 设置连续分析模式标识
             self.is_auto_three_stage_mode = True
             
+            # 设置主窗口的三次分析标志，用于show_analysis_results的条件判断
+            self.main_window.last_analysis_was_three_stage = True
+            
+            # 设置回调函数，确保组合分析完成后执行三次分析
+            self.analysis_completed_callback = self._continue_with_three_stage
+            
             # 先执行组合分析（禁用提示功能）
             self.on_analyze_clicked()
-            
-            # 2秒后执行三次分析
-            QTimer.singleShot(2000, self._continue_with_three_stage)
             
         except Exception as e:
             print(f"开始连续分析失败: {e}")
@@ -614,6 +618,10 @@ class ComponentAnalysisWidget(QWidget):
     def _continue_with_three_stage(self):
         """继续执行三次分析"""
         try:
+            # 检查是否在连续分析模式下，如果不是则直接返回
+            if not getattr(self, 'is_auto_three_stage_mode', False):
+                return
+                
             # 检查组合分析是否完成
             if hasattr(self, 'analysis_terminated') and self.analysis_terminated:
                 print("组合分析被终止，停止连续分析")
@@ -648,6 +656,9 @@ class ComponentAnalysisWidget(QWidget):
         # 清空最优参数条件列表，因为这是普通分析，不是三次分析
         if hasattr(self, 'best_param_condition_list'):
             self.best_param_condition_list.clear()
+        
+        # 设置主窗口的三次分析标志为False，因为这是普通组合分析
+        self.main_window.last_analysis_was_three_stage = False
         
         # 获取组合分析次数
         analysis_count = self.analysis_count_spin.value()
@@ -1088,6 +1099,8 @@ class ComponentAnalysisWidget(QWidget):
             
             # 标记进入三次分析模式，并清空上一轮基准
             self.is_three_stage_mode = True
+            # 设置主窗口的三次分析标志，用于show_analysis_results的条件判断
+            self.main_window.last_analysis_was_three_stage = True
             self.main_window.three_stage_prev_best_value = getattr(self.main_window, 'last_adjusted_value', None)
             # 保存三次分析开始前的last_adjusted_value快照，用于最终判断是否生成操盘方案
             self.three_stage_initial_last_value = getattr(self.main_window, 'last_adjusted_value', None)
@@ -1364,6 +1377,16 @@ class ComponentAnalysisWidget(QWidget):
                 self.main_window.last_three_stage_total_elapsed_time = three_stage_time_str
                 self.main_window.last_three_stage_total_formulas = getattr(self, 'three_stage_total_formulas', 0)
             
+            # 同步三次分析关键状态到主窗口，便于程序重启后继续导出
+            if hasattr(self, 'three_stage_best_top_one'):
+                self.main_window.three_stage_best_top_one = self.three_stage_best_top_one
+            if hasattr(self, 'three_stage_param_best_conditions'):
+                self.main_window.three_stage_param_best_conditions = self.three_stage_param_best_conditions
+            if hasattr(self, 'best_param_condition_list'):
+                self.main_window.best_param_condition_list = self.best_param_condition_list
+            if hasattr(self, 'current_three_stage_variable'):
+                self.main_window.current_three_stage_variable = self.current_three_stage_variable
+            
             print(f"三次分析完成，总共记录了{len(self.best_param_condition_list)}个参数的最优条件")
             self.log_three_analysis(f"三次分析完成，总共记录了{len(self.best_param_condition_list)}个参数的最优条件")
             
@@ -1624,10 +1647,19 @@ class ComponentAnalysisWidget(QWidget):
                             # 保存当前参数的最优公式和条件
                             if param_name:
                                 self.three_stage_param_best_formulas[param_name] = top_one
+                                # 获取当前组合排序输出值
+                                current_output_value = "未知"
+                                if top_one and 'adjusted_value' in top_one:
+                                    try:
+                                        current_output_value = str(top_one.get('adjusted_value'))
+                                    except Exception:
+                                        current_output_value = "未知"
+                                
                                 self.three_stage_param_best_conditions[param_name] = {
                                     'lower': lower_val,
                                     'upper': upper_val,
-                                    'round': getattr(self, 'three_stage_round_index', 1)
+                                    'round': getattr(self, 'three_stage_round_index', 1),
+                                    'output_value': current_output_value
                                 }
                                 
                                 # 记录当前轮次的最优结果到日志
@@ -1728,40 +1760,55 @@ class ComponentAnalysisWidget(QWidget):
                                     self.log_three_analysis(log_message)
                                     self._logged_no_better_solutions.add(log_key)
                                 
-                                # 公式回退：如果当前轮次没有找到更优方案，回退到上一轮的最优公式
-                                if param_name and param_name in self.three_stage_param_best_formulas:
-                                    # 回退到该参数的最优公式
-                                    best_formula = self.three_stage_param_best_formulas[param_name]
-                                    best_conditions = self.three_stage_param_best_conditions[param_name]
+                                # 检查是否是最后一个参数，如果是最后一个参数且没有找到最优结果，则跳过公式回退
+                                queue = getattr(self, 'three_stage_param_queue', [])
+                                idx = getattr(self, 'three_stage_current_param_idx', 0)
+                                is_last_param = (idx + 1 >= len(queue))
+                                
+                                if is_last_param:
+                                    # 最后一个参数没有找到最优结果，跳过公式回退，直接完成分析
+                                    log_message = f"三次分析：{param_name} 是最后一个参数且没有找到最优结果，跳过公式回退，直接完成分析"
+                                    print(log_message)
+                                    self.log_three_analysis(log_message)
                                     
-                                    # 不要直接覆盖全局overall_stats，而是保存为参数特定的基准
-                                    if best_formula.get('overall_stats'):
-                                        self.three_stage_param_baseline_stats = best_formula.get('overall_stats')
-                                    
-                                    # 避免重复记录公式回退日志
-                                    fallback_log_key = f"fallback_{param_name}_{round_idx}"
-                                    if fallback_log_key not in self._logged_no_better_solutions:
-                                        log_message = f"公式回退：{param_name} 回退到第{best_conditions['round']}次的最优公式（下限：{best_conditions['lower']}，上限：{best_conditions['upper']}）"
-                                        print(log_message)
-                                        self.log_three_analysis(log_message)
-                                        self._logged_no_better_solutions.add(fallback_log_key)
+                                    # 直接调用完成分析，避免流程中断
+                                    self._complete_three_stage_analysis()
+                                    return
                                 else:
-                                    # 如果没有该参数的最优公式，回退到上次最优公式（不包含该参数条件）
-                                    # 避免重复记录公式回退日志
-                                    fallback_log_key = f"fallback_no_formula_{param_name}_{round_idx}"
-                                    if fallback_log_key not in self._logged_no_better_solutions:
-                                        # 处理prev_best_float为None的情况
-                                        if prev_best_float is not None:
-                                            log_message = f"公式回退：{param_name} 没有找到最优公式，回退到上次最优公式，上次最优公式值：{prev_best_float:.2f}"
-                                        else:
-                                            log_message = f"公式回退：{param_name} 没有找到最优公式，这是第一次分析，没有上次最优公式值"
-                                        print(log_message)
-                                        self.log_three_analysis(log_message)
-                                        self._logged_no_better_solutions.add(fallback_log_key)
-                                    
-                                    # 确保使用全局最优的overall_stats作为基准
-                                    if hasattr(self.main_window, 'overall_stats') and self.main_window.overall_stats:
-                                        self.three_stage_param_baseline_stats = self.main_window.overall_stats.copy()
+                                    # 公式回退：如果当前轮次没有找到更优方案，回退到上一轮的最优公式
+                                    if param_name and param_name in self.three_stage_param_best_formulas:
+                                        # 回退到该参数的最优公式
+                                        best_formula = self.three_stage_param_best_formulas[param_name]
+                                        best_conditions = self.three_stage_param_best_conditions[param_name]
+                                        
+                                        # 不要直接覆盖全局overall_stats，而是保存为参数特定的基准
+                                        if best_formula.get('overall_stats'):
+                                            self.three_stage_param_baseline_stats = best_formula.get('overall_stats')
+                                        
+                                        # 避免重复记录公式回退日志
+                                        fallback_log_key = f"fallback_{param_name}_{round_idx}"
+                                        if fallback_log_key not in self._logged_no_better_solutions:
+                                            log_message = f"公式回退：{param_name} 回退到第{best_conditions['round']}次的最优公式（下限：{best_conditions['lower']}，上限：{best_conditions['upper']}）"
+                                            print(log_message)
+                                            self.log_three_analysis(log_message)
+                                            self._logged_no_better_solutions.add(fallback_log_key)
+                                    else:
+                                        # 如果没有该参数的最优公式，回退到上次最优公式（不包含该参数条件）
+                                        # 避免重复记录公式回退日志
+                                        fallback_log_key = f"fallback_no_formula_{param_name}_{round_idx}"
+                                        if fallback_log_key not in self._logged_no_better_solutions:
+                                            # 处理prev_best_float为None的情况
+                                            if prev_best_float is not None:
+                                                log_message = f"公式回退：{param_name} 没有找到最优公式，回退到上次最优公式，上次最优公式值：{prev_best_float:.2f}"
+                                            else:
+                                                log_message = f"公式回退：{param_name} 没有找到最优公式，这是第一次分析，没有上次最优公式值"
+                                            print(log_message)
+                                            self.log_three_analysis(log_message)
+                                            self._logged_no_better_solutions.add(fallback_log_key)
+                                        
+                                        # 确保使用全局最优的overall_stats作为基准
+                                        if hasattr(self.main_window, 'overall_stats') and self.main_window.overall_stats:
+                                            self.three_stage_param_baseline_stats = self.main_window.overall_stats.copy()
                             except Exception:
                                 pass
                         except Exception:
@@ -1778,15 +1825,15 @@ class ComponentAnalysisWidget(QWidget):
                         if new_value_float > 0:
                             should_generate = True
                         else:
-                            if not self.is_three_stage_mode:
+                            if not self.is_three_stage_mode and not getattr(self, 'is_auto_three_stage_mode', False):
                                 QMessageBox.warning(self, "方案无效", f"该组合分析最优方案的输出值 {new_value_float:.2f} 不大于0，此方案无效，不生成操盘方案")
                             should_generate = False
                     except Exception:
-                        if not self.is_three_stage_mode:
+                        if not self.is_three_stage_mode and not getattr(self, 'is_auto_three_stage_mode', False):
                             QMessageBox.warning(self, "方案无效", "该组合分析最优方案的输出值无效，此方案无效，不生成操盘方案")
                         should_generate = False
                 else:
-                    if not self.is_three_stage_mode:
+                    if not self.is_three_stage_mode and not getattr(self, 'is_auto_three_stage_mode', False):
                         QMessageBox.warning(self, "方案无效", "该组合分析最优方案的输出值为空，此方案无效，不生成操盘方案")
                     should_generate = False
                 
@@ -1814,7 +1861,7 @@ class ComponentAnalysisWidget(QWidget):
                                     else:
                                         message += f"\n\n且不大于锁定最优值 {locked_value_float:.2f}"
                                 
-                                if not self.is_three_stage_mode:
+                                if not self.is_three_stage_mode and not getattr(self, 'is_auto_three_stage_mode', False):
                                     QMessageBox.warning(self, "方案无效", message)
                         except Exception:
                             should_generate = True  # 转换失败时默认生成
@@ -1862,7 +1909,7 @@ class ComponentAnalysisWidget(QWidget):
                     # 更新显示
                     self._update_last_best_value_display()
             else:
-                # 在三次分析模式下，如果没有满足条件的结果，不弹框提示，只记录日志
+                # 在三次分析模式和连续分析模式下，如果没有满足条件的结果，不弹框提示，只记录日志
                 if not self.is_three_stage_mode and not getattr(self, 'is_auto_three_stage_mode', False):
                     QMessageBox.information(self, "分析完成", "没有满足条件的组合分析结果")
                 elif self.is_three_stage_mode:
@@ -1904,7 +1951,10 @@ class ComponentAnalysisWidget(QWidget):
                         current_param = getattr(self, 'current_three_stage_variable', '未知参数')
                         if current_param in self.three_stage_param_best_conditions:
                             best_conditions = self.three_stage_param_best_conditions[current_param]
-                            condition_text = f"最优条件为：下限{best_conditions.get('lower', '未知')}，上限{best_conditions.get('upper', '未知')}"
+                            # 直接从best_conditions中获取输出值
+                            best_output_value = best_conditions.get('output_value', '未知')
+                            
+                            condition_text = f"最优条件为：下限{best_conditions.get('lower', '未知')}，上限{best_conditions.get('upper', '未知')}， 组合排序输出值为：{best_output_value}"
                             self.best_param_condition_list.append({current_param: condition_text})
                             print(f"记录参数{current_param}的最优条件：{condition_text}")
                             self.log_three_analysis(f"记录参数{current_param}的最优条件：{condition_text}")
@@ -1988,6 +2038,15 @@ class ComponentAnalysisWidget(QWidget):
                 self.optimize_btn.setEnabled(True)
                 self.three_stage_btn.setEnabled(True)  # 恢复三次分析按钮
                 self.is_three_stage_mode = False
+            
+            # 检查是否有回调函数需要执行（用于连续分析模式）
+            if hasattr(self, 'analysis_completed_callback') and self.analysis_completed_callback:
+                callback = self.analysis_completed_callback
+                self.analysis_completed_callback = None  # 清除回调，避免重复执行
+                print("组合分析完成，执行回调：开始三次分析")
+                callback()  # 执行三次分析
+                return
+            
             return
         
         # 如果是第一次分析，直接执行
@@ -2053,7 +2112,7 @@ class ComponentAnalysisWidget(QWidget):
             round_index = getattr(self, 'three_stage_round_index', '?')
             target_variable = getattr(self, 'three_stage_target_variable', '?')
             # 获取参数类型和序号信息
-            target_variable_type = "输出参数" if hasattr(self, 'three_stage_param_queue') and target_variable in getattr(self, 'three_stage_param_queue', [])[:len(getattr(self, 'three_stage_param_queue', []))//2] else "辅助函数"
+            target_variable_type = "输出参数" if hasattr(self, 'three_stage_param_queue') and target_variable in getattr(self, 'three_stage_param_queue', [])[:len(getattr(self, 'three_stage_param_queue', []))//2] else "辅助参数"
             target_variable_index = getattr(self, 'three_stage_current_param_idx', 0) + 1
             total_params = len(getattr(self, 'three_stage_param_queue', []))
             
@@ -2106,7 +2165,7 @@ class ComponentAnalysisWidget(QWidget):
             round_index = getattr(self, 'three_stage_round_index', '?')
             target_variable = getattr(self, 'three_stage_target_variable', '?')
             # 获取参数类型和序号信息
-            target_variable_type = "输出参数" if hasattr(self, 'three_stage_param_queue') and target_variable in getattr(self, 'three_stage_param_queue', [])[:len(getattr(self, 'three_stage_param_queue', []))//2] else "辅助函数"
+            target_variable_type = "输出参数" if hasattr(self, 'three_stage_param_queue') and target_variable in getattr(self, 'three_stage_param_queue', [])[:len(getattr(self, 'three_stage_param_queue', []))//2] else "辅助参数"
             target_variable_index = getattr(self, 'three_stage_current_param_idx', 0) + 1
             total_params = len(getattr(self, 'three_stage_param_queue', []))
             
@@ -2714,6 +2773,23 @@ class ComponentAnalysisWidget(QWidget):
         """
         显示组合分析结果（只输出排序前3的单页表格）
         """
+        # 检查是否在组合-连续三次分析模式中，且这是组合分析完成后的调用
+        # 在组合-连续三次分析模式中，组合分析完成后只处理结果，不显示表格
+        if (getattr(self, 'is_auto_three_stage_mode', False) and 
+            not getattr(self.main_window, 'last_analysis_was_three_stage', False)):
+            print("组合-连续三次分析模式：组合分析完成，只处理结果，不显示表格")
+            if not all_analysis_results:
+                self.show_message("没有有效的分析结果")
+                return
+            
+            # 使用process_analysis_results处理结果并获取top_three
+            top_three = self.process_analysis_results(all_analysis_results)
+            if not top_three:
+                return
+            
+            # 只处理结果，不显示表格，直接返回
+            print("组合分析结果处理完成，等待三次分析完成后统一显示")
+            return
         # 根据最后点击的分析类型来决定展示哪个top_three
         if hasattr(self.main_window, 'last_analysis_was_three_stage') and self.main_window.last_analysis_was_three_stage:
             # 最后点击的是三次分析，优先使用三次分析的全局top_three
