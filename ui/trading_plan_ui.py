@@ -699,14 +699,23 @@ class TradingPlanWidget(QWidget):
         # 检查是否有数据文件
         price_data = getattr(self.main_window.init, 'price_data', None)
         if price_data is None:
-            from PyQt5.QtWidgets import QMessageBox
             QMessageBox.warning(self, "提示", "请先上传数据文件！")
             return
             
         plan_list = getattr(self.main_window, 'trading_plan_list', [])
+        expired_plans = []  # 收集过期的交易计划
+        
         for plan in plan_list:
             # 检查是否参与实操，如果为False则跳过
             if not plan.get('real_trade', False):
+                continue
+            
+            # 检查交易计划是否过期
+            is_expired, expiry_time = self._is_trading_plan_expired(plan)
+            if is_expired:
+                # 将过期时间存储到plan对象中，用于弹窗显示
+                plan['expiry_time'] = expiry_time
+                expired_plans.append(plan)
                 continue
                 
             params = plan.get('params', {})
@@ -720,11 +729,9 @@ class TradingPlanWidget(QWidget):
             # 检查结束日期是否为交易日
             if hasattr(self.main_window.init, 'workdays_str'):
                 if not self.main_window.init.workdays_str:
-                    from PyQt5.QtWidgets import QMessageBox
                     QMessageBox.warning(self, "提示", "请先上传数据文件！")
                     return
                 if end_date not in self.main_window.init.workdays_str:
-                    from PyQt5.QtWidgets import QMessageBox
                     QMessageBox.warning(self, "提示", "只能选择交易日！")
                     return
             
@@ -775,6 +782,17 @@ class TradingPlanWidget(QWidget):
             result = calc.calculate_batch_16_cores(params)
 
             plan['result'] = result
+        
+        # 如果有过期的交易计划，统一弹窗提示
+        if expired_plans:
+            expired_message = "以下交易方案已过期，请重新分析：\n\n"
+            for i, plan in enumerate(expired_plans, 1):
+                plan_name = plan.get('plan_name', '未知方案')
+                expiry_time = plan.get('expiry_time', '未知')
+                expired_message += f"第{i}个方案：{plan_name}，已过期（过期时间：{expiry_time}），请重新分析\n"
+            
+            QMessageBox.information(self, "过期方案提示", expired_message)
+        
         self.clean_plan_for_save(plan_list)
 
     @staticmethod
@@ -1603,6 +1621,84 @@ class TradingPlanWidget(QWidget):
                 self.main_window.trading_plan_list = plan_list
                 self.refresh_cards()
                 QMessageBox.information(self, "成功", "方案名称已更新！")
+
+    def _is_trading_plan_expired(self, plan):
+        """
+        检查交易计划是否过期
+        过期条件：当前日期超过生成时间 + width个交易日
+        返回：(是否过期, 过期时间字符串) 或 (False, None)
+        """
+        try:
+            # 通过正则表达式从plan_name中提取参数
+            plan_name = plan.get('plan_name', '') or plan.get('name', '')
+            if not plan_name:
+                return False, None
+            
+            # 使用正则表达式提取width参数（通常是第二个部分，数字格式）
+            import re
+            width_match = re.search(r'^[^-]*?-(\d+)-', plan_name)
+            if not width_match:
+                # 如果没有找到标准格式，尝试其他格式
+                width_match = re.search(r'(\d+)', plan_name)
+            
+            if not width_match:
+                print(f"无法从方案名称中提取width参数: {plan_name}")
+                return False, None
+            
+            width = int(width_match.group(1))
+            
+            # 提取生成时间（通常是倒数第二个部分，日期格式）
+            date_match = re.search(r'(\d{4}-\d{2}-\d{2})', plan_name)
+            if not date_match:
+                print(f"无法从方案名称中提取生成时间: {plan_name}")
+                return False, None
+            
+            generate_time = date_match.group(1)
+            
+            # 将生成时间转换为QDate
+            generate_date = QDate.fromString(generate_time, "yyyy-MM-dd")
+            if not generate_date.isValid():
+                print(f"生成时间格式无效: {generate_time}")
+                return False, None
+            
+            # 获取当前选择的结束日期
+            current_end_date = self.end_date_picker.date()
+            if not current_end_date.isValid():
+                return False, None
+            
+            # 计算过期日期：生成时间 + width个交易日
+            expiry_date = generate_date
+            if hasattr(self.main_window.init, 'workdays_str') and self.main_window.init.workdays_str:
+                # 使用交易日计算
+                workdays_str = self.main_window.init.workdays_str
+                generate_date_str = generate_date.toString("yyyy-MM-dd")
+                
+                if generate_date_str in workdays_str:
+                    # 找到生成时间在交易日列表中的位置
+                    start_idx = workdays_str.index(generate_date_str)
+                    # 向后移动width个交易日
+                    end_idx = min(start_idx + width, len(workdays_str) - 1)
+                    expiry_date = QDate.fromString(workdays_str[end_idx], "yyyy-MM-dd")
+                else:
+                    # 如果生成时间不在交易日列表中，使用自然日计算
+                    expiry_date = generate_date.addDays(width)
+            else:
+                # 如果没有交易日数据，使用自然日计算
+                expiry_date = generate_date.addDays(width)
+            
+            # 检查是否过期
+            is_expired = current_end_date > expiry_date
+            
+            if is_expired:
+                expiry_time_str = expiry_date.toString("yyyy-MM-dd")
+                print(f"交易方案 '{plan_name}' 已过期：生成时间 {generate_time}，width={width}，过期时间 {expiry_time_str}")
+                return True, expiry_time_str
+            else:
+                return False, None
+            
+        except Exception as e:
+            print(f"检查交易计划过期状态时出错: {e}")
+            return False, None
 
 class PlanNameEditDialog(QDialog):
     """操盘方案名称编辑对话框"""

@@ -2688,7 +2688,7 @@ class FormulaSelectWidget(QWidget):
                     print("没有发现向前参数变量")
         
         return combinations
-    def generate_formula_list(self):
+    def  generate_formula_list(self):
         """
         生成公式列表，用于组合分析，类似笛卡尔积
         根据步长和方向选项生成所有可能的组合
