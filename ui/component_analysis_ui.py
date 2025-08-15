@@ -65,6 +65,9 @@ class ComponentAnalysisWidget(QWidget):
             round_index: 三次分析的轮次索引
         """
         if not top_one:
+            # 没有满足条件的结果，弹框提醒
+            message = "没有满足条件的组合分析结果"
+            QMessageBox.warning(self, "无满足条件结果", message)
             return False
             
         new_value = top_one.get('adjusted_value', None)
@@ -625,8 +628,8 @@ class ComponentAnalysisWidget(QWidget):
             # 设置回调函数，确保组合分析完成后执行三次分析
             self.analysis_completed_callback = self._continue_with_three_stage
             
-            # 先执行组合分析（禁用提示功能）
-            self.on_analyze_clicked()
+            # 先执行组合分析（传入连续分析模式参数）
+            self.on_analyze_clicked(is_auto_mode=True)
             
         except Exception as e:
             print(f"开始连续分析失败: {e}")
@@ -659,7 +662,16 @@ class ComponentAnalysisWidget(QWidget):
         """组合-三次连续分析按钮点击处理"""
         self._start_auto_three_stage_analysis()
         
-    def on_analyze_clicked(self):
+    def on_analyze_clicked(self, is_auto_mode=False):
+        """
+        执行组合分析
+        
+        Args:
+            is_auto_mode: 是否为连续三次分析模式，默认为False（普通分析模式）
+        """
+        
+        # 根据参数设置分析模式
+        self.is_auto_three_stage_mode = is_auto_mode
         
         # 验证组合输出参数选择
         if not self._validate_abbr_round_only_selection():
@@ -677,8 +689,13 @@ class ComponentAnalysisWidget(QWidget):
         if hasattr(self, 'no_better_result_list'):
             self.no_better_result_list.clear()
         
-        # 设置主窗口的三次分析标志为False，因为这是普通组合分析
-        self.main_window.last_analysis_was_three_stage = False
+        # 根据分析模式设置主窗口的三次分析标志
+        if is_auto_mode:
+            # 连续三次分析模式：设置为True，因为后续会执行三次分析
+            self.main_window.last_analysis_was_three_stage = True
+        else:
+            # 普通分析模式：设置为False
+            self.main_window.last_analysis_was_three_stage = False
         
         # 获取组合分析次数
         analysis_count = self.analysis_count_spin.value()
@@ -1512,22 +1529,19 @@ class ComponentAnalysisWidget(QWidget):
     def _show_final_three_stage_results(self):
         """显示三次分析的最终结果"""
         try:
-            # 优先使用全局的top_three，如果没有则使用缓存结果
+            # 优先使用全局的top_three，如果没有则直接传入空列表
             if hasattr(self, 'three_stage_global_top_three') and self.three_stage_global_top_three:
                 print(f"三次分析完成：使用全局top_three展示结果，长度 = {len(self.three_stage_global_top_three)}")
                 # 将三次分析的全局top_three保存到主窗口缓存，供tab切换时使用
                 self.main_window.cached_component_analysis_results = self.three_stage_global_top_three
                 # 标记这是三次分析的结果
                 self.main_window.last_analysis_was_three_stage = True
+                print(f"三次分析完成：使用全局top_three展示结果，长度 = {len(self.three_stage_global_top_three)}")
                 self.show_analysis_results([])  # 传入空列表，让show_analysis_results使用全局top_three
-            elif self.cached_analysis_results:
-                print(f"三次分析完成：使用缓存结果展示，长度 = {len(self.cached_analysis_results)}")
-                self.show_analysis_results(self.cached_analysis_results)
             else:
-                # 如果没有缓存结果，使用当前轮次的最优结果
-                if hasattr(self, 'three_stage_current_best_top_one') and self.three_stage_current_best_top_one:
-                    final_results = [self.three_stage_current_best_top_one]
-                    self.show_analysis_results(final_results)
+                # 如果没有全局top_three，直接传入空列表，让show_analysis_results处理
+                print("三次分析完成：没有全局top_three，传入空列表")
+                self.show_analysis_results([])
             
             # 判断是否生成操盘方案
             final_top_one = None
@@ -1542,12 +1556,12 @@ class ComponentAnalysisWidget(QWidget):
                 if final_top_one:
                     self.main_window.overall_stats = final_top_one.get('overall_stats')
                     
-                    # 使用分离的方法处理操盘方案生成和提醒
-                    self._generate_trading_plan_with_notification(
-                        final_top_one, 
-                        is_three_stage_mode=True, 
-                        round_index="最终"
-                    )
+                # 使用分离的方法处理操盘方案生成和提醒
+                self._generate_trading_plan_with_notification(
+                    final_top_one, 
+                    is_three_stage_mode=True, 
+                    round_index="最终"
+                )
             except Exception as e:
                 log_message = f"三次分析完成后生成操盘方案出错: {e}"
                 print(log_message)
@@ -1633,6 +1647,14 @@ class ComponentAnalysisWidget(QWidget):
                 self.show_analysis_results(self.all_analysis_results)
             
             # 分析全部完成后，检查最优方案是否满足条件
+            # 初始化变量，确保在所有情况下都被定义
+            new_value = None
+            new_value_float = None
+            last_value = None
+            last_value_float = None
+            locked_value = None
+            locked_value_float = None
+            
             if self.cached_analysis_results:
                 top_one = self.cached_analysis_results[0]
                 
@@ -1855,9 +1877,38 @@ class ComponentAnalysisWidget(QWidget):
                                     self.log_three_analysis(log_message)
                                     self._logged_no_better_solutions.add(log_key)
                                     
-                                    # 记录无最优结果到no_better_result_list
+                                    # 记录无最优结果到no_better_result_list，包含详细信息
                                     round_name = {1: '第一次', 2: '第二次', 3: '第三次'}.get(round_idx, f"第{round_idx}次")
-                                    no_better_text = f"{param_name}：{round_name}分析无最优"
+                                    
+                                    # 获取当前参数的median值（从初始overall_stats快照中获取）
+                                    median_value = ''
+                                    positive_median_value = ''
+                                    negative_median_value = ''
+                                    if hasattr(self, 'three_stage_param_baseline_stats') and self.three_stage_param_baseline_stats:
+                                        median_key = f'{param_name}_median'
+                                        positive_median_key = f'{param_name}_positive_median'
+                                        negative_median_key = f'{param_name}_negative_median'
+                                        if median_key in self.three_stage_param_baseline_stats:
+                                            median_value = str(self.three_stage_param_baseline_stats[median_key])
+                                        if positive_median_key in self.three_stage_param_baseline_stats:
+                                            positive_median_value = str(self.three_stage_param_baseline_stats[positive_median_key])
+                                        if negative_median_key in self.three_stage_param_baseline_stats:
+                                            negative_median_value = str(self.three_stage_param_baseline_stats[negative_median_key])
+                                    
+                                    # 获取上下限值，如果没有则使用空字符串
+                                    lower_value = lower_val if lower_val else ''
+                                    upper_value = upper_val if upper_val else ''
+                                    if lower_value == '未知':
+                                        lower_value = ''
+                                    if upper_value == '未知':
+                                        upper_value = ''
+                                    
+                                    # 获取当前最优值（使用本次分析最优值，而不是上次分析最优值）
+                                    current_best_value = new_value_float if new_value_float is not None else '未知'
+                                    if current_best_value != '未知':
+                                        current_best_value = f"{current_best_value:.2f}"
+                                    
+                                    no_better_text = f"无最优条件为：下限{lower_value}，上限{upper_value}， 组合排序输出值为：{current_best_value}，{param_name}_median：{median_value}，{param_name}_positive_median：{positive_median_value}，{param_name}_negative_median：{negative_median_value}"
                                     self.no_better_result_list.append({param_name: no_better_text})
                                     print(f"记录参数{param_name}的无最优结果：{no_better_text}")
                                     self.log_three_analysis(f"记录参数{param_name}的无最优结果：{no_better_text}")
@@ -2020,6 +2071,7 @@ class ComponentAnalysisWidget(QWidget):
             else:
                 # 在三次分析模式和连续分析模式下，如果没有满足条件的结果，不弹框提示，只记录日志
                 if not self.is_three_stage_mode and not getattr(self, 'is_auto_three_stage_mode', False):
+                    self.show_analysis_results([])
                     QMessageBox.information(self, "分析完成", "没有满足条件的组合分析结果")
                 elif self.is_three_stage_mode:
                     # 三次分析模式：记录到日志，但不弹框
@@ -2027,10 +2079,55 @@ class ComponentAnalysisWidget(QWidget):
                     print(log_message)
                     self.log_three_analysis(log_message)
                     
-                    # 记录当前参数的无最优结果到no_better_result_list
+                    # 记录当前参数的无最优结果到no_better_result_list，包含详细信息
                     current_param = getattr(self, 'current_three_stage_variable', '参数')
                     round_name = {1: '第一次', 2: '第二次', 3: '第三次'}.get(getattr(self, 'three_stage_round_index', 1), f"第{getattr(self, 'three_stage_round_index', 1)}次")
-                    no_better_text = f"{current_param}：{round_name}分析无最优"
+                    
+                    # 获取当前参数的median值（从初始overall_stats快照中获取）
+                    median_value = ''
+                    positive_median_value = ''
+                    negative_median_value = ''
+                    if hasattr(self, 'three_stage_param_baseline_stats') and self.three_stage_param_baseline_stats:
+                        median_key = f'{current_param}_median'
+                        positive_median_key = f'{current_param}_positive_median'
+                        negative_median_key = f'{current_param}_negative_median'
+                        if median_key in self.three_stage_param_baseline_stats:
+                            median_value = str(self.three_stage_param_baseline_stats[median_key])
+                        if positive_median_key in self.three_stage_param_baseline_stats:
+                            positive_median_value = str(self.three_stage_param_baseline_stats[positive_median_key])
+                        if negative_median_key in self.three_stage_param_baseline_stats:
+                            negative_median_value = str(self.three_stage_param_baseline_stats[negative_median_key])
+                    
+                    # 获取上下限值，如果没有则使用空字符串
+                    lower_value = ''
+                    upper_value = ''
+                    if hasattr(self.main_window, 'component_analysis_formula_list'):
+                        for formula_info in self.main_window.component_analysis_formula_list:
+                            if formula_info.get('variable') == current_param:
+                                lower_value = formula_info.get('lower', '')
+                                upper_value = formula_info.get('upper', '')
+                                break
+                    
+                    if lower_value == '未知':
+                        lower_value = ''
+                    if upper_value == '未知':
+                        upper_value = ''
+                    
+                    # 获取当前最优值（使用本次分析最优值，而不是从best_conditions中获取）
+                    current_best_value = '未知'
+                    if new_value is not None:
+                        try:
+                            new_value_float = float(new_value)
+                            current_best_value = f"{new_value_float:.2f}"
+                        except (ValueError, TypeError):
+                            current_best_value = str(new_value)
+                    # 如果new_value不可用，则尝试从best_conditions中获取作为备选
+                    elif hasattr(self, 'three_stage_param_best_conditions') and current_param in self.three_stage_param_best_conditions:
+                        best_conditions = self.three_stage_param_best_conditions[current_param]
+                        if 'output_value' in best_conditions:
+                            current_best_value = best_conditions['output_value']
+                    
+                    no_better_text = f"无最优条件为：下限{lower_value}，上限{upper_value}， 组合排序输出值为：{current_best_value}，{current_param}_median：{median_value}，{current_param}_positive_median：{positive_median_value}，{current_param}_negative_median：{negative_median_value}"
                     self.no_better_result_list.append({current_param: no_better_text})
                     print(f"记录参数{current_param}的无最优结果：{no_better_text}")
                     self.log_three_analysis(f"记录参数{current_param}的无最优结果：{no_better_text}")
@@ -2191,6 +2288,7 @@ class ComponentAnalysisWidget(QWidget):
                 self.terminate_btn.setEnabled(False)
                 self.optimize_btn.setEnabled(True)
                 self.three_stage_btn.setEnabled(True)  # 恢复三次分析按钮
+                self.auto_three_stage_btn.setEnabled(True)  # 恢复连续分析按钮
                 self.is_three_stage_mode = False
             
             # 检查是否有回调函数需要执行（用于连续分析模式）
@@ -3019,6 +3117,11 @@ class ComponentAnalysisWidget(QWidget):
             top_three = self.process_analysis_results(all_analysis_results)
             if not top_three:
                 return
+            
+            # 组合分析完成后，更新last_component_analysis_top1
+            if top_three:
+                self.main_window.last_component_analysis_top1 = top_three[0]
+                print(f"组合分析完成，已更新last_component_analysis_top1: {top_three[0].get('adjusted_value', 'N/A')}")
             
             # 只处理结果，不显示表格，直接返回
             print("组合分析结果处理完成，等待三次分析完成后统一显示")
@@ -4809,8 +4912,20 @@ class ComponentAnalysisWidget(QWidget):
                 # 只添加三次分析最优值
                 best_value_formatted = None
                 
-                # 获取三次分析最优值
-                if hasattr(self, 'three_stage_best_top_one') and self.three_stage_best_top_one:
+                # 获取三次分析最优值（从全局top_three中获取第一个元素，更准确）
+                if hasattr(self, 'three_stage_global_top_three') and self.three_stage_global_top_three:
+                    # 从全局top_three中获取第一个元素（最优值）
+                    best_value = self.three_stage_global_top_three[0].get('adjusted_value', '未知')
+                    if best_value != '未知':
+                        try:
+                            best_value_float = float(best_value)
+                            best_value_formatted = f"{best_value_float:.2f}"
+                        except (ValueError, TypeError):
+                            best_value_formatted = str(best_value)
+                    else:
+                        best_value_formatted = str(best_value)
+                elif hasattr(self, 'three_stage_best_top_one') and self.three_stage_best_top_one:
+                    # 如果没有全局top_three，则使用best_top_one作为备选
                     best_value = self.three_stage_best_top_one.get('adjusted_value', '未知')
                     if best_value != '未知':
                         try:
@@ -4821,9 +4936,13 @@ class ComponentAnalysisWidget(QWidget):
                     else:
                         best_value_formatted = str(best_value)
                 
+                # 如果有组合分析最优值，先输出组合分析最优值
+                if hasattr(self, 'three_stage_initial_last_value') and self.three_stage_initial_last_value is not None:
+                    writer.writerow([])  # 空行分隔
+                    writer.writerow(['组合分析最优值', f"{self.three_stage_initial_last_value:.2f}"])
+                
                 # 写入三次分析最优值
                 if best_value_formatted:
-                    writer.writerow([])  # 空行分隔
                     writer.writerow(['三次分析最优值', best_value_formatted])
                 
                 # 写入三次分析的最优方案数据（KV形式）
@@ -4895,10 +5014,35 @@ class ComponentAnalysisWidget(QWidget):
                             param_type = 'output' if is_output_param(param_name) else 'auxiliary'
                             all_conditions.append((param_type, sort_value, param_name, condition_text, 'no_optimal'))
                 
+                # 剔除重复参数：以最优条件参数为准，剔除无最优条件的相同参数
+                # 收集所有有最优条件的参数名称
+                optimal_param_names = set()
+                for cond in all_conditions:
+                    if cond[4] == 'optimal':  # condition_type == 'optimal'
+                        optimal_param_names.add(cond[2])  # param_name
+                
+                # 剔除无最优条件中已经存在最优条件的参数
+                filtered_conditions = []
+                for cond in all_conditions:
+                    param_name = cond[2]  # param_name
+                    condition_type = cond[4]  # condition_type
+                    
+                    # 如果是有最优条件，直接保留
+                    if condition_type == 'optimal':
+                        filtered_conditions.append(cond)
+                    # 如果是无最优条件，检查是否已经有最优条件
+                    elif condition_type == 'no_optimal':
+                        if param_name not in optimal_param_names:
+                            # 没有最优条件，保留
+                            filtered_conditions.append(cond)
+                        else:
+                            # 已经有最优条件，剔除
+                            print(f"剔除重复参数 {param_name} 的无最优条件，因为已有最优条件")
+                
                 # 按类型和序号排序：先输出参数，再辅助参数
                 # 先按类型分组，再在每组内按序号排序
-                output_conditions = [cond for cond in all_conditions if cond[0] == 'output']
-                auxiliary_conditions = [cond for cond in all_conditions if cond[0] == 'auxiliary']
+                output_conditions = [cond for cond in filtered_conditions if cond[0] == 'output']
+                auxiliary_conditions = [cond for cond in filtered_conditions if cond[0] == 'auxiliary']
                 
                 # 在每组内按序号排序
                 output_conditions.sort(key=lambda x: x[1])
@@ -4929,13 +5073,15 @@ class ComponentAnalysisWidget(QWidget):
                                     optimal_value = f"{float(output_value_match.group(1)):.2f}"
                                 except (ValueError, TypeError):
                                     optimal_value = output_value_match.group(1)
-                                else:
-                                    optimal_value = ''
+                                    print(f"输出参数最优值转换失败，使用原始值：{optimal_value}")
+                            else:
+                                print(f"未找到最优值匹配，条件文本：{condition_text}")
                             
-                            # 判断是否生成最优
+                            # 判断是否生成最优（根据条件类型判断，而不是最优值）
                             has_upper = upper_match.group(1) if upper_match else ''
                             has_lower = lower_match.group(1) if lower_match else ''
-                            is_optimal = '是' if (has_upper or has_lower) else '否'
+                            # 使用条件类型来判断是否生成最优，而不是最优值
+                            is_optimal = '是' if condition_type == 'optimal' else '否'
                             
                             # 写入数据行
                             writer.writerow([
@@ -4949,16 +5095,49 @@ class ComponentAnalysisWidget(QWidget):
                                 is_optimal
                             ])
                         else:
-                            # 处理无最优结果的条件
+                            # 处理无最优结果的条件（从无最优条件文本中提取信息）
+                            # 添加调试信息
+                            print(f"处理无最优结果条件，参数：{param_name}，条件文本：{condition_text}")
+                            
+                            # 从条件文本中提取信息
+                            lower_match = re.search(r'下限(-?[\d\.]+)', condition_text)
+                            upper_match = re.search(r'上限(-?[\d\.]+)', condition_text)
+                            output_value_match = re.search(r'组合排序输出值为：([\d\.]+)', condition_text)
+                            positive_median_match = re.search(rf'{re.escape(param_name)}_positive_median：(-?[\d\.]+)', condition_text)
+                            negative_median_match = re.search(rf'{re.escape(param_name)}_negative_median：(-?[\d\.]+)', condition_text)
+                            
+                            # 添加调试信息
+                            print(f"正则匹配结果 - lower_match: {lower_match}, upper_match: {upper_match}, output_value_match: {output_value_match}")
+                            
+                            # 格式化最优值为两位小数
+                            optimal_value = ''
+                            if output_value_match:
+                                try:
+                                    optimal_value = f"{float(output_value_match.group(1)):.2f}"
+                                    print(f"成功提取最优值：{optimal_value}")
+                                except (ValueError, TypeError):
+                                    optimal_value = output_value_match.group(1)
+                                    print(f"最优值转换失败，使用原始值：{optimal_value}")
+                            else:
+                                print(f"未找到最优值匹配，条件文本：{condition_text}")
+                            
+                            # 判断是否生成最优（根据最优值判断，而不是上下限）
+                            has_upper = upper_match.group(1) if upper_match else ''
+                            has_lower = lower_match.group(1) if lower_match else ''
+                            # 使用最优值来判断是否生成最优，而不是上下限
+                            is_optimal = '是' if condition_type == 'optimal' else '否'
+                            
+                            print(f"最终结果 - optimal_value: {optimal_value}, is_optimal: {is_optimal}")
+                            
                             writer.writerow([
                                 sort_value,  # 使用原始序号
                                 param_name,
-                                '无最优',
-                                '',
-                                '',
-                                '',
-                                '',
-                                '否'
+                                optimal_value,
+                                has_upper,
+                                has_lower,
+                                positive_median_match.group(1) if positive_median_match else '',
+                                negative_median_match.group(1) if negative_median_match else '',
+                                is_optimal
                             ])
                     
                     # 再输出辅助参数
@@ -4979,13 +5158,15 @@ class ComponentAnalysisWidget(QWidget):
                                     optimal_value = f"{float(output_value_match.group(1)):.2f}"
                                 except (ValueError, TypeError):
                                     optimal_value = output_value_match.group(1)
-                                else:
-                                    optimal_value = ''
+                                    print(f"辅助参数最优值转换失败，使用原始值：{optimal_value}")
+                            else:
+                                print(f"未找到最优值匹配，条件文本：{condition_text}")
                             
-                            # 判断是否生成最优
+                            # 判断是否生成最优（根据最优值判断，而不是上下限）
                             has_upper = upper_match.group(1) if upper_match else ''
                             has_lower = lower_match.group(1) if lower_match else ''
-                            is_optimal = '是' if (has_upper or has_lower) else '否'
+                            # 使用最优值来判断是否生成最优，而不是上下限
+                            is_optimal = '是' if condition_type == 'optimal' else '否'
                             
                             # 写入数据行
                             writer.writerow([
@@ -4999,16 +5180,49 @@ class ComponentAnalysisWidget(QWidget):
                                 is_optimal
                             ])
                         else:
-                            # 处理无最优结果的条件
+                            # 处理无最优结果的条件（从无最优条件文本中提取信息）
+                            # 添加调试信息
+                            print(f"处理辅助参数无最优结果条件，参数：{param_name}，条件文本：{condition_text}")
+                            
+                            # 从条件文本中提取信息
+                            lower_match = re.search(r'下限(-?[\d\.]+)', condition_text)
+                            upper_match = re.search(r'上限(-?[\d\.]+)', condition_text)
+                            output_value_match = re.search(r'组合排序输出值为：([\d\.]+)', condition_text)
+                            positive_median_match = re.search(rf'{re.escape(param_name)}_positive_median：(-?[\d\.]+)', condition_text)
+                            negative_median_match = re.search(rf'{re.escape(param_name)}_negative_median：(-?[\d\.]+)', condition_text)
+                            
+                            # 添加调试信息
+                            print(f"辅助参数正则匹配结果 - lower_match: {lower_match}, upper_match: {upper_match}, output_value_match: {output_value_match}")
+                            
+                            # 格式化最优值为两位小数
+                            optimal_value = ''
+                            if output_value_match:
+                                try:
+                                    optimal_value = f"{float(output_value_match.group(1)):.2f}"
+                                    print(f"辅助参数成功提取最优值：{optimal_value}")
+                                except (ValueError, TypeError):
+                                    optimal_value = output_value_match.group(1)
+                                    print(f"辅助参数最优值转换失败，使用原始值：{optimal_value}")
+                            else:
+                                print(f"辅助参数未找到最优值匹配，条件文本：{condition_text}")
+                            
+                            # 判断是否生成最优（根据最优值判断，而不是上下限）
+                            has_upper = upper_match.group(1) if upper_match else ''
+                            has_lower = lower_match.group(1) if lower_match else ''
+                            # 使用最优值来判断是否生成最优，而不是上下限
+                            is_optimal = '是' if condition_type == 'optimal' else '否'
+                            
+                            print(f"辅助参数最终结果 - optimal_value: {optimal_value}, is_optimal: {is_optimal}")
+                            
                             writer.writerow([
                                 sort_value,  # 使用原始序号
                                 param_name,
-                                '无最优',
-                                '',
-                                '',
-                                '',
-                                '',
-                                '否'
+                                optimal_value,
+                                has_upper,
+                                has_lower,
+                                positive_median_match.group(1) if positive_median_match else '',
+                                negative_median_match.group(1) if negative_median_match else '',
+                                is_optimal
                             ])
 
 

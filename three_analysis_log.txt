@@ -1,233 +1,785 @@
-获取到的输出参数: ['cont_sum_pos_sum', 'cont_sum_neg_sum']
-获取到的辅助参数: ['continuous_start_next_next_value', 'cont_sum_neg_sum_first_half']
-三次分析目标变量: ['cont_sum_pos_sum', 'cont_sum_neg_sum', 'continuous_start_next_next_value', 'cont_sum_neg_sum_first_half']
-使用组合分析最优结果的参数组合快照：{'width': 40, 'op_days': 5, 'increment_rate': 0.5, 'after_gt_end_ratio': 1.0, 'after_gt_start_ratio': 1.0, 'stop_loss_inc_rate': -100.5, 'stop_loss_after_gt_end_ratio': -10.0, 'stop_loss_after_gt_start_ratio': 1.0, 'new_high_low1_start': 0, 'new_high_low1_range': 0, 'new_high_low1_span': 0, 'new_high_low2_start': 0, 'new_high_low2_range': 0, 'new_high_low2_span': 0}
-三次分析-目标参数cont_sum_pos_sum第1次 下限=8846 上限=13373 步长=1337 生成的全部公式:
-  [1] if cont_sum_pos_sum >= 8846 and cont_sum_pos_sum <= 13373:
+获取到的输出参数: ['cont_sum_pos_sum', 'cont_sum_neg_sum', 'valid_pos_sum', 'valid_neg_sum']
+获取到的辅助参数: ['end_value', 'diff_end_value', 'continuous_len', 'continuous_start_value', 'continuous_start_next_value', 'continuous_end_value', 'continuous_end_prev_value']
+三次分析目标变量: ['cont_sum_pos_sum', 'cont_sum_neg_sum', 'valid_pos_sum', 'valid_neg_sum', 'end_value', 'diff_end_value', 'continuous_len', 'continuous_start_value', 'continuous_start_next_value', 'continuous_end_value', 'continuous_end_prev_value']
+使用组合分析最优结果的参数组合快照：{'width': 60, 'op_days': 5, 'increment_rate': 0.5, 'after_gt_end_ratio': 1.0, 'after_gt_start_ratio': 1.0, 'stop_loss_inc_rate': -100.5, 'stop_loss_after_gt_end_ratio': -10.0, 'stop_loss_after_gt_start_ratio': 1.0, 'new_high_low1_start': 0, 'new_high_low1_range': 0, 'new_high_low1_span': 0, 'new_high_low2_start': 0, 'new_high_low2_range': 0, 'new_high_low2_span': 0}
+三次分析-目标参数cont_sum_pos_sum第1次 下限=5501 上限=19395 步长=1939 生成的全部公式:
+  [1] if cont_sum_pos_sum >= 5501 and cont_sum_pos_sum <= 19395:
     result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
 else:
     result = 0
 执行三次分析第1次
 【三次分析第1次完成】全局top_three更新:
-  第1名: 7.009615384615384 - if cont_sum_pos_sum >= 8846 and cont_sum_pos_sum <= 13373:
+  第1名: 0.9711538461538461 - if cont_sum_pos_sum >= 5501 and cont_sum_pos_sum <= 19395:
     result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
 else:
     result = 0
-本次最优值 7.01 不小于上一次最优值 6.24，更新 overall_stats
-参数cont_sum_pos_sum第1次最优公式: if cont_sum_pos_sum >= 8846 and cont_sum_pos_sum <= 13373:
+本次最优值 0.97 小于上一次最优值 0.98，不更新 overall_stats
+当前overall_stats内容（未更新）: {'score_max': 13477.5, 'score_min': 4471.99, 'score_median': 8463.12, 'score_positive_median': 8463.12, 'score_negative_median': None, 'hold_days_max': 5.0, 'hold_days_min': 0.0, 'hold_days_median': 2.0, 'hold_days_positive_median': 2.0, 'hold_days_negative_median': None, 'ops_change_max': 43.2, 'ops_change_min': -42.2, 'ops_change_median': 2.04, 'ops_change_positive_median': 4.3, 'ops_change_negative_median': -9.49, 'ops_incre_rate_max': 21.6, 'ops_incre_rate_min': -8.44, 'ops_incre_rate_median': 1.31, 'ops_incre_rate_positive_median': 2.87, 'ops_incre_rate_negative_median': -1.9, 'adjust_days_max': 5.0, 'adjust_days_min': 0.0, 'adjust_days_median': 2.0, 'adjust_days_positive_median': 2.0, 'adjust_days_negative_median': None, 'adjust_ops_change_max': 2.5, 'adjust_ops_change_min': -42.2, 'adjust_ops_change_median': 0.5, 'adjust_ops_change_positive_median': 0.5, 'adjust_ops_change_negative_median': -9.49, 'adjust_ops_incre_rate_max': 0.5, 'adjust_ops_incre_rate_min': -8.44, 'adjust_ops_incre_rate_median': 0.5, 'adjust_ops_incre_rate_positive_median': 0.5, 'adjust_ops_incre_rate_negative_median': -1.9, 'max_value_max': 14.97, 'max_value_min': 1.48, 'max_value_median': 5.31, 'max_value_positive_median': 5.31, 'max_value_negative_median': None, 'min_value_max': 6.39, 'min_value_min': 0.45, 'min_value_median': 1.35, 'min_value_positive_median': 1.35, 'min_value_negative_median': None, 'end_value_max': 15, 'end_value_min': 1, 'end_value_median': 5, 'end_value_positive_median': 5, 'end_value_negative_median': None, 'start_value_max': 7.44, 'start_value_min': 0.45, 'start_value_median': 1.42, 'start_value_positive_median': 1.42, 'start_value_negative_median': None, 'actual_value_max': 7.12, 'actual_value_min': 0.49, 'actual_value_median': 1.54, 'actual_value_positive_median': 1.54, 'actual_value_negative_median': None, 'closest_value_max': 13.95, 'closest_value_min': 0.84, 'closest_value_median': 4.16, 'closest_value_positive_median': 4.16, 'closest_value_negative_median': None, 'increment_value_max': 14.97, 'increment_value_min': 0.83, 'increment_value_median': 4.21, 'increment_value_positive_median': 4.21, 'increment_value_negative_median': None, 'after_gt_end_value_max': 14.97, 'after_gt_end_value_min': 0.83, 'after_gt_end_value_median': 4.09, 'after_gt_end_value_positive_median': 4.09, 'after_gt_end_value_negative_median': None, 'after_gt_start_value_max': 14.97, 'after_gt_start_value_min': 0.83, 'after_gt_start_value_median': 4.2, 'after_gt_start_value_positive_median': 4.2, 'after_gt_start_value_negative_median': None, 'ops_value_max': 14.97, 'ops_value_min': 0.0, 'ops_value_median': 2.42, 'ops_value_positive_median': 4.21, 'ops_value_negative_median': None, 'continuous_len_max': 40, 'continuous_len_min': 1, 'continuous_len_median': 26, 'continuous_len_positive_median': 26, 'continuous_len_negative_median': None, 'continuous_start_value_max': 11125, 'continuous_start_value_min': 1, 'continuous_start_value_median': 599, 'continuous_start_value_positive_median': 599, 'continuous_start_value_negative_median': None, 'continuous_start_next_value_max': -1, 'continuous_start_next_value_min': -2761, 'continuous_start_next_value_median': -125, 'continuous_start_next_value_positive_median': None, 'continuous_start_next_value_negative_median': -125, 'continuous_start_next_next_value_max': 10126, 'continuous_start_next_next_value_min': 1, 'continuous_start_next_next_value_median': 262, 'continuous_start_next_next_value_positive_median': 262, 'continuous_start_next_next_value_negative_median': None, 'continuous_end_value_max': 8728, 'continuous_end_value_min': -2115, 'continuous_end_value_median': -17, 'continuous_end_value_positive_median': 216, 'continuous_end_value_negative_median': -162, 'continuous_end_prev_value_max': 8728, 'continuous_end_prev_value_min': -2115, 'continuous_end_prev_value_median': 6, 'continuous_end_prev_value_positive_median': 247, 'continuous_end_prev_value_negative_median': -202, 'continuous_end_prev_prev_value_max': 10126, 'continuous_end_prev_prev_value_min': -2115, 'continuous_end_prev_prev_value_median': -17, 'continuous_end_prev_prev_value_positive_median': 274, 'continuous_end_prev_prev_value_negative_median': -172, 'continuous_abs_sum_first_half_max': 17350, 'continuous_abs_sum_first_half_min': 134, 'continuous_abs_sum_first_half_median': 9518, 'continuous_abs_sum_first_half_positive_median': 9518, 'continuous_abs_sum_first_half_negative_median': None, 'continuous_abs_sum_second_half_max': 15423, 'continuous_abs_sum_second_half_min': 492, 'continuous_abs_sum_second_half_median': 5457, 'continuous_abs_sum_second_half_positive_median': 5457, 'continuous_abs_sum_second_half_negative_median': None, 'continuous_abs_sum_block1_max': 15188, 'continuous_abs_sum_block1_min': 7, 'continuous_abs_sum_block1_median': 4988, 'continuous_abs_sum_block1_positive_median': 4988, 'continuous_abs_sum_block1_negative_median': None, 'continuous_abs_sum_block2_max': 12915, 'continuous_abs_sum_block2_min': 0, 'continuous_abs_sum_block2_median': 3116, 'continuous_abs_sum_block2_positive_median': 3116, 'continuous_abs_sum_block2_negative_median': None, 'continuous_abs_sum_block3_max': 12197, 'continuous_abs_sum_block3_min': 0, 'continuous_abs_sum_block3_median': 2935, 'continuous_abs_sum_block3_positive_median': 2943, 'continuous_abs_sum_block3_negative_median': None, 'continuous_abs_sum_block4_max': 13524, 'continuous_abs_sum_block4_min': 150, 'continuous_abs_sum_block4_median': 2117, 'continuous_abs_sum_block4_positive_median': 2117, 'continuous_abs_sum_block4_negative_median': None, 'forward_max_continuous_start_value_max': None, 'forward_max_continuous_start_value_min': None, 'forward_max_continuous_start_value_median': None, 'forward_max_continuous_start_value_positive_median': None, 'forward_max_continuous_start_value_negative_median': None, 'forward_max_continuous_start_next_value_max': None, 'forward_max_continuous_start_next_value_min': None, 'forward_max_continuous_start_next_value_median': None, 'forward_max_continuous_start_next_value_positive_median': None, 'forward_max_continuous_start_next_value_negative_median': None, 'forward_max_continuous_start_next_next_value_max': None, 'forward_max_continuous_start_next_next_value_min': None, 'forward_max_continuous_start_next_next_value_median': None, 'forward_max_continuous_start_next_next_value_positive_median': None, 'forward_max_continuous_start_next_next_value_negative_median': None, 'forward_max_continuous_end_value_max': None, 'forward_max_continuous_end_value_min': None, 'forward_max_continuous_end_value_median': None, 'forward_max_continuous_end_value_positive_median': None, 'forward_max_continuous_end_value_negative_median': None, 'forward_max_continuous_end_prev_value_max': None, 'forward_max_continuous_end_prev_value_min': None, 'forward_max_continuous_end_prev_value_median': None, 'forward_max_continuous_end_prev_value_positive_median': None, 'forward_max_continuous_end_prev_value_negative_median': None, 'forward_max_continuous_end_prev_prev_value_max': None, 'forward_max_continuous_end_prev_prev_value_min': None, 'forward_max_continuous_end_prev_prev_value_median': None, 'forward_max_continuous_end_prev_prev_value_positive_median': None, 'forward_max_continuous_end_prev_prev_value_negative_median': None, 'forward_max_abs_sum_first_half_max': None, 'forward_max_abs_sum_first_half_min': None, 'forward_max_abs_sum_first_half_median': None, 'forward_max_abs_sum_first_half_positive_median': None, 'forward_max_abs_sum_first_half_negative_median': None, 'forward_max_abs_sum_second_half_max': None, 'forward_max_abs_sum_second_half_min': None, 'forward_max_abs_sum_second_half_median': None, 'forward_max_abs_sum_second_half_positive_median': None, 'forward_max_abs_sum_second_half_negative_median': None, 'forward_max_abs_sum_block1_max': None, 'forward_max_abs_sum_block1_min': None, 'forward_max_abs_sum_block1_median': None, 'forward_max_abs_sum_block1_positive_median': None, 'forward_max_abs_sum_block1_negative_median': None, 'forward_max_abs_sum_block2_max': None, 'forward_max_abs_sum_block2_min': None, 'forward_max_abs_sum_block2_median': None, 'forward_max_abs_sum_block2_positive_median': None, 'forward_max_abs_sum_block2_negative_median': None, 'forward_max_abs_sum_block3_max': None, 'forward_max_abs_sum_block3_min': None, 'forward_max_abs_sum_block3_median': None, 'forward_max_abs_sum_block3_positive_median': None, 'forward_max_abs_sum_block3_negative_median': None, 'forward_max_abs_sum_block4_max': None, 'forward_max_abs_sum_block4_min': None, 'forward_max_abs_sum_block4_median': None, 'forward_max_abs_sum_block4_positive_median': None, 'forward_max_abs_sum_block4_negative_median': None, 'forward_min_continuous_start_value_max': None, 'forward_min_continuous_start_value_min': None, 'forward_min_continuous_start_value_median': None, 'forward_min_continuous_start_value_positive_median': None, 'forward_min_continuous_start_value_negative_median': None, 'forward_min_continuous_start_next_value_max': None, 'forward_min_continuous_start_next_value_min': None, 'forward_min_continuous_start_next_value_median': None, 'forward_min_continuous_start_next_value_positive_median': None, 'forward_min_continuous_start_next_value_negative_median': None, 'forward_min_continuous_start_next_next_value_max': None, 'forward_min_continuous_start_next_next_value_min': None, 'forward_min_continuous_start_next_next_value_median': None, 'forward_min_continuous_start_next_next_value_positive_median': None, 'forward_min_continuous_start_next_next_value_negative_median': None, 'forward_min_continuous_end_value_max': None, 'forward_min_continuous_end_value_min': None, 'forward_min_continuous_end_value_median': None, 'forward_min_continuous_end_value_positive_median': None, 'forward_min_continuous_end_value_negative_median': None, 'forward_min_continuous_end_prev_value_max': None, 'forward_min_continuous_end_prev_value_min': None, 'forward_min_continuous_end_prev_value_median': None, 'forward_min_continuous_end_prev_value_positive_median': None, 'forward_min_continuous_end_prev_value_negative_median': None, 'forward_min_continuous_end_prev_prev_value_max': None, 'forward_min_continuous_end_prev_prev_value_min': None, 'forward_min_continuous_end_prev_prev_value_median': None, 'forward_min_continuous_end_prev_prev_value_positive_median': None, 'forward_min_continuous_end_prev_prev_value_negative_median': None, 'forward_min_abs_sum_first_half_max': None, 'forward_min_abs_sum_first_half_min': None, 'forward_min_abs_sum_first_half_median': None, 'forward_min_abs_sum_first_half_positive_median': None, 'forward_min_abs_sum_first_half_negative_median': None, 'forward_min_abs_sum_second_half_max': None, 'forward_min_abs_sum_second_half_min': None, 'forward_min_abs_sum_second_half_median': None, 'forward_min_abs_sum_second_half_positive_median': None, 'forward_min_abs_sum_second_half_negative_median': None, 'forward_min_abs_sum_block1_max': None, 'forward_min_abs_sum_block1_min': None, 'forward_min_abs_sum_block1_median': None, 'forward_min_abs_sum_block1_positive_median': None, 'forward_min_abs_sum_block1_negative_median': None, 'forward_min_abs_sum_block2_max': None, 'forward_min_abs_sum_block2_min': None, 'forward_min_abs_sum_block2_median': None, 'forward_min_abs_sum_block2_positive_median': None, 'forward_min_abs_sum_block2_negative_median': None, 'forward_min_abs_sum_block3_max': None, 'forward_min_abs_sum_block3_min': None, 'forward_min_abs_sum_block3_median': None, 'forward_min_abs_sum_block3_positive_median': None, 'forward_min_abs_sum_block3_negative_median': None, 'forward_min_abs_sum_block4_max': None, 'forward_min_abs_sum_block4_min': None, 'forward_min_abs_sum_block4_median': None, 'forward_min_abs_sum_block4_positive_median': None, 'forward_min_abs_sum_block4_negative_median': None, 'valid_sum_len_max': 39, 'valid_sum_len_min': 0, 'valid_sum_len_median': 25, 'valid_sum_len_positive_median': 25, 'valid_sum_len_negative_median': None, 'valid_pos_sum_max': 5664, 'valid_pos_sum_min': 338, 'valid_pos_sum_median': 3027, 'valid_pos_sum_positive_median': 3027, 'valid_pos_sum_negative_median': None, 'valid_neg_sum_max': -178, 'valid_neg_sum_min': -4778, 'valid_neg_sum_median': -2072, 'valid_neg_sum_positive_median': None, 'valid_neg_sum_negative_median': -2072, 'forward_max_valid_sum_len_max': 0.0, 'forward_max_valid_sum_len_min': 0.0, 'forward_max_valid_sum_len_median': 0.0, 'forward_max_valid_sum_len_positive_median': None, 'forward_max_valid_sum_len_negative_median': None, 'forward_max_valid_pos_sum_max': None, 'forward_max_valid_pos_sum_min': None, 'forward_max_valid_pos_sum_median': None, 'forward_max_valid_pos_sum_positive_median': None, 'forward_max_valid_pos_sum_negative_median': None, 'forward_max_valid_neg_sum_max': None, 'forward_max_valid_neg_sum_min': None, 'forward_max_valid_neg_sum_median': None, 'forward_max_valid_neg_sum_positive_median': None, 'forward_max_valid_neg_sum_negative_median': None, 'forward_min_valid_sum_len_max': 0.0, 'forward_min_valid_sum_len_min': 0.0, 'forward_min_valid_sum_len_median': 0.0, 'forward_min_valid_sum_len_positive_median': None, 'forward_min_valid_sum_len_negative_median': None, 'forward_min_valid_pos_sum_max': None, 'forward_min_valid_pos_sum_min': None, 'forward_min_valid_pos_sum_median': None, 'forward_min_valid_pos_sum_positive_median': None, 'forward_min_valid_pos_sum_negative_median': None, 'forward_min_valid_neg_sum_max': None, 'forward_min_valid_neg_sum_min': None, 'forward_min_valid_neg_sum_median': None, 'forward_min_valid_neg_sum_positive_median': None, 'forward_min_valid_neg_sum_negative_median': None, 'valid_abs_sum_first_half_max': 6691, 'valid_abs_sum_first_half_min': 15, 'valid_abs_sum_first_half_median': 2930, 'valid_abs_sum_first_half_positive_median': 2930, 'valid_abs_sum_first_half_negative_median': None, 'valid_abs_sum_second_half_max': 6245, 'valid_abs_sum_second_half_min': 184, 'valid_abs_sum_second_half_median': 2357, 'valid_abs_sum_second_half_positive_median': 2357, 'valid_abs_sum_second_half_negative_median': None, 'valid_abs_sum_block1_max': 4967, 'valid_abs_sum_block1_min': 3, 'valid_abs_sum_block1_median': 1348, 'valid_abs_sum_block1_positive_median': 1348, 'valid_abs_sum_block1_negative_median': None, 'valid_abs_sum_block2_max': 5709, 'valid_abs_sum_block2_min': 0, 'valid_abs_sum_block2_median': 1273, 'valid_abs_sum_block2_positive_median': 1273, 'valid_abs_sum_block2_negative_median': None, 'valid_abs_sum_block3_max': 4748, 'valid_abs_sum_block3_min': 0, 'valid_abs_sum_block3_median': 1215, 'valid_abs_sum_block3_positive_median': 1216, 'valid_abs_sum_block3_negative_median': None, 'valid_abs_sum_block4_max': 5825, 'valid_abs_sum_block4_min': 41, 'valid_abs_sum_block4_median': 952, 'valid_abs_sum_block4_positive_median': 952, 'valid_abs_sum_block4_negative_median': None, 'forward_max_valid_abs_sum_first_half_max': None, 'forward_max_valid_abs_sum_first_half_min': None, 'forward_max_valid_abs_sum_first_half_median': None, 'forward_max_valid_abs_sum_first_half_positive_median': None, 'forward_max_valid_abs_sum_first_half_negative_median': None, 'forward_max_valid_abs_sum_second_half_max': None, 'forward_max_valid_abs_sum_second_half_min': None, 'forward_max_valid_abs_sum_second_half_median': None, 'forward_max_valid_abs_sum_second_half_positive_median': None, 'forward_max_valid_abs_sum_second_half_negative_median': None, 'forward_max_valid_abs_sum_block1_max': None, 'forward_max_valid_abs_sum_block1_min': None, 'forward_max_valid_abs_sum_block1_median': None, 'forward_max_valid_abs_sum_block1_positive_median': None, 'forward_max_valid_abs_sum_block1_negative_median': None, 'forward_max_valid_abs_sum_block2_max': None, 'forward_max_valid_abs_sum_block2_min': None, 'forward_max_valid_abs_sum_block2_median': None, 'forward_max_valid_abs_sum_block2_positive_median': None, 'forward_max_valid_abs_sum_block2_negative_median': None, 'forward_max_valid_abs_sum_block3_max': None, 'forward_max_valid_abs_sum_block3_min': None, 'forward_max_valid_abs_sum_block3_median': None, 'forward_max_valid_abs_sum_block3_positive_median': None, 'forward_max_valid_abs_sum_block3_negative_median': None, 'forward_max_valid_abs_sum_block4_max': None, 'forward_max_valid_abs_sum_block4_min': None, 'forward_max_valid_abs_sum_block4_median': None, 'forward_max_valid_abs_sum_block4_positive_median': None, 'forward_max_valid_abs_sum_block4_negative_median': None, 'forward_min_valid_abs_sum_first_half_max': None, 'forward_min_valid_abs_sum_first_half_min': None, 'forward_min_valid_abs_sum_first_half_median': None, 'forward_min_valid_abs_sum_first_half_positive_median': None, 'forward_min_valid_abs_sum_first_half_negative_median': None, 'forward_min_valid_abs_sum_second_half_max': None, 'forward_min_valid_abs_sum_second_half_min': None, 'forward_min_valid_abs_sum_second_half_median': None, 'forward_min_valid_abs_sum_second_half_positive_median': None, 'forward_min_valid_abs_sum_second_half_negative_median': None, 'forward_min_valid_abs_sum_block1_max': None, 'forward_min_valid_abs_sum_block1_min': None, 'forward_min_valid_abs_sum_block1_median': None, 'forward_min_valid_abs_sum_block1_positive_median': None, 'forward_min_valid_abs_sum_block1_negative_median': None, 'forward_min_valid_abs_sum_block2_max': None, 'forward_min_valid_abs_sum_block2_min': None, 'forward_min_valid_abs_sum_block2_median': None, 'forward_min_valid_abs_sum_block2_positive_median': None, 'forward_min_valid_abs_sum_block2_negative_median': None, 'forward_min_valid_abs_sum_block3_max': None, 'forward_min_valid_abs_sum_block3_min': None, 'forward_min_valid_abs_sum_block3_median': None, 'forward_min_valid_abs_sum_block3_positive_median': None, 'forward_min_valid_abs_sum_block3_negative_median': None, 'forward_min_valid_abs_sum_block4_max': None, 'forward_min_valid_abs_sum_block4_min': None, 'forward_min_valid_abs_sum_block4_median': None, 'forward_min_valid_abs_sum_block4_positive_median': None, 'forward_min_valid_abs_sum_block4_negative_median': None, 'n_days_max_value_max': 15, 'n_days_max_value_min': 2, 'n_days_max_value_median': 5, 'n_days_max_value_positive_median': 5, 'n_days_max_value_negative_median': None, 'prev_day_change_max': 98, 'prev_day_change_min': -51, 'prev_day_change_median': -1, 'prev_day_change_positive_median': 5, 'prev_day_change_negative_median': -4, 'end_day_change_max': 98, 'end_day_change_min': -51, 'end_day_change_median': -1, 'end_day_change_positive_median': 5, 'end_day_change_negative_median': -4, 'diff_end_value_max': 6196, 'diff_end_value_min': -2115, 'diff_end_value_median': -6, 'diff_end_value_positive_median': 116, 'diff_end_value_negative_median': -81, 'increment_change_max': 2.5, 'increment_change_min': 0.5, 'increment_change_median': 0.5, 'increment_change_positive_median': 0.5, 'increment_change_negative_median': None, 'after_gt_end_change_max': 1.0, 'after_gt_end_change_min': -10.0, 'after_gt_end_change_median': 1.0, 'after_gt_end_change_positive_median': 1.0, 'after_gt_end_change_negative_median': -10.0, 'after_gt_start_change_max': 2.48, 'after_gt_start_change_min': -49.76, 'after_gt_start_change_median': -0.66, 'after_gt_start_change_positive_median': 1.0, 'after_gt_start_change_negative_median': -6.41, 'forward_max_result_len_max': 0.0, 'forward_max_result_len_min': 0.0, 'forward_max_result_len_median': 0.0, 'forward_max_result_len_positive_median': None, 'forward_max_result_len_negative_median': None, 'forward_min_result_len_max': 0.0, 'forward_min_result_len_min': 0.0, 'forward_min_result_len_median': 0.0, 'forward_min_result_len_positive_median': None, 'forward_min_result_len_negative_median': None, 'cont_sum_pos_sum_max': 19395, 'cont_sum_pos_sum_min': 5501, 'cont_sum_pos_sum_median': 11003, 'cont_sum_pos_sum_positive_median': 11003, 'cont_sum_pos_sum_negative_median': None, 'cont_sum_neg_sum_max': -411, 'cont_sum_neg_sum_min': -6411, 'cont_sum_neg_sum_median': -3793, 'cont_sum_neg_sum_positive_median': None, 'cont_sum_neg_sum_negative_median': -3793, 'cont_sum_pos_sum_first_half_max': 13914, 'cont_sum_pos_sum_first_half_min': 85, 'cont_sum_pos_sum_first_half_median': 7369, 'cont_sum_pos_sum_first_half_positive_median': 7369, 'cont_sum_pos_sum_first_half_negative_median': None, 'cont_sum_pos_sum_second_half_max': 12835, 'cont_sum_pos_sum_second_half_min': 218, 'cont_sum_pos_sum_second_half_median': 3906, 'cont_sum_pos_sum_second_half_positive_median': 3906, 'cont_sum_pos_sum_second_half_negative_median': None, 'cont_sum_neg_sum_first_half_max': -8, 'cont_sum_neg_sum_first_half_min': -4578, 'cont_sum_neg_sum_first_half_median': -2134, 'cont_sum_neg_sum_first_half_positive_median': None, 'cont_sum_neg_sum_first_half_negative_median': -2134, 'cont_sum_neg_sum_second_half_max': -93, 'cont_sum_neg_sum_second_half_min': -4328, 'cont_sum_neg_sum_second_half_median': -1731, 'cont_sum_neg_sum_second_half_positive_median': None, 'cont_sum_neg_sum_second_half_negative_median': -1731, 'forward_max_cont_sum_pos_sum_max': None, 'forward_max_cont_sum_pos_sum_min': None, 'forward_max_cont_sum_pos_sum_median': None, 'forward_max_cont_sum_pos_sum_positive_median': None, 'forward_max_cont_sum_pos_sum_negative_median': None, 'forward_max_cont_sum_neg_sum_max': None, 'forward_max_cont_sum_neg_sum_min': None, 'forward_max_cont_sum_neg_sum_median': None, 'forward_max_cont_sum_neg_sum_positive_median': None, 'forward_max_cont_sum_neg_sum_negative_median': None, 'forward_min_cont_sum_pos_sum_max': None, 'forward_min_cont_sum_pos_sum_min': None, 'forward_min_cont_sum_pos_sum_median': None, 'forward_min_cont_sum_pos_sum_positive_median': None, 'forward_min_cont_sum_pos_sum_negative_median': None, 'forward_min_cont_sum_neg_sum_max': None, 'forward_min_cont_sum_neg_sum_min': None, 'forward_min_cont_sum_neg_sum_median': None, 'forward_min_cont_sum_neg_sum_positive_median': None, 'forward_min_cont_sum_neg_sum_negative_median': None, 'stop_loss_max': None, 'stop_loss_min': None, 'stop_loss_median': None, 'stop_loss_positive_median': None, 'stop_loss_negative_median': None, 'take_profit_max': 43.2, 'take_profit_min': 0.5, 'take_profit_median': 3.06, 'take_profit_positive_median': 3.06, 'take_profit_negative_median': None, 'op_day_change_max': 31.13, 'op_day_change_min': -27.87, 'op_day_change_median': -0.58, 'op_day_change_positive_median': 3.33, 'op_day_change_negative_median': -3.61, 'take_and_stop_increment_change_max': 2.5, 'take_and_stop_increment_change_min': 0.5, 'take_and_stop_increment_change_median': 0.5, 'take_and_stop_increment_change_positive_median': 0.5, 'take_and_stop_increment_change_negative_median': None, 'take_and_stop_after_gt_end_change_max': 1.0, 'take_and_stop_after_gt_end_change_min': -50.26, 'take_and_stop_after_gt_end_change_median': 1.0, 'take_and_stop_after_gt_end_change_positive_median': 1.0, 'take_and_stop_after_gt_end_change_negative_median': -12.57, 'take_and_stop_after_gt_start_change_max': 2.48, 'take_and_stop_after_gt_start_change_min': -49.76, 'take_and_stop_after_gt_start_change_median': -0.66, 'take_and_stop_after_gt_start_change_positive_median': 1.0, 'take_and_stop_after_gt_start_change_negative_median': -6.41, 'take_and_stop_change_max': 2.5, 'take_and_stop_change_min': -42.2, 'take_and_stop_change_median': 0.5, 'take_and_stop_change_positive_median': 0.5, 'take_and_stop_change_negative_median': -9.49, 'take_and_stop_incre_rate_max': 0.5, 'take_and_stop_incre_rate_min': -8.44, 'take_and_stop_incre_rate_median': 0.5, 'take_and_stop_incre_rate_positive_median': 0.5, 'take_and_stop_incre_rate_negative_median': -1.9, 'stop_and_take_increment_change_max': 43.2, 'stop_and_take_increment_change_min': 0.51, 'stop_and_take_increment_change_median': 4.51, 'stop_and_take_increment_change_positive_median': 4.51, 'stop_and_take_increment_change_negative_median': None, 'stop_and_take_after_gt_end_change_max': 43.2, 'stop_and_take_after_gt_end_change_min': -10.0, 'stop_and_take_after_gt_end_change_median': 2.64, 'stop_and_take_after_gt_end_change_positive_median': 4.54, 'stop_and_take_after_gt_end_change_negative_median': -10.0, 'stop_and_take_after_gt_start_change_max': 43.2, 'stop_and_take_after_gt_start_change_min': -44.87, 'stop_and_take_after_gt_start_change_median': 1.97, 'stop_and_take_after_gt_start_change_positive_median': 4.44, 'stop_and_take_after_gt_start_change_negative_median': -4.96, 'stop_and_take_change_max': 43.2, 'stop_and_take_change_min': -42.2, 'stop_and_take_change_median': 2.04, 'stop_and_take_change_positive_median': 4.3, 'stop_and_take_change_negative_median': -9.49, 'stop_and_take_incre_rate_max': 43.2, 'stop_and_take_incre_rate_min': -8.44, 'stop_and_take_incre_rate_median': 1.31, 'stop_and_take_incre_rate_positive_median': 2.87, 'stop_and_take_incre_rate_negative_median': -1.9}
+当前top_one公式（未更新统计值）: if cont_sum_pos_sum >= 5501 and cont_sum_pos_sum <= 19395:
     result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
 else:
     result = 0
-三次分析：第一次 cont_sum_pos_sum 下限：8846，上限：13373，有较优方案。上次分析最优值：6.240384615384615，本次分析最优值：7.009615384615384
-三次分析-目标参数cont_sum_pos_sum第2次 下限=10727.38 上限=13372.43 步长=668 生成的全部公式:
-  [1] if cont_sum_pos_sum >= 10727.38 and cont_sum_pos_sum <= 13372.43:
-    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
-else:
-    result = 0
-执行三次分析第2次
-【三次分析第2次完成】全局top_three更新:
-  第1名: 9.615384615384615 - if cont_sum_pos_sum >= 10727.38 and cont_sum_pos_sum <= 13372.43:
-    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
-else:
-    result = 0
-  第2名: 7.009615384615384 - if cont_sum_pos_sum >= 8846 and cont_sum_pos_sum <= 13373:
-    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
-else:
-    result = 0
-本次最优值 9.62 不小于上一次最优值 7.01，更新 overall_stats
-参数cont_sum_pos_sum第2次最优公式: if cont_sum_pos_sum >= 10727.38 and cont_sum_pos_sum <= 13372.43:
-    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
-else:
-    result = 0
-三次分析：第二次 cont_sum_pos_sum 下限：10727.38，上限：13372.43，有较优方案。上次分析最优值：7.009615384615384，本次分析最优值：9.615384615384615
-三次分析-目标参数cont_sum_pos_sum第3次 下限=10727.38 上限=10727.38 步长=268 生成的全部公式:
-  [1] if cont_sum_pos_sum >= 10727.38 and cont_sum_pos_sum <= 10727.38:
-    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
-else:
-    result = 0
-执行三次分析第3次
-【三次分析第3次完成】全局top_three更新:
-  第1名: 9.615384615384615 - if cont_sum_pos_sum >= 10727.38 and cont_sum_pos_sum <= 13372.43:
-    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
-else:
-    result = 0
-  第2名: 9.615384615384615 - if cont_sum_pos_sum >= 10727.38 and cont_sum_pos_sum <= 10727.38:
-    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
-else:
-    result = 0
-  第3名: 7.009615384615384 - if cont_sum_pos_sum >= 8846 and cont_sum_pos_sum <= 13373:
-    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
-else:
-    result = 0
-本次最优值 9.62 不小于上一次最优值 9.62，更新 overall_stats
-参数cont_sum_pos_sum第3次最优公式: if cont_sum_pos_sum >= 10727.38 and cont_sum_pos_sum <= 10727.38:
-    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
-else:
-    result = 0
-三次分析：第三次 cont_sum_pos_sum 下限：10727.38，上限：10727.38，有较优方案。上次分析最优值：9.615384615384615，本次分析最优值：9.615384615384615
-记录参数cont_sum_pos_sum的最优条件：最优条件为：下限10727.38，上限10727.38， 组合排序输出值为：9.615384615384615，cont_sum_pos_sum_median：10727.38，cont_sum_pos_sum_positive_median：10727.38，cont_sum_pos_sum_negative_median：None
-三次分析-目标参数cont_sum_neg_sum第1次 下限=-2439.3 上限=-2439.3 步长=243 生成的全部公式:
-  [1] if cont_sum_pos_sum >= 10727.38 and cont_sum_pos_sum <= 10727.38 and cont_sum_neg_sum >= -2439.3 and cont_sum_neg_sum <= -2439.3:
+三次分析：cont_sum_pos_sum 下限：5501，上限：19395，无较优方案。上次分析最优值：0.9807692307692307，本次分析最优值：0.9711538461538461
+记录参数cont_sum_pos_sum的无最优结果：无最优条件为：下限5501，上限19395， 组合排序输出值为：0.97，cont_sum_pos_sum_median：11003，cont_sum_pos_sum_positive_median：11003，cont_sum_pos_sum_negative_median：None
+公式回退：cont_sum_pos_sum 没有找到最优公式，回退到上次最优公式，上次最优公式值：0.98
+三次分析-目标参数cont_sum_neg_sum第1次 下限=-6411 上限=-411 步长=641 生成的全部公式:
+  [1] if cont_sum_neg_sum >= -6411 and cont_sum_neg_sum <= -411:
     result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
 else:
     result = 0
 执行三次分析第1次
 【三次分析第1次完成】全局top_three更新:
-  第1名: 9.615384615384615 - if cont_sum_pos_sum >= 10727.38 and cont_sum_pos_sum <= 13372.43:
+  第1名: 0.9807692307692307 - if cont_sum_neg_sum >= -6411 and cont_sum_neg_sum <= -411:
     result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
 else:
     result = 0
-  第2名: 9.615384615384615 - if cont_sum_pos_sum >= 10727.38 and cont_sum_pos_sum <= 10727.38:
+  第2名: 0.9711538461538461 - if cont_sum_pos_sum >= 5501 and cont_sum_pos_sum <= 19395:
     result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
 else:
     result = 0
-  第3名: 9.615384615384615 - if cont_sum_pos_sum >= 10727.38 and cont_sum_pos_sum <= 10727.38 and cont_sum_neg_sum >= -2439.3 and cont_sum_neg_sum <= -2439.3:
+本次最优值 0.98 不小于上一次最优值 0.98，更新 overall_stats
+参数cont_sum_neg_sum第1次最优公式: if cont_sum_neg_sum >= -6411 and cont_sum_neg_sum <= -411:
     result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
 else:
     result = 0
-本次最优值 9.62 不小于上一次最优值 9.62，更新 overall_stats
-参数cont_sum_neg_sum第1次最优公式: if cont_sum_pos_sum >= 10727.38 and cont_sum_pos_sum <= 10727.38 and cont_sum_neg_sum >= -2439.3 and cont_sum_neg_sum <= -2439.3:
-    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
-else:
-    result = 0
-三次分析：第一次 cont_sum_neg_sum 下限：-2439.3，上限：-2439.3，有较优方案。上次分析最优值：9.615384615384615，本次分析最优值：9.615384615384615
-三次分析-目标参数cont_sum_neg_sum第2次 下限=-2439.3 上限=-2439.3 步长=121 生成的全部公式:
-  [1] if cont_sum_pos_sum >= 10727.38 and cont_sum_pos_sum <= 10727.38 and cont_sum_neg_sum >= -2439.3 and cont_sum_neg_sum <= -2439.3:
+三次分析：第一次 cont_sum_neg_sum 下限：-6411，上限：-411，有较优方案。上次分析最优值：0.9807692307692307，本次分析最优值：0.9807692307692307
+三次分析-目标参数cont_sum_neg_sum第2次 下限=-6410.55 上限=-422.43 步长=320 生成的全部公式:
+  [1] if cont_sum_neg_sum >= -6410.55 and cont_sum_neg_sum <= -422.43:
     result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
 else:
     result = 0
 执行三次分析第2次
 【三次分析第2次完成】全局top_three更新:
-  第1名: 9.615384615384615 - if cont_sum_pos_sum >= 10727.38 and cont_sum_pos_sum <= 13372.43:
+  第1名: 0.9807692307692307 - if cont_sum_neg_sum >= -6411 and cont_sum_neg_sum <= -411:
     result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
 else:
     result = 0
-  第2名: 9.615384615384615 - if cont_sum_pos_sum >= 10727.38 and cont_sum_pos_sum <= 10727.38:
+  第2名: 0.9807692307692307 - if cont_sum_neg_sum >= -6410.55 and cont_sum_neg_sum <= -422.43:
     result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
 else:
     result = 0
-  第3名: 9.615384615384615 - if cont_sum_pos_sum >= 10727.38 and cont_sum_pos_sum <= 10727.38 and cont_sum_neg_sum >= -2439.3 and cont_sum_neg_sum <= -2439.3:
+  第3名: 0.9711538461538461 - if cont_sum_pos_sum >= 5501 and cont_sum_pos_sum <= 19395:
     result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
 else:
     result = 0
-本次最优值 9.62 不小于上一次最优值 9.62，更新 overall_stats
-参数cont_sum_neg_sum第2次最优公式: if cont_sum_pos_sum >= 10727.38 and cont_sum_pos_sum <= 10727.38 and cont_sum_neg_sum >= -2439.3 and cont_sum_neg_sum <= -2439.3:
+本次最优值 0.98 不小于上一次最优值 0.98，更新 overall_stats
+参数cont_sum_neg_sum第2次最优公式: if cont_sum_neg_sum >= -6410.55 and cont_sum_neg_sum <= -422.43:
     result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
 else:
     result = 0
-三次分析：第二次 cont_sum_neg_sum 下限：-2439.3，上限：-2439.3，有较优方案。上次分析最优值：9.615384615384615，本次分析最优值：9.615384615384615
-三次分析-目标参数cont_sum_neg_sum第3次 下限=-2439.3 上限=-2439.3 步长=60 生成的全部公式:
-  [1] if cont_sum_pos_sum >= 10727.38 and cont_sum_pos_sum <= 10727.38 and cont_sum_neg_sum >= -2439.3 and cont_sum_neg_sum <= -2439.3:
+三次分析：第二次 cont_sum_neg_sum 下限：-6410.55，上限：-422.43，有较优方案。上次分析最优值：0.9807692307692307，本次分析最优值：0.9807692307692307
+三次分析-目标参数cont_sum_neg_sum第3次 下限=-6358.65 上限=-422.43 步长=158 生成的全部公式:
+  [1] if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43:
     result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
 else:
     result = 0
 执行三次分析第3次
 【三次分析第3次完成】全局top_three更新:
-  第1名: 9.615384615384615 - if cont_sum_pos_sum >= 10727.38 and cont_sum_pos_sum <= 13372.43:
+  第1名: 0.9807692307692307 - if cont_sum_neg_sum >= -6411 and cont_sum_neg_sum <= -411:
     result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
 else:
     result = 0
-  第2名: 9.615384615384615 - if cont_sum_pos_sum >= 10727.38 and cont_sum_pos_sum <= 10727.38:
+  第2名: 0.9807692307692307 - if cont_sum_neg_sum >= -6410.55 and cont_sum_neg_sum <= -422.43:
     result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
 else:
     result = 0
-  第3名: 9.615384615384615 - if cont_sum_pos_sum >= 10727.38 and cont_sum_pos_sum <= 10727.38 and cont_sum_neg_sum >= -2439.3 and cont_sum_neg_sum <= -2439.3:
+  第3名: 0.9807692307692307 - if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43:
     result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
 else:
     result = 0
-本次最优值 9.62 不小于上一次最优值 9.62，更新 overall_stats
-参数cont_sum_neg_sum第3次最优公式: if cont_sum_pos_sum >= 10727.38 and cont_sum_pos_sum <= 10727.38 and cont_sum_neg_sum >= -2439.3 and cont_sum_neg_sum <= -2439.3:
+本次最优值 0.98 不小于上一次最优值 0.98，更新 overall_stats
+参数cont_sum_neg_sum第3次最优公式: if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43:
     result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
 else:
     result = 0
-三次分析：第三次 cont_sum_neg_sum 下限：-2439.3，上限：-2439.3，有较优方案。上次分析最优值：9.615384615384615，本次分析最优值：9.615384615384615
-记录参数cont_sum_neg_sum的最优条件：最优条件为：下限-2439.3，上限-2439.3， 组合排序输出值为：9.615384615384615，cont_sum_neg_sum_median：-2439.3，cont_sum_neg_sum_positive_median：None，cont_sum_neg_sum_negative_median：-2439.3
-三次分析-目标参数continuous_start_next_next_value第1次 下限=16.99 上限=16.99 步长=1 生成的全部公式:
-  [1] if cont_sum_pos_sum >= 10727.38 and cont_sum_pos_sum <= 10727.38 and cont_sum_neg_sum >= -2439.3 and cont_sum_neg_sum <= -2439.3 and continuous_start_next_next_value >= 16.99 and continuous_start_next_next_value <= 16.99:
-    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
-else:
-    result = 0
-执行三次分析第1次
-三次分析第1次：没有满足条件的组合分析结果
-记录参数continuous_start_next_next_value的无最优结果：continuous_start_next_next_value：第一次分析无最优
-三次分析-目标参数cont_sum_neg_sum_first_half第1次 下限=-1512.06 上限=-1512.06 步长=151 生成的全部公式:
-  [1] if cont_sum_pos_sum >= 10727.38 and cont_sum_pos_sum <= 10727.38 and cont_sum_neg_sum >= -2439.3 and cont_sum_neg_sum <= -2439.3 and cont_sum_neg_sum_first_half >= -1512.06 and cont_sum_neg_sum_first_half <= -1512.06:
+三次分析：第三次 cont_sum_neg_sum 下限：-6358.65，上限：-422.43，有较优方案。上次分析最优值：0.9807692307692307，本次分析最优值：0.9807692307692307
+记录参数cont_sum_neg_sum的最优条件：最优条件为：下限-6358.65，上限-422.43， 组合排序输出值为：0.9807692307692307，cont_sum_neg_sum_median：-3793.75，cont_sum_neg_sum_positive_median：None，cont_sum_neg_sum_negative_median：-3793.75
+三次分析-目标参数valid_pos_sum第1次 下限=337.88 上限=5663.17 步长=566 生成的全部公式:
+  [1] if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17:
     result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
 else:
     result = 0
 执行三次分析第1次
 【三次分析第1次完成】全局top_three更新:
-  第1名: 9.615384615384615 - if cont_sum_pos_sum >= 10727.38 and cont_sum_pos_sum <= 13372.43:
+  第1名: 0.9807692307692307 - if cont_sum_neg_sum >= -6411 and cont_sum_neg_sum <= -411:
     result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
 else:
     result = 0
-  第2名: 9.615384615384615 - if cont_sum_pos_sum >= 10727.38 and cont_sum_pos_sum <= 10727.38:
+  第2名: 0.9807692307692307 - if cont_sum_neg_sum >= -6410.55 and cont_sum_neg_sum <= -422.43:
     result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
 else:
     result = 0
-  第3名: 9.615384615384615 - if cont_sum_pos_sum >= 10727.38 and cont_sum_pos_sum <= 10727.38 and cont_sum_neg_sum >= -2439.3 and cont_sum_neg_sum <= -2439.3:
+  第3名: 0.9807692307692307 - if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43:
     result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
 else:
     result = 0
-本次最优值 9.62 不小于上一次最优值 9.62，更新 overall_stats
-参数cont_sum_neg_sum_first_half第1次最优公式: if cont_sum_pos_sum >= 10727.38 and cont_sum_pos_sum <= 10727.38 and cont_sum_neg_sum >= -2439.3 and cont_sum_neg_sum <= -2439.3 and cont_sum_neg_sum_first_half >= -1512.06 and cont_sum_neg_sum_first_half <= -1512.06:
+本次最优值 0.98 不小于上一次最优值 0.98，更新 overall_stats
+参数valid_pos_sum第1次最优公式: if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17:
     result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
 else:
     result = 0
-三次分析：第一次 cont_sum_neg_sum_first_half 下限：-1512.06，上限：-1512.06，有较优方案。上次分析最优值：9.615384615384615，本次分析最优值：9.615384615384615
-三次分析-目标参数cont_sum_neg_sum_first_half第2次 下限=-1512.06 上限=-1512.06 步长=75 生成的全部公式:
-  [1] if cont_sum_pos_sum >= 10727.38 and cont_sum_pos_sum <= 10727.38 and cont_sum_neg_sum >= -2439.3 and cont_sum_neg_sum <= -2439.3 and cont_sum_neg_sum_first_half >= -1512.06 and cont_sum_neg_sum_first_half <= -1512.06:
+三次分析：第一次 valid_pos_sum 下限：337.88，上限：5663.17，有较优方案。上次分析最优值：0.9807692307692307，本次分析最优值：0.9807692307692307
+三次分析-目标参数valid_pos_sum第2次 下限=337.88 上限=5663.17 步长=283 生成的全部公式:
+  [1] if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17:
     result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
 else:
     result = 0
 执行三次分析第2次
 【三次分析第2次完成】全局top_three更新:
-  第1名: 9.615384615384615 - if cont_sum_pos_sum >= 10727.38 and cont_sum_pos_sum <= 13372.43:
+  第1名: 0.9807692307692307 - if cont_sum_neg_sum >= -6411 and cont_sum_neg_sum <= -411:
     result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
 else:
     result = 0
-  第2名: 9.615384615384615 - if cont_sum_pos_sum >= 10727.38 and cont_sum_pos_sum <= 10727.38:
+  第2名: 0.9807692307692307 - if cont_sum_neg_sum >= -6410.55 and cont_sum_neg_sum <= -422.43:
     result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
 else:
     result = 0
-  第3名: 9.615384615384615 - if cont_sum_pos_sum >= 10727.38 and cont_sum_pos_sum <= 10727.38 and cont_sum_neg_sum >= -2439.3 and cont_sum_neg_sum <= -2439.3:
+  第3名: 0.9807692307692307 - if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43:
     result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
 else:
     result = 0
-本次最优值 9.62 不小于上一次最优值 9.62，更新 overall_stats
-参数cont_sum_neg_sum_first_half第2次最优公式: if cont_sum_pos_sum >= 10727.38 and cont_sum_pos_sum <= 10727.38 and cont_sum_neg_sum >= -2439.3 and cont_sum_neg_sum <= -2439.3 and cont_sum_neg_sum_first_half >= -1512.06 and cont_sum_neg_sum_first_half <= -1512.06:
+本次最优值 0.98 不小于上一次最优值 0.98，更新 overall_stats
+参数valid_pos_sum第2次最优公式: if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17:
     result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
 else:
     result = 0
-三次分析：第二次 cont_sum_neg_sum_first_half 下限：-1512.06，上限：-1512.06，有较优方案。上次分析最优值：9.615384615384615，本次分析最优值：9.615384615384615
-三次分析-目标参数cont_sum_neg_sum_first_half第3次 下限=-1512.06 上限=-1512.06 步长=37 生成的全部公式:
-  [1] if cont_sum_pos_sum >= 10727.38 and cont_sum_pos_sum <= 10727.38 and cont_sum_neg_sum >= -2439.3 and cont_sum_neg_sum <= -2439.3 and cont_sum_neg_sum_first_half >= -1512.06 and cont_sum_neg_sum_first_half <= -1512.06:
+三次分析：第二次 valid_pos_sum 下限：337.88，上限：5663.17，有较优方案。上次分析最优值：0.9807692307692307，本次分析最优值：0.9807692307692307
+三次分析-目标参数valid_pos_sum第3次 下限=337.88 上限=5663.17 步长=141 生成的全部公式:
+  [1] if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17:
     result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
 else:
     result = 0
 执行三次分析第3次
 【三次分析第3次完成】全局top_three更新:
-  第1名: 9.615384615384615 - if cont_sum_pos_sum >= 10727.38 and cont_sum_pos_sum <= 13372.43:
+  第1名: 0.9807692307692307 - if cont_sum_neg_sum >= -6411 and cont_sum_neg_sum <= -411:
     result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
 else:
     result = 0
-  第2名: 9.615384615384615 - if cont_sum_pos_sum >= 10727.38 and cont_sum_pos_sum <= 10727.38:
+  第2名: 0.9807692307692307 - if cont_sum_neg_sum >= -6410.55 and cont_sum_neg_sum <= -422.43:
     result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
 else:
     result = 0
-  第3名: 9.615384615384615 - if cont_sum_pos_sum >= 10727.38 and cont_sum_pos_sum <= 10727.38 and cont_sum_neg_sum >= -2439.3 and cont_sum_neg_sum <= -2439.3:
+  第3名: 0.9807692307692307 - if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43:
     result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
 else:
     result = 0
-本次最优值 9.62 不小于上一次最优值 9.62，更新 overall_stats
-参数cont_sum_neg_sum_first_half第3次最优公式: if cont_sum_pos_sum >= 10727.38 and cont_sum_pos_sum <= 10727.38 and cont_sum_neg_sum >= -2439.3 and cont_sum_neg_sum <= -2439.3 and cont_sum_neg_sum_first_half >= -1512.06 and cont_sum_neg_sum_first_half <= -1512.06:
+本次最优值 0.98 不小于上一次最优值 0.98，更新 overall_stats
+参数valid_pos_sum第3次最优公式: if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17:
     result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
 else:
     result = 0
-三次分析：第三次 cont_sum_neg_sum_first_half 下限：-1512.06，上限：-1512.06，有较优方案。上次分析最优值：9.615384615384615，本次分析最优值：9.615384615384615
-记录参数cont_sum_neg_sum_first_half的最优条件：最优条件为：下限-1512.06，上限-1512.06， 组合排序输出值为：9.615384615384615，cont_sum_neg_sum_first_half_median：-1512.06，cont_sum_neg_sum_first_half_positive_median：None，cont_sum_neg_sum_first_half_negative_median：-1512.06
-三次分析完成，总共记录了3个参数的最优条件，1个参数的无最优结果
-补充记录完成后，best_param_condition_list长度：3
-【第最终次】有最优方案出现！当前最优组合排序输出值：9.62，大于上次分析最优值：6.24 的 100.0% = 6.24
+三次分析：第三次 valid_pos_sum 下限：337.88，上限：5663.17，有较优方案。上次分析最优值：0.9807692307692307，本次分析最优值：0.9807692307692307
+记录参数valid_pos_sum的最优条件：最优条件为：下限337.88，上限5663.17， 组合排序输出值为：0.9807692307692307，valid_pos_sum_median：3027.09，valid_pos_sum_positive_median：3027.09，valid_pos_sum_negative_median：None
+三次分析-目标参数valid_neg_sum第1次 下限=-4777.26 上限=-177.18 步长=477 生成的全部公式:
+  [1] if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17 and valid_neg_sum >= -4777.26 and valid_neg_sum <= -177.18:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+执行三次分析第1次
+【三次分析第1次完成】全局top_three更新:
+  第1名: 0.9807692307692307 - if cont_sum_neg_sum >= -6411 and cont_sum_neg_sum <= -411:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+  第2名: 0.9807692307692307 - if cont_sum_neg_sum >= -6410.55 and cont_sum_neg_sum <= -422.43:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+  第3名: 0.9807692307692307 - if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+本次最优值 0.98 不小于上一次最优值 0.98，更新 overall_stats
+参数valid_neg_sum第1次最优公式: if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17 and valid_neg_sum >= -4777.26 and valid_neg_sum <= -177.18:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+三次分析：第一次 valid_neg_sum 下限：-4777.26，上限：-177.18，有较优方案。上次分析最优值：0.9807692307692307，本次分析最优值：0.9807692307692307
+三次分析-目标参数valid_neg_sum第2次 下限=-4777.26 上限=-177.18 步长=238 生成的全部公式:
+  [1] if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17 and valid_neg_sum >= -4777.26 and valid_neg_sum <= -177.18:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+执行三次分析第2次
+【三次分析第2次完成】全局top_three更新:
+  第1名: 0.9807692307692307 - if cont_sum_neg_sum >= -6411 and cont_sum_neg_sum <= -411:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+  第2名: 0.9807692307692307 - if cont_sum_neg_sum >= -6410.55 and cont_sum_neg_sum <= -422.43:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+  第3名: 0.9807692307692307 - if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+本次最优值 0.98 不小于上一次最优值 0.98，更新 overall_stats
+参数valid_neg_sum第2次最优公式: if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17 and valid_neg_sum >= -4777.26 and valid_neg_sum <= -177.18:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+三次分析：第二次 valid_neg_sum 下限：-4777.26，上限：-177.18，有较优方案。上次分析最优值：0.9807692307692307，本次分析最优值：0.9807692307692307
+三次分析-目标参数valid_neg_sum第3次 下限=-4777.26 上限=-177.18 步长=119 生成的全部公式:
+  [1] if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17 and valid_neg_sum >= -4777.26 and valid_neg_sum <= -177.18:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+执行三次分析第3次
+【三次分析第3次完成】全局top_three更新:
+  第1名: 0.9807692307692307 - if cont_sum_neg_sum >= -6411 and cont_sum_neg_sum <= -411:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+  第2名: 0.9807692307692307 - if cont_sum_neg_sum >= -6410.55 and cont_sum_neg_sum <= -422.43:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+  第3名: 0.9807692307692307 - if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+本次最优值 0.98 不小于上一次最优值 0.98，更新 overall_stats
+参数valid_neg_sum第3次最优公式: if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17 and valid_neg_sum >= -4777.26 and valid_neg_sum <= -177.18:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+三次分析：第三次 valid_neg_sum 下限：-4777.26，上限：-177.18，有较优方案。上次分析最优值：0.9807692307692307，本次分析最优值：0.9807692307692307
+记录参数valid_neg_sum的最优条件：最优条件为：下限-4777.26，上限-177.18， 组合排序输出值为：0.9807692307692307，valid_neg_sum_median：-2073.64，valid_neg_sum_positive_median：None，valid_neg_sum_negative_median：-2073.64
+三次分析-目标参数end_value第1次 下限=0.8 上限=14.97 步长=1 生成的全部公式:
+  [1] if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17 and valid_neg_sum >= -4777.26 and valid_neg_sum <= -177.18 and end_value >= 0.8 and end_value <= 14.97:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+执行三次分析第1次
+【三次分析第1次完成】全局top_three更新:
+  第1名: 0.9807692307692307 - if cont_sum_neg_sum >= -6411 and cont_sum_neg_sum <= -411:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+  第2名: 0.9807692307692307 - if cont_sum_neg_sum >= -6410.55 and cont_sum_neg_sum <= -422.43:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+  第3名: 0.9807692307692307 - if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+本次最优值 0.98 不小于上一次最优值 0.98，更新 overall_stats
+参数end_value第1次最优公式: if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17 and valid_neg_sum >= -4777.26 and valid_neg_sum <= -177.18 and end_value >= 0.8 and end_value <= 14.97:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+三次分析：第一次 end_value 下限：0.8，上限：14.97，有较优方案。上次分析最优值：0.9807692307692307，本次分析最优值：0.9807692307692307
+三次分析-目标参数end_value第2次 下限=0.83 上限=13.95 步长=0 生成的全部公式:
+  [1] if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17 and valid_neg_sum >= -4777.26 and valid_neg_sum <= -177.18 and end_value >= 0.83 and end_value <= 13.95:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+执行三次分析第2次
+【三次分析第2次完成】全局top_three更新:
+  第1名: 0.9807692307692307 - if cont_sum_neg_sum >= -6411 and cont_sum_neg_sum <= -411:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+  第2名: 0.9807692307692307 - if cont_sum_neg_sum >= -6410.55 and cont_sum_neg_sum <= -422.43:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+  第3名: 0.9807692307692307 - if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+本次最优值 0.98 不小于上一次最优值 0.98，更新 overall_stats
+参数end_value第2次最优公式: if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17 and valid_neg_sum >= -4777.26 and valid_neg_sum <= -177.18 and end_value >= 0.83 and end_value <= 13.95:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+三次分析：第二次 end_value 下限：0.83，上限：13.95，有较优方案。上次分析最优值：0.9807692307692307，本次分析最优值：0.9807692307692307
+三次分析-目标参数end_value第3次 下限=0.83 上限=13.95 步长=0 生成的全部公式:
+  [1] if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17 and valid_neg_sum >= -4777.26 and valid_neg_sum <= -177.18 and end_value >= 0.83 and end_value <= 13.95:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+执行三次分析第3次
+【三次分析第3次完成】全局top_three更新:
+  第1名: 0.9807692307692307 - if cont_sum_neg_sum >= -6411 and cont_sum_neg_sum <= -411:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+  第2名: 0.9807692307692307 - if cont_sum_neg_sum >= -6410.55 and cont_sum_neg_sum <= -422.43:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+  第3名: 0.9807692307692307 - if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+本次最优值 0.98 不小于上一次最优值 0.98，更新 overall_stats
+参数end_value第3次最优公式: if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17 and valid_neg_sum >= -4777.26 and valid_neg_sum <= -177.18 and end_value >= 0.83 and end_value <= 13.95:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+三次分析：第三次 end_value 下限：0.83，上限：13.95，有较优方案。上次分析最优值：0.9807692307692307，本次分析最优值：0.9807692307692307
+记录参数end_value的最优条件：最优条件为：下限0.83，上限13.95， 组合排序输出值为：0.9807692307692307，end_value_median：4.17，end_value_positive_median：4.17，end_value_negative_median：None
+三次分析-目标参数diff_end_value第1次 下限=-1568.54 上限=2218.95 步长=221 生成的全部公式:
+  [1] if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17 and valid_neg_sum >= -4777.26 and valid_neg_sum <= -177.18 and end_value >= 0.83 and end_value <= 13.95 and diff_end_value >= -1568.54 and diff_end_value <= 2218.95:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+执行三次分析第1次
+【三次分析第1次完成】全局top_three更新:
+  第1名: 0.9807692307692307 - if cont_sum_neg_sum >= -6411 and cont_sum_neg_sum <= -411:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+  第2名: 0.9807692307692307 - if cont_sum_neg_sum >= -6410.55 and cont_sum_neg_sum <= -422.43:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+  第3名: 0.9807692307692307 - if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+本次最优值 0.98 不小于上一次最优值 0.98，更新 overall_stats
+参数diff_end_value第1次最优公式: if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17 and valid_neg_sum >= -4777.26 and valid_neg_sum <= -177.18 and end_value >= 0.83 and end_value <= 13.95 and diff_end_value >= -1568.54 and diff_end_value <= 2218.95:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+三次分析：第一次 diff_end_value 下限：-1568.54，上限：2218.95，有较优方案。上次分析最优值：0.9807692307692307，本次分析最优值：0.9807692307692307
+三次分析-目标参数diff_end_value第2次 下限=-1568.54 上限=2218.95 步长=110 生成的全部公式:
+  [1] if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17 and valid_neg_sum >= -4777.26 and valid_neg_sum <= -177.18 and end_value >= 0.83 and end_value <= 13.95 and diff_end_value >= -1568.54 and diff_end_value <= 2218.95:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+执行三次分析第2次
+【三次分析第2次完成】全局top_three更新:
+  第1名: 0.9807692307692307 - if cont_sum_neg_sum >= -6411 and cont_sum_neg_sum <= -411:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+  第2名: 0.9807692307692307 - if cont_sum_neg_sum >= -6410.55 and cont_sum_neg_sum <= -422.43:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+  第3名: 0.9807692307692307 - if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+本次最优值 0.98 不小于上一次最优值 0.98，更新 overall_stats
+参数diff_end_value第2次最优公式: if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17 and valid_neg_sum >= -4777.26 and valid_neg_sum <= -177.18 and end_value >= 0.83 and end_value <= 13.95 and diff_end_value >= -1568.54 and diff_end_value <= 2218.95:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+三次分析：第二次 diff_end_value 下限：-1568.54，上限：2218.95，有较优方案。上次分析最优值：0.9807692307692307，本次分析最优值：0.9807692307692307
+三次分析-目标参数diff_end_value第3次 下限=-1568.54 上限=2218.95 步长=55 生成的全部公式:
+  [1] if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17 and valid_neg_sum >= -4777.26 and valid_neg_sum <= -177.18 and end_value >= 0.83 and end_value <= 13.95 and diff_end_value >= -1568.54 and diff_end_value <= 2218.95:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+执行三次分析第3次
+【三次分析第3次完成】全局top_three更新:
+  第1名: 0.9807692307692307 - if cont_sum_neg_sum >= -6411 and cont_sum_neg_sum <= -411:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+  第2名: 0.9807692307692307 - if cont_sum_neg_sum >= -6410.55 and cont_sum_neg_sum <= -422.43:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+  第3名: 0.9807692307692307 - if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+本次最优值 0.98 不小于上一次最优值 0.98，更新 overall_stats
+参数diff_end_value第3次最优公式: if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17 and valid_neg_sum >= -4777.26 and valid_neg_sum <= -177.18 and end_value >= 0.83 and end_value <= 13.95 and diff_end_value >= -1568.54 and diff_end_value <= 2218.95:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+三次分析：第三次 diff_end_value 下限：-1568.54，上限：2218.95，有较优方案。上次分析最优值：0.9807692307692307，本次分析最优值：0.9807692307692307
+记录参数diff_end_value的最优条件：最优条件为：下限-1568.54，上限2218.95， 组合排序输出值为：0.9807692307692307，diff_end_value_median：-5.48，diff_end_value_positive_median：114.78，diff_end_value_negative_median：-80.75
+三次分析-目标参数continuous_len第1次 下限=3.0 上限=40.0 步长=4 生成的全部公式:
+  [1] if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17 and valid_neg_sum >= -4777.26 and valid_neg_sum <= -177.18 and end_value >= 0.83 and end_value <= 13.95 and diff_end_value >= -1568.54 and diff_end_value <= 2218.95 and continuous_len >= 3.0 and continuous_len <= 40.0:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+执行三次分析第1次
+【三次分析第1次完成】全局top_three更新:
+  第1名: 0.9807692307692307 - if cont_sum_neg_sum >= -6411 and cont_sum_neg_sum <= -411:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+  第2名: 0.9807692307692307 - if cont_sum_neg_sum >= -6410.55 and cont_sum_neg_sum <= -422.43:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+  第3名: 0.9807692307692307 - if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+本次最优值 0.98 不小于上一次最优值 0.98，更新 overall_stats
+参数continuous_len第1次最优公式: if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17 and valid_neg_sum >= -4777.26 and valid_neg_sum <= -177.18 and end_value >= 0.83 and end_value <= 13.95 and diff_end_value >= -1568.54 and diff_end_value <= 2218.95 and continuous_len >= 3.0 and continuous_len <= 40.0:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+三次分析：第一次 continuous_len 下限：3.0，上限：40.0，有较优方案。上次分析最优值：0.9807692307692307，本次分析最优值：0.9807692307692307
+三次分析-目标参数continuous_len第2次 下限=3.0 上限=40.0 步长=2 生成的全部公式:
+  [1] if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17 and valid_neg_sum >= -4777.26 and valid_neg_sum <= -177.18 and end_value >= 0.83 and end_value <= 13.95 and diff_end_value >= -1568.54 and diff_end_value <= 2218.95 and continuous_len >= 3.0 and continuous_len <= 40.0:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+执行三次分析第2次
+【三次分析第2次完成】全局top_three更新:
+  第1名: 0.9807692307692307 - if cont_sum_neg_sum >= -6411 and cont_sum_neg_sum <= -411:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+  第2名: 0.9807692307692307 - if cont_sum_neg_sum >= -6410.55 and cont_sum_neg_sum <= -422.43:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+  第3名: 0.9807692307692307 - if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+本次最优值 0.98 不小于上一次最优值 0.98，更新 overall_stats
+参数continuous_len第2次最优公式: if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17 and valid_neg_sum >= -4777.26 and valid_neg_sum <= -177.18 and end_value >= 0.83 and end_value <= 13.95 and diff_end_value >= -1568.54 and diff_end_value <= 2218.95 and continuous_len >= 3.0 and continuous_len <= 40.0:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+三次分析：第二次 continuous_len 下限：3.0，上限：40.0，有较优方案。上次分析最优值：0.9807692307692307，本次分析最优值：0.9807692307692307
+三次分析-目标参数continuous_len第3次 下限=3.0 上限=40.0 步长=1 生成的全部公式:
+  [1] if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17 and valid_neg_sum >= -4777.26 and valid_neg_sum <= -177.18 and end_value >= 0.83 and end_value <= 13.95 and diff_end_value >= -1568.54 and diff_end_value <= 2218.95 and continuous_len >= 3.0 and continuous_len <= 40.0:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+执行三次分析第3次
+【三次分析第3次完成】全局top_three更新:
+  第1名: 0.9807692307692307 - if cont_sum_neg_sum >= -6411 and cont_sum_neg_sum <= -411:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+  第2名: 0.9807692307692307 - if cont_sum_neg_sum >= -6410.55 and cont_sum_neg_sum <= -422.43:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+  第3名: 0.9807692307692307 - if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+本次最优值 0.98 不小于上一次最优值 0.98，更新 overall_stats
+参数continuous_len第3次最优公式: if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17 and valid_neg_sum >= -4777.26 and valid_neg_sum <= -177.18 and end_value >= 0.83 and end_value <= 13.95 and diff_end_value >= -1568.54 and diff_end_value <= 2218.95 and continuous_len >= 3.0 and continuous_len <= 40.0:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+三次分析：第三次 continuous_len 下限：3.0，上限：40.0，有较优方案。上次分析最优值：0.9807692307692307，本次分析最优值：0.9807692307692307
+记录参数continuous_len的最优条件：最优条件为：下限3.0，上限40.0， 组合排序输出值为：0.9807692307692307，continuous_len_median：26.0，continuous_len_positive_median：26.0，continuous_len_negative_median：None
+三次分析-目标参数continuous_start_value第1次 下限=0.47 上限=11124.93 步长=1112 生成的全部公式:
+  [1] if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17 and valid_neg_sum >= -4777.26 and valid_neg_sum <= -177.18 and end_value >= 0.83 and end_value <= 13.95 and diff_end_value >= -1568.54 and diff_end_value <= 2218.95 and continuous_len >= 3.0 and continuous_len <= 40.0 and continuous_start_value >= 0.47 and continuous_start_value <= 11124.93:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+执行三次分析第1次
+【三次分析第1次完成】全局top_three更新:
+  第1名: 0.9807692307692307 - if cont_sum_neg_sum >= -6411 and cont_sum_neg_sum <= -411:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+  第2名: 0.9807692307692307 - if cont_sum_neg_sum >= -6410.55 and cont_sum_neg_sum <= -422.43:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+  第3名: 0.9807692307692307 - if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+本次最优值 0.98 不小于上一次最优值 0.98，更新 overall_stats
+参数continuous_start_value第1次最优公式: if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17 and valid_neg_sum >= -4777.26 and valid_neg_sum <= -177.18 and end_value >= 0.83 and end_value <= 13.95 and diff_end_value >= -1568.54 and diff_end_value <= 2218.95 and continuous_len >= 3.0 and continuous_len <= 40.0 and continuous_start_value >= 0.47 and continuous_start_value <= 11124.93:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+三次分析：第一次 continuous_start_value 下限：0.47，上限：11124.93，有较优方案。上次分析最优值：0.9807692307692307，本次分析最优值：0.9807692307692307
+三次分析-目标参数continuous_start_value第2次 下限=0.47 上限=11124.93 步长=556 生成的全部公式:
+  [1] if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17 and valid_neg_sum >= -4777.26 and valid_neg_sum <= -177.18 and end_value >= 0.83 and end_value <= 13.95 and diff_end_value >= -1568.54 and diff_end_value <= 2218.95 and continuous_len >= 3.0 and continuous_len <= 40.0 and continuous_start_value >= 0.47 and continuous_start_value <= 11124.93:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+执行三次分析第2次
+【三次分析第2次完成】全局top_three更新:
+  第1名: 0.9807692307692307 - if cont_sum_neg_sum >= -6411 and cont_sum_neg_sum <= -411:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+  第2名: 0.9807692307692307 - if cont_sum_neg_sum >= -6410.55 and cont_sum_neg_sum <= -422.43:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+  第3名: 0.9807692307692307 - if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+本次最优值 0.98 不小于上一次最优值 0.98，更新 overall_stats
+参数continuous_start_value第2次最优公式: if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17 and valid_neg_sum >= -4777.26 and valid_neg_sum <= -177.18 and end_value >= 0.83 and end_value <= 13.95 and diff_end_value >= -1568.54 and diff_end_value <= 2218.95 and continuous_len >= 3.0 and continuous_len <= 40.0 and continuous_start_value >= 0.47 and continuous_start_value <= 11124.93:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+三次分析：第二次 continuous_start_value 下限：0.47，上限：11124.93，有较优方案。上次分析最优值：0.9807692307692307，本次分析最优值：0.9807692307692307
+三次分析-目标参数continuous_start_value第3次 下限=0.47 上限=11124.93 步长=278 生成的全部公式:
+  [1] if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17 and valid_neg_sum >= -4777.26 and valid_neg_sum <= -177.18 and end_value >= 0.83 and end_value <= 13.95 and diff_end_value >= -1568.54 and diff_end_value <= 2218.95 and continuous_len >= 3.0 and continuous_len <= 40.0 and continuous_start_value >= 0.47 and continuous_start_value <= 11124.93:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+执行三次分析第3次
+【三次分析第3次完成】全局top_three更新:
+  第1名: 0.9807692307692307 - if cont_sum_neg_sum >= -6411 and cont_sum_neg_sum <= -411:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+  第2名: 0.9807692307692307 - if cont_sum_neg_sum >= -6410.55 and cont_sum_neg_sum <= -422.43:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+  第3名: 0.9807692307692307 - if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+本次最优值 0.98 不小于上一次最优值 0.98，更新 overall_stats
+参数continuous_start_value第3次最优公式: if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17 and valid_neg_sum >= -4777.26 and valid_neg_sum <= -177.18 and end_value >= 0.83 and end_value <= 13.95 and diff_end_value >= -1568.54 and diff_end_value <= 2218.95 and continuous_len >= 3.0 and continuous_len <= 40.0 and continuous_start_value >= 0.47 and continuous_start_value <= 11124.93:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+三次分析：第三次 continuous_start_value 下限：0.47，上限：11124.93，有较优方案。上次分析最优值：0.9807692307692307，本次分析最优值：0.9807692307692307
+记录参数continuous_start_value的最优条件：最优条件为：下限0.47，上限11124.93， 组合排序输出值为：0.9807692307692307，continuous_start_value_median：598.1，continuous_start_value_positive_median：598.1，continuous_start_value_negative_median：None
+三次分析-目标参数continuous_start_next_value第1次 下限=-2760.68 上限=-0.06 步长=276 生成的全部公式:
+  [1] if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17 and valid_neg_sum >= -4777.26 and valid_neg_sum <= -177.18 and end_value >= 0.83 and end_value <= 13.95 and diff_end_value >= -1568.54 and diff_end_value <= 2218.95 and continuous_len >= 3.0 and continuous_len <= 40.0 and continuous_start_value >= 0.47 and continuous_start_value <= 11124.93 and continuous_start_next_value >= -2760.68 and continuous_start_next_value <= -0.06:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+执行三次分析第1次
+【三次分析第1次完成】全局top_three更新:
+  第1名: 0.9807692307692307 - if cont_sum_neg_sum >= -6411 and cont_sum_neg_sum <= -411:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+  第2名: 0.9807692307692307 - if cont_sum_neg_sum >= -6410.55 and cont_sum_neg_sum <= -422.43:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+  第3名: 0.9807692307692307 - if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+本次最优值 0.98 不小于上一次最优值 0.98，更新 overall_stats
+参数continuous_start_next_value第1次最优公式: if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17 and valid_neg_sum >= -4777.26 and valid_neg_sum <= -177.18 and end_value >= 0.83 and end_value <= 13.95 and diff_end_value >= -1568.54 and diff_end_value <= 2218.95 and continuous_len >= 3.0 and continuous_len <= 40.0 and continuous_start_value >= 0.47 and continuous_start_value <= 11124.93 and continuous_start_next_value >= -2760.68 and continuous_start_next_value <= -0.06:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+三次分析：第一次 continuous_start_next_value 下限：-2760.68，上限：-0.06，有较优方案。上次分析最优值：0.9807692307692307，本次分析最优值：0.9807692307692307
+三次分析-目标参数continuous_start_next_value第2次 下限=-2760.68 上限=-0.06 步长=138 生成的全部公式:
+  [1] if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17 and valid_neg_sum >= -4777.26 and valid_neg_sum <= -177.18 and end_value >= 0.83 and end_value <= 13.95 and diff_end_value >= -1568.54 and diff_end_value <= 2218.95 and continuous_len >= 3.0 and continuous_len <= 40.0 and continuous_start_value >= 0.47 and continuous_start_value <= 11124.93 and continuous_start_next_value >= -2760.68 and continuous_start_next_value <= -0.06:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+执行三次分析第2次
+【三次分析第2次完成】全局top_three更新:
+  第1名: 0.9807692307692307 - if cont_sum_neg_sum >= -6411 and cont_sum_neg_sum <= -411:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+  第2名: 0.9807692307692307 - if cont_sum_neg_sum >= -6410.55 and cont_sum_neg_sum <= -422.43:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+  第3名: 0.9807692307692307 - if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+本次最优值 0.98 不小于上一次最优值 0.98，更新 overall_stats
+参数continuous_start_next_value第2次最优公式: if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17 and valid_neg_sum >= -4777.26 and valid_neg_sum <= -177.18 and end_value >= 0.83 and end_value <= 13.95 and diff_end_value >= -1568.54 and diff_end_value <= 2218.95 and continuous_len >= 3.0 and continuous_len <= 40.0 and continuous_start_value >= 0.47 and continuous_start_value <= 11124.93 and continuous_start_next_value >= -2760.68 and continuous_start_next_value <= -0.06:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+三次分析：第二次 continuous_start_next_value 下限：-2760.68，上限：-0.06，有较优方案。上次分析最优值：0.9807692307692307，本次分析最优值：0.9807692307692307
+三次分析-目标参数continuous_start_next_value第3次 下限=-2760.68 上限=-0.06 步长=69 生成的全部公式:
+  [1] if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17 and valid_neg_sum >= -4777.26 and valid_neg_sum <= -177.18 and end_value >= 0.83 and end_value <= 13.95 and diff_end_value >= -1568.54 and diff_end_value <= 2218.95 and continuous_len >= 3.0 and continuous_len <= 40.0 and continuous_start_value >= 0.47 and continuous_start_value <= 11124.93 and continuous_start_next_value >= -2760.68 and continuous_start_next_value <= -0.06:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+执行三次分析第3次
+【三次分析第3次完成】全局top_three更新:
+  第1名: 0.9807692307692307 - if cont_sum_neg_sum >= -6411 and cont_sum_neg_sum <= -411:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+  第2名: 0.9807692307692307 - if cont_sum_neg_sum >= -6410.55 and cont_sum_neg_sum <= -422.43:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+  第3名: 0.9807692307692307 - if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+本次最优值 0.98 不小于上一次最优值 0.98，更新 overall_stats
+参数continuous_start_next_value第3次最优公式: if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17 and valid_neg_sum >= -4777.26 and valid_neg_sum <= -177.18 and end_value >= 0.83 and end_value <= 13.95 and diff_end_value >= -1568.54 and diff_end_value <= 2218.95 and continuous_len >= 3.0 and continuous_len <= 40.0 and continuous_start_value >= 0.47 and continuous_start_value <= 11124.93 and continuous_start_next_value >= -2760.68 and continuous_start_next_value <= -0.06:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+三次分析：第三次 continuous_start_next_value 下限：-2760.68，上限：-0.06，有较优方案。上次分析最优值：0.9807692307692307，本次分析最优值：0.9807692307692307
+记录参数continuous_start_next_value的最优条件：最优条件为：下限-2760.68，上限-0.06， 组合排序输出值为：0.9807692307692307，continuous_start_next_value_median：-124.29，continuous_start_next_value_positive_median：None，continuous_start_next_value_negative_median：-124.29
+三次分析-目标参数continuous_end_value第1次 下限=-2196.93 上限=7559.41 步长=755 生成的全部公式:
+  [1] if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17 and valid_neg_sum >= -4777.26 and valid_neg_sum <= -177.18 and end_value >= 0.83 and end_value <= 13.95 and diff_end_value >= -1568.54 and diff_end_value <= 2218.95 and continuous_len >= 3.0 and continuous_len <= 40.0 and continuous_start_value >= 0.47 and continuous_start_value <= 11124.93 and continuous_start_next_value >= -2760.68 and continuous_start_next_value <= -0.06 and continuous_end_value >= -2196.93 and continuous_end_value <= 7559.41:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+执行三次分析第1次
+【三次分析第1次完成】全局top_three更新:
+  第1名: 0.9807692307692307 - if cont_sum_neg_sum >= -6411 and cont_sum_neg_sum <= -411:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+  第2名: 0.9807692307692307 - if cont_sum_neg_sum >= -6410.55 and cont_sum_neg_sum <= -422.43:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+  第3名: 0.9807692307692307 - if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+本次最优值 0.98 不小于上一次最优值 0.98，更新 overall_stats
+参数continuous_end_value第1次最优公式: if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17 and valid_neg_sum >= -4777.26 and valid_neg_sum <= -177.18 and end_value >= 0.83 and end_value <= 13.95 and diff_end_value >= -1568.54 and diff_end_value <= 2218.95 and continuous_len >= 3.0 and continuous_len <= 40.0 and continuous_start_value >= 0.47 and continuous_start_value <= 11124.93 and continuous_start_next_value >= -2760.68 and continuous_start_next_value <= -0.06 and continuous_end_value >= -2196.93 and continuous_end_value <= 7559.41:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+三次分析：第一次 continuous_end_value 下限：-2196.93，上限：7559.41，有较优方案。上次分析最优值：0.9807692307692307，本次分析最优值：0.9807692307692307
+三次分析-目标参数continuous_end_value第2次 下限=-2196.93 上限=7559.41 步长=377 生成的全部公式:
+  [1] if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17 and valid_neg_sum >= -4777.26 and valid_neg_sum <= -177.18 and end_value >= 0.83 and end_value <= 13.95 and diff_end_value >= -1568.54 and diff_end_value <= 2218.95 and continuous_len >= 3.0 and continuous_len <= 40.0 and continuous_start_value >= 0.47 and continuous_start_value <= 11124.93 and continuous_start_next_value >= -2760.68 and continuous_start_next_value <= -0.06 and continuous_end_value >= -2196.93 and continuous_end_value <= 7559.41:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+执行三次分析第2次
+【三次分析第2次完成】全局top_three更新:
+  第1名: 0.9807692307692307 - if cont_sum_neg_sum >= -6411 and cont_sum_neg_sum <= -411:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+  第2名: 0.9807692307692307 - if cont_sum_neg_sum >= -6410.55 and cont_sum_neg_sum <= -422.43:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+  第3名: 0.9807692307692307 - if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+本次最优值 0.98 不小于上一次最优值 0.98，更新 overall_stats
+参数continuous_end_value第2次最优公式: if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17 and valid_neg_sum >= -4777.26 and valid_neg_sum <= -177.18 and end_value >= 0.83 and end_value <= 13.95 and diff_end_value >= -1568.54 and diff_end_value <= 2218.95 and continuous_len >= 3.0 and continuous_len <= 40.0 and continuous_start_value >= 0.47 and continuous_start_value <= 11124.93 and continuous_start_next_value >= -2760.68 and continuous_start_next_value <= -0.06 and continuous_end_value >= -2196.93 and continuous_end_value <= 7559.41:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+三次分析：第二次 continuous_end_value 下限：-2196.93，上限：7559.41，有较优方案。上次分析最优值：0.9807692307692307，本次分析最优值：0.9807692307692307
+三次分析-目标参数continuous_end_value第3次 下限=-2196.93 上限=7559.41 步长=188 生成的全部公式:
+  [1] if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17 and valid_neg_sum >= -4777.26 and valid_neg_sum <= -177.18 and end_value >= 0.83 and end_value <= 13.95 and diff_end_value >= -1568.54 and diff_end_value <= 2218.95 and continuous_len >= 3.0 and continuous_len <= 40.0 and continuous_start_value >= 0.47 and continuous_start_value <= 11124.93 and continuous_start_next_value >= -2760.68 and continuous_start_next_value <= -0.06 and continuous_end_value >= -2196.93 and continuous_end_value <= 7559.41:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+执行三次分析第3次
+【三次分析第3次完成】全局top_three更新:
+  第1名: 0.9807692307692307 - if cont_sum_neg_sum >= -6411 and cont_sum_neg_sum <= -411:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+  第2名: 0.9807692307692307 - if cont_sum_neg_sum >= -6410.55 and cont_sum_neg_sum <= -422.43:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+  第3名: 0.9807692307692307 - if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+本次最优值 0.98 不小于上一次最优值 0.98，更新 overall_stats
+参数continuous_end_value第3次最优公式: if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17 and valid_neg_sum >= -4777.26 and valid_neg_sum <= -177.18 and end_value >= 0.83 and end_value <= 13.95 and diff_end_value >= -1568.54 and diff_end_value <= 2218.95 and continuous_len >= 3.0 and continuous_len <= 40.0 and continuous_start_value >= 0.47 and continuous_start_value <= 11124.93 and continuous_start_next_value >= -2760.68 and continuous_start_next_value <= -0.06 and continuous_end_value >= -2196.93 and continuous_end_value <= 7559.41:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+三次分析：第三次 continuous_end_value 下限：-2196.93，上限：7559.41，有较优方案。上次分析最优值：0.9807692307692307，本次分析最优值：0.9807692307692307
+记录参数continuous_end_value的最优条件：最优条件为：下限-2196.93，上限7559.41， 组合排序输出值为：0.9807692307692307，continuous_end_value_median：-16.58，continuous_end_value_positive_median：208.68，continuous_end_value_negative_median：-161.45
+三次分析-目标参数continuous_end_prev_value第1次 下限=-2114.52 上限=7559.41 步长=755 生成的全部公式:
+  [1] if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17 and valid_neg_sum >= -4777.26 and valid_neg_sum <= -177.18 and end_value >= 0.83 and end_value <= 13.95 and diff_end_value >= -1568.54 and diff_end_value <= 2218.95 and continuous_len >= 3.0 and continuous_len <= 40.0 and continuous_start_value >= 0.47 and continuous_start_value <= 11124.93 and continuous_start_next_value >= -2760.68 and continuous_start_next_value <= -0.06 and continuous_end_value >= -2196.93 and continuous_end_value <= 7559.41 and continuous_end_prev_value >= -2114.52 and continuous_end_prev_value <= 7559.41:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+执行三次分析第1次
+【三次分析第1次完成】全局top_three更新:
+  第1名: 0.9807692307692307 - if cont_sum_neg_sum >= -6411 and cont_sum_neg_sum <= -411:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+  第2名: 0.9807692307692307 - if cont_sum_neg_sum >= -6410.55 and cont_sum_neg_sum <= -422.43:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+  第3名: 0.9807692307692307 - if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+本次最优值 0.98 不小于上一次最优值 0.98，更新 overall_stats
+参数continuous_end_prev_value第1次最优公式: if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17 and valid_neg_sum >= -4777.26 and valid_neg_sum <= -177.18 and end_value >= 0.83 and end_value <= 13.95 and diff_end_value >= -1568.54 and diff_end_value <= 2218.95 and continuous_len >= 3.0 and continuous_len <= 40.0 and continuous_start_value >= 0.47 and continuous_start_value <= 11124.93 and continuous_start_next_value >= -2760.68 and continuous_start_next_value <= -0.06 and continuous_end_value >= -2196.93 and continuous_end_value <= 7559.41 and continuous_end_prev_value >= -2114.52 and continuous_end_prev_value <= 7559.41:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+三次分析：第一次 continuous_end_prev_value 下限：-2114.52，上限：7559.41，有较优方案。上次分析最优值：0.9807692307692307，本次分析最优值：0.9807692307692307
+三次分析-目标参数continuous_end_prev_value第2次 下限=-2114.52 上限=7559.41 步长=377 生成的全部公式:
+  [1] if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17 and valid_neg_sum >= -4777.26 and valid_neg_sum <= -177.18 and end_value >= 0.83 and end_value <= 13.95 and diff_end_value >= -1568.54 and diff_end_value <= 2218.95 and continuous_len >= 3.0 and continuous_len <= 40.0 and continuous_start_value >= 0.47 and continuous_start_value <= 11124.93 and continuous_start_next_value >= -2760.68 and continuous_start_next_value <= -0.06 and continuous_end_value >= -2196.93 and continuous_end_value <= 7559.41 and continuous_end_prev_value >= -2114.52 and continuous_end_prev_value <= 7559.41:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+执行三次分析第2次
+【三次分析第2次完成】全局top_three更新:
+  第1名: 0.9807692307692307 - if cont_sum_neg_sum >= -6411 and cont_sum_neg_sum <= -411:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+  第2名: 0.9807692307692307 - if cont_sum_neg_sum >= -6410.55 and cont_sum_neg_sum <= -422.43:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+  第3名: 0.9807692307692307 - if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+本次最优值 0.98 不小于上一次最优值 0.98，更新 overall_stats
+参数continuous_end_prev_value第2次最优公式: if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17 and valid_neg_sum >= -4777.26 and valid_neg_sum <= -177.18 and end_value >= 0.83 and end_value <= 13.95 and diff_end_value >= -1568.54 and diff_end_value <= 2218.95 and continuous_len >= 3.0 and continuous_len <= 40.0 and continuous_start_value >= 0.47 and continuous_start_value <= 11124.93 and continuous_start_next_value >= -2760.68 and continuous_start_next_value <= -0.06 and continuous_end_value >= -2196.93 and continuous_end_value <= 7559.41 and continuous_end_prev_value >= -2114.52 and continuous_end_prev_value <= 7559.41:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+三次分析：第二次 continuous_end_prev_value 下限：-2114.52，上限：7559.41，有较优方案。上次分析最优值：0.9807692307692307，本次分析最优值：0.9807692307692307
+三次分析-目标参数continuous_end_prev_value第3次 下限=-2114.52 上限=7559.41 步长=188 生成的全部公式:
+  [1] if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17 and valid_neg_sum >= -4777.26 and valid_neg_sum <= -177.18 and end_value >= 0.83 and end_value <= 13.95 and diff_end_value >= -1568.54 and diff_end_value <= 2218.95 and continuous_len >= 3.0 and continuous_len <= 40.0 and continuous_start_value >= 0.47 and continuous_start_value <= 11124.93 and continuous_start_next_value >= -2760.68 and continuous_start_next_value <= -0.06 and continuous_end_value >= -2196.93 and continuous_end_value <= 7559.41 and continuous_end_prev_value >= -2114.52 and continuous_end_prev_value <= 7559.41:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+执行三次分析第3次
+【三次分析第3次完成】全局top_three更新:
+  第1名: 0.9807692307692307 - if cont_sum_neg_sum >= -6411 and cont_sum_neg_sum <= -411:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+  第2名: 0.9807692307692307 - if cont_sum_neg_sum >= -6410.55 and cont_sum_neg_sum <= -422.43:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+  第3名: 0.9807692307692307 - if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+本次最优值 0.98 不小于上一次最优值 0.98，更新 overall_stats
+参数continuous_end_prev_value第3次最优公式: if cont_sum_neg_sum >= -6358.65 and cont_sum_neg_sum <= -422.43 and valid_pos_sum >= 337.88 and valid_pos_sum <= 5663.17 and valid_neg_sum >= -4777.26 and valid_neg_sum <= -177.18 and end_value >= 0.83 and end_value <= 13.95 and diff_end_value >= -1568.54 and diff_end_value <= 2218.95 and continuous_len >= 3.0 and continuous_len <= 40.0 and continuous_start_value >= 0.47 and continuous_start_value <= 11124.93 and continuous_start_next_value >= -2760.68 and continuous_start_next_value <= -0.06 and continuous_end_value >= -2196.93 and continuous_end_value <= 7559.41 and continuous_end_prev_value >= -2114.52 and continuous_end_prev_value <= 7559.41:
+    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
+else:
+    result = 0
+三次分析：第三次 continuous_end_prev_value 下限：-2114.52，上限：7559.41，有较优方案。上次分析最优值：0.9807692307692307，本次分析最优值：0.9807692307692307
+记录参数continuous_end_prev_value的最优条件：最优条件为：下限-2114.52，上限7559.41， 组合排序输出值为：0.9807692307692307，continuous_end_prev_value_median：5.5，continuous_end_prev_value_positive_median：246.1，continuous_end_prev_value_negative_median：-200.81
+三次分析完成，总共记录了10个参数的最优条件，1个参数的无最优结果
+补充记录完成后，best_param_condition_list长度：10
+【第最终次】该组合分析最优方案的输出值 0.98 不大于上次分析最优值 0.98 的 100.0% = 0.98，此方案无效，不生成操盘方案
 
-且大于锁定最优值 6.24
+且不大于锁定最优值 1.66

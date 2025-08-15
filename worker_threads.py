@@ -8,6 +8,80 @@ from multiprocessing import Pool, cpu_count
 import concurrent.futures
 import worker_threads_cy  # 这是你用Cython编译出来的模块
 import re
+import threading
+import atexit
+
+class ProcessPoolManager:
+    """全局进程池管理器，使用单例模式"""
+    _instance = None
+    _lock = threading.Lock()
+    
+    def __new__(cls):
+        if cls._instance is None:
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = super().__new__(cls)
+        return cls._instance
+    
+    def __init__(self):
+        if not hasattr(self, '_initialized'):
+            self._process_pool = None
+            self._max_workers = None
+            self._pool_lock = threading.Lock()
+            self._initialized = True
+            # 注册程序退出时的清理函数
+            atexit.register(self.shutdown)
+    
+    def get_process_pool(self, max_workers):
+        """获取或创建进程池，只有在进程数不同时才重新创建"""
+        with self._pool_lock:
+            if self._process_pool is None or self._max_workers != max_workers:
+                # 关闭旧的进程池
+                if self._process_pool is not None:
+                    try:
+                        self._process_pool.shutdown(wait=True)
+                        self._log_to_file(f"关闭旧的进程池，max_workers={self._max_workers}")
+                    except Exception as e:
+                        self._log_to_file(f"关闭旧进程池时出错: {e}", "ERROR")
+                
+                # 创建新的进程池
+                self._process_pool = concurrent.futures.ProcessPoolExecutor(max_workers=max_workers)
+                self._max_workers = max_workers
+                self._log_to_file(f"【打开程序】创建新的进程池，max_workers={max_workers}")
+            else:
+                self._log_to_file(f"复用现有进程池，max_workers={max_workers}")
+            
+            return self._process_pool
+    
+    def shutdown(self):
+        """关闭进程池"""
+        with self._pool_lock:
+            if self._process_pool is not None:
+                try:
+                    self._process_pool.shutdown(wait=True)
+                    self._process_pool = None
+                    self._max_workers = None
+                    self._log_to_file("全局进程池已关闭")
+                except Exception as e:
+                    self._log_to_file(f"关闭全局进程池时出错: {e}", "ERROR")
+    
+    def _log_to_file(self, message, log_type="INFO"):
+        """记录进程池相关日志到process_pool.log文件"""
+        try:
+            timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
+            log_message = f"[{timestamp}] [{log_type}] [ProcessPoolManager] {message}\n"
+            
+            with open('process_pool.log', 'a', encoding='utf-8') as f:
+                f.write(log_message)
+        except Exception as e:
+            # 如果日志写入失败，至少尝试输出到控制台
+            try:
+                print(f"日志写入失败: {e}")
+            except:
+                pass
+
+# 全局进程池管理器实例
+process_pool_manager = ProcessPoolManager()
 
 # 全局缩写映射表
 abbr_map = {
@@ -186,6 +260,30 @@ class CalculateThread(QThread):
         self.prev_start_idx = {}
         self.prev_end_idx = {}
         self.preprocessed_data = None  # 存储预处理数据
+
+    def _log_to_file(self, message, log_type="INFO"):
+        """记录进程池相关日志到process_pool.log文件
+        
+        日志分类规则：
+        - process_pool.log: 进程池生命周期、内存监控、计算状态等
+        - error_log.txt: 子进程异常、错误详情等（在calculate_batch_16_cores中处理）
+        """
+        try:
+            timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
+            log_message = f"[{timestamp}] [{log_type}] {message}\n"
+            
+            with open('process_pool.log', 'a', encoding='utf-8') as f:
+                f.write(log_message)
+        except Exception as e:
+            # 如果日志写入失败，至少尝试输出到控制台
+            try:
+                print(f"日志写入失败: {e}")
+            except:
+                pass
+    
+    def _get_process_pool(self, max_workers):
+        """从全局管理器获取进程池"""
+        return process_pool_manager.get_process_pool(max_workers)
 
     def safe_float(self, val, default=float('nan')):
         try:
@@ -500,6 +598,7 @@ class CalculateThread(QThread):
             for (start, end) in stock_idx_ranges if end > start
         ]
         t0 = time.time()
+        self._log_to_file(f"开始计算，进程数: {n_proc}, 股票数: {num_stocks}")
         
         # 添加内存监控
         try:
@@ -507,36 +606,42 @@ class CalculateThread(QThread):
             process = psutil.Process()
             initial_memory = process.memory_info().rss / 1024 / 1024  # MB
             print(f"初始内存使用: {initial_memory:.2f} MB")
+            # 内存监控信息记录到process_pool.log
+            self._log_to_file(f"初始内存使用: {initial_memory:.2f} MB")
         except ImportError:
             print("psutil未安装，无法监控内存使用")
+            # 内存监控信息记录到process_pool.log
+            self._log_to_file("psutil未安装，无法监控内存使用")
         
         merged_results = {}
         for idx in range(end_date_start_idx, end_date_end_idx-1, -1):
             end_date = date_columns[idx]
             merged_results[end_date] = []
-        with concurrent.futures.ProcessPoolExecutor(max_workers=n_proc) as executor:
-            futures = [executor.submit(cy_batch_worker, args) for args in args_list]
-            for fut in concurrent.futures.as_completed(futures):
-                # 添加超时处理
+        # 使用复用的进程池
+        executor = self._get_process_pool(n_proc)
+        futures = [executor.submit(cy_batch_worker, args) for args in args_list]
+        for fut in concurrent.futures.as_completed(futures):
+            try:
+                process_results = fut.result()
+                for end_date, stocks in process_results.items():
+                    if end_date in merged_results:
+                        merged_results[end_date].extend(stocks)
+            except Exception as e:
+                import traceback
+                print(f"子进程异常: {e}")
+                print(f"异常详情: {traceback.format_exc()}")
+                # 子进程异常记录到error_log.txt，与进程池日志分开
                 try:
-                    process_results = fut.result()
-                    for end_date, stocks in process_results.items():
-                        if end_date in merged_results:
-                            merged_results[end_date].extend(stocks)
-                except Exception as e:
-                    import traceback
-                    print(f"子进程异常: {e}")
-                    print(f"异常详情: {traceback.format_exc()}")
-                    # 记录到日志文件
-                    try:
-                        with open('error_log.txt', 'a', encoding='utf-8') as f:
-                            f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} - 子进程异常: {e}\n")
-                            f.write(f"异常详情: {traceback.format_exc()}\n")
-                            f.write("-" * 50 + "\n")
-                    except:
-                        pass
+                    with open('error_log.txt', 'a', encoding='utf-8') as f:
+                        f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} - 子进程异常: {e}\n")
+                        f.write(f"异常详情: {traceback.format_exc()}\n")
+                        f.write("-" * 50 + "\n")
+                except:
+                    pass
         t1 = time.time()
-        print(f"calculate_batch_{n_proc}_cores 总耗时: {t1 - t0:.4f}秒")
+        total_time = t1 - t0
+        print(f"calculate_batch_{n_proc}_cores 总耗时: {total_time:.4f}秒")
+        self._log_to_file(f"计算完成，总耗时: {total_time:.4f}秒")
         
         # 统一处理股票代码和名称
         for end_date in merged_results:
@@ -903,7 +1008,7 @@ def cy_batch_worker(args):
         only_show_selected, 
         new_before_high_start, 
         new_before_high_range, 
-        new_before_high_span, 
+        new_before_high_span,  
         new_before_high_logic, 
         new_before_high2_start, 
         new_before_high2_range, 

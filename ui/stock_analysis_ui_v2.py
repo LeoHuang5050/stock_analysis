@@ -3326,6 +3326,13 @@ class StockAnalysisApp(QWidget):
 
     def closeEvent(self, event):
         self.save_config()
+        # 关闭全局进程池
+        try:
+            from worker_threads import process_pool_manager
+            process_pool_manager.shutdown()
+            print("窗口关闭时全局进程池已清理")
+        except Exception as e:
+            print(f"窗口关闭时清理进程池出错: {e}")
         super().closeEvent(event)
 
     def _fix_date_range(self):
