@@ -1,9 +1,9 @@
-   __pycache__/
-   *.pyc
-   *.pyo
-   *.pyd
-   build/
-   dist/
-   *.spec
-   *.exe
-   config.json
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+build/
+dist/
+*.spec
+*.exe
+config.json
