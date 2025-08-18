@@ -1,10 +1,11 @@
 import sys
 import os
-import multiprocessing
 import signal
+import multiprocessing
 from ui.stock_analysis_ui_v2 import StockAnalysisApp
 from PyQt5.QtWidgets import QApplication, QMessageBox
 import traceback
+from worker_threads import process_pool_manager
 
 def exception_hook(exctype, value, tb):
     """全局异常处理函数"""
@@ -23,16 +24,15 @@ def exception_hook(exctype, value, tb):
 def signal_handler(signum, frame):
     """信号处理函数，确保程序退出时清理资源"""
     print(f"收到信号 {signum}，正在清理资源...")
-    # 导入并关闭全局进程池
-    try:
-        from worker_threads import process_pool_manager
-        process_pool_manager.shutdown()
-        print("全局进程池已清理")
-    except Exception as e:
-        print(f"清理进程池时出错: {e}")
+    # 关闭进程池
+    process_pool_manager.shutdown()
     sys.exit(0)
 
 if __name__ == "__main__":
+    # 设置multiprocessing启动方式为spawn（推荐用于打包后的程序）
+    multiprocessing.set_start_method('spawn', force=True)
+    multiprocessing.freeze_support()  # 支持PyInstaller打包
+    
     # 设置信号处理器
     signal.signal(signal.SIGINT, signal_handler)  # Ctrl+C
     signal.signal(signal.SIGTERM, signal_handler)  # 终止信号
@@ -40,19 +40,14 @@ if __name__ == "__main__":
     # 设置全局异常处理器
     sys.excepthook = exception_hook
     
-    multiprocessing.freeze_support()
     app = QApplication(sys.argv)
     
-    # 设置应用程序关闭时的清理
-    def cleanup_on_exit():
-        try:
-            from worker_threads import process_pool_manager
-            process_pool_manager.shutdown()
-            print("程序退出时全局进程池已清理")
-        except Exception as e:
-            print(f"程序退出时清理进程池出错: {e}")
+    # 初始化固定大小的进程池
+    print("正在初始化固定大小的进程池...")
+    process_pool_manager.initialize_pool()
     
-    app.aboutToQuit.connect(cleanup_on_exit)
+    # 连接应用程序退出信号，确保进程池被正确关闭
+    app.aboutToQuit.connect(process_pool_manager.shutdown)
     
     window = StockAnalysisApp()
     window.show()

@@ -1,0 +1,147 @@
+2025-08-18 01:39:59 - 任务执行失败
+任务ID: 1
+唯一ID: TASK_1_1755452386
+错误信息: 
+"""
+Traceback (most recent call last):
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\site-packages\billiard\pool.py", line 1265, in mark_as_worker_lost
+    raise WorkerLostError(
+    ...<2 lines>...
+    )
+billiard.exceptions.WorkerLostError: Worker exited prematurely: exitcode 3221225477 Job: 0.
+"""
+执行时间: 13.56秒
+------------------------------
+2025-08-18 01:46:57 - 任务执行失败
+任务ID: 1
+唯一ID: TASK_1_1755452804
+错误信息: 
+"""
+Traceback (most recent call last):
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\site-packages\billiard\pool.py", line 1265, in mark_as_worker_lost
+    raise WorkerLostError(
+    ...<2 lines>...
+    )
+billiard.exceptions.WorkerLostError: Worker exited prematurely: exitcode 3221225477 Job: 1.
+"""
+执行时间: 13.77秒
+------------------------------
+2025-08-18 01:48:46 - 子进程 16772 执行失败
+错误类型: TypeError
+错误信息: calculate_batch_cy() takes at least 23 positional arguments (8 given)
+堆栈跟踪:
+Traceback (most recent call last):
+  File "E:\project\接单\stock\worker_threads.py", line 1526, in cy_batch_worker
+    result = worker_threads_cy.calculate_batch_cy(
+        stock_idx, only_show_selected, price_data_np, diff_data_np,
+        selected_indices, conditions, results, max_workers
+    )
+  File "worker_threads_cy.pyx", line 166, in worker_threads_cy.calculate_batch_cy
+    def calculate_batch_cy(
+TypeError: calculate_batch_cy() takes at least 23 positional arguments (8 given)
+
+--------------------------------------------------
+2025-08-18 01:48:46 - 任务执行失败
+任务ID: 1
+唯一ID: TASK_1_1755452925
+错误信息: calculate_batch_cy() takes at least 23 positional arguments (8 given)
+执行时间: 0.10秒
+------------------------------
+2025-08-18 01:51:41 - 任务执行失败
+任务ID: 1
+唯一ID: TASK_1_1755453087
+错误信息: 
+"""
+Traceback (most recent call last):
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\site-packages\billiard\pool.py", line 1265, in mark_as_worker_lost
+    raise WorkerLostError(
+    ...<2 lines>...
+    )
+billiard.exceptions.WorkerLostError: Worker exited prematurely: exitcode 3221225477 Job: 1.
+"""
+执行时间: 13.78秒
+------------------------------
+2025-08-18 02:02:07 - 任务执行失败
+任务ID: 1
+唯一ID: TASK_1_1755453713
+错误信息: 
+"""
+Traceback (most recent call last):
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\site-packages\billiard\pool.py", line 1265, in mark_as_worker_lost
+    raise WorkerLostError(
+    ...<2 lines>...
+    )
+billiard.exceptions.WorkerLostError: Worker exited prematurely: exitcode 3221225477 Job: 1.
+"""
+执行时间: 13.47秒
+------------------------------
+2025-08-18 02:34:49 - 任务执行失败
+任务ID: 1
+唯一ID: TASK_1_1755455675
+错误信息: 
+"""
+Traceback (most recent call last):
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\site-packages\billiard\pool.py", line 1265, in mark_as_worker_lost
+    raise WorkerLostError(
+    ...<2 lines>...
+    )
+billiard.exceptions.WorkerLostError: Worker exited prematurely: exitcode 3221225477 Job: 16.
+"""
+执行时间: 14.08秒
+------------------------------
+2025-08-18 02:40:57 - 任务执行失败
+任务ID: 1
+唯一ID: TASK_1_1755456043
+错误信息: 
+"""
+Traceback (most recent call last):
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\site-packages\billiard\pool.py", line 1265, in mark_as_worker_lost
+    raise WorkerLostError(
+    ...<2 lines>...
+    )
+billiard.exceptions.WorkerLostError: Worker exited prematurely: exitcode 3221225477 Job: 16.
+"""
+执行时间: 13.88秒
+------------------------------
+2025-08-18 02:42:26 - 任务执行失败
+任务ID: 1
+唯一ID: TASK_1_1755456133
+错误信息: 
+"""
+Traceback (most recent call last):
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\site-packages\billiard\pool.py", line 1265, in mark_as_worker_lost
+    raise WorkerLostError(
+    ...<2 lines>...
+    )
+billiard.exceptions.WorkerLostError: Worker exited prematurely: exitcode 3221225477 Job: 17.
+"""
+执行时间: 13.28秒
+------------------------------
+2025-08-18 02:43:21 - 任务执行失败
+任务ID: 1
+唯一ID: TASK_1_1755456187
+错误信息: 
+"""
+Traceback (most recent call last):
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\site-packages\billiard\pool.py", line 1265, in mark_as_worker_lost
+    raise WorkerLostError(
+    ...<2 lines>...
+    )
+billiard.exceptions.WorkerLostError: Worker exited prematurely: exitcode 3221225477 Job: 18.
+"""
+执行时间: 13.77秒
+------------------------------
+2025-08-18 02:44:39 - 任务执行失败
+任务ID: 1
+唯一ID: TASK_1_1755456266
+错误信息: 
+"""
+Traceback (most recent call last):
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\site-packages\billiard\pool.py", line 1265, in mark_as_worker_lost
+    raise WorkerLostError(
+    ...<2 lines>...
+    )
+billiard.exceptions.WorkerLostError: Worker exited prematurely: exitcode 3221225477 Job: 19.
+"""
+执行时间: 13.48秒
+------------------------------

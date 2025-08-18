@@ -237,6 +237,12 @@ def calculate_batch_cy(
     bint start_with_new_after_low2_flag=False,
     list comparison_vars_list=None
 ):
+    # 在函数开始处打印进程信息
+    import os
+    current_pid = os.getpid()
+    print(f"进程 {current_pid}: 开始执行 calculate_batch_cy")
+    print(f"进程 {current_pid}: 股票数量: {price_data.shape[0]}, 日期数量: {price_data.shape[1]}")
+    
     cdef int num_stocks = price_data.shape[0]
     cdef int num_dates = price_data.shape[1]
     cdef int stock_idx, idx, end_date_idx, start_date_idx
@@ -376,9 +382,14 @@ def calculate_batch_cy(
     # 单线程处理每个股票
     for i in range(stock_idx_arr_view.shape[0]):
         stock_idx = stock_idx_arr_view[i]
-        #if stock_idx == 0:
-            #printf(b"Calculating stock_idx=%d\n", stock_idx)
-            #printf(b"only_show_selected=%d\n", only_show_selected)
+        if stock_idx == 0:
+            # 在 nogil 块外打印进程信息
+            import os
+            current_pid = os.getpid()
+            print(f"进程 {current_pid}: 开始计算 stock_idx={stock_idx}")
+            print(f"进程 {current_pid}: only_show_selected={only_show_selected}")
+            printf(b"Calculating stock_idx=%d\n", stock_idx)
+            printf(b"only_show_selected=%d\n", only_show_selected)
         for idx in range(end_date_start_idx, end_date_end_idx-1, -1):
             try:
                 with nogil:
@@ -443,6 +454,8 @@ def calculate_batch_cy(
                             continue
                     else:
                         start_with_new_before_high = 0
+                    #if stock_idx == 0:
+                        #printf(b"running1\n")
 
                     # --- 创前新高2起始条件判断 ---
                     if start_with_new_before_high2_flag:
@@ -502,6 +515,8 @@ def calculate_batch_cy(
                             continue
                     else:
                         start_with_new_before_high2 = 0
+                    #if stock_idx == 0:
+                        #printf(b"running2\n")
 
                     # --- 创后新高起始条件判断 --- 
                     if start_with_new_after_high_flag:
@@ -568,6 +583,9 @@ def calculate_batch_cy(
                     else:
                         start_with_new_after_high = 0
 
+                    #if stock_idx == 0:
+                        #printf(b"running3\n")
+
                     # --- 创后新高2起始条件判断 ---
                     if start_with_new_after_high2_flag:
                         new_after_high2_start_idx = idx + new_after_high2_start + new_after_high2_range
@@ -626,6 +644,9 @@ def calculate_batch_cy(
 
                     #if stock_idx == 2:
                         #printf(b"stock_idx=%d, start_with_new_after_high=%d, found_new_after_high=%d, start_with_new_after_high2=%d, found_new_after_high2=%d\n", stock_idx, start_with_new_after_high, found_new_after_high, start_with_new_after_high2, found_new_after_high2)
+                    
+                    #if stock_idx == 0:
+                        #printf(b"running4\n")
 
                     # --- 创前新低1起始条件判断 ---
                     if start_with_new_before_low_flag:
@@ -679,6 +700,8 @@ def calculate_batch_cy(
                             continue
                     else:
                         start_with_new_before_low = 0
+                    #if stock_idx == 0:
+                        #printf(b"running5\n")
 
                     # --- 创前新低2起始条件判断 ---
                     if start_with_new_before_low2_flag:
@@ -732,6 +755,9 @@ def calculate_batch_cy(
                             continue
                     else:
                         start_with_new_before_low2 = 0
+
+                    #if stock_idx == 0:
+                        #printf(b"running6\n")
 
                     # --- 创后新低1起始条件判断 ---
                     if start_with_new_after_low_flag:
@@ -787,6 +813,9 @@ def calculate_batch_cy(
                     else:
                         start_with_new_after_low = 0
 
+                    #if stock_idx == 0:
+                        #printf(b"running7\n")
+
                     # --- 创后新低2起始条件判断 ---
                     if start_with_new_after_low2_flag:
                         new_after_low2_start_idx = idx + new_after_low2_start + new_after_low2_range
@@ -839,6 +868,9 @@ def calculate_batch_cy(
                             continue
                     else:
                         start_with_new_after_low2 = 0
+
+                    if stock_idx == 0:
+                        printf(b"running8\n")
                         
                     # 原有的with nogil内容
                     end_date_idx = idx
@@ -2578,5 +2610,8 @@ def calculate_batch_cy(
                 import traceback
                 print(f"[calculate_batch_cy] stock_idx={stock_idx}, idx={idx} 发生异常: {e}")
                 print(traceback.format_exc())
-                
+
+    # 在函数结束处打印进程信息
+    print(f"进程 {current_pid}: calculate_batch_cy 执行完成，返回结果")
+    
     return all_results

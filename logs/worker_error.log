@@ -1,0 +1,37 @@
+2025-08-18 09:45:29,380 - ERROR - ✗ 任务 1 (ID: TASK_1_1755481513) 失败: 
+"""
+Traceback (most recent call last):
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\site-packages\billiard\pool.py", line 1265, in mark_as_worker_lost
+    raise WorkerLostError(
+    ...<2 lines>...
+    )
+billiard.exceptions.WorkerLostError: Worker exited prematurely: exitcode 3221225477 Job: 0.
+"""
+2025-08-18 09:45:29 - 任务执行失败
+任务ID: 1
+唯一ID: TASK_1_1755481513
+错误信息: 
+"""
+Traceback (most recent call last):
+  File "C:\Users\46305\AppData\Local\Programs\Python\Python313\Lib\site-packages\billiard\pool.py", line 1265, in mark_as_worker_lost
+    raise WorkerLostError(
+    ...<2 lines>...
+    )
+billiard.exceptions.WorkerLostError: Worker exited prematurely: exitcode 3221225477 Job: 0.
+"""
+执行时间: 15.99秒
+------------------------------
+2025-08-18 10:11:19,950 - ERROR - ✗ 任务 1 (ID: TASK_1_1755483079) 失败: cannot access local variable 'base_path' where it is not associated with a value
+2025-08-18 10:11:19 - 任务执行失败
+任务ID: 1
+唯一ID: TASK_1_1755483079
+错误信息: cannot access local variable 'base_path' where it is not associated with a value
+执行时间: 0.50秒
+------------------------------
+2025-08-18 10:38:37,036 - ERROR - ✗ 任务 1 (ID: TASK_1_1755484712) 失败: cannot access local variable 'e' where it is not associated with a value
+2025-08-18 10:38:37 - 任务执行失败
+任务ID: 1
+唯一ID: TASK_1_1755484712
+错误信息: cannot access local variable 'e' where it is not associated with a value
+执行时间: 4.03秒
+------------------------------

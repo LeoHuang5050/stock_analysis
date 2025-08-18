@@ -1,8 +1,8 @@
 import sys
 from PyQt5.QtWidgets import (
-    QApplication, QWidget, QLabel, QPushButton, QComboBox, QSpinBox, QDateEdit, QCheckBox, QGridLayout, QHBoxLayout, QVBoxLayout, QSizePolicy, QTextEdit, QLineEdit, QDialog, QMessageBox, QFrame, QStackedLayout, QTableWidget, QTableWidgetItem, QHeaderView
+    QApplication, QWidget, QLabel, QPushButton, QComboBox, QSpinBox, QDateEdit, QCheckBox, QGridLayout, QHBoxLayout, QVBoxLayout, QSizePolicy, QTextEdit, QLineEdit, QDialog, QMessageBox, QFrame, QStackedLayout, QTableWidget, QTableWidgetItem, QHeaderView, QProgressBar
 )
-from PyQt5.QtCore import Qt, QDate, QItemSelectionModel
+from PyQt5.QtCore import Qt, QDate, QItemSelectionModel, QTimer, QThread, pyqtSignal
 from PyQt5.QtGui import QKeySequence, QGuiApplication, QIntValidator, QPixmap, QDoubleValidator, QValidator
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QHeaderView
@@ -22,6 +22,123 @@ from multiprocessing import cpu_count
 from datetime import datetime
 from ui.component_analysis_ui import ComponentAnalysisWidget
 from ui.trading_plan_ui import TradingPlanWidget
+
+class ShutdownWorker(QThread):
+    """后台关闭进程池的工作线程"""
+    finished = pyqtSignal()
+    error = pyqtSignal(str)
+    
+    def run(self):
+        try:
+            from worker_threads import process_pool_manager
+            # 使用更温和的关闭方式
+            if hasattr(process_pool_manager, 'pool') and process_pool_manager.pool:
+                # 先尝试温和关闭
+                try:
+                    process_pool_manager.pool.close()
+                    process_pool_manager.pool.join(timeout=5)  # 等待最多5秒
+                except Exception as e:
+                    print(f"温和关闭失败: {e}")
+                    # 如果温和关闭失败，强制终止
+                    try:
+                        process_pool_manager.pool.terminate()
+                        process_pool_manager.pool.join(timeout=3)  # 等待最多3秒
+                    except Exception as e2:
+                        print(f"强制终止也失败: {e2}")
+                        # 最后尝试清理
+                        try:
+                            if hasattr(process_pool_manager.pool, '_pool'):
+                                process_pool_manager.pool._pool = []
+                        except:
+                            pass
+            print("窗口关闭时全局进程池已清理")
+            self.finished.emit()
+        except Exception as e:
+            print(f"窗口关闭时清理进程池出错: {e}")
+            self.error.emit(str(e))
+            self.finished.emit()
+
+class ShutdownProgressDialog(QDialog):
+    """程序关闭时的进度指示器"""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("正在关闭程序")
+        self.setFixedSize(300, 120)
+        self.setModal(True)
+        self.setWindowFlags(Qt.Dialog | Qt.CustomizeWindowHint | Qt.WindowTitleHint)
+        
+        # 设置布局
+        layout = QVBoxLayout(self)
+        
+        # 状态标签
+        self.status_label = QLabel("正在清理资源，请稍候...")
+        self.status_label.setAlignment(Qt.AlignCenter)
+        self.status_label.setStyleSheet("font-size: 14px; margin: 10px;")
+        layout.addWidget(self.status_label)
+        
+        # 进度条
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setRange(0, 0)  # 设置为不确定模式（转圈）
+        self.progress_bar.setStyleSheet("""
+            QProgressBar {
+                border: 2px solid #cccccc;
+                border-radius: 5px;
+                text-align: center;
+                height: 20px;
+            }
+            QProgressBar::chunk {
+                background-color: #0078d7;
+                border-radius: 3px;
+            }
+        """)
+        layout.addWidget(self.progress_bar)
+        
+        # 提示标签
+        tip_label = QLabel("程序正在安全关闭，请勿强制终止")
+        tip_label.setAlignment(Qt.AlignCenter)
+        tip_label.setStyleSheet("color: #666666; font-size: 12px; margin: 5px;")
+        layout.addWidget(tip_label)
+        
+        # 设置样式
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #f5f5f5;
+                border: 1px solid #cccccc;
+                border-radius: 8px;
+            }
+        """)
+        
+        # 初始化定时器用于更新状态文本
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.update_status)
+        self.status_messages = [
+            "正在清理资源，请稍候...",
+            "正在关闭进程池...",
+            "正在清理内存...",
+            "正在保存配置...",
+            "即将完成..."
+        ]
+        self.current_message_index = 0
+        
+    def start_progress(self):
+        """开始显示进度"""
+        self.show()
+        self.timer.start(1500)  # 每1.5秒更新一次状态
+        
+    def update_status(self):
+        """更新状态消息"""
+        if self.current_message_index < len(self.status_messages):
+            self.status_label.setText(self.status_messages[self.current_message_index])
+            self.current_message_index += 1
+        else:
+            # 循环显示消息
+            self.current_message_index = 0
+            self.status_label.setText(self.status_messages[self.current_message_index])
+            
+    def stop_progress(self):
+        """停止进度显示"""
+        self.timer.stop()
+        self.close()
 
 class Tab4SpaceTextEdit(QTextEdit):
     def keyPressEvent(self, event):
@@ -167,6 +284,10 @@ class StockAnalysisApp(QWidget):
         # 统一缓存变量
         self.last_end_date = None
         self.last_calculate_result = None
+        # 初始化关闭对话框
+        self.shutdown_dialog = None
+        # 初始化关闭工作线程
+        self.shutdown_worker = None
         # 加载参数
         self.load_config()
 
@@ -3325,14 +3446,22 @@ class StockAnalysisApp(QWidget):
             print(f"加载配置失败: {e}")
 
     def closeEvent(self, event):
+        # 显示关闭进度指示器
+        self.shutdown_dialog = ShutdownProgressDialog(self)
+        self.shutdown_dialog.start_progress()
+        
+        # 保存配置
         self.save_config()
-        # 关闭全局进程池
-        try:
-            from worker_threads import process_pool_manager
-            process_pool_manager.shutdown()
-            print("窗口关闭时全局进程池已清理")
-        except Exception as e:
-            print(f"窗口关闭时清理进程池出错: {e}")
+        
+        # 使用QThread关闭进程池，避免阻塞UI
+        self.shutdown_worker = ShutdownWorker()
+        self.shutdown_worker.finished.connect(self.shutdown_dialog.stop_progress)
+        self.shutdown_worker.error.connect(lambda msg: print(f"关闭错误: {msg}"))
+        self.shutdown_worker.start()
+        
+        # 等待一小段时间让进度指示器显示
+        QTimer.singleShot(100, lambda: None)
+        
         super().closeEvent(event)
 
     def _fix_date_range(self):
