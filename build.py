@@ -26,18 +26,9 @@ def find_cython_file():
     return None
 
 def find_runtime_hooks():
-    """查找runtime hook文件"""
-    hooks = []
-    hook_files = [
-        "runtime_hook.py",
-        "runtime_hook_multiprocessing.py"
-    ]
-    
-    for hook_file in hook_files:
-        if os.path.exists(hook_file):
-            hooks.append(hook_file)
-    
-    return hooks
+    """查找runtime hook文件 - 已禁用"""
+    # 不再使用runtime hooks，避免进程管理冲突
+    return []
 
 def build_command(mode="release"):
     """构建打包命令"""
@@ -105,13 +96,8 @@ def build_command(mode="release"):
     for imp in hidden_imports:
         base_cmd.extend(["--hidden-import", imp])
     
-    # 查找runtime hooks - 只使用一个主要的runtime hook
-    hooks = ["runtime_hook.py"]  # 只使用主要的runtime hook
-    if os.path.exists("runtime_hook.py"):
-        base_cmd.extend(["--runtime-hook", "runtime_hook.py"])
-        print(f"✓ 使用主要runtime hook: runtime_hook.py")
-    else:
-        print("⚠ 未找到主要runtime hook")
+    # 不再使用runtime hooks，避免进程管理冲突
+    print("✓ 已禁用runtime hooks，避免进程管理冲突")
     
     # 添加数据文件
     add_data = []

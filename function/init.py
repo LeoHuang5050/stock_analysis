@@ -74,6 +74,9 @@ class StockAnalysisInit:
         self.main_window.width_spin.setMaximum(max_width)
         self.main_window.result_text.setText("文件上传成功，请选择参数后进行选股计算。")
         
+        # 进程池初始化已移到main.py的主进程中
+        # 确保只有主进程才初始化进程池，避免子进程重复执行
+        
         QMessageBox.information(self.main_window, "提示", "文件上传成功，请选择参数后进行选股计算")
 
         # 恢复config日期

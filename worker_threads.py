@@ -13,6 +13,27 @@ import signal
 import traceback
 import threading
 import sys
+import logging
+
+# 开启billiard调试日志
+logging.basicConfig(level=logging.DEBUG)
+billiard_logger = logging.getLogger('billiard')
+billiard_logger.setLevel(logging.DEBUG)
+
+def simple_test_worker(task_id):
+    """简单的测试工作函数，用于验证进程池是否正常工作"""
+    import os
+    pid = os.getpid()
+    print(f"[TestWorker] 任务 {task_id} 开始执行，PID: {pid}")
+    
+    # 模拟一些工作
+    time.sleep(0.1)
+    
+    result = f"任务 {task_id} 完成"
+    print(f"[TestWorker] {result}，PID: {pid}")
+    
+    # 返回结果和PID，用于验证
+    return result, pid
 
 def worker_entry():
     """工作进程专用入口点，避免导入PyQt5"""
@@ -353,6 +374,10 @@ class ProcessPoolManager:
                 
                 print(f"✓ 进程池初始化完成，进程数: {self._fixed_size}")
                     
+                # 验证进程池是否正常工作
+                print("开始验证进程池工作状态...")
+                self._capture_worker_pids()
+                    
             except Exception as e:
                 print(f"❌ 初始化billiard.Pool失败: {e}")
                 print(f"错误详情: {traceback.format_exc()}")
@@ -472,12 +497,60 @@ class ProcessPoolManager:
             'status': 'running'
         }
         self._task_process_mapping[task_id] = target_pid
+    
+    def _capture_worker_pids(self):
+        """捕获工作进程PID，验证进程池是否正常工作"""
+        print("开始捕获工作进程PID...")
+        self._worker_pids = []
         
-        if target_pid not in self._process_task_count:
-            self._process_task_count[target_pid] = 0
-        self._process_task_count[target_pid] += 1
+        test_count = self._fixed_size  # 分配 16 个任务
+        test_results = []
         
-        print(f"开始监控任务 {task_id} 在进程 {target_pid} 上的执行")
+        print(f"使用简单测试任务激活 {test_count} 个工作进程...")
+        for i in range(test_count):
+            try:
+                result = self._pool.apply_async(simple_test_worker, (i,))
+                test_results.append(result)
+                print(f"任务 {i} 已分配")
+            except Exception as e:
+                print(f"激活工作进程 {i} 失败: {e}")
+                with open('worker_error.log', 'a', encoding='utf-8') as f:
+                    f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} - 激活进程 {i} 失败: {e}\n")
+        
+        seen_pids = set()
+        for i, result in enumerate(test_results):
+            try:
+                _, pid = result.get(timeout=30)
+                if pid and pid != os.getpid() and pid not in seen_pids:
+                    seen_pids.add(pid)
+                    self._worker_pids.append(pid)
+                    print(f"工作进程 {i+1}: PID {pid} 完成任务 {i}")
+            except Exception as e:
+                print(f"获取工作进程 {i+1} PID失败: {e}")
+                with open('worker_error.log', 'a', encoding='utf-8') as f:
+                    f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} - 获取工作进程 {i+1} PID失败: {e}\n")
+        
+        print(f"成功捕获 {len(self._worker_pids)} 个工作进程PID")
+        self._worker_pids.sort()
+        
+        unique_pids = len(set(self._worker_pids))
+        if unique_pids < test_count:
+            print(f"⚠ 警告: 捕获的PID数量 {unique_pids} 小于预期 {test_count}")
+            if self._original_pids:
+                self._worker_pids = self._original_pids.copy()
+                print(f"回滚到上一次有效PID: {self._worker_pids}")
+        else:
+            self._original_pids = self._worker_pids.copy()
+        
+        # 检查池状态
+        print("检查池中活跃进程...")
+        try:
+            active_pids = {p.pid for p in self._pool._pool if p.is_alive()}
+            print(f"活跃PID: {active_pids}")
+            if active_pids != set(self._worker_pids):
+                print(f"⚠ 警告: 活跃PID {active_pids} 与捕获PID {self._worker_pids} 不匹配")
+        except Exception as e:
+            print(f"检查活跃进程失败: {e}")
     
     def update_task_status(self, task_id, status, result=None, error=None):
         """更新任务状态"""
