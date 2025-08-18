@@ -1,21 +1,10 @@
-# 完整的PyInstaller打包命令 - 支持billiard和多进程
+# 改进的PyInstaller打包命令 - 专门解决多进程问题
 
-# 基础版本（推荐）
-pyinstaller --noconfirm --windowed --onefile ^
+# 基础版本（推荐用于测试）
+pyinstaller --noconfirm --onefile ^
   --collect-all numpy ^
-  --collect-all worker_threads_cy ^
-  --collect-all billiard ^
-  --hidden-import billiard ^
-  --hidden-import billiard.pool ^
-  --hidden-import billiard.connection ^
-  --hidden-import billiard.managers ^
-  --runtime-hook runtime_hook_multiprocessing.py ^
-  main.py
-
-# 完整版本（包含更多依赖）
-pyinstaller --noconfirm --windowed --onefile ^
-  --collect-all numpy ^
-  --collect-all worker_threads_cy ^
+  --collect-all pandas ^
+  --collect-all PyQt5 ^
   --collect-all billiard ^
   --collect-all psutil ^
   --hidden-import billiard ^
@@ -25,37 +14,135 @@ pyinstaller --noconfirm --windowed --onefile ^
   --hidden-import billiard.synchronize ^
   --hidden-import billiard.heap ^
   --hidden-import billiard.queues ^
-  --hidden-import billiard.pool ^
   --hidden-import billiard.process ^
-  --hidden-import billiard.managers ^
-  --hidden-import billiard.connection ^
   --hidden-import billiard.socket ^
   --hidden-import billiard.forking ^
   --hidden-import billiard.spawn ^
   --hidden-import billiard.util ^
   --hidden-import billiard.compat ^
-  --hidden-import billiard.heap ^
-  --hidden-import billiard.queues ^
-  --hidden-import billiard.synchronize ^
-  --hidden-import billiard.managers ^
-  --hidden-import billiard.connection ^
-  --hidden-import billiard.socket ^
-  --hidden-import billiard.forking ^
-  --hidden-import billiard.spawn ^
-  --hidden-import billiard.util ^
-  --hidden-import billiard.compat ^
+  --hidden-import multiprocessing ^
+  --hidden-import multiprocessing.pool ^
+  --hidden-import multiprocessing.managers ^
+  --hidden-import multiprocessing.synchronize ^
+  --hidden-import multiprocessing.heap ^
+  --hidden-import multiprocessing.queues ^
+  --hidden-import multiprocessing.process ^
+  --hidden-import multiprocessing.socket ^
+  --hidden-import multiprocessing.forking ^
+  --hidden-import multiprocessing.spawn ^
+  --hidden-import multiprocessing.util ^
+  --hidden-import multiprocessing.compat ^
   --runtime-hook runtime_hook_multiprocessing.py ^
   --add-data "worker_threads_cy.pyd;." ^
+  --add-data "runtime_hook.py;." ^
+  --add-data "runtime_hook_multiprocessing.py;." ^
+  --distpath ./dist ^
+  --workpath ./build ^
+  --specpath . ^
   main.py
 
-# 调试版本（显示控制台）
+# 完整版本（包含更多依赖和调试信息）
 pyinstaller --noconfirm --onefile ^
   --collect-all numpy ^
-  --collect-all worker_threads_cy ^
+  --collect-all pandas ^
+  --collect-all PyQt5 ^
   --collect-all billiard ^
+  --collect-all psutil ^
+  --collect-all worker_threads_cy ^
   --hidden-import billiard ^
   --hidden-import billiard.pool ^
   --hidden-import billiard.connection ^
   --hidden-import billiard.managers ^
+  --hidden-import billiard.synchronize ^
+  --hidden-import billiard.heap ^
+  --hidden-import billiard.queues ^
+  --hidden-import billiard.process ^
+  --hidden-import billiard.socket ^
+  --hidden-import billiard.forking ^
+  --hidden-import billiard.spawn ^
+  --hidden-import billiard.util ^
+  --hidden-import billiard.compat ^
+  --hidden-import multiprocessing ^
+  --hidden-import multiprocessing.pool ^
+  --hidden-import multiprocessing.managers ^
+  --hidden-import multiprocessing.synchronize ^
+  --hidden-import multiprocessing.heap ^
+  --hidden-import multiprocessing.queues ^
+  --hidden-import multiprocessing.process ^
+  --hidden-import multiprocessing.socket ^
+  --hidden-import multiprocessing.forking ^
+  --hidden-import multiprocessing.spawn ^
+  --hidden-import multiprocessing.util ^
+  --hidden-import multiprocessing.compat ^
+  --hidden-import function ^
+  --hidden-import ui ^
+  --hidden-import worker_threads ^
   --runtime-hook runtime_hook_multiprocessing.py ^
+  --add-data "worker_threads_cy.pyd;." ^
+  --add-data "runtime_hook.py;." ^
+  --add-data "runtime_hook_multiprocessing.py;." ^
+  --add-data "function;function" ^
+  --add-data "ui;ui" ^
+  --distpath ./dist ^
+  --workpath ./build ^
+  --specpath . ^
   main.py
+
+# 调试版本（显示控制台，用于排查问题）
+pyinstaller --noconfirm --onefile ^
+  --collect-all numpy ^
+  --collect-all pandas ^
+  --collect-all PyQt5 ^
+  --collect-all billiard ^
+  --collect-all psutil ^
+  --collect-all worker_threads_cy ^
+  --hidden-import billiard ^
+  --hidden-import billiard.pool ^
+  --hidden-import billiard.connection ^
+  --hidden-import billiard.managers ^
+  --hidden-import billiard.synchronize ^
+  --hidden-import billiard.heap ^
+  --hidden-import billiard.queues ^
+  --hidden-import billiard.process ^
+  --hidden-import billiard.socket ^
+  --hidden-import billiard.forking ^
+  --hidden-import billiard.spawn ^
+  --hidden-import billiard.util ^
+  --hidden-import billiard.compat ^
+  --hidden-import multiprocessing ^
+  --hidden-import multiprocessing.pool ^
+  --hidden-import multiprocessing.managers ^
+  --hidden-import multiprocessing.synchronize ^
+  --hidden-import multiprocessing.heap ^
+  --hidden-import multiprocessing.queues ^
+  --hidden-import multiprocessing.process ^
+  --hidden-import multiprocessing.socket ^
+  --hidden-import multiprocessing.forking ^
+  --hidden-import multiprocessing.spawn ^
+  --hidden-import multiprocessing.util ^
+  --hidden-import multiprocessing.compat ^
+  --hidden-import function ^
+  --hidden-import ui ^
+  --hidden-import worker_threads ^
+  --runtime-hook runtime_hook_multiprocessing.py ^
+  --add-data "worker_threads_cy.pyd;." ^
+  --add-data "runtime_hook.py;." ^
+  --add-data "runtime_hook_multiprocessing.py;." ^
+  --add-data "function;function" ^
+  --add-data "ui;ui" ^
+  --distpath ./dist ^
+  --workpath ./build ^
+  --specpath . ^
+  --debug all ^
+  main.py
+
+# 使用说明：
+# 1. 基础版本：用于快速测试，包含必要的依赖
+# 2. 完整版本：包含所有依赖和模块，推荐用于生产环境
+# 3. 调试版本：显示控制台输出，用于排查问题
+# 
+# 重要提示：
+# - 确保runtime_hook_multiprocessing.py文件存在
+# - 确保worker_threads_cy.pyd文件存在（如果使用Cython）
+# - 打包后测试多进程功能是否正常
+# - 如果仍有问题，使用调试版本查看详细错误信息

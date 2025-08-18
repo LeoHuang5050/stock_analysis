@@ -38,8 +38,8 @@ def make_exe():
     # distribution's standard library are included.
     policy.include_distribution_sources = False
 
-    # Toggle whether Python package resource files for the Python standard
-    # library are included.
+    # Toggle whether Python package resource files for the Python
+    # standard library are included.
     policy.include_distribution_resources = False
 
     # Controls the `add_include` attribute of `File` resources.
@@ -83,6 +83,28 @@ def make_exe():
     # Add required packages using pip install
     exe.add_python_resources(exe.pip_install(["numpy", "pandas", "PyQt5", "billiard", "psutil"]))
     
+    # 添加运行时钩子，确保多进程正常工作
+    exe.add_python_resources(exe.read_package_root(
+        path = "..",
+        packages = ["runtime_hook_multiprocessing"],
+    ))
+    
+    # 设置环境变量，确保多进程支持
+    exe.add_python_resources(exe.read_package_root(
+        path = "..",
+        packages = ["runtime_hook"],
+    ))
+    
+    # 添加Cython编译的模块
+    if exe.read_file(path = "../worker_threads_cy.pyd"):
+        exe.add_python_resources(exe.read_file(path = "../worker_threads_cy.pyd"))
+    
+    # 设置启动脚本，确保多进程环境正确初始化
+    exe.add_python_resources(exe.read_package_root(
+        path = "..",
+        packages = ["main"],
+    ))
+    
     # Install the executable into a destination directory.
     return exe
 
@@ -98,8 +120,13 @@ def make_install(exe):
     files = FileManifest()
     
     # Add the generated executable to the file manifest. The exe must be built
-    # before this function is called, so we use the `exe` variable defined above.
+    # before we can install it.
+    exe = exe.build()
     files.add_python_resource(".", exe)
+    
+    # 添加必要的运行时文件
+    files.add_file("runtime_hook.py", exe.read_file(path = "../runtime_hook.py"))
+    files.add_file("runtime_hook_multiprocessing.py", exe.read_file(path = "../runtime_hook_multiprocessing.py"))
     
     return files
 

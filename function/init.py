@@ -73,30 +73,6 @@ class StockAnalysisInit:
         self.main_window.width_label.setText(f"请选择日期宽度（最大宽度为 {max_width}）：")
         self.main_window.width_spin.setMaximum(max_width)
         self.main_window.result_text.setText("文件上传成功，请选择参数后进行选股计算。")
-
-        # 初始化进程池
-        try:
-            print("开始初始化进程池...")
-            from worker_threads import process_pool_manager
-            print("全局进程池管理器导入成功")
-            
-            print("开始调用initialize_pool...")
-            process_pool_manager.initialize_pool()
-            print("initialize_pool调用完成")
-            
-            # 检查进程池初始化状态
-            print(f"检查进程池状态: _is_initialized = {process_pool_manager._is_initialized}")
-            print(f"检查进程池对象: _pool = {process_pool_manager._pool}")
-            
-            if process_pool_manager._is_initialized:
-                print("✓ 进程池初始化成功")
-            else:
-                print("✗ 进程池初始化失败，将使用单进程模式")
-                
-        except Exception as e:
-            print(f"✗ 进程池初始化失败: {e}")
-            import traceback
-            print(f"错误详情: {traceback.format_exc()}")
         
         QMessageBox.information(self.main_window, "提示", "文件上传成功，请选择参数后进行选股计算")
 

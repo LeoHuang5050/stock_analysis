@@ -7,11 +7,154 @@ import math
 import os
 import billiard as multiprocessing  # 使用billiard替代multiprocessing
 from billiard import Pool, set_start_method
-import worker_threads_cy  # 这是你用Cython编译出来的模块
+# import worker_threads_cy  # 注释掉，避免子进程启动时崩溃
 import re
 import signal
 import traceback
 import threading
+import sys
+
+def worker_entry():
+    """工作进程专用入口点，避免导入PyQt5"""
+    import sys as _sys, os as _os, time as _time, traceback as _traceback
+    
+    try:
+        _frozen = getattr(_sys, 'frozen', False)
+        _meipass = getattr(_sys, '_MEIPASS', None)
+        print(f"[WorkerEntry] 工作进程启动，PID: {_os.getpid()}")
+        print(f"[WorkerEntry] frozen={_frozen} _MEIPASS={_meipass}")
+
+        if _frozen and _meipass:
+            try:
+                _os.environ['PATH'] = _meipass + _os.pathsep + _os.environ.get('PATH', '')
+                if hasattr(_os, 'add_dll_directory'):
+                    _os.add_dll_directory(_meipass)
+                print(f"[WorkerEntry] 已添加 _MEIPASS 到 PATH/DLL 搜索路径")
+            except Exception as e:
+                print(f"[WorkerEntry] 添加 DLL 搜索路径失败: {e}")
+
+        # 尝试导入 worker_threads_cy
+        try:
+            import worker_threads_cy as _wcy
+            print(f"[WorkerEntry] worker_threads_cy 导入成功")
+            if not hasattr(_wcy, 'calculate_batch_cy'):
+                raise ImportError('worker_threads_cy 缺少 calculate_batch_cy 函数')
+            print(f"[WorkerEntry] worker_threads_cy 模块验证成功")
+        except ImportError as e:
+            print(f"[WorkerEntry] worker_threads_cy 导入失败: {e}")
+            # 如果是 PyInstaller 环境，尝试从 _MEIPASS 导入
+            if _frozen and _meipass:
+                try:
+                    if _meipass not in _sys.path:
+                        _sys.path.insert(0, _meipass)
+                    import worker_threads_cy as _wcy
+                    print(f"[WorkerEntry] 从 _MEIPASS 导入 worker_threads_cy 成功")
+                except ImportError as e2:
+                    print(f"[WorkerEntry] 从 _MEIPASS 导入也失败: {e2}")
+                    raise
+            else:
+                raise
+
+        print(f"[WorkerEntry] 工作进程初始化完成，PID: {_os.getpid()}")
+        return True
+
+    except Exception as _e:
+        error_msg = f"[WorkerEntry] 工作进程初始化失败: {_e}"
+        print(error_msg)
+        try:
+            with open('worker_error.log', 'a', encoding='utf-8') as _f:
+                _f.write(f"{_time.strftime('%Y-%m-%d %H:%M:%S')} [WorkerEntry] 初始化失败: {_e}\n")
+                _f.write(f"进程PID: {_os.getpid()}\n")
+                _f.write(f"frozen={getattr(_sys,'frozen',False)} _MEIPASS={getattr(_sys,'_MEIPASS',None)}\n")
+                _f.write(f"sys.path[:3]={_sys.path[:3]}\n")
+                _f.write(f"当前工作目录: {_os.getcwd()}\n")
+                _f.write(_traceback.format_exc() + "\n\n")
+        except Exception:
+            pass
+        return False
+
+def _pool_worker_init():
+    """进程池子进程初始化：验证 _MEIPASS 与 worker_threads_cy 可用性"""
+    try:
+        print(f"[WorkerInit] 子进程初始化开始，PID: {os.getpid()}")
+        
+        # 记录环境信息
+        try:
+            frozen = getattr(sys, 'frozen', False)
+            meipass = getattr(sys, '_MEIPASS', None)
+            print(f"[WorkerInit] 环境信息: frozen={frozen}, _MEIPASS={meipass}")
+        except Exception as e:
+            print(f"[WorkerInit] 获取环境信息失败: {e}")
+        
+        # 导入并使用worker_entry.py中的函数
+        try:
+            from worker_entry import worker_entry
+            print(f"[WorkerInit] 成功导入 worker_entry 模块")
+        except ImportError as e:
+            print(f"[WorkerInit] 无法导入worker_entry模块: {e}")
+            print(f"[WorkerInit] 子进程继续运行，但可能无法正常工作")
+            # 不抛出异常，让进程池继续创建
+            return
+        
+        # 调用worker_entry函数
+        try:
+            success = worker_entry()
+            if success:
+                print(f"[WorkerInit] 工作进程初始化成功，PID: {os.getpid()}")
+            else:
+                print(f"[WorkerInit] 工作进程初始化失败，PID: {os.getpid()}")
+                print(f"[WorkerInit] 子进程继续运行，但可能无法正常工作")
+        except Exception as e:
+            print(f"[WorkerInit] 调用worker_entry函数时出错: {e}")
+            print(f"[WorkerInit] 子进程继续运行，但可能无法正常工作")
+            # 不抛出异常，让进程池继续创建
+            
+    except Exception as e:
+        print(f"[WorkerInit] 子进程初始化过程中出现未预期的错误: {e}")
+        print(f"[WorkerInit] 子进程继续运行，但可能无法正常工作")
+        try:
+            import traceback
+            print(f"[WorkerInit] 错误详情: {traceback.format_exc()}")
+        except:
+            pass
+        # 不抛出异常，让进程池继续创建
+    
+    print(f"[WorkerInit] 子进程初始化完成，PID: {os.getpid()}")
+    # 确保函数正常返回，不抛出任何异常
+    return
+
+def is_main_process():
+    """检查是否为主进程"""
+    try:
+        # 检查进程名称
+        current_process = multiprocessing.current_process()
+        
+        # 检查是否在打包环境中
+        if getattr(sys, 'frozen', False):
+            # 打包环境中，通过进程名称和环境变量来判断
+            if current_process.name == 'MainProcess':
+                # 检查是否设置了主进程标记
+                if 'MAIN_PROCESS_ID' in os.environ:
+                    # 如果环境变量中的PID与当前PID匹配，说明是主进程
+                    main_pid = os.environ.get('MAIN_PROCESS_ID')
+                    if str(os.getpid()) == main_pid:
+                        return True
+                    else:
+                        return False
+                else:
+                    # 如果没有设置环境变量，说明这是第一次运行的主进程
+                    # 设置环境变量标记
+                    os.environ['MAIN_PROCESS_ID'] = str(os.getpid())
+                    return True
+            else:
+                return False
+        else:
+            # 开发环境中，检查进程名称
+            return current_process.name == 'MainProcess'
+    except Exception as e:
+        print(f"检查进程类型时出错: {e}")
+        # 出错时默认认为是子进程，避免误判
+        return False
 
 # 异步任务配置常量
 ASYNC_TASK_CONFIG = {
@@ -61,6 +204,11 @@ class ProcessPoolManager:
     
     def initialize_pool(self):
         """在应用启动时初始化固定大小的进程池，使用billiard.Pool"""
+        # 检查是否为主进程
+        if not is_main_process():
+            print("检测到子进程，跳过进程池初始化")
+            return
+        
         if not self._is_initialized:
             print(f"初始化固定大小的进程池，进程数: {self._fixed_size}")
             print(f"主进程PID: {os.getpid()}")
@@ -77,21 +225,116 @@ class ProcessPoolManager:
                 pool_kwargs = {
                     'processes': self._fixed_size,
                     'maxtasksperchild': None,  # 进程永不退出，确保进程复用
+                    'initializer': _pool_worker_init,  # 使用我们的初始化函数
                 }
+                
+                # 测试initializer函数是否可以被调用
+                print(f"测试initializer函数: {_pool_worker_init}")
+                print(f"initializer函数类型: {type(_pool_worker_init)}")
+                print(f"initializer函数可调用: {callable(_pool_worker_init)}")
+                
+                print(f"进程池参数: {pool_kwargs}")
                 
                 # 在Windows环境下，billiard会自动使用spawn方法
                 if os.name == 'nt':
                     print("Windows环境检测到，billiard将自动选择最适合的启动方法")
                 
-                # 创建billiard.Pool
-                self._pool = Pool(**pool_kwargs)
+                print("开始创建进程池...")
+                
+                # 添加进程创建失败的重试限制
+                max_retries = 3
+                retry_count = 0
+                pool_created = False
+                
+                while retry_count < max_retries and not pool_created:
+                    try:
+                        print(f"尝试创建进程池 (第 {retry_count + 1} 次)...")
+                        
+                        # 创建billiard.Pool
+                        print("正在创建billiard.Pool对象...")
+                        self._pool = Pool(**pool_kwargs)
+                        print(f"Pool对象创建完成，类型: {type(self._pool)}")
+                        
+                        # 等待一段时间检查进程池是否真的创建成功
+                        print("等待进程池初始化...")
+                        time.sleep(3)
+                        
+                        # 检查进程池是否真的创建成功
+                        if self._pool is None:
+                            raise RuntimeError("Pool对象创建后为None")
+                        
+                        # 检查进程池状态
+                        if self._pool is not None:
+                            try:
+                                # 添加详细的进程池状态诊断
+                                print(f"进程池对象类型: {type(self._pool)}")
+                                print(f"进程池对象属性: {dir(self._pool)}")
+                                
+                                # 尝试获取进程池信息，如果失败说明进程池有问题
+                                pool_info = self._pool._processes
+                                print(f"进程池._processes类型: {type(pool_info)}")
+                                print(f"进程池._processes值: {pool_info}")
+                                
+                                if pool_info is not None:
+                                    # 检查进程信息是否为可迭代对象
+                                    if hasattr(pool_info, '__len__'):
+                                        pool_created = True
+                                        print(f"✓ 进程池创建成功，进程数: {len(pool_info)}")
+                                    else:
+                                        print(f"警告：进程池._processes不是可迭代对象，类型: {type(pool_info)}")
+                                        # 尝试其他方式检查进程池状态
+                                        if hasattr(self._pool, '_state'):
+                                            print(f"进程池状态: {self._pool._state}")
+                                        pool_created = True  # 暂时认为成功，让进程池继续运行
+                                        print("✓ 进程池创建成功（通过状态检查）")
+                                else:
+                                    raise RuntimeError("进程池进程信息为空")
+                            except Exception as e:
+                                print(f"进程池状态检查失败: {e}")
+                                print(f"进程池对象详细信息:")
+                                try:
+                                    print(f"  - 类型: {type(self._pool)}")
+                                    print(f"  - 属性: {[attr for attr in dir(self._pool) if not attr.startswith('_')]}")
+                                    if hasattr(self._pool, '_state'):
+                                        print(f"  - 状态: {self._pool._state}")
+                                except:
+                                    pass
+                                raise
+                        else:
+                            raise RuntimeError("进程池对象为None")
+                            
+                    except Exception as e:
+                        retry_count += 1
+                        print(f"第 {retry_count} 次创建进程池失败: {e}")
+                        
+                        # 清理失败的进程池
+                        if self._pool is not None:
+                            try:
+                                self._pool.close()
+                                self._pool.join()
+                            except:
+                                pass
+                            self._pool = None
+                        
+                        if retry_count < max_retries:
+                            print(f"等待 5 秒后重试...")
+                            time.sleep(5)
+                        else:
+                            print(f"❌ 进程池创建失败，已达到最大重试次数 ({max_retries})")
+                            print("停止创建进程池，避免无限循环导致系统崩溃")
+                            print("请检查以下可能的问题：")
+                            print("1. worker_entry.py 模块是否正确")
+                            print("2. worker_threads_cy 模块是否可用")
+                            print("3. 系统资源是否充足")
+                            print("4. 查看 worker_error.log 获取详细错误信息")
+                            return
+                
+                if not pool_created:
+                    print("❌ 进程池创建最终失败，跳过进程池初始化")
+                    return
                 
                 self._is_initialized = True
                 self._pool_creation_time = time.time()
-                
-                # 等待进程池创建完成
-                print("等待进程池创建完成...")
-                time.sleep(2)  # 减少等待时间
                 
                 # 记录进程池创建信息
                 try:
@@ -103,6 +346,7 @@ class ProcessPoolManager:
                         f.write(f"maxtasksperchild: None (进程永不退出)\n")
                         f.write(f"启动方法: billiard自动选择\n")
                         f.write(f"操作系统: {os.name}\n")
+                        f.write(f"重试次数: {retry_count}\n")
                         f.write("-" * 50 + "\n")
                 except:
                     pass
@@ -110,21 +354,32 @@ class ProcessPoolManager:
                 print(f"✓ 进程池初始化完成，进程数: {self._fixed_size}")
                     
             except Exception as e:
-                print(f"初始化billiard.Pool失败: {e}")
+                print(f"❌ 初始化billiard.Pool失败: {e}")
                 print(f"错误详情: {traceback.format_exc()}")
                 self._pool = None
                 self._is_initialized = False
+                print("进程池初始化失败，将使用单进程模式")
     
     def get_process_pool(self, max_workers):
         """获取进程池，如果max_workers超过16则抛出异常"""
         if not self._is_initialized:
+            print("进程池未初始化，尝试初始化...")
             self.initialize_pool()
+            
+            # 如果初始化后仍然不可用，返回None
+            if not self._is_initialized or self._pool is None:
+                print("⚠ 进程池初始化失败，无法提供多进程支持")
+                print("建议检查 worker_error.log 获取详细错误信息")
+                return None
         
         if max_workers > self._fixed_size:
-            raise ValueError(f"max_workers ({max_workers}) 不能超过固定进程池大小 ({self._fixed_size})")
+            print(f"⚠ 请求的进程数 ({max_workers}) 超过固定进程池大小 ({self._fixed_size})")
+            print("将使用可用的最大进程数")
+            max_workers = self._fixed_size
         
         if self._pool is None:
-            raise RuntimeError("billiard.Pool未正确初始化")
+            print("⚠ 进程池不可用，将使用单进程模式")
+            return None
         
         print(f"使用billiard.Pool，请求进程数: {max_workers}，可用进程数: {self._fixed_size}")
         
@@ -1305,6 +1560,18 @@ def make_user_func(expr):
 
 def cy_batch_worker(args):
     """Cython批处理工作函数，使用ProcessPoolExecutor"""
+    try:
+        # 尝试导入worker_entry.py中的版本
+        from worker_entry import cy_batch_worker as worker_entry_cy_batch_worker
+        print(f"使用worker_entry.py中的cy_batch_worker函数")
+        return worker_entry_cy_batch_worker(args)
+    except ImportError:
+        print(f"无法导入worker_entry.py中的cy_batch_worker，使用本地版本")
+        # 如果导入失败，使用本地版本（保持向后兼容）
+        return _local_cy_batch_worker(args)
+
+def _local_cy_batch_worker(args):
+    """本地版本的Cython批处理工作函数（保持向后兼容）"""
     import os
     import sys
     import time
@@ -1596,17 +1863,24 @@ class AsyncTaskManager:
             task_info['created_at'] = time.time()
             task_info['retry_count'] = 0
             
-            # 关键修改：不再强制指定进程，而是使用任务队列机制
+            # 关键修改：使用worker_entry.py中的cy_batch_worker函数
+            try:
+                from worker_entry import cy_batch_worker
+                worker_func = cy_batch_worker
+                print(f"使用worker_entry.py中的cy_batch_worker函数")
+            except ImportError:
+                # 如果导入失败，使用传入的worker_function
+                worker_func = worker_function
+                print(f"警告: 无法导入worker_entry.cy_batch_worker，使用备用函数")
+            
             print(f"创建任务 {task_info['task_id']} (ID: {task_info['unique_id']})")
             
             # 使用进程池的默认调度机制，但添加任务跟踪
-            async_result = executor.apply_async(worker_function, (task_info['args'],))
+            async_result = executor.apply_async(worker_func, (task_info['args'],))
             task_info['async_result'] = async_result
             async_tasks.append(task_info)
             
             print(f"任务 {task_info['task_id']} (ID: {task_info['unique_id']}) 已提交到进程池")
-            
-
         
         return async_tasks
     
