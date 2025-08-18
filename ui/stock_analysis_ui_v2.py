@@ -30,28 +30,32 @@ class ShutdownWorker(QThread):
     
     def run(self):
         try:
-            from worker_threads import process_pool_manager
-            # 使用更温和的关闭方式
-            if hasattr(process_pool_manager, 'pool') and process_pool_manager.pool:
-                # 先尝试温和关闭
-                try:
-                    process_pool_manager.pool.close()
-                    process_pool_manager.pool.join(timeout=5)  # 等待最多5秒
-                except Exception as e:
-                    print(f"温和关闭失败: {e}")
-                    # 如果温和关闭失败，强制终止
+            # 检查主窗口是否有进程池管理器
+            if hasattr(self.parent(), 'process_pool_manager') and self.parent().process_pool_manager is not None:
+                process_pool_manager = self.parent().process_pool_manager
+                # 使用更温和的关闭方式
+                if hasattr(process_pool_manager, '_pool') and process_pool_manager._pool:
+                    # 先尝试温和关闭
                     try:
-                        process_pool_manager.pool.terminate()
-                        process_pool_manager.pool.join(timeout=3)  # 等待最多3秒
-                    except Exception as e2:
-                        print(f"强制终止也失败: {e2}")
-                        # 最后尝试清理
+                        process_pool_manager._pool.close()
+                        process_pool_manager._pool.join(timeout=5)  # 等待最多5秒
+                    except Exception as e:
+                        print(f"温和关闭失败: {e}")
+                        # 如果温和关闭失败，强制终止
                         try:
-                            if hasattr(process_pool_manager.pool, '_pool'):
-                                process_pool_manager.pool._pool = []
-                        except:
-                            pass
-            print("窗口关闭时全局进程池已清理")
+                            process_pool_manager._pool.terminate()
+                            process_pool_manager._pool.join(timeout=3)  # 等待最多3秒
+                        except Exception as e2:
+                            print(f"强制终止也失败: {e2}")
+                            # 最后尝试清理
+                            try:
+                                if hasattr(process_pool_manager._pool, '_pool'):
+                                    process_pool_manager._pool._pool = []
+                            except:
+                                pass
+                print("窗口关闭时进程池已清理")
+            else:
+                print("没有找到进程池管理器，无需清理")
             self.finished.emit()
         except Exception as e:
             print(f"窗口关闭时清理进程池出错: {e}")

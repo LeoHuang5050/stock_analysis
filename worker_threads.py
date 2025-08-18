@@ -36,14 +36,6 @@ TASK_STATUS = {
     'EMPTY_RESULT': 'empty_result'  # 空结果
 }
 
-def simple_test_worker(index):
-    """简单的测试工作函数，只返回进程信息"""
-    import os
-    import time
-    # 模拟一些工作
-    time.sleep(0.1)
-    return (index, os.getpid())
-
 class ProcessPoolManager:
     """固定大小的进程池管理器，使用billiard.Pool，应用启动时创建16个进程
     
@@ -74,12 +66,12 @@ class ProcessPoolManager:
             print(f"主进程PID: {os.getpid()}")
             
             try:
-                # 设置进程启动方法，确保与Cython模块兼容
+                # 让billiard自动选择最适合的进程启动方法
                 try:
-                    set_start_method('spawn', force=True)
-                    print("设置进程启动方法为 'spawn'")
-                except RuntimeError:
-                    print("进程启动方法已设置为 'spawn'")
+                    # 不强制设置启动方法，让billiard自动选择
+                    print("让billiard自动选择最适合的进程启动方法")
+                except Exception as e:
+                    print(f"设置进程启动方法时出错: {e}")
                 
                 # 创建billiard.Pool，设置最大工作进程数
                 pool_kwargs = {
@@ -89,7 +81,7 @@ class ProcessPoolManager:
                 
                 # 在Windows环境下，billiard会自动使用spawn方法
                 if os.name == 'nt':
-                    print("Windows环境检测到，billiard将自动使用spawn启动方法")
+                    print("Windows环境检测到，billiard将自动选择最适合的启动方法")
                 
                 # 创建billiard.Pool
                 self._pool = Pool(**pool_kwargs)
@@ -97,24 +89,9 @@ class ProcessPoolManager:
                 self._is_initialized = True
                 self._pool_creation_time = time.time()
                 
-                # 简化的进程启动等待
-                print("等待子进程启动...")
-                time.sleep(5)  # 等待5秒让进程启动
-                
-                # 尝试捕获PID
-                self._capture_worker_pids()
-                
-                # 保存原始PID列表
-                self._original_pids = self._worker_pids.copy()
-                
-                # 最终验证
-                unique_pids = len(set(self._original_pids))
-                if unique_pids > 0:
-                    print(f"✓ 进程池初始化完成，进程数: {unique_pids}")
-                    print(f"工作进程PID列表: {self._original_pids}")
-                else:
-                    print("⚠ 警告: 未能捕获到任何工作进程PID")
-                    print("进程池可能未正确初始化")
+                # 等待进程池创建完成
+                print("等待进程池创建完成...")
+                time.sleep(2)  # 减少等待时间
                 
                 # 记录进程池创建信息
                 try:
@@ -122,74 +99,21 @@ class ProcessPoolManager:
                         f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} - billiard.Pool初始化完成\n")
                         f.write(f"主进程PID: {os.getpid()}\n")
                         f.write(f"进程池大小: {self._fixed_size}\n")
-                        f.write(f"原始工作进程PID列表: {self._original_pids}\n")
-                        f.write(f"唯一PID数量: {unique_pids}\n")
                         f.write(f"进程池创建时间: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(self._pool_creation_time))}\n")
                         f.write(f"maxtasksperchild: None (进程永不退出)\n")
-                        f.write(f"启动方法: spawn (billiard自动设置)\n")
+                        f.write(f"启动方法: billiard自动选择\n")
                         f.write(f"操作系统: {os.name}\n")
                         f.write("-" * 50 + "\n")
                 except:
                     pass
+                
+                print(f"✓ 进程池初始化完成，进程数: {self._fixed_size}")
                     
             except Exception as e:
                 print(f"初始化billiard.Pool失败: {e}")
+                print(f"错误详情: {traceback.format_exc()}")
                 self._pool = None
                 self._is_initialized = False
-    
-    def _capture_worker_pids(self):
-        """捕获所有工作进程的PID（简化版本）"""
-        try:
-            print("开始捕获工作进程PID...")
-            
-            # 清空之前的PID列表
-            self._worker_pids = []
-            
-            # 使用简单的测试任务来激活进程，但不强制创建所有进程
-            print("使用简单测试任务激活工作进程...")
-            
-            # 只创建少量测试任务来激活进程
-            test_count = min(4, self._fixed_size)  # 最多测试4个进程
-            test_results = []
-            
-            for i in range(test_count):
-                try:
-                    result = self._pool.apply_async(simple_test_worker, (i,))
-                    test_results.append(result)
-                except Exception as e:
-                    print(f"激活工作进程 {i} 失败: {e}")
-            
-            # 等待测试任务完成并收集PID
-            seen_pids = set()
-            for i, result in enumerate(test_results):
-                try:
-                    _, pid = result.get(timeout=30)  # 30秒超时
-                    if pid not in seen_pids:
-                        seen_pids.add(pid)
-                        self._worker_pids.append(pid)
-                        print(f"工作进程 {i+1}: PID {pid}")
-                    else:
-                        print(f"警告: 检测到重复PID {pid}，跳过")
-                except Exception as e:
-                    print(f"获取工作进程 {i+1} PID失败: {e}")
-            
-            print(f"成功捕获 {len(self._worker_pids)} 个工作进程PID")
-            
-            # 按PID排序
-            self._worker_pids.sort()
-            
-            # 验证捕获的PID数量
-            unique_pids = len(set(self._worker_pids))
-            print(f"成功捕获 {len(self._worker_pids)} 个工作进程PID，唯一PID数: {unique_pids}")
-            
-            # 如果捕获的PID数量不足，记录警告但不重新初始化
-            if unique_pids < test_count * 0.5:  # 至少50%的测试进程应该成功
-                print(f"⚠ 警告: 捕获的PID数量不足，期望至少 {test_count * 0.5}，实际 {unique_pids}")
-                print("程序将继续运行，但性能可能受到影响")
-            
-        except Exception as e:
-            print(f"捕获工作进程PID失败: {e}")
-            self._worker_pids = []
     
     def get_process_pool(self, max_workers):
         """获取进程池，如果max_workers超过16则抛出异常"""
@@ -441,8 +365,7 @@ class ProcessPoolManager:
         
         print("=" * 50)
 
-# 全局进程池管理器实例
-process_pool_manager = ProcessPoolManager()
+# 全局进程池管理器实例已移除，改为在需要时创建
 
 # 全局缩写映射表
 abbr_map = {
@@ -626,7 +549,10 @@ class CalculateThread(QThread):
     
     def _get_process_pool(self, max_workers):
         """从全局管理器获取进程池"""
-        return process_pool_manager.get_process_pool(max_workers)
+        # 使用全局进程池管理器
+        if process_pool_manager is not None and process_pool_manager._is_initialized:
+            return process_pool_manager.get_process_pool(max_workers)
+        return None
 
     def safe_float(self, val, default=float('nan')):
         try:
@@ -953,76 +879,101 @@ class CalculateThread(QThread):
         start_time = time.time()
         
         try:
-            # 从管理器获取进程池
-            executor = process_pool_manager.get_process_pool(n_proc)
-            
-            # 创建异步任务管理器
-            async_task_manager = AsyncTaskManager(process_pool_manager)
-            
-            # 创建异步任务列表
-            # 将args_list转换为task_list格式
-            task_list = []
-            for i, args in enumerate(args_list):
-                task_list.append({
-                    'task_id': i + 1,
-                    'args': args
-                })
-            
-            async_tasks = async_task_manager.create_async_tasks(task_list, cy_batch_worker, executor)
-            
-            # 执行任务并收集结果
-            task_results = async_task_manager.execute_tasks(async_tasks, timeout=300)
-            
-            # 提取结果数据
-            all_process_results = []
-            for task_result in task_results:
-                if task_result['status'] == 'success' and task_result['result']:
-                    all_process_results.append(task_result['result'])
-                else:
-                    all_process_results.append({})
-            
-            print("所有子进程执行完成，开始处理结果...")
-            
-            # 处理结果
-            result_count = 0
-            for i, process_results in enumerate(all_process_results):
-                try:
-                    print(f"处理第 {i+1}/{len(all_process_results)} 个子进程结果...")
-                    
-                    if process_results:  # 确保结果不为空
-                        for end_date, stocks in process_results.items():
-                            if end_date in merged_results:
-                                merged_results[end_date].extend(stocks)
-                                result_count += len(stocks)
-                        
-                        print(f"第 {i+1} 个子进程结果处理完成，结果数: {len(process_results)}")
-                    else:
-                        print(f"第 {i+1} 个子进程返回空结果")
-                                
-                except Exception as e:
-                    print(f"第 {i+1} 个子进程结果处理异常: {e}")
-                    # 记录到error_log.txt
-                    try:
-                        with open('error_log.txt', 'a', encoding='utf-8') as f:
-                            f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} - 第 {i+1} 个子进程结果处理异常: {e}\n")
-                            f.write("-" * 50 + "\n")
-                    except:
-                        pass
-            
-            print(f"处理完成，总结果数: {result_count}")
-                             
+            # 从全局管理器获取进程池
+            if process_pool_manager is not None and process_pool_manager._is_initialized:
+                executor = process_pool_manager.get_process_pool(n_proc)
+                # 创建异步任务管理器
+                async_task_manager = AsyncTaskManager(process_pool_manager)
+            else:
+                print("进程池管理器不可用，使用单进程模式")
+                executor = None
+                async_task_manager = None
         except Exception as e:
-            import traceback
-            print(f"子进程异常: {e}")
-            print(f"异常详情: {traceback.format_exc()}")
-            # 子进程异常记录到error_log.txt
+            print(f"获取进程池失败: {e}")
+            executor = None
+            async_task_manager = None
+        
+        # 创建异步任务列表
+        # 将args_list转换为task_list格式
+        task_list = []
+        for i, args in enumerate(args_list):
+            task_list.append({
+                'task_id': i + 1,
+                'args': args
+            })
+        
+        all_process_results = []
+        
+        if async_task_manager is not None and executor is not None:
+            # 多进程模式
             try:
-                with open('error_log.txt', 'a', encoding='utf-8') as f:
-                    f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} - 子进程异常: {e}\n")
-                    f.write(f"异常详情: {traceback.format_exc()}\n")
-                    f.write("-" * 50 + "\n")
-            except:
-                pass
+                async_tasks = async_task_manager.create_async_tasks(task_list, cy_batch_worker, executor)
+                
+                # 执行任务并收集结果
+                task_results = async_task_manager.execute_tasks(async_tasks, timeout=300)
+                
+                # 提取结果数据
+                for task_result in task_results:
+                    if task_result['status'] == 'success' and task_result['result']:
+                        all_process_results.append(task_result['result'])
+                    else:
+                        all_process_results.append({})
+                
+                print("所有子进程执行完成，开始处理结果...")
+                
+            except Exception as e:
+                import traceback
+                print(f"多进程执行异常: {e}")
+                print(f"异常详情: {traceback.format_exc()}")
+                # 多进程异常记录到error_log.txt
+                try:
+                    with open('error_log.txt', 'a', encoding='utf-8') as f:
+                        f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} - 多进程执行异常: {e}\n")
+                        f.write(f"异常详情: {traceback.format_exc()}\n")
+                        f.write("-" * 50 + "\n")
+                except:
+                    pass
+                # 如果多进程失败，清空结果列表
+                all_process_results = []
+        else:
+            # 单进程模式
+            print("使用单进程模式执行任务...")
+            for i, args in enumerate(args_list):
+                try:
+                    result = cy_batch_worker(args)
+                    all_process_results.append(result)
+                    print(f"单进程任务 {i+1} 完成")
+                except Exception as e:
+                    print(f"单进程任务 {i+1} 失败: {e}")
+                    all_process_results.append({})
+        
+        # 统一处理结果（无论单进程还是多进程）
+        result_count = 0
+        for i, process_results in enumerate(all_process_results):
+            try:
+                print(f"处理第 {i+1}/{len(all_process_results)} 个任务结果...")
+                
+                if process_results:  # 确保结果不为空
+                    for end_date, stocks in process_results.items():
+                        if end_date in merged_results:
+                            merged_results[end_date].extend(stocks)
+                            result_count += len(stocks)
+                    
+                    print(f"第 {i+1} 个任务结果处理完成，结果数: {len(process_results)}")
+                else:
+                    print(f"第 {i+1} 个任务返回空结果")
+                            
+            except Exception as e:
+                print(f"第 {i+1} 个任务结果处理异常: {e}")
+                # 记录到error_log.txt
+                try:
+                    with open('error_log.txt', 'a', encoding='utf-8') as f:
+                        f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} - 第 {i+1} 个任务结果处理异常: {e}\n")
+                        f.write("-" * 50 + "\n")
+                except:
+                    pass
+        
+        print(f"处理完成，总结果数: {result_count}")
         t1 = time.time()
         total_time = t1 - t0
         print(f"calculate_batch_{n_proc}_cores 总耗时: {total_time:.4f}秒")
@@ -2018,6 +1969,9 @@ def example_usage_async_task_manager():
         print(f"示例执行失败: {e}")
         import traceback
         traceback.print_exc()
+
+# 全局进程池管理器实例
+process_pool_manager = ProcessPoolManager()
 
 if __name__ == "__main__":
     # 运行示例

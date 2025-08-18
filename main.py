@@ -5,7 +5,7 @@ import multiprocessing
 from ui.stock_analysis_ui_v2 import StockAnalysisApp
 from PyQt5.QtWidgets import QApplication, QMessageBox
 import traceback
-from worker_threads import process_pool_manager
+from worker_threads import ProcessPoolManager
 
 def exception_hook(exctype, value, tb):
     """全局异常处理函数"""
@@ -25,7 +25,13 @@ def signal_handler(signum, frame):
     """信号处理函数，确保程序退出时清理资源"""
     print(f"收到信号 {signum}，正在清理资源...")
     # 关闭进程池
-    process_pool_manager.shutdown()
+    try:
+        from worker_threads import process_pool_manager
+        if process_pool_manager is not None:
+            process_pool_manager.shutdown()
+            print("进程池已关闭")
+    except Exception as e:
+        print(f"关闭进程池时出错: {e}")
     sys.exit(0)
 
 if __name__ == "__main__":
@@ -41,13 +47,6 @@ if __name__ == "__main__":
     sys.excepthook = exception_hook
     
     app = QApplication(sys.argv)
-    
-    # 初始化固定大小的进程池
-    print("正在初始化固定大小的进程池...")
-    process_pool_manager.initialize_pool()
-    
-    # 连接应用程序退出信号，确保进程池被正确关闭
-    app.aboutToQuit.connect(process_pool_manager.shutdown)
     
     window = StockAnalysisApp()
     window.show()

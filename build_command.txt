@@ -1,0 +1,61 @@
+# 完整的PyInstaller打包命令 - 支持billiard和多进程
+
+# 基础版本（推荐）
+pyinstaller --noconfirm --windowed --onefile ^
+  --collect-all numpy ^
+  --collect-all worker_threads_cy ^
+  --collect-all billiard ^
+  --hidden-import billiard ^
+  --hidden-import billiard.pool ^
+  --hidden-import billiard.connection ^
+  --hidden-import billiard.managers ^
+  --runtime-hook runtime_hook_multiprocessing.py ^
+  main.py
+
+# 完整版本（包含更多依赖）
+pyinstaller --noconfirm --windowed --onefile ^
+  --collect-all numpy ^
+  --collect-all worker_threads_cy ^
+  --collect-all billiard ^
+  --collect-all psutil ^
+  --hidden-import billiard ^
+  --hidden-import billiard.pool ^
+  --hidden-import billiard.connection ^
+  --hidden-import billiard.managers ^
+  --hidden-import billiard.synchronize ^
+  --hidden-import billiard.heap ^
+  --hidden-import billiard.queues ^
+  --hidden-import billiard.pool ^
+  --hidden-import billiard.process ^
+  --hidden-import billiard.managers ^
+  --hidden-import billiard.connection ^
+  --hidden-import billiard.socket ^
+  --hidden-import billiard.forking ^
+  --hidden-import billiard.spawn ^
+  --hidden-import billiard.util ^
+  --hidden-import billiard.compat ^
+  --hidden-import billiard.heap ^
+  --hidden-import billiard.queues ^
+  --hidden-import billiard.synchronize ^
+  --hidden-import billiard.managers ^
+  --hidden-import billiard.connection ^
+  --hidden-import billiard.socket ^
+  --hidden-import billiard.forking ^
+  --hidden-import billiard.spawn ^
+  --hidden-import billiard.util ^
+  --hidden-import billiard.compat ^
+  --runtime-hook runtime_hook_multiprocessing.py ^
+  --add-data "worker_threads_cy.pyd;." ^
+  main.py
+
+# 调试版本（显示控制台）
+pyinstaller --noconfirm --onefile ^
+  --collect-all numpy ^
+  --collect-all worker_threads_cy ^
+  --collect-all billiard ^
+  --hidden-import billiard ^
+  --hidden-import billiard.pool ^
+  --hidden-import billiard.connection ^
+  --hidden-import billiard.managers ^
+  --runtime-hook runtime_hook_multiprocessing.py ^
+  main.py
