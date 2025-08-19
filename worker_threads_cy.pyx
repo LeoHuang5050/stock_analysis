@@ -237,6 +237,12 @@ def calculate_batch_cy(
     bint start_with_new_after_low2_flag=False,
     list comparison_vars_list=None
 ):
+    # 在函数开始处打印进程信息
+    #import os
+    #current_pid = os.getpid()
+    #print(f"进程 {current_pid}: 开始执行 calculate_batch_cy")
+    #print(f"进程 {current_pid}: 股票数量: {price_data.shape[0]}, 日期数量: {price_data.shape[1]}")
+    
     cdef int num_stocks = price_data.shape[0]
     cdef int num_dates = price_data.shape[1]
     cdef int stock_idx, idx, end_date_idx, start_date_idx
@@ -367,7 +373,6 @@ def calculate_batch_cy(
     cdef double forward_max_price, forward_min_price
     cdef int forward_max_idx_in_window, forward_min_idx_in_window
 
-    
     # 初始化结果字典
     for idx in range(end_date_start_idx, end_date_end_idx-1, -1):
         end_date = date_columns[idx]
@@ -377,6 +382,11 @@ def calculate_batch_cy(
     for i in range(stock_idx_arr_view.shape[0]):
         stock_idx = stock_idx_arr_view[i]
         #if stock_idx == 0:
+            # 在 nogil 块外打印进程信息
+            #import os
+            #current_pid = os.getpid()
+            #print(f"进程 {current_pid}: 开始计算 stock_idx={stock_idx}")
+            #print(f"进程 {current_pid}: only_show_selected={only_show_selected}")
             #printf(b"Calculating stock_idx=%d\n", stock_idx)
             #printf(b"only_show_selected=%d\n", only_show_selected)
         for idx in range(end_date_start_idx, end_date_end_idx-1, -1):
@@ -443,6 +453,8 @@ def calculate_batch_cy(
                             continue
                     else:
                         start_with_new_before_high = 0
+                    #if stock_idx == 0:
+                        #printf(b"running1\n")
 
                     # --- 创前新高2起始条件判断 ---
                     if start_with_new_before_high2_flag:
@@ -502,6 +514,8 @@ def calculate_batch_cy(
                             continue
                     else:
                         start_with_new_before_high2 = 0
+                    #if stock_idx == 0:
+                        #printf(b"running2\n")
 
                     # --- 创后新高起始条件判断 --- 
                     if start_with_new_after_high_flag:
@@ -568,6 +582,9 @@ def calculate_batch_cy(
                     else:
                         start_with_new_after_high = 0
 
+                    #if stock_idx == 0:
+                        #printf(b"running3\n")
+
                     # --- 创后新高2起始条件判断 ---
                     if start_with_new_after_high2_flag:
                         new_after_high2_start_idx = idx + new_after_high2_start + new_after_high2_range
@@ -626,6 +643,9 @@ def calculate_batch_cy(
 
                     #if stock_idx == 2:
                         #printf(b"stock_idx=%d, start_with_new_after_high=%d, found_new_after_high=%d, start_with_new_after_high2=%d, found_new_after_high2=%d\n", stock_idx, start_with_new_after_high, found_new_after_high, start_with_new_after_high2, found_new_after_high2)
+                    
+                    #if stock_idx == 0:
+                        #printf(b"running4\n")
 
                     # --- 创前新低1起始条件判断 ---
                     if start_with_new_before_low_flag:
@@ -679,6 +699,8 @@ def calculate_batch_cy(
                             continue
                     else:
                         start_with_new_before_low = 0
+                    #if stock_idx == 0:
+                        #printf(b"running5\n")
 
                     # --- 创前新低2起始条件判断 ---
                     if start_with_new_before_low2_flag:
@@ -732,6 +754,9 @@ def calculate_batch_cy(
                             continue
                     else:
                         start_with_new_before_low2 = 0
+
+                    #if stock_idx == 0:
+                        #printf(b"running6\n")
 
                     # --- 创后新低1起始条件判断 ---
                     if start_with_new_after_low_flag:
@@ -787,6 +812,9 @@ def calculate_batch_cy(
                     else:
                         start_with_new_after_low = 0
 
+                    #if stock_idx == 0:
+                        #printf(b"running7\n")
+
                     # --- 创后新低2起始条件判断 ---
                     if start_with_new_after_low2_flag:
                         new_after_low2_start_idx = idx + new_after_low2_start + new_after_low2_range
@@ -839,6 +867,9 @@ def calculate_batch_cy(
                             continue
                     else:
                         start_with_new_after_low2 = 0
+
+                    #if stock_idx == 0:
+                        #printf(b"running1\n")
                         
                     # 原有的with nogil内容
                     end_date_idx = idx
@@ -947,6 +978,8 @@ def calculate_batch_cy(
                     else:
                         forward_max_result_c.clear()
                         forward_min_result_c.clear()
+                        forward_max_date_idx = -1  
+                        forward_min_date_idx = -1  
 
                     #计算向前最大最小连续累加值正加和与负加和
                     if is_forward:
@@ -959,6 +992,9 @@ def calculate_batch_cy(
                         forward_min_cont_sum_neg_sum = NAN
                     # 注意：forward_max_cont_sum_pos_sum, forward_max_cont_sum_neg_sum 使用了 round_to_2_nan，需要在Python层处理
                     # 注意：forward_min_cont_sum_pos_sum, forward_min_cont_sum_neg_sum 使用了 round_to_2_nan，需要在Python层处理
+
+                    #if stock_idx == 0:
+                        #printf(b"running2\n")
 
                     # 递增值计算逻辑
                     # 停盈停损
@@ -1315,6 +1351,9 @@ def calculate_batch_cy(
                                 take_loss_ags = NAN
                                 stop_loss_ags = NAN
                     
+                    #if stock_idx == 0:
+                        #printf(b"running3\n")
+
                     # 处理NAN值
                     if isnan(increment_value):
                         increment_value = NAN
@@ -1698,6 +1737,8 @@ def calculate_batch_cy(
                         valid_neg_sum = NAN
                     # 移除 round_to_2 调用，保持原始精度
 
+                #if stock_idx == 0:
+                    #printf(b"running4\n")    
                 # with gil
                 start_with_new_before_high_py = bool(start_with_new_before_high)
                 start_with_new_before_high2_py = bool(start_with_new_before_high2)
@@ -1709,6 +1750,8 @@ def calculate_batch_cy(
                 start_with_new_after_low2_py = bool(start_with_new_after_low2)
                 
                 has_three_consecutive_zeros_py = bool(has_three_consecutive_zeros)
+                #if stock_idx == 0:
+                    #printf(b"running4.1\n")    
                 # 计算range_ratio_is_less
                 range_ratio_is_less = False
                 if (min_price is not None and min_price != 0 and not isnan(min_price) and 
@@ -1728,6 +1771,9 @@ def calculate_batch_cy(
                 
                 forward_max_date_str = date_columns[forward_max_date_idx] if forward_max_date_idx >= 0 else None
                 forward_min_date_str = date_columns[forward_min_date_idx] if forward_min_date_idx >= 0 else None
+
+                #if stock_idx == 0:
+                    #printf("running4.2\n")  
 
                 # 移除所有 round_to_2 调用，保持原始精度
                 # 先定义所有表达式可能用到的参数变量
@@ -1770,6 +1816,9 @@ def calculate_batch_cy(
                     forward_min_continuous_end_value = None
                     forward_min_continuous_end_prev_value = None
                     forward_min_continuous_end_prev_prev_value = None
+
+                #if stock_idx == 0:
+                    #printf("running4.3\n")  
                 
                 # 传统四舍五入函数（向远离零的方向舍入）
                 def traditional_round(value, decimals=2):
@@ -1789,15 +1838,17 @@ def calculate_batch_cy(
                     forward_max_valid_sum_arr = []
                     forward_min_valid_sum_arr = []
                 py_valid_sum_arr = [valid_sum_vec[j] for j in range(valid_sum_vec.size())]
+
                 #if stock_idx == 0:
-                    #print("running 5")
+                    #printf("running4.4\n")  
+
                 # 递增值等都算好后，计算 ops_value
                 inc_value = increment_value
                 age_value = after_gt_end_value
                 ags_value = after_gt_start_value
                 end_state = 0
                 take_profit = 0
-                stop_loss = 0
+                stop_loss = 0 
 
                 # INC 止盈止损，止盈停损，停盈停损，停盈止损
                                 # 获取profit_type对应的天数
@@ -1930,6 +1981,9 @@ def calculate_batch_cy(
                     else:
                         take_profit_and_take_loss_change = NAN
 
+                #if stock_idx == 0:
+                    #printf("running4.5\n")  
+
                 # 止盈停损 - 根据天数选择较小的值
                 if profit_days != -1 and loss_days != -1:
                     # 两个都有有效值，比较天数选择较小的
@@ -1957,6 +2011,9 @@ def calculate_batch_cy(
                     else:
                         take_profit_and_stop_loss_change = NAN
 
+                #if stock_idx == 0:
+                    #printf("running4.6\n")  
+
                 # 停盈停损 - 根据天数选择较小的值
                 if profit_days != -1 and loss_days != -1:
                     # 两个都有有效值，比较天数选择较小的
@@ -1983,6 +2040,9 @@ def calculate_batch_cy(
                         stop_profit_and_stop_loss_change = (price_data_view[stock_idx, op_idx_when_take_stop_nan] - end_value) / end_value * 100
                     else:
                         stop_profit_and_stop_loss_change = NAN
+
+                #if stock_idx == 0:
+                    #printf("running4.7\n")  
 
                 #if stock_idx == 0:
                     #print(f"stock_idx={stock_idx}, end_date_idx={end_date_idx}, stop_profit_var={stop_profit_var}, stop_loss_var={stop_loss_var}, stop_profit_and_stop_loss_change={stop_profit_and_stop_loss_change}")
@@ -2018,7 +2078,7 @@ def calculate_batch_cy(
                     #print(f"stop_profit_var={stop_profit_var}, stop_loss_var={stop_loss_var}, stop_profit_and_take_loss_change={stop_profit_and_take_loss_change}")
 
                 #if stock_idx == 0:
-                    #print("running 6")
+                    #print("running 5")
                 # 新增：计算操作涨幅、调整天数、日均涨幅
                 if end_date_idx - hold_days >= 0:
                     op_idx_when_take_stop_nan = end_date_idx - hold_days
@@ -2088,7 +2148,7 @@ def calculate_batch_cy(
                         stop_and_take_incre_rate = None
                     
                 #if stock_idx == 0:
-                    #print("running 7")
+                    #print("running 6")
                 # 新增：score 计算
                 score = None
                 if formula_expr is not None:
@@ -2578,5 +2638,8 @@ def calculate_batch_cy(
                 import traceback
                 print(f"[calculate_batch_cy] stock_idx={stock_idx}, idx={idx} 发生异常: {e}")
                 print(traceback.format_exc())
-                
+
+    # 在函数结束处打印进程信息
+    #print(f"进程 {current_pid}: calculate_batch_cy 执行完成，返回结果")
+    
     return all_results

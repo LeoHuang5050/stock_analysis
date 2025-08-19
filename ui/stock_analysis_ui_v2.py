@@ -208,10 +208,13 @@ class StockAnalysisApp(QWidget):
         self.cpu_spin.setMinimum(1)
         # 获取实际CPU核心数
         max_cores = cpu_count()
-        self.cpu_spin.setMaximum(max_cores)  # 设置为实际CPU核心数
-        self.cpu_spin.setValue(min(10, max_cores))  # 默认值设为4或实际核心数（取较小值）
+        # 最大值设为12和int(cpu_count() * 0.75)中的较小值
+        max_setting = min(12, int(max_cores * 0.75))
+        self.cpu_spin.setMaximum(max_setting)
+        # 默认值设为最大值
+        self.cpu_spin.setValue(max_setting)
         self.cpu_spin.setFixedWidth(60)
-        self.cpu_max_label = QLabel(f"当前CPU配置最大可设置: {max_cores}")
+        self.cpu_max_label = QLabel(f"当前CPU配置最大可设置: {max_setting}")
         self.cpu_max_label.setStyleSheet("font-weight: bold;")
 
         # 问号图标及提示
@@ -1364,8 +1367,12 @@ class StockAnalysisApp(QWidget):
         params['continuous_abs_threshold'] = self.continuous_abs_threshold_edit.text()
         params['op_days'] = str(op_days) if op_days is not None else self.op_days_edit.text()
         params['inc_rate'] = str(inc_rate) if inc_rate is not None else self.inc_rate_edit.text()
-        params['after_gt_end_ratio'] = str(after_gt_end_ratio) if after_gt_end_ratio is not None else self.after_gt_end_edit.text()
-        params['after_gt_start_ratio'] = str(after_gt_start_ratio) if after_gt_start_ratio is not None else self.after_gt_prev_edit.text()
+        # 获取参数值，使用 or 0 保护机制
+        after_gt_end_ratio_val = after_gt_end_ratio if after_gt_end_ratio is not None else float(self.after_gt_end_edit.text() or 0)
+        after_gt_start_ratio_val = after_gt_start_ratio if after_gt_start_ratio is not None else float(self.after_gt_prev_edit.text() or 0)
+        
+        params['after_gt_end_ratio'] = str(after_gt_end_ratio_val)
+        params['after_gt_start_ratio'] = str(after_gt_start_ratio_val)
         # 止损参数直接使用输入值，因为验证器已确保输入为非正数
                 # 获取参数值
         stop_loss_inc_rate_val = stop_loss_inc_rate if stop_loss_inc_rate is not None else float(self.stop_loss_inc_rate_edit.text() or 0)
@@ -3326,13 +3333,7 @@ class StockAnalysisApp(QWidget):
 
     def closeEvent(self, event):
         self.save_config()
-        # 关闭全局进程池
-        try:
-            from worker_threads import process_pool_manager
-            process_pool_manager.shutdown()
-            print("窗口关闭时全局进程池已清理")
-        except Exception as e:
-            print(f"窗口关闭时清理进程池出错: {e}")
+        # 不再需要清理全局进程池，因为每次都新建进程池
         super().closeEvent(event)
 
     def _fix_date_range(self):

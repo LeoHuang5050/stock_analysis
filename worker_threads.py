@@ -49,9 +49,61 @@ class ProcessPoolManager:
                 self._max_workers = max_workers
                 self._log_to_file(f"【打开程序】创建新的进程池，max_workers={max_workers}")
             else:
+                # 检查当前进程池的活跃进程数量
+                self._ensure_sufficient_processes(max_workers)
                 self._log_to_file(f"复用现有进程池，max_workers={max_workers}")
             
             return self._process_pool
+    
+    def _ensure_sufficient_processes(self, max_workers):
+        """确保进程池中有足够的活跃进程"""
+        if self._process_pool is None:
+            return
+        
+        try:
+            # 检查当前活跃进程数量
+            active_processes = 0
+            if hasattr(self._process_pool, '_processes'):
+                active_processes = len(self._process_pool._processes)
+            
+            # 如果活跃进程数量不足，记录日志
+            if active_processes < max_workers:
+                self._log_to_file(f"检测到进程数量不足 - 当前: {active_processes}, 需要: {max_workers}", "WARNING")
+                # 注意：ProcessPoolExecutor会自动管理进程数量，这里只是记录状态
+                # 当提交新任务时，如果进程不足会自动创建新进程
+            else:
+                self._log_to_file(f"进程池状态正常 - 活跃进程: {active_processes}, 配置: {max_workers}")
+                
+        except Exception as e:
+            self._log_to_file(f"检查进程数量时出错: {e}", "ERROR")
+    
+    def get_pool_status(self):
+        """获取进程池状态信息"""
+        if self._process_pool is None:
+            return {
+                'status': 'not_initialized',
+                'max_workers': None,
+                'active_processes': 0
+            }
+        
+        try:
+            active_processes = 0
+            if hasattr(self._process_pool, '_processes'):
+                active_processes = len(self._process_pool._processes)
+            
+            return {
+                'status': 'running',
+                'max_workers': self._max_workers,
+                'active_processes': active_processes,
+                'processes_sufficient': active_processes >= self._max_workers if self._max_workers else False
+            }
+        except Exception as e:
+            return {
+                'status': 'error',
+                'error': str(e),
+                'max_workers': self._max_workers,
+                'active_processes': 0
+            }
     
     def shutdown(self):
         """关闭进程池"""
@@ -617,9 +669,12 @@ class CalculateThread(QThread):
         for idx in range(end_date_start_idx, end_date_end_idx-1, -1):
             end_date = date_columns[idx]
             merged_results[end_date] = []
-        # 使用复用的进程池
-        executor = self._get_process_pool(n_proc)
-        futures = [executor.submit(cy_batch_worker, args) for args in args_list]
+        # 每次计算都创建新的进程池，避免进程被系统清理的问题
+        with concurrent.futures.ProcessPoolExecutor(max_workers=n_proc) as executor:
+            self._log_to_file(f"创建新的进程池，max_workers={n_proc}")
+            
+            # 提交所有任务
+            futures = [executor.submit(cy_batch_worker, args) for args in args_list]
         for fut in concurrent.futures.as_completed(futures):
             try:
                 process_results = fut.result()
