@@ -1167,8 +1167,13 @@ class ComponentAnalysisWidget(QWidget):
             # 第一个参数使用当前的overall_stats作为基准
             if hasattr(self.main_window, 'overall_stats') and self.main_window.overall_stats:
                 self.three_stage_param_baseline_stats = self.main_window.overall_stats.copy()
+                # 保存三次分析开始前的overall_stats作为初始值，用于导出时无最优参数的情况
+                self.three_stage_initial_overall_stats = self.main_window.overall_stats.copy()
+                print(f"保存三次分析初始overall_stats，包含 {len(self.three_stage_initial_overall_stats)} 个统计项")
             else:
                 self.three_stage_param_baseline_stats = None
+                self.three_stage_initial_overall_stats = None
+                print("警告：没有找到overall_stats，无法保存初始统计值")
             
             # 初始化日志去重集合
             self._logged_no_better_solutions = set()
@@ -5057,176 +5062,140 @@ class ComponentAnalysisWidget(QWidget):
                     
                     # 先输出输出参数
                     for i, (param_type, sort_value, param_name, condition_text, condition_type) in enumerate(output_conditions, 1):
+                        # 从main_window.overall_stats获取最新结果统计
+                        optimal_value = ''
+                        has_upper = ''
+                        has_lower = ''
+                        positive_median = ''
+                        negative_median = ''
+                        
+                        # 获取最优值（从条件文本中提取）
+                        output_value_match = re.search(r'组合排序输出值为：([\d\.]+)', condition_text)
+                        if output_value_match:
+                            try:
+                                optimal_value = f"{float(output_value_match.group(1)):.2f}"
+                            except (ValueError, TypeError):
+                                optimal_value = output_value_match.group(1)
+                                print(f"输出参数最优值转换失败，使用原始值：{optimal_value}")
+                        
+                        # 判断是否生成最优
+                        is_optimal = '是' if condition_type == 'optimal' else '否'
+                        
+                        # 根据是否生成最优选择数据源
                         if condition_type == 'optimal':
-                            # 处理有最优结果的条件
-                            # 从条件文本中提取信息
-                            lower_match = re.search(r'下限(-?[\d\.]+)', condition_text)
-                            upper_match = re.search(r'上限(-?[\d\.]+)', condition_text)
-                            output_value_match = re.search(r'组合排序输出值为：([\d\.]+)', condition_text)
-                            positive_median_match = re.search(rf'{re.escape(param_name)}_positive_median：(-?[\d\.]+)', condition_text)
-                            negative_median_match = re.search(rf'{re.escape(param_name)}_negative_median：(-?[\d\.]+)', condition_text)
-                            
-                            # 格式化最优值为两位小数
-                            optimal_value = ''
-                            if output_value_match:
-                                try:
-                                    optimal_value = f"{float(output_value_match.group(1)):.2f}"
-                                except (ValueError, TypeError):
-                                    optimal_value = output_value_match.group(1)
-                                    print(f"输出参数最优值转换失败，使用原始值：{optimal_value}")
-                            else:
-                                print(f"未找到最优值匹配，条件文本：{condition_text}")
-                            
-                            # 判断是否生成最优（根据条件类型判断，而不是最优值）
-                            has_upper = upper_match.group(1) if upper_match else ''
-                            has_lower = lower_match.group(1) if lower_match else ''
-                            # 使用条件类型来判断是否生成最优，而不是最优值
-                            is_optimal = '是' if condition_type == 'optimal' else '否'
-                            
-                            # 写入数据行
-                            writer.writerow([
-                                sort_value,  # 使用原始序号
-                                param_name,
-                                optimal_value,
-                                has_upper,
-                                has_lower,
-                                positive_median_match.group(1) if positive_median_match else '',
-                                negative_median_match.group(1) if negative_median_match else '',
-                                is_optimal
-                            ])
+                            # 有最优结果：从当前overall_stats获取最新统计值
+                            if hasattr(self, 'main_window') and hasattr(self.main_window, 'overall_stats') and self.main_window.overall_stats:
+                                overall_stats = self.main_window.overall_stats
+                                # 获取参数相关的统计值
+                                max_key = f'{param_name}_max'
+                                min_key = f'{param_name}_min'
+                                median_key = f'{param_name}_median'
+                                positive_median_key = f'{param_name}_positive_median'
+                                negative_median_key = f'{param_name}_negative_median'
+                                
+                                # 从overall_stats获取统计值
+                                has_upper = str(overall_stats.get(max_key, '')) if overall_stats.get(max_key) is not None else ''
+                                has_lower = str(overall_stats.get(min_key, '')) if overall_stats.get(min_key) is not None else ''
+                                positive_median = str(overall_stats.get(positive_median_key, '')) if overall_stats.get(positive_median_key) is not None else ''
+                                negative_median = str(overall_stats.get(negative_median_key, '')) if overall_stats.get(negative_median_key) is not None else ''
                         else:
-                            # 处理无最优结果的条件（从无最优条件文本中提取信息）
-                            # 添加调试信息
-                            print(f"处理无最优结果条件，参数：{param_name}，条件文本：{condition_text}")
-                            
-                            # 从条件文本中提取信息
-                            lower_match = re.search(r'下限(-?[\d\.]+)', condition_text)
-                            upper_match = re.search(r'上限(-?[\d\.]+)', condition_text)
-                            output_value_match = re.search(r'组合排序输出值为：([\d\.]+)', condition_text)
-                            positive_median_match = re.search(rf'{re.escape(param_name)}_positive_median：(-?[\d\.]+)', condition_text)
-                            negative_median_match = re.search(rf'{re.escape(param_name)}_negative_median：(-?[\d\.]+)', condition_text)
-                            
-                            # 添加调试信息
-                            print(f"正则匹配结果 - lower_match: {lower_match}, upper_match: {upper_match}, output_value_match: {output_value_match}")
-                            
-                            # 格式化最优值为两位小数
-                            optimal_value = ''
-                            if output_value_match:
-                                try:
-                                    optimal_value = f"{float(output_value_match.group(1)):.2f}"
-                                    print(f"成功提取最优值：{optimal_value}")
-                                except (ValueError, TypeError):
-                                    optimal_value = output_value_match.group(1)
-                                    print(f"最优值转换失败，使用原始值：{optimal_value}")
-                            else:
-                                print(f"未找到最优值匹配，条件文本：{condition_text}")
-                            
-                            # 判断是否生成最优（根据最优值判断，而不是上下限）
-                            has_upper = upper_match.group(1) if upper_match else ''
-                            has_lower = lower_match.group(1) if lower_match else ''
-                            # 使用最优值来判断是否生成最优，而不是上下限
-                            is_optimal = '是' if condition_type == 'optimal' else '否'
-                            
-                            print(f"最终结果 - optimal_value: {optimal_value}, is_optimal: {is_optimal}")
-                            
-                            writer.writerow([
-                                sort_value,  # 使用原始序号
-                                param_name,
-                                optimal_value,
-                                has_upper,
-                                has_lower,
-                                positive_median_match.group(1) if positive_median_match else '',
-                                negative_median_match.group(1) if negative_median_match else '',
-                                is_optimal
-                            ])
+                            # 无最优结果：使用三次分析开始前的初始overall_stats值
+                            if hasattr(self, 'three_stage_initial_overall_stats') and self.three_stage_initial_overall_stats:
+                                initial_stats = self.three_stage_initial_overall_stats
+                                # 获取参数相关的统计值
+                                max_key = f'{param_name}_max'
+                                min_key = f'{param_name}_min'
+                                median_key = f'{param_name}_median'
+                                positive_median_key = f'{param_name}_positive_median'
+                                negative_median_key = f'{param_name}_negative_median'
+                                
+                                # 从初始overall_stats获取统计值
+                                has_upper = str(initial_stats.get(max_key, '')) if initial_stats.get(max_key) is not None else ''
+                                has_lower = str(initial_stats.get(min_key, '')) if initial_stats.get(min_key) is not None else ''
+                                positive_median = str(initial_stats.get(median_key, '')) if initial_stats.get(median_key) is not None else ''
+                                negative_median = str(initial_stats.get(negative_median_key, '')) if initial_stats.get(negative_median_key) is not None else ''
+                                print(f"无最优参数 {param_name} 使用初始统计值：上限={has_upper}, 下限={has_lower}, 中值={positive_median}, 负中值={negative_median}")
+                        
+                        # 写入数据行
+                        writer.writerow([
+                            sort_value,  # 使用原始序号
+                            param_name,
+                            optimal_value,
+                            has_upper,
+                            has_lower,
+                            positive_median,
+                            negative_median,
+                            is_optimal
+                        ])
                     
                     # 再输出辅助参数
                     for i, (param_type, sort_value, param_name, condition_text, condition_type) in enumerate(auxiliary_conditions, 1):
+                        # 从main_window.overall_stats获取最新结果统计
+                        optimal_value = ''
+                        has_upper = ''
+                        has_lower = ''
+                        positive_median = ''
+                        negative_median = ''
+                        
+                        # 获取最优值（从条件文本中提取）
+                        output_value_match = re.search(r'组合排序输出值为：([\d\.]+)', condition_text)
+                        if output_value_match:
+                            try:
+                                optimal_value = f"{float(output_value_match.group(1)):.2f}"
+                            except (ValueError, TypeError):
+                                optimal_value = output_value_match.group(1)
+                                print(f"辅助参数最优值转换失败，使用原始值：{optimal_value}")
+                        
+                        # 判断是否生成最优
+                        is_optimal = '是' if condition_type == 'optimal' else '否'
+                        
+                        # 根据是否生成最优选择数据源
                         if condition_type == 'optimal':
-                            # 处理有最优结果的条件
-                            # 从条件文本中提取信息
-                            lower_match = re.search(r'下限(-?[\d\.]+)', condition_text)
-                            upper_match = re.search(r'上限(-?[\d\.]+)', condition_text)
-                            output_value_match = re.search(r'组合排序输出值为：([\d\.]+)', condition_text)
-                            positive_median_match = re.search(rf'{re.escape(param_name)}_positive_median：(-?[\d\.]+)', condition_text)
-                            negative_median_match = re.search(rf'{re.escape(param_name)}_negative_median：(-?[\d\.]+)', condition_text)
-                            
-                            # 格式化最优值为两位小数
-                            optimal_value = ''
-                            if output_value_match:
-                                try:
-                                    optimal_value = f"{float(output_value_match.group(1)):.2f}"
-                                except (ValueError, TypeError):
-                                    optimal_value = output_value_match.group(1)
-                                    print(f"辅助参数最优值转换失败，使用原始值：{optimal_value}")
-                            else:
-                                print(f"未找到最优值匹配，条件文本：{condition_text}")
-                            
-                            # 判断是否生成最优（根据最优值判断，而不是上下限）
-                            has_upper = upper_match.group(1) if upper_match else ''
-                            has_lower = lower_match.group(1) if lower_match else ''
-                            # 使用最优值来判断是否生成最优，而不是上下限
-                            is_optimal = '是' if condition_type == 'optimal' else '否'
-                            
-                            # 写入数据行
-                            writer.writerow([
-                                sort_value,  # 使用原始序号
-                                param_name,
-                                optimal_value,
-                                has_upper,
-                                has_lower,
-                                positive_median_match.group(1) if positive_median_match else '',
-                                negative_median_match.group(1) if negative_median_match else '',
-                                is_optimal
-                            ])
+                            # 有最优结果：从当前overall_stats获取最新统计值
+                            if hasattr(self, 'main_window') and hasattr(self.main_window, 'overall_stats') and self.main_window.overall_stats:
+                                overall_stats = self.main_window.overall_stats
+                                # 获取参数相关的统计值
+                                max_key = f'{param_name}_max'
+                                min_key = f'{param_name}_min'
+                                median_key = f'{param_name}_median'
+                                positive_median_key = f'{param_name}_positive_median'
+                                negative_median_key = f'{param_name}_negative_median'
+                                
+                                # 从overall_stats获取统计值
+                                has_upper = str(overall_stats.get(max_key, '')) if overall_stats.get(max_key) is not None else ''
+                                has_lower = str(overall_stats.get(min_key, '')) if overall_stats.get(min_key) is not None else ''
+                                positive_median = str(overall_stats.get(positive_median_key, '')) if overall_stats.get(positive_median_key) is not None else ''
+                                negative_median = str(overall_stats.get(negative_median_key, '')) if overall_stats.get(negative_median_key) is not None else ''
                         else:
-                            # 处理无最优结果的条件（从无最优条件文本中提取信息）
-                            # 添加调试信息
-                            print(f"处理辅助参数无最优结果条件，参数：{param_name}，条件文本：{condition_text}")
-                            
-                            # 从条件文本中提取信息
-                            lower_match = re.search(r'下限(-?[\d\.]+)', condition_text)
-                            upper_match = re.search(r'上限(-?[\d\.]+)', condition_text)
-                            output_value_match = re.search(r'组合排序输出值为：([\d\.]+)', condition_text)
-                            positive_median_match = re.search(rf'{re.escape(param_name)}_positive_median：(-?[\d\.]+)', condition_text)
-                            negative_median_match = re.search(rf'{re.escape(param_name)}_negative_median：(-?[\d\.]+)', condition_text)
-                            
-                            # 添加调试信息
-                            print(f"辅助参数正则匹配结果 - lower_match: {lower_match}, upper_match: {upper_match}, output_value_match: {output_value_match}")
-                            
-                            # 格式化最优值为两位小数
-                            optimal_value = ''
-                            if output_value_match:
-                                try:
-                                    optimal_value = f"{float(output_value_match.group(1)):.2f}"
-                                    print(f"辅助参数成功提取最优值：{optimal_value}")
-                                except (ValueError, TypeError):
-                                    optimal_value = output_value_match.group(1)
-                                    print(f"辅助参数最优值转换失败，使用原始值：{optimal_value}")
-                            else:
-                                print(f"辅助参数未找到最优值匹配，条件文本：{condition_text}")
-                            
-                            # 判断是否生成最优（根据最优值判断，而不是上下限）
-                            has_upper = upper_match.group(1) if upper_match else ''
-                            has_lower = lower_match.group(1) if lower_match else ''
-                            # 使用最优值来判断是否生成最优，而不是上下限
-                            is_optimal = '是' if condition_type == 'optimal' else '否'
-                            
-                            print(f"辅助参数最终结果 - optimal_value: {optimal_value}, is_optimal: {is_optimal}")
-                            
-                            writer.writerow([
-                                sort_value,  # 使用原始序号
-                                param_name,
-                                optimal_value,
-                                has_upper,
-                                has_lower,
-                                positive_median_match.group(1) if positive_median_match else '',
-                                negative_median_match.group(1) if negative_median_match else '',
-                                is_optimal
-                            ])
+                            # 无最优结果：使用三次分析开始前的初始overall_stats值
+                            if hasattr(self, 'three_stage_initial_overall_stats') and self.three_stage_initial_overall_stats:
+                                initial_stats = self.three_stage_initial_overall_stats
+                                # 获取参数相关的统计值
+                                max_key = f'{param_name}_max'
+                                min_key = f'{param_name}_min'
+                                median_key = f'{param_name}_median'
+                                positive_median_key = f'{param_name}_positive_median'
+                                negative_median_key = f'{param_name}_negative_median'
+                                
+                                # 从初始overall_stats获取统计值
+                                has_upper = str(initial_stats.get(max_key, '')) if initial_stats.get(max_key) is not None else ''
+                                has_lower = str(initial_stats.get(min_key, '')) if initial_stats.get(min_key) is not None else ''
+                                positive_median = str(initial_stats.get(median_key, '')) if initial_stats.get(median_key) is not None else ''
+                                negative_median = str(initial_stats.get(negative_median_key, '')) if initial_stats.get(negative_median_key) is not None else ''
+                                print(f"无最优辅助参数 {param_name} 使用初始统计值：上限={has_upper}, 下限={has_lower}, 中值={positive_median}, 负中值={negative_median}")
+                        
+                        # 写入数据行
+                        writer.writerow([
+                            sort_value,  # 使用原始序号
+                            param_name,
+                            optimal_value,
+                            has_upper,
+                            has_lower,
+                            positive_median,
+                            negative_median,
+                            is_optimal
+                        ])
 
-
-                
             QMessageBox.information(self, "导出成功", f"已成功导出最优方案到 {file_path}")
         except Exception as e:
             QMessageBox.critical(self, "导出失败", f"导出最优方案失败：{e}")

@@ -5,7 +5,9 @@ a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=[
+        ('Lorem ipsum.txt', 'setuptools\\_vendor\\jaraco\\text'),
+    ],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

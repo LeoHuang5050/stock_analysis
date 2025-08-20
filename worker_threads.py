@@ -10,6 +10,8 @@ import worker_threads_cy  # 这是你用Cython编译出来的模块
 import re
 import threading
 import atexit
+import psutil
+import os
 
 class ProcessPoolManager:
     """全局进程池管理器，使用单例模式"""
@@ -131,6 +133,19 @@ class ProcessPoolManager:
                 print(f"日志写入失败: {e}")
             except:
                 pass
+
+    def _update_main_process_priority(self):
+        """更新主进程的调度优先级"""
+        try:
+            current_pid = os.getpid()
+            current_process = psutil.Process(current_pid)
+            
+            # Windows系统设置进程优先级
+            current_process.nice(psutil.HIGH_PRIORITY_CLASS)
+            self._log_to_file(f"主进程优先级已更新为HIGH_PRIORITY_CLASS (PID: {current_pid})")
+                
+        except Exception as e:
+            self._log_to_file(f"更新主进程优先级时出错: {e}", "ERROR")
 
 # 全局进程池管理器实例
 process_pool_manager = ProcessPoolManager()
@@ -312,6 +327,7 @@ class CalculateThread(QThread):
         self.prev_start_idx = {}
         self.prev_end_idx = {}
         self.preprocessed_data = None  # 存储预处理数据
+        self._last_calculation_time = time.time()  # 记录上次计算时间
 
     def _log_to_file(self, message, log_type="INFO"):
         """记录进程池相关日志到process_pool.log文件
@@ -461,6 +477,23 @@ class CalculateThread(QThread):
         return expr
 
     def calculate_batch_16_cores(self, params):
+        # 检查是否需要重新调度主进程
+        current_time = time.time()
+        time_elapsed = current_time - self._last_calculation_time
+        half_hour = 30 * 60  # 30分钟 = 1800秒
+        
+        if time_elapsed > half_hour:
+            self._log_to_file(f"距离上次计算已超过{time_elapsed/60:.1f}分钟，触发主进程重新调度")
+            try:
+                # 直接调用进程池管理器的维护方法
+                process_pool_manager._update_main_process_priority()
+                self._log_to_file("主进程优先级已更新")
+            except Exception as e:
+                self._log_to_file(f"更新主进程优先级时出错: {e}")
+            
+            # 更新时间戳
+            self._last_calculation_time = current_time
+        
         columns = list(self.diff_data.columns)
         date_columns = list(self.price_data.columns[2:])
         width = params.get("width")

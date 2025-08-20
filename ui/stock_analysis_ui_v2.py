@@ -160,6 +160,7 @@ class StockAnalysisApp(QWidget):
         self.three_stage_param_best_conditions = {}
         self.best_param_condition_list = []
         self.current_three_stage_variable = None
+
         self.init_ui()
         self.connect_signals()
         # 默认最大化显示
@@ -208,8 +209,8 @@ class StockAnalysisApp(QWidget):
         self.cpu_spin.setMinimum(1)
         # 获取实际CPU核心数
         max_cores = cpu_count()
-        # 最大值设为12和int(cpu_count() * 0.75)中的较小值
-        max_setting = min(12, int(max_cores * 0.75))
+        # 最大值设为16和int(cpu_count() * 0.75)中的较小值
+        max_setting = min(16, int(max_cores * 0.75))
         self.cpu_spin.setMaximum(max_setting)
         # 默认值设为最大值
         self.cpu_spin.setValue(max_setting)
@@ -3409,12 +3410,13 @@ class StockAnalysisApp(QWidget):
         
         # 根据类别返回相应的文本
         if category == "停盈停损":
-            return "停盈率", "停损率", "停盈中位数", "停损中位数"
+            return "止盈率", "停损率", "止盈中位数", "停损中位数"
         elif category == "停盈止损":
-            return "停盈率", "止损率", "停盈中位数", "止损中位数"
+            return "止盈率", "止损率", "止盈中位数", "止损中位数"
         elif category == "止盈止损":
             return "止盈率", "止损率", "止盈中位数", "止损中位数"
         elif category == "止盈停损":
             return "止盈率", "停损率", "止盈中位数", "停损中位数"
         else:
             return default_profit_text, default_loss_text, default_profit_median_text, default_loss_median_text
+
