@@ -1387,6 +1387,11 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
     set_forward_param_btn.setFixedSize(100, 20)
     set_forward_param_btn.setStyleSheet(select_btn.styleSheet())
 
+    # 新增：清除序号按钮
+    clear_sequence_btn = QPushButton("清除序号")
+    clear_sequence_btn.setFixedSize(100, 20)
+    clear_sequence_btn.setStyleSheet(select_btn.styleSheet())
+
     # 新增：组合输出锁定勾选框
     lock_output_checkbox = QCheckBox("组合输出锁定")
     lock_output_checkbox.setFixedWidth(120)
@@ -1639,8 +1644,39 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
 
     set_forward_param_btn.clicked.connect(on_set_forward_param_btn_clicked)
 
+    # 清除序号按钮点击事件
+    def on_clear_sequence_btn_clicked():
+        """清除变量控件和向前相关变量控件的sort_value值，重置为0"""
+        try:
+            # 清除变量控件的sort_value
+            if hasattr(parent, 'formula_widget') and parent.formula_widget:
+                for en, widgets in parent.formula_widget.var_widgets.items():
+                    if 'sort' in widgets:
+                        widgets['sort'].setCurrentText("0")
+                        print(f"已清除变量控件 {en} 的序号，重置为0")
+            
+            # 清除向前相关变量控件的sort_value
+            if hasattr(parent, 'forward_param_state') and parent.forward_param_state:
+                for k, v in parent.forward_param_state.items():
+                    if isinstance(v, dict) and 'sort' in v:
+                        v['sort'] = "0"
+                        print(f"已清除向前相关变量控件 {k} 的序号，重置为0")
+                
+                # 保存配置
+                if hasattr(parent, 'save_config'):
+                    parent.save_config()
+                    print("已保存清除序号后的配置")
+            
+            QMessageBox.information(parent, "提示", "序号已全部清除，重置为0")
+            
+        except Exception as e:
+            print(f"清除序号时出错: {e}")
+            QMessageBox.warning(parent, "警告", f"清除序号时出错: {e}")
+
+    clear_sequence_btn.clicked.connect(on_clear_sequence_btn_clicked)
+
     # 重新组织top_layout顺序
-    for w in [select_count_widget, sort_label, sort_combo, select_btn, view_result_btn, set_forward_param_btn, lock_output_checkbox]:
+    for w in [select_count_widget, sort_label, sort_combo, select_btn, view_result_btn, set_forward_param_btn, clear_sequence_btn, lock_output_checkbox]:
         top_layout.addWidget(w)
     layout.addLayout(top_layout)
 

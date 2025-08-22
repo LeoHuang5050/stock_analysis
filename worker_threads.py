@@ -150,6 +150,36 @@ class ProcessPoolManager:
 # 全局进程池管理器实例
 process_pool_manager = ProcessPoolManager()
 
+# 全局时间戳管理器
+class GlobalTimeManager:
+    _instance = None
+    _lock = threading.Lock()
+    
+    def __new__(cls):
+        if cls._instance is None:
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = super().__new__(cls)
+        return cls._instance
+    
+    def __init__(self):
+        if not hasattr(self, '_initialized'):
+            self._last_calculation_time = time.time()
+            self._initialized = True
+    
+    def get_last_calculation_time(self):
+        return self._last_calculation_time
+    
+    def update_calculation_time(self):
+        self._last_calculation_time = time.time()
+    
+    def get_time_elapsed(self):
+        current_time = time.time()
+        return current_time - self._last_calculation_time
+
+# 全局时间管理器实例
+global_time_manager = GlobalTimeManager()
+
 # 全局缩写映射表
 abbr_map = {
     'MAX': 'max_value', 'MIN': 'min_value', 'END': 'end_value', 'START': 'start_value',
@@ -327,7 +357,6 @@ class CalculateThread(QThread):
         self.prev_start_idx = {}
         self.prev_end_idx = {}
         self.preprocessed_data = None  # 存储预处理数据
-        self._last_calculation_time = time.time()  # 记录上次计算时间
 
     def _log_to_file(self, message, log_type="INFO"):
         """记录进程池相关日志到process_pool.log文件
@@ -479,11 +508,14 @@ class CalculateThread(QThread):
     def calculate_batch_16_cores(self, params):
         # 检查是否需要重新调度主进程
         current_time = time.time()
-        time_elapsed = current_time - self._last_calculation_time
-        half_hour = 30 * 60  # 30分钟 = 1800秒
+        time_elapsed = global_time_manager.get_time_elapsed()
+        one_minute = 30 * 60  # 1分钟 = 60秒
         
-        if time_elapsed > half_hour:
-            self._log_to_file(f"距离上次计算已超过{time_elapsed/60:.1f}分钟，触发主进程重新调度")
+        # 记录时间信息到日志
+        self._log_to_file(f"时间检查 - 当前时间: {time.strftime('%H:%M:%S', time.localtime(current_time))}, 上次计算时间: {time.strftime('%H:%M:%S', time.localtime(global_time_manager.get_last_calculation_time()))}, 间隔: {time_elapsed/60:.1f}分钟")
+        
+        if time_elapsed > one_minute:
+            self._log_to_file(f"距离上次计算已超过{time_elapsed/60:.1f}分钟，触发主进程重新调度（30分钟阈值）")
             try:
                 # 直接调用进程池管理器的维护方法
                 process_pool_manager._update_main_process_priority()
@@ -492,7 +524,10 @@ class CalculateThread(QThread):
                 self._log_to_file(f"更新主进程优先级时出错: {e}")
             
             # 更新时间戳
-            self._last_calculation_time = current_time
+            global_time_manager.update_calculation_time()
+            self._log_to_file(f"已更新时间戳，下次检查基准时间: {time.strftime('%H:%M:%S', time.localtime(global_time_manager.get_last_calculation_time()))}")
+        else:
+            self._log_to_file(f"距离上次计算仅{time_elapsed/60:.1f}分钟，未达到30分钟阈值，跳过重新调度")
         
         columns = list(self.diff_data.columns)
         date_columns = list(self.price_data.columns[2:])

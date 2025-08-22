@@ -209,13 +209,16 @@ class StockAnalysisApp(QWidget):
         self.cpu_spin.setMinimum(1)
         # 获取实际CPU核心数
         max_cores = cpu_count()
-        # 最大值设为16和int(cpu_count() * 0.75)中的较小值
-        max_setting = min(16, int(max_cores * 0.75))
+        # 最大值设为CPU核心数
+        max_setting = max_cores
+        # 默认值设为CPU核心数的75%
+        default_setting = int(max_cores * 0.75)
+        
         self.cpu_spin.setMaximum(max_setting)
-        # 默认值设为最大值
-        self.cpu_spin.setValue(max_setting)
+        # 默认值设为CPU核心数的75%
+        self.cpu_spin.setValue(default_setting)
         self.cpu_spin.setFixedWidth(60)
-        self.cpu_max_label = QLabel(f"当前CPU配置最大可设置: {max_setting}")
+        self.cpu_max_label = QLabel(f"当前CPU配置最大可设置: {max_setting}, 默认值: {default_setting}")
         self.cpu_max_label.setStyleSheet("font-weight: bold;")
 
         # 问号图标及提示
