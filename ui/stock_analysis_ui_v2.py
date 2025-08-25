@@ -147,6 +147,7 @@ class StockAnalysisApp(QWidget):
         self.last_formula_select_state = {}  # 初始化公式选股状态
         self.last_analysis_start_date = ''
         self.last_analysis_end_date = ''
+        self.last_component_actual_executions = 0  # 组合分析实际执行次数
         self.cached_component_analysis_results = None
         # 新增：三次分析相关变量
         self.last_analysis_was_three_stage = False
@@ -154,7 +155,7 @@ class StockAnalysisApp(QWidget):
         self.last_component_auto_three_stage = False
         # 新增：三次分析统计信息
         self.last_three_stage_total_elapsed_time = None
-        self.last_three_stage_total_formulas = 0
+        self.last_three_stage_actual_executions = 0
         # 新增：三次分析关键状态，便于程序重启后继续导出
         self.three_stage_best_top_one = None
         self.three_stage_param_best_conditions = {}
@@ -170,6 +171,35 @@ class StockAnalysisApp(QWidget):
         self.last_calculate_result = None
         # 加载参数
         self.load_config()
+
+    def _get_smart_scaled_size(self, base_width, base_height):
+        """智能缩放：优先使用固定尺寸，屏幕不够时按比例缩放"""
+        from PyQt5.QtWidgets import QApplication
+        screen = QApplication.primaryScreen()
+        screen_geometry = screen.geometry()
+        screen_width = screen_geometry.width()
+        screen_height = screen_geometry.height()
+        
+        # 如果屏幕足够大，直接使用固定尺寸
+        if screen_width >= base_width and screen_height >= base_height:
+            return base_width, base_height
+        
+        # 如果屏幕不够大，按比例缩放
+        width_ratio = screen_width / base_width
+        height_ratio = screen_height / base_height
+        
+        # 使用较小的缩放比例，确保不会超出屏幕
+        scale_ratio = min(width_ratio, height_ratio)
+        
+        # 计算缩放后的尺寸
+        scaled_width = int(base_width * scale_ratio)
+        scaled_height = int(base_height * scale_ratio)
+        
+        # 确保最小尺寸不会太小
+        scaled_width = max(scaled_width, 800)
+        scaled_height = max(scaled_height, 400)
+        
+        return scaled_width, scaled_height
 
     def init_ui(self):
         # 设置窗口标题为当前exe文件名（不带扩展名）
@@ -218,7 +248,7 @@ class StockAnalysisApp(QWidget):
         # 默认值设为CPU核心数的75%
         self.cpu_spin.setValue(default_setting)
         self.cpu_spin.setFixedWidth(60)
-        self.cpu_max_label = QLabel(f"当前CPU配置最大可设置: {max_setting}, 默认值: {default_setting}")
+        self.cpu_max_label = QLabel(f"当前CPU配置最大可设置: {max_setting}")
         self.cpu_max_label.setStyleSheet("font-weight: bold;")
 
         # 问号图标及提示
@@ -1156,7 +1186,9 @@ class StockAnalysisApp(QWidget):
         self.clear_result_area()
         table = show_continuous_sum_table(self, all_results, self.init.price_data, as_widget=True)
         if table:
-            table.setMinimumSize(1200, 600)
+            # 使用智能缩放设置表格尺寸
+            scaled_width, scaled_height = self._get_smart_scaled_size(1200, 600)
+            table.setMinimumSize(scaled_width, scaled_height)
             self.table_widget = table
             self.output_stack.addWidget(table)
             self.output_stack.setCurrentWidget(table)
@@ -1208,7 +1240,9 @@ class StockAnalysisApp(QWidget):
             price_data=self.init.price_data
         )
         if table:
-            table.setMinimumSize(1200, 600)
+            # 使用智能缩放设置表格尺寸
+            scaled_width, scaled_height = self._get_smart_scaled_size(1200, 600)
+            table.setMinimumSize(scaled_width, scaled_height)
             self.table_widget = table
             self.output_stack.addWidget(table)
             self.output_stack.setCurrentWidget(table)
@@ -1226,7 +1260,9 @@ class StockAnalysisApp(QWidget):
             # 查找公式输入框（FormulaExprEdit）并设置内容
             for child in table.findChildren(type(table)):
                 pass  # 占位，防止findChildren报错
-            table.setMinimumSize(1200, 600)
+            # 使用智能缩放设置表格尺寸
+            scaled_width, scaled_height = self._get_smart_scaled_size(1200, 600)
+            table.setMinimumSize(scaled_width, scaled_height)
             self.table_widget = table
             self.output_stack.addWidget(table)
             self.output_stack.setCurrentWidget(table)
@@ -2270,7 +2306,9 @@ class StockAnalysisApp(QWidget):
         if hasattr(self, 'last_component_valid_sum_logic'):
             component_widget.valid_sum_logic_checkbox.setChecked(self.last_component_valid_sum_logic)
         
-        component_widget.setMinimumSize(1200, 600)
+        # 使用智能缩放设置组件尺寸
+        scaled_width, scaled_height = self._get_smart_scaled_size(1200, 600)
+        component_widget.setMinimumSize(scaled_width, scaled_height)
         self.component_widget = component_widget  # 保存引用以便后续保存状态
         self.table_widget = component_widget
         self.output_stack.addWidget(component_widget)
@@ -3026,8 +3064,8 @@ class StockAnalysisApp(QWidget):
             'last_lock_output': getattr(self, 'last_lock_output', False),
             # 新增保存组合分析总耗时
             'last_component_total_elapsed_time': getattr(self, 'last_component_total_elapsed_time', None),
-            # 新增保存组合分析组合次数
-            'last_component_total_combinations': getattr(self, 'last_component_total_combinations', None),
+            # 新增保存组合分析实际执行次数
+            'last_component_actual_executions': getattr(self, 'last_component_actual_executions', None),
             # 新增保存last_adjusted_value
             'last_adjusted_value': getattr(self, 'last_adjusted_value', None),
             # 新增保存locked_adjusted_value
@@ -3049,7 +3087,7 @@ class StockAnalysisApp(QWidget):
             'cached_component_analysis_results': getattr(self, 'cached_component_analysis_results', None),
             # 新增：保存三次分析统计信息
             'last_three_stage_total_elapsed_time': getattr(self, 'last_three_stage_total_elapsed_time', None),
-            'last_three_stage_total_formulas': getattr(self, 'last_three_stage_total_formulas', 0),
+            'last_three_stage_actual_executions': getattr(self, 'last_three_stage_actual_executions', 0),
             # 新增：保存三次分析关键状态，便于程序重启后继续导出
             'three_stage_best_top_one': getattr(self, 'three_stage_best_top_one', None),
             'three_stage_param_best_conditions': getattr(self, 'three_stage_param_best_conditions', {}),
@@ -3278,9 +3316,9 @@ class StockAnalysisApp(QWidget):
             # 恢复组合分析总耗时
             if 'last_component_total_elapsed_time' in config:
                 self.last_component_total_elapsed_time = config['last_component_total_elapsed_time']
-            # 新增：恢复组合分析组合次数
-            if 'last_component_total_combinations' in config:
-                self.last_component_total_combinations = config['last_component_total_combinations']
+            # 新增：恢复组合分析实际执行次数
+            if 'last_component_actual_executions' in config:
+                self.last_component_actual_executions = config['last_component_actual_executions']
             # 新增：恢复last_adjusted_value
             if 'last_adjusted_value' in config:
                 self.last_adjusted_value = config['last_adjusted_value']
@@ -3321,8 +3359,8 @@ class StockAnalysisApp(QWidget):
             # 新增：恢复三次分析统计信息
             if 'last_three_stage_total_elapsed_time' in config:
                 self.last_three_stage_total_elapsed_time = config['last_three_stage_total_elapsed_time']
-            if 'last_three_stage_total_formulas' in config:
-                self.last_three_stage_total_formulas = config['last_three_stage_total_formulas']
+            if 'last_three_stage_actual_executions' in config:
+                self.last_three_stage_actual_executions = config['last_three_stage_actual_executions']
             # 新增：恢复三次分析关键状态，便于程序重启后继续导出
             if 'three_stage_best_top_one' in config:
                 self.three_stage_best_top_one = config['three_stage_best_top_one']
@@ -3356,7 +3394,9 @@ class StockAnalysisApp(QWidget):
         """显示操盘方案界面"""
         from ui.trading_plan_ui import TradingPlanWidget
         trading_plan_widget = TradingPlanWidget(self)
-        trading_plan_widget.setMinimumSize(1200, 600)
+        # 使用智能缩放设置操盘方案界面尺寸
+        scaled_width, scaled_height = self._get_smart_scaled_size(1200, 600)
+        trading_plan_widget.setMinimumSize(scaled_width, scaled_height)
         self.trading_plan_widget = trading_plan_widget
         self.table_widget = trading_plan_widget
         self.output_stack.addWidget(trading_plan_widget)

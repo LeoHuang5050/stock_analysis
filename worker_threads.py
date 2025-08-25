@@ -13,6 +13,64 @@ import atexit
 import psutil
 import os
 
+# Windows系统特定的进程调度优化 (Windows 11兼容)
+try:
+    import ctypes
+    from ctypes import wintypes
+    
+    # Windows API常量
+    THREAD_PRIORITY_HIGHEST = 2
+    THREAD_PRIORITY_ABOVE_NORMAL = 1
+    THREAD_PRIORITY_NORMAL = 0
+    THREAD_PRIORITY_BELOW_NORMAL = -1
+    THREAD_PRIORITY_LOWEST = -2
+    
+    # Windows 11特定的进程调度优化
+    # 使用更现代的调度策略，避免过度抢占CPU时间
+    
+    # 获取当前线程句柄
+    GetCurrentThread = ctypes.windll.kernel32.GetCurrentThread
+    GetCurrentThread.restype = wintypes.HANDLE
+    
+    # 设置线程优先级
+    SetThreadPriority = ctypes.windll.kernel32.SetThreadPriority
+    SetThreadPriority.argtypes = [wintypes.HANDLE, ctypes.c_int]
+    SetThreadPriority.restype = ctypes.c_bool
+    
+    # Windows 11中，尝试使用更平衡的调度策略
+    def set_current_thread_priority(priority):
+        """设置当前线程优先级 - Windows 11兼容版本"""
+        try:
+            thread_handle = GetCurrentThread()
+            if SetThreadPriority(thread_handle, priority):
+                return True
+            return False
+        except Exception:
+            return False
+    
+    # 检查Windows版本，为Windows 11提供特殊优化
+    def is_windows_11_or_later():
+        """检查是否为Windows 11或更高版本"""
+        try:
+            import platform
+            version = platform.version()
+            # Windows 11的版本号通常大于等于10.0.22000
+            if platform.system() == "Windows":
+                major, minor, build = map(int, version.split('.'))
+                return major >= 10 and build >= 22000
+            return False
+        except:
+            return False
+            
+    WINDOWS_OPTIMIZATION_AVAILABLE = True
+    IS_WINDOWS_11 = is_windows_11_or_later()
+    
+except ImportError:
+    WINDOWS_OPTIMIZATION_AVAILABLE = False
+    IS_WINDOWS_11 = False
+    def set_current_thread_priority(priority):
+        return False
+
 class ProcessPoolManager:
     """全局进程池管理器，使用单例模式"""
     _instance = None
@@ -135,14 +193,21 @@ class ProcessPoolManager:
                 pass
 
     def _update_main_process_priority(self):
-        """更新主进程的调度优先级"""
+        """更新主进程的调度优先级 - Windows 11兼容版本"""
         try:
             current_pid = os.getpid()
             current_process = psutil.Process(current_pid)
             
-            # Windows系统设置进程优先级
-            current_process.nice(psutil.HIGH_PRIORITY_CLASS)
-            self._log_to_file(f"主进程优先级已更新为HIGH_PRIORITY_CLASS (PID: {current_pid})")
+            # 根据Windows版本预先选择最佳优先级
+            if IS_WINDOWS_11:
+                # Windows 11中，使用ABOVE_NORMAL_PRIORITY_CLASS更稳定
+                # 这样可以避免主进程过度抢占CPU时间，让子进程能够连贯运行
+                current_process.nice(psutil.ABOVE_NORMAL_PRIORITY_CLASS)
+                self._log_to_file(f"主进程优先级已更新为ABOVE_NORMAL_PRIORITY_CLASS (Windows 11兼容) (PID: {current_pid})")
+            else:
+                # Windows 10及以下版本，可以使用HIGH_PRIORITY_CLASS
+                current_process.nice(psutil.HIGH_PRIORITY_CLASS)
+                self._log_to_file(f"主进程优先级已更新为HIGH_PRIORITY_CLASS (PID: {current_pid})")
                 
         except Exception as e:
             self._log_to_file(f"更新主进程优先级时出错: {e}", "ERROR")
@@ -741,8 +806,73 @@ class CalculateThread(QThread):
         with concurrent.futures.ProcessPoolExecutor(max_workers=n_proc) as executor:
             self._log_to_file(f"创建新的进程池，max_workers={n_proc}")
             
+            # 为子进程设置高优先级，确保立即获得CPU时间片
+            try:
+                if hasattr(executor, '_processes'):
+                    for process in executor._processes:
+                        if process and process.is_alive():
+                            try:
+                                # 使用已导入的psutil设置进程优先级
+                                child_process = psutil.Process(process.pid)
+                                
+                                # 方法1: 使用psutil设置进程优先级 (Windows 11兼容)
+                                try:
+                                    if IS_WINDOWS_11:
+                                        # Windows 11中，使用ABOVE_NORMAL_PRIORITY_CLASS更稳定
+                                        child_process.nice(psutil.ABOVE_NORMAL_PRIORITY_CLASS)
+                                        self._log_to_file(f"子进程优先级已设置为ABOVE_NORMAL_PRIORITY_CLASS (Windows 11兼容) (PID: {process.pid})")
+                                    else:
+                                        # Windows 10及以下版本，可以使用HIGH_PRIORITY_CLASS
+                                        child_process.nice(psutil.HIGH_PRIORITY_CLASS)
+                                        self._log_to_file(f"子进程优先级已设置为HIGH_PRIORITY_CLASS (PID: {process.pid})")
+                                except Exception:
+                                    # 如果高优先级失败，回退到NORMAL_PRIORITY_CLASS
+                                    try:
+                                        child_process.nice(psutil.NORMAL_PRIORITY_CLASS)
+                                        self._log_to_file(f"子进程优先级已回退到NORMAL_PRIORITY_CLASS (PID: {process.pid})")
+                                    except Exception as e:
+                                        self._log_to_file(f"设置进程优先级失败: {e}", "WARNING")
+                                
+                                # 方法2: 如果Windows优化可用，尝试设置线程优先级
+                                if WINDOWS_OPTIMIZATION_AVAILABLE:
+                                    try:
+                                        # 获取进程的所有线程
+                                        threads = child_process.threads()
+                                        for thread in threads:
+                                            if thread.id:
+                                                # 使用Windows API设置线程优先级
+                                                thread_handle = ctypes.windll.kernel32.OpenThread(
+                                                    0x0020,  # THREAD_SET_INFORMATION
+                                                    False,   # bInheritHandle
+                                                    thread.id
+                                                )
+                                                if thread_handle:
+                                                    # 根据Windows版本选择最佳线程优先级
+                                                    if IS_WINDOWS_11:
+                                                        # Windows 11中，THREAD_PRIORITY_ABOVE_NORMAL更稳定
+                                                        ctypes.windll.kernel32.SetThreadPriority(
+                                                            thread_handle, 
+                                                            THREAD_PRIORITY_ABOVE_NORMAL
+                                                        )
+                                                    else:
+                                                        # Windows 10及以下版本，可以使用THREAD_PRIORITY_HIGHEST
+                                                        ctypes.windll.kernel32.SetThreadPriority(
+                                                            thread_handle, 
+                                                            THREAD_PRIORITY_HIGHEST
+                                                        )
+                                                    ctypes.windll.kernel32.CloseHandle(thread_handle)
+                                        self._log_to_file(f"子进程线程优先级已优化 (PID: {process.pid})")
+                                    except Exception as e:
+                                        self._log_to_file(f"设置线程优先级时出错: {e}", "WARNING")
+                                        
+                            except Exception as e:
+                                self._log_to_file(f"设置子进程优先级时出错: {e}", "WARNING")
+            except Exception as e:
+                self._log_to_file(f"访问进程池进程时出错: {e}", "WARNING")
+            
             # 提交所有任务
             futures = [executor.submit(cy_batch_worker, args) for args in args_list]
+            
         for fut in concurrent.futures.as_completed(futures):
             try:
                 process_results = fut.result()
