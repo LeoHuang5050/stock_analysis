@@ -1293,14 +1293,33 @@ class StockAnalysisApp(QWidget):
         # 如果没有传入end_date，则从控件获取
         if end_date is None:
             end_date = self.date_picker.date().toString("yyyy-MM-dd")
+        
         if hasattr(self.init, 'workdays_str'):
             if not self.init.workdays_str:
                 QMessageBox.warning(self, "提示", "请先上传数据文件！")
                 return None
-            date_str = self.date_picker.date().toString("yyyy-MM-dd")
-            if date_str not in self.init.workdays_str:
-                QMessageBox.warning(self, "提示", "只能选择交易日！")
-                return None
+            
+            # 自动修正结束日期：如果end_date不是交易日，则往日期减小的方向找到第一个可用交易日
+            if end_date not in workdays:
+                print(f"end_date not in workdays: {end_date}")
+                from datetime import datetime
+                end_dt = datetime.strptime(end_date, "%Y-%m-%d").date()
+                workday_first = datetime.strptime(workdays[0], "%Y-%m-%d").date()
+                if end_dt < workday_first:
+                    end_date = workdays[0]
+                else:
+                    for d in reversed(workdays):
+                        if d <= end_date:
+                            end_date = d
+                            break
+                print(f"自动修正后的end_date: {end_date}")
+            
+            # 更新控件显示（如果end_date是从控件获取的）
+            if end_date is None or end_date == self.date_picker.date().toString("yyyy-MM-dd"):
+                from PyQt5.QtCore import QDate
+                qdate = QDate.fromString(end_date, "yyyy-MM-dd")
+                if qdate.isValid():
+                    self.date_picker.setDate(qdate)
         
         if not is_auto_analysis:
             try:

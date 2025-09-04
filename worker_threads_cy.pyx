@@ -2131,19 +2131,19 @@ def calculate_batch_cy(
                     except Exception:
                         adjust_ops_incre_rate = None
 
-                # 交叉止盈停损，停盈止损 日均涨幅： 停盈止损 / 持有天数， 止盈停损 / 持有天数
+                # 日均涨幅 止盈停损 / 持有天数
                 take_and_stop_incre_rate = None
                 if take_profit_and_stop_loss_change is not None and not isnan(take_profit_and_stop_loss_change) and hold_days not in (None, 0):
                     try:
-                        #take_and_stop_incre_rate = take_and_stop_change / hold_days  # 移除 round_to_2
                         take_and_stop_incre_rate = take_profit_and_stop_loss_change / hold_days
                     except Exception:
                         take_and_stop_incre_rate = None
 
+                #日均涨幅： 停盈止损 / 调整天数
                 stop_and_take_incre_rate = None
-                if stop_profit_and_take_loss_change is not None and not isnan(stop_profit_and_take_loss_change) and hold_days not in (None, 0):
+                if stop_profit_and_take_loss_change is not None and not isnan(stop_profit_and_take_loss_change) and adjust_days not in (None, 0):
                     try:
-                        stop_and_take_incre_rate = stop_profit_and_take_loss_change / hold_days  # 移除 round_to_2
+                        stop_and_take_incre_rate = stop_profit_and_take_loss_change / adjust_days  # 移除 round_to_2
                     except Exception:
                         stop_and_take_incre_rate = None
                     

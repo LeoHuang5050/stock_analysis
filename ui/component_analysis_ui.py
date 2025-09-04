@@ -722,23 +722,32 @@ class ComponentAnalysisWidget(QWidget):
             QMessageBox.warning(self, "数据错误", "没有可用的日期范围，请先上传数据文件！")
             return
                
-        try:
-            # 获取结束日期在workdays中的索引
-            end_date_idx = workdays.index(end_date)
-            # 根据分析次数计算开始日期索引
-            start_date_idx = end_date_idx - (analysis_count - 1)
+        # 自动修正结束日期：如果end_date不是交易日，则往日期减小的方向找到第一个可用交易日
+        if end_date not in workdays:
+            print(f"end_date not in workdays: {end_date}")
+            from datetime import datetime
+            end_dt = datetime.strptime(end_date, "%Y-%m-%d").date()
+            workday_first = datetime.strptime(workdays[0], "%Y-%m-%d").date()
+            if end_dt < workday_first:
+                end_date = workdays[0]
+            else:
+                for d in reversed(workdays):
+                    if d <= end_date:
+                        end_date = d
+                        break
+        
+        # 获取结束日期在workdays中的索引
+        end_date_idx = workdays.index(end_date)
+        # 根据分析次数计算开始日期索引
+        start_date_idx = end_date_idx - (analysis_count - 1)
+        
+        # 检查索引是否有效
+        # if start_date_idx < 0:
+        #     QMessageBox.warning(self, "数据错误", f"组合分析次数 {analysis_count} 超出可用日期范围！\n当前结束日期索引: {end_date_idx}，需要开始日期索引: {start_date_idx}")
+        #     return
             
-            # 检查索引是否有效
-            if start_date_idx < 0:
-                QMessageBox.warning(self, "数据错误", f"组合分析次数 {analysis_count} 超出可用日期范围！\n当前结束日期索引: {end_date_idx}，需要开始日期索引: {start_date_idx}")
-                return
-                
-            # 获取开始日期
-            start_date = workdays[start_date_idx]
-            
-        except ValueError:
-            QMessageBox.warning(self, "日期错误", f"结束日期 {end_date} 不在交易日列表中！")
-            return
+        # 获取开始日期
+        start_date = workdays[start_date_idx]
         
         # 获取勾选框状态
         continuous_sum_logic = self.continuous_sum_logic_checkbox.isChecked()
@@ -821,6 +830,30 @@ class ComponentAnalysisWidget(QWidget):
             # 生成特殊参数组合
             special_params_combinations = temp_formula_widget.generate_special_params_combinations()
             print(f"生成了 {len(special_params_combinations)} 个特殊参数组合")
+            
+            # 检查特殊参数组合中的日期宽度是否超过数据范围
+            max_width = 0
+            for params in special_params_combinations:
+                # 检查params是字典还是元组
+                if isinstance(params, dict) and 'width' in params:
+                    # 如果是字典格式，直接获取width值
+                    max_width = max(max_width, params['width'])
+                elif isinstance(params, (tuple, list)) and len(params) > 0:
+                    # 如果是元组或列表格式，第一个元素通常是width
+                    try:
+                        width_val = int(float(params[0]))
+                        max_width = max(max_width, width_val)
+
+                    except (ValueError, TypeError):
+                        pass
+            
+            # 如果特殊参数组合中没有width，则使用主控件中的日期宽度
+            if max_width == 0 and hasattr(self.main_window, 'width_spin'):
+                max_width = self.main_window.width_spin.value()
+            
+            if max_width > 0 and start_date_idx - max_width < 0:
+                QMessageBox.warning(self, "提示", f"最大日期宽度：{max_width} 超过数据最大范围，请检查！")
+                return
             
             # 清理临时控件
             temp_formula_widget.deleteLater()
@@ -933,23 +966,28 @@ class ComponentAnalysisWidget(QWidget):
                 QMessageBox.warning(self, "数据错误", "没有可用的日期范围，请先上传数据文件！")
                 return
             
-            try:
-                # 获取结束日期在workdays中的索引
-                end_date_idx = workdays.index(end_date)
-                # 根据分析次数计算开始日期索引
-                start_date_idx = end_date_idx - (analysis_count - 1)
+            # 自动修正结束日期：如果end_date不是交易日，则往日期减小的方向找到第一个可用交易日
+            if end_date not in workdays:
+                print(f"end_date not in workdays: {end_date}")
+                from datetime import datetime
+                end_dt = datetime.strptime(end_date, "%Y-%m-%d").date()
+                workday_first = datetime.strptime(workdays[0], "%Y-%m-%d").date()
+                if end_dt < workday_first:
+                    end_date = workdays[0]
+                else:
+                    for d in reversed(workdays):
+                        if d <= end_date:
+                            end_date = d
+                            break
+            
+            # 获取结束日期在workdays中的索引
+            end_date_idx = workdays.index(end_date)
+            # 根据分析次数计算开始日期索引
+            start_date_idx = end_date_idx - (analysis_count - 1)
+
                 
-                # 检查索引是否有效
-                if start_date_idx < 0:
-                    QMessageBox.warning(self, "数据错误", f"组合分析次数 {analysis_count} 超出可用日期范围！\n当前结束日期索引: {end_date_idx}，需要开始日期索引: {start_date_idx}")
-                    return
-                    
-                # 获取开始日期
-                start_date = workdays[start_date_idx]
-                
-            except ValueError:
-                QMessageBox.warning(self, "日期错误", f"结束日期 {end_date} 不在交易日列表中！")
-                return
+            # 获取开始日期
+            start_date = workdays[start_date_idx]
             
             # 保存当前设置
             self.main_window.last_component_analysis_start_date = start_date
@@ -995,6 +1033,31 @@ class ComponentAnalysisWidget(QWidget):
             
             # 生成特殊参数组合
             special_params_combinations = temp_formula_widget.generate_special_params_combinations()
+            
+            # 检查特殊参数组合中的日期宽度是否超过数据范围
+            max_width = 0
+            for params in special_params_combinations:
+                # 检查params是字典还是元组
+                if isinstance(params, dict) and 'width' in params:
+                    # 如果是字典格式，直接获取width值
+                    max_width = max(max_width, params['width'])
+                elif isinstance(params, (tuple, list)) and len(params) > 0:
+                    # 如果是元组或列表格式，第一个元素通常是width
+                    try:
+                        width_val = int(float(params[0]))
+                        max_width = max(max_width, width_val)
+
+                    except (ValueError, TypeError):
+                        pass
+            
+            # 如果特殊参数组合中没有width，则使用主控件中的日期宽度
+            if max_width == 0 and hasattr(self.main_window, 'width_spin'):
+                max_width = self.main_window.width_spin.value()
+
+            if max_width > 0 and start_date_idx - max_width < 0:
+                QMessageBox.warning(self, "提示", f"最大日期宽度：{max_width} 超过数据最大范围，请检查！")
+                temp_formula_widget.deleteLater()
+                return
             
             # 删除临时控件
             temp_formula_widget.deleteLater()
@@ -1075,16 +1138,25 @@ class ComponentAnalysisWidget(QWidget):
                 QMessageBox.warning(self, "数据错误", "没有可用的日期范围，请先上传数据文件！")
                 return
     
-            try:
-                end_date_idx = workdays.index(end_date)
-                start_date_idx = end_date_idx - (analysis_count - 1)
-                if start_date_idx < 0:
-                    QMessageBox.warning(self, "数据错误", f"组合分析次数 {analysis_count} 超出可用日期范围！\n当前结束日期索引: {end_date_idx}，需要开始日期索引: {start_date_idx}")
-                    return
-                start_date = workdays[start_date_idx]
-            except ValueError:
-                QMessageBox.warning(self, "日期错误", f"结束日期 {end_date} 不在交易日列表中！")
-                return
+            # 自动修正结束日期：如果end_date不是交易日，则往日期减小的方向找到第一个可用交易日
+            if end_date not in workdays:
+                print(f"end_date not in workdays: {end_date}")
+                from datetime import datetime
+                end_dt = datetime.strptime(end_date, "%Y-%m-%d").date()
+                workday_first = datetime.strptime(workdays[0], "%Y-%m-%d").date()
+                if end_dt < workday_first:
+                    end_date = workdays[0]
+                else:
+                    for d in reversed(workdays):
+                        if d <= end_date:
+                            end_date = d
+                            break
+            
+            # 获取结束日期在workdays中的索引
+            end_date_idx = workdays.index(end_date)
+            # 根据分析次数计算开始日期索引
+            start_date_idx = end_date_idx - (analysis_count - 1)
+            start_date = workdays[start_date_idx]
 
             # 构建临时控件，用于恢复选择状态与生成特殊参数组合
             abbr_map = get_abbr_map()
@@ -1253,6 +1325,31 @@ class ComponentAnalysisWidget(QWidget):
                 log_message = f"未找到参数组合快照，生成了 {len(special_params_combinations)} 个新的特殊参数组合"
                 print(log_message)
                 self.log_three_analysis(log_message)
+            
+            # 检查特殊参数组合中的日期宽度是否超过数据范围
+            max_width = 0
+            for params in special_params_combinations:
+                # 检查params是字典还是元组
+                if isinstance(params, dict) and 'width' in params:
+                    # 如果是字典格式，直接获取width值
+                    max_width = max(max_width, params['width'])
+                elif isinstance(params, (tuple, list)) and len(params) > 0:
+                    # 如果是元组或列表格式，第一个元素通常是width
+                    try:
+                        width_val = int(float(params[0]))
+                        max_width = max(max_width, width_val)
+
+                    except (ValueError, TypeError):
+                        pass
+            
+            # 如果特殊参数组合中没有width，则使用主控件中的日期宽度
+            if max_width == 0 and hasattr(self.main_window, 'width_spin'):
+                max_width = self.main_window.width_spin.value()
+            
+            if max_width > 0 and start_date_idx - max_width < 0:
+                QMessageBox.warning(self, "提示", f"最大日期宽度：{max_width} 超过数据最大范围，请检查！")
+                temp_formula_widget.deleteLater()
+                return
 
             # 清理临时控件
             temp_formula_widget.deleteLater()
@@ -2385,7 +2482,20 @@ class ComponentAnalysisWidget(QWidget):
         formula = formula_obj['formula']
         sort_mode = formula_obj['sort_mode']
         # 获取特殊参数组合，包含14个参数（8个基础参数 + 6个创新高/创新低参数）
-        param_combination = self.special_params_combinations[param_idx]
+        # 在三次分析模式下，从保存的top1快照中获取参数组合，避免执行过程中top1被改变
+        if hasattr(self, 'is_three_stage_mode') and self.is_three_stage_mode:
+            # 三次分析模式：从保存的参数组合快照中获取
+            if hasattr(self, '_three_stage_special_params_combinations') and self._three_stage_special_params_combinations:
+                # 使用保存的参数组合快照
+                param_combination = self._three_stage_special_params_combinations[0]  # 三次分析只使用一个参数组合
+                print(f"三次分析模式：使用保存的参数组合快照：{param_combination}")
+            else:
+                # 如果没有保存的快照，回退到原来的方式
+                param_combination = self.special_params_combinations[param_idx]
+                print(f"三次分析模式：未找到保存的参数组合快照，使用当前生成的参数组合")
+        else:
+            # 普通分析模式：使用当前生成的参数组合
+            param_combination = self.special_params_combinations[param_idx]
         
         # 检查参数组合的格式，支持字典和元组/列表两种格式
         if isinstance(param_combination, dict):
@@ -2667,9 +2777,10 @@ class ComponentAnalysisWidget(QWidget):
 
                     # 组合分析次数
                     'component_analysis_count': self.analysis_count_spin.value(),
-
-                    # 操作值表达式
-                    'expr': getattr(self.main_window, 'last_expr', '')
+                    
+                    # 盈损选择框选项
+                    'profit_type': getattr(self.main_window, 'last_profit_type', 'INC'),
+                    'loss_type': getattr(self.main_window, 'last_loss_type', 'INC')
                 }
                 self.all_analysis_results.append(analysis_info)
                 
@@ -3122,7 +3233,6 @@ class ComponentAnalysisWidget(QWidget):
                             continue
                         
                         # 只有满足所有条件才添加到analysis_with_sum
-                        print(f"conditions_met = {conditions_met}")
                         if conditions_met:
                             analysis_with_sum.append({
                                 'index': i,
@@ -3381,7 +3491,12 @@ class ComponentAnalysisWidget(QWidget):
             params_text.append(f"排序方式: {analysis.get('sort_mode', '')}")
             params_text.append(f"开始日期值选择: {analysis.get('start_option', '')}")
             params_text.append(f"交易方式: {analysis.get('trade_mode', '')}")
-            params_text.append(f"操作值: {analysis.get('expr', '')}")
+            
+            # 构建盈损操作值显示
+            profit_type = analysis.get('profit_type', 'INC')
+            loss_type = analysis.get('loss_type', 'INC')
+            operation_value = f"盈（{profit_type}），损（{loss_type}）"
+            params_text.append(f"操作值: {operation_value}")
             params_text.append(f"日期宽度: {analysis.get('width', '')}")
             params_text.append(f"操作天数: {analysis.get('op_days', '')}")
             params_text.append(f"止盈递增率: {analysis.get('increment_rate', '')}")
@@ -3652,6 +3767,19 @@ class ComponentAnalysisWidget(QWidget):
                                 # 如果只是布尔值，直接设置复选框
                                 widgets['checkbox'].setChecked(var_state)
                                 print(f"恢复向前参数复选框: {var_name} = {var_state}")
+                
+                # 恢复盈损选择框选项
+                if 'profit_type' in analysis_data:
+                    profit_type = analysis_data['profit_type']
+                    if hasattr(self.main_window, 'last_profit_type'):
+                        self.main_window.last_profit_type = profit_type
+                        print(f"恢复盈类型选择：{profit_type}")
+                
+                if 'loss_type' in analysis_data:
+                    loss_type = analysis_data['loss_type']
+                    if hasattr(self.main_window, 'last_loss_type'):
+                        self.main_window.last_loss_type = loss_type
+                        print(f"恢复损类型选择：{loss_type}")
                 
                 # 解析公式并设置控件状态
                 
@@ -4471,6 +4599,18 @@ class ComponentAnalysisWidget(QWidget):
                     except Exception as e:
                         print(f"恢复组合分析次数失败: {e}")
                 
+                # 恢复结束日期
+                end_date = analysis_data.get('end_date', '')
+                if end_date and hasattr(self.main_window, 'date_picker'):
+                    try:
+                        from PyQt5.QtCore import QDate
+                        qdate = QDate.fromString(end_date, "yyyy-MM-dd")
+                        if qdate.isValid():
+                            self.main_window.date_picker.setDate(qdate)
+                            print(f"恢复结束日期: {end_date}")
+                    except Exception as e:
+                        print(f"恢复结束日期失败: {e}")
+                
                 # 恢复操作值表达式
                 expr = analysis_data.get('expr', '')
                 if expr:
@@ -4522,7 +4662,12 @@ class ComponentAnalysisWidget(QWidget):
                 
                 # 清理临时控件
                 temp_formula_widget.deleteLater()
-                QMessageBox.information(self, "恢复成功", f"已成功恢复选股参数！\n公式: {formula}\n排序方式: {sort_mode}\n选股数量: {select_count}\n开始日期值选择: {analysis_data.get('start_option', '')}\n前移天数: {analysis_data.get('shift_days', '')}\n是否计算向前: {analysis_data.get('is_forward', False)}\n交易方式: {analysis_data.get('trade_mode', '')}\n操作值: {analysis_data.get('expr', '')}\n开始日到结束日之间最高价/最低价小于: {analysis_data.get('range_value', '')}\n开始日到结束日之间连续累加值绝对值小于: {analysis_data.get('continuous_abs_threshold', '')}\n开始日到结束日之间有效累加值绝对值小于: {analysis_data.get('valid_abs_sum_threshold', '')}\n第1组后N最大值逻辑: {analysis_data.get('n_days', '')}\n前1组结束地址后N日的最大值: {analysis_data.get('n_days_max', '')}\n操作涨幅: {analysis_data.get('ops_change', '')}\n日期宽度: {width}\n操作天数: {op_days}\n止盈递增率: {increment_rate}\n止盈后值大于结束值比例: {after_gt_end_ratio}\n止盈后值大于前值比例: {after_gt_start_ratio}\n止损递增率: {stop_loss_inc_rate}\n止损后值大于结束值比例: {stop_loss_after_gt_end_ratio}\n止损后值大于前值比例: {stop_loss_after_gt_start_ratio}")
+                # 构建盈损操作值显示
+                profit_type = analysis_data.get('profit_type', 'INC')
+                loss_type = analysis_data.get('loss_type', 'INC')
+                operation_value = f"盈（{profit_type}），损（{loss_type}）"
+                
+                QMessageBox.information(self, "恢复成功", f"已成功恢复选股参数！\n公式: {formula}\n排序方式: {sort_mode}\n选股数量: {select_count}\n开始日期值选择: {analysis_data.get('start_option', '')}\n前移天数: {analysis_data.get('shift_days', '')}\n是否计算向前: {analysis_data.get('is_forward', False)}\n交易方式: {analysis_data.get('trade_mode', '')}\n操作值: {operation_value}\n开始日到结束日之间最高价/最低价小于: {analysis_data.get('range_value', '')}\n开始日到结束日之间连续累加值绝对值小于: {analysis_data.get('continuous_abs_threshold', '')}\n开始日到结束日之间有效累加值绝对值小于: {analysis_data.get('valid_abs_sum_threshold', '')}\n第1组后N最大值逻辑: {analysis_data.get('n_days', '')}\n前1组结束地址后N日的最大值: {analysis_data.get('n_days_max', '')}\n操作涨幅: {analysis_data.get('ops_change', '')}\n日期宽度: {width}\n操作天数: {op_days}\n止盈递增率: {increment_rate}\n止盈后值大于结束值比例: {after_gt_end_ratio}\n止盈后值大于前值比例: {after_gt_start_ratio}\n止损递增率: {stop_loss_inc_rate}\n止损后值大于结束值比例: {stop_loss_after_gt_end_ratio}\n止损后值大于前值比例: {stop_loss_after_gt_start_ratio}")
                 
                 
             except Exception as e:
@@ -4876,6 +5021,19 @@ class ComponentAnalysisWidget(QWidget):
             'selected_vars_with_values': analysis.get('selected_vars_with_values', []),
             'n_values': analysis.get('n_values', [])
         })
+
+        # 添加结束日期和分析次数到analysis中
+        # 结束日期从主控件获取
+        if hasattr(self.main_window, 'date_picker'):
+            end_date = self.main_window.date_picker.date().toString("yyyy-MM-dd")
+            analysis['end_date'] = end_date
+            print(f"从主控件获取结束日期: {end_date}")
+
+        # 组合分析次数从控件获取
+        component_executions = self.analysis_count_spin.value()
+        analysis['component_analysis_count'] = component_executions
+        print(f"从控件获取组合分析次数: {component_executions}")
+        
         
         # 生成默认文件名
         default_filename = self._generate_default_plan_name(analysis, params, top1)
@@ -5001,11 +5159,21 @@ class ComponentAnalysisWidget(QWidget):
                     # 组合分析次数
                     writer.writerow(['component_analysis_count', analysis.get('component_analysis_count', '')])
                     
+                    # 结束日期
+                    if analysis.get('end_date'):
+                        writer.writerow(['end_date', analysis.get('end_date')])
+                    
                     # 变量选择和n值
                     if analysis.get('selected_vars_with_values'):
                         writer.writerow(['selected_vars_with_values', str(analysis.get('selected_vars_with_values'))])
                     if analysis.get('n_values'):
                         writer.writerow(['n_values', str(analysis.get('n_values'))])
+                    
+                    # 盈损选择框选项
+                    profit_type = getattr(self.main_window, 'last_profit_type', 'INC')
+                    loss_type = getattr(self.main_window, 'last_loss_type', 'INC')
+                    writer.writerow(['profit_type', profit_type])
+                    writer.writerow(['loss_type', loss_type])
                 
                 # 只添加三次分析最优值
                 best_value_formatted = None
@@ -5548,6 +5716,19 @@ class ComponentAnalysisWidget(QWidget):
                 analysis_info['selected_vars_with_values'] = analysis_data['selected_vars_with_values']
             if 'n_values' in analysis_data:
                 analysis_info['n_values'] = analysis_data['n_values']
+            
+            # 提取盈损选择框选项
+            if 'profit_type' in analysis_data:
+                profit_type = analysis_data['profit_type']
+                if hasattr(self.main_window, 'last_profit_type'):
+                    self.main_window.last_profit_type = profit_type
+                    print(f"恢复盈类型选择：{profit_type}")
+            
+            if 'loss_type' in analysis_data:
+                loss_type = analysis_data['loss_type']
+                if hasattr(self.main_window, 'last_loss_type'):
+                    self.main_window.last_loss_type = loss_type
+                    print(f"恢复损类型选择：{loss_type}")
             
             # 提取查看详情所需的关键数据
             # 只提取analysis_stats数据，这是查看详情功能的核心
@@ -6209,6 +6390,14 @@ class ComponentAnalysisWidget(QWidget):
         # 6. 排序方式
         sort_mode = analysis.get('sort_mode', '')
         
+        # 7. 结束日期
+        end_date = analysis.get('end_date', '')
+        end_date_str = f"{end_date}" if end_date else ""
+        
+        # 8. 组合分析次数
+        component_executions = analysis.get('component_analysis_count', 0)
+        executions_str = f"{component_executions}" if component_executions else ""
+        
         # 组合名称
         plan_name_parts = []
         if start_option:
@@ -6225,6 +6414,10 @@ class ComponentAnalysisWidget(QWidget):
             plan_name_parts.append(today)
         if sort_mode:
             plan_name_parts.append(sort_mode)
+        if end_date_str:
+            plan_name_parts.append(end_date_str)
+        if executions_str:
+            plan_name_parts.append(executions_str)
         
         filename = "-".join(plan_name_parts) if plan_name_parts else "操盘方案"
         
@@ -6265,6 +6458,22 @@ class ComponentAnalysisWidget(QWidget):
             })
 
             print(f"component_analysis_ui selected_vars_with_values: {params.get('selected_vars_with_values', [])}")
+            
+            # 添加盈损类型参数
+            params['profit_type'] = analysis.get('profit_type', 'INC')
+            params['loss_type'] = analysis.get('loss_type', 'INC')
+            
+            # 添加结束日期和分析次数到analysis中
+            # 结束日期从主控件获取
+            if hasattr(self.main_window, 'date_picker'):
+                end_date = self.main_window.date_picker.date().toString("yyyy-MM-dd")
+                analysis['end_date'] = end_date
+                print(f"从主控件获取结束日期: {end_date}")
+            
+            # 组合分析次数从控件获取
+            component_executions = self.analysis_count_spin.value()
+            analysis['component_analysis_count'] = component_executions
+            print(f"从控件获取组合分析次数: {component_executions}")
             
             # 确保component_analysis_count被正确添加到params中
             if 'component_analysis_count' not in params:
@@ -6391,6 +6600,24 @@ class ComponentAnalysisWidget(QWidget):
                 'selected_vars_with_values': analysis.get('selected_vars_with_values', []),
                 'n_values': analysis.get('n_values', [])
             })
+            
+            # 添加盈损类型参数
+            params['profit_type'] = analysis.get('profit_type', 'INC')
+            params['loss_type'] = analysis.get('loss_type', 'INC')
+
+            # 添加结束日期和分析次数到analysis中
+            # 结束日期从主控件获取
+            if hasattr(self.main_window, 'date_picker'):
+                end_date = self.main_window.date_picker.date().toString("yyyy-MM-dd")
+                analysis['end_date'] = end_date
+                print(f"从主控件获取结束日期: {end_date}")
+
+            params['end_date'] = analysis.get('end_date', '')
+            
+            # 组合分析次数从控件获取
+            component_executions = self.analysis_count_spin.value()
+            analysis['component_analysis_count'] = component_executions
+            print(f"从控件获取组合分析次数: {component_executions}")
             
             # 确保component_analysis_count被正确添加到params中
             if 'component_analysis_count' not in params:
@@ -6742,7 +6969,15 @@ class ComponentAnalysisWidget(QWidget):
         print(f"基础公式: {base_formula}")
 
         # 获取排序方式（与二次/组合分析保持一致）
-        user_sort_mode = getattr(self.main_window, 'last_sort_mode', '最大值排序')
+        # 三次分析：从保存的top1快照中获取排序方式，避免执行过程中被改变
+        top1 = getattr(self.main_window, 'last_component_analysis_top1', None)
+        if top1 and 'analysis' in top1 and 'sort_mode' in top1['analysis']:
+            user_sort_mode = top1['analysis']['sort_mode']
+            print(f"三次分析：使用保存的top1快照中的排序方式：{user_sort_mode}")
+        else:
+            # 如果没有保存的快照，回退到原来的方式
+            user_sort_mode = getattr(self.main_window, 'last_sort_mode', '最大值排序')
+            print(f"三次分析：未找到保存的排序方式快照，使用当前控件的排序方式：{user_sort_mode}")
 
         # 获取二次分析次数限制，用于限制生成的公式数量
         secondary_analysis_count = getattr(self, 'secondary_analysis_count_spin', None)

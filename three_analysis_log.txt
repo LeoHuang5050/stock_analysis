@@ -1,120 +1,69 @@
-获取到的输出参数: ['cont_sum_pos_sum', 'cont_sum_neg_sum', 'valid_pos_sum', 'valid_neg_sum']
+获取到的输出参数: ['valid_neg_sum']
 获取到的辅助参数: []
-三次分析目标变量: ['cont_sum_pos_sum', 'cont_sum_neg_sum', 'valid_pos_sum', 'valid_neg_sum']
-使用组合分析最优结果的参数组合快照：{'width': 60, 'op_days': 5, 'increment_rate': 0.5, 'after_gt_end_ratio': 1.0, 'after_gt_start_ratio': 1.0, 'stop_loss_inc_rate': -100.5, 'stop_loss_after_gt_end_ratio': -10.0, 'stop_loss_after_gt_start_ratio': -1.0, 'new_high_low1_start': 0, 'new_high_low1_range': 0, 'new_high_low1_span': 0, 'new_high_low2_start': 60, 'new_high_low2_range': 40, 'new_high_low2_span': 7}
-三次分析-目标参数cont_sum_pos_sum第1次 下限=198 上限=17493 步长=1749 生成的全部公式:
-  [1] if cont_sum_pos_sum >= 198 and cont_sum_pos_sum <= 17493:
+三次分析目标变量: ['valid_neg_sum']
+使用组合分析最优结果的参数组合快照：{'width': 40, 'op_days': 5, 'increment_rate': 0.5, 'after_gt_end_ratio': 1.0, 'after_gt_start_ratio': 1.0, 'stop_loss_inc_rate': -100.5, 'stop_loss_after_gt_end_ratio': -10.0, 'stop_loss_after_gt_start_ratio': -1.0, 'new_high_low1_start': 0, 'new_high_low1_range': 0, 'new_high_low1_span': 0, 'new_high_low2_start': 0, 'new_high_low2_range': 0, 'new_high_low2_span': 0}
+三次分析-目标参数valid_neg_sum第1次 下限=-2939 上限=-557 步长=293 生成的全部公式:
+  [1] if valid_neg_sum >= -2939 and valid_neg_sum <= -557:
     result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
 else:
     result = 0
 执行三次分析第1次
 【三次分析第1次完成】全局top_three更新:
-  第1名: 0.7788461538461539 - if cont_sum_pos_sum >= 198 and cont_sum_pos_sum <= 17493:
+  第1名: 1.4134615384615383 - if valid_neg_sum >= -2939 and valid_neg_sum <= -557:
     result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
 else:
     result = 0
-本次最优值 0.78 不小于上一次最优值 0.76，更新 overall_stats
-参数cont_sum_pos_sum第1次最优公式: if cont_sum_pos_sum >= 198 and cont_sum_pos_sum <= 17493:
+本次最优值 1.41 不小于上一次最优值 1.39，更新 overall_stats
+参数valid_neg_sum第1次最优公式: if valid_neg_sum >= -2939 and valid_neg_sum <= -557:
     result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
 else:
     result = 0
-三次分析：第一次 cont_sum_pos_sum 下限：198，上限：17493，有较优方案。上次分析最优值：0.7596153846153846，本次分析最优值：0.7788461538461539
-三次分析-目标参数cont_sum_pos_sum第2次 下限=335.76 上限=17492.63 步长=874 生成的全部公式:
-  [1] if cont_sum_pos_sum >= 335.76 and cont_sum_pos_sum <= 17492.63:
+三次分析：第一次 valid_neg_sum 下限：-2939，上限：-557，有较优方案。上次分析最优值：1.3942307692307692，本次分析最优值：1.4134615384615383
+三次分析-目标参数valid_neg_sum第2次 下限=-2938.19 上限=-561.26 步长=146 生成的全部公式:
+  [1] if valid_neg_sum >= -2938.19 and valid_neg_sum <= -561.26:
     result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
 else:
     result = 0
 执行三次分析第2次
 【三次分析第2次完成】全局top_three更新:
-  第1名: 0.7788461538461539 - if cont_sum_pos_sum >= 198 and cont_sum_pos_sum <= 17493:
+  第1名: 1.4134615384615383 - if valid_neg_sum >= -2939 and valid_neg_sum <= -557:
     result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
 else:
     result = 0
-  第2名: 0.7788461538461539 - if cont_sum_pos_sum >= 335.76 and cont_sum_pos_sum <= 17492.63:
+  第2名: 1.4134615384615383 - if valid_neg_sum >= -2938.19 and valid_neg_sum <= -561.26:
     result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
 else:
     result = 0
-本次最优值 0.78 不小于上一次最优值 0.78，更新 overall_stats
-参数cont_sum_pos_sum第2次最优公式: if cont_sum_pos_sum >= 335.76 and cont_sum_pos_sum <= 17492.63:
+本次最优值 1.41 不小于上一次最优值 1.41，更新 overall_stats
+参数valid_neg_sum第2次最优公式: if valid_neg_sum >= -2938.19 and valid_neg_sum <= -561.26:
     result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
 else:
     result = 0
-三次分析：第二次 cont_sum_pos_sum 下限：335.76，上限：17492.63，有较优方案。上次分析最优值：0.7788461538461539，本次分析最优值：0.7788461538461539
-三次分析-目标参数cont_sum_pos_sum第3次 下限=335.76 上限=17492.63 步长=437 生成的全部公式:
-  [1] if cont_sum_pos_sum >= 335.76 and cont_sum_pos_sum <= 17492.63:
+三次分析：第二次 valid_neg_sum 下限：-2938.19，上限：-561.26，有较优方案。上次分析最优值：1.4134615384615383，本次分析最优值：1.4134615384615383
+三次分析-目标参数valid_neg_sum第3次 下限=-2938.19 上限=-561.26 步长=73 生成的全部公式:
+  [1] if valid_neg_sum >= -2938.19 and valid_neg_sum <= -561.26:
     result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
 else:
     result = 0
 执行三次分析第3次
 【三次分析第3次完成】全局top_three更新:
-  第1名: 0.7788461538461539 - if cont_sum_pos_sum >= 198 and cont_sum_pos_sum <= 17493:
+  第1名: 1.4134615384615383 - if valid_neg_sum >= -2939 and valid_neg_sum <= -557:
     result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
 else:
     result = 0
-  第2名: 0.7788461538461539 - if cont_sum_pos_sum >= 335.76 and cont_sum_pos_sum <= 17492.63:
+  第2名: 1.4134615384615383 - if valid_neg_sum >= -2938.19 and valid_neg_sum <= -561.26:
     result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
 else:
     result = 0
-本次最优值 0.78 不小于上一次最优值 0.78，更新 overall_stats
-参数cont_sum_pos_sum第3次最优公式: if cont_sum_pos_sum >= 335.76 and cont_sum_pos_sum <= 17492.63:
+本次最优值 1.41 不小于上一次最优值 1.41，更新 overall_stats
+参数valid_neg_sum第3次最优公式: if valid_neg_sum >= -2938.19 and valid_neg_sum <= -561.26:
     result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
 else:
     result = 0
-三次分析：第三次 cont_sum_pos_sum 下限：335.76，上限：17492.63，有较优方案。上次分析最优值：0.7788461538461539，本次分析最优值：0.7788461538461539
-记录参数cont_sum_pos_sum的最优条件：最优条件为：下限335.76，上限17492.63， 组合排序输出值为：0.7788461538461539，cont_sum_pos_sum_median：4762.33，cont_sum_pos_sum_positive_median：4762.33，cont_sum_pos_sum_negative_median：None
-三次分析-目标参数cont_sum_neg_sum第1次 下限=-6255.58 上限=-141.21 步长=625 生成的全部公式:
-  [1] if cont_sum_pos_sum >= 335.76 and cont_sum_pos_sum <= 17492.63 and cont_sum_neg_sum >= -6255.58 and cont_sum_neg_sum <= -141.21:
-    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
-else:
-    result = 0
-执行三次分析第1次
-【三次分析第1次完成】全局top_three更新:
-  第1名: 0.7788461538461539 - if cont_sum_pos_sum >= 198 and cont_sum_pos_sum <= 17493:
-    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
-else:
-    result = 0
-  第2名: 0.7788461538461539 - if cont_sum_pos_sum >= 335.76 and cont_sum_pos_sum <= 17492.63:
-    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
-else:
-    result = 0
-  第3名: 0.7788461538461539 - if cont_sum_pos_sum >= 335.76 and cont_sum_pos_sum <= 17492.63 and cont_sum_neg_sum >= -6255.58 and cont_sum_neg_sum <= -141.21:
-    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
-else:
-    result = 0
-本次最优值 0.78 不小于上一次最优值 0.78，更新 overall_stats
-参数cont_sum_neg_sum第1次最优公式: if cont_sum_pos_sum >= 335.76 and cont_sum_pos_sum <= 17492.63 and cont_sum_neg_sum >= -6255.58 and cont_sum_neg_sum <= -141.21:
-    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
-else:
-    result = 0
-三次分析：第一次 cont_sum_neg_sum 下限：-6255.58，上限：-141.21，有较优方案。上次分析最优值：0.7788461538461539，本次分析最优值：0.7788461538461539
-三次分析-目标参数cont_sum_neg_sum第2次 下限=-6255.58 上限=-141.21 步长=312 生成的全部公式:
-  [1] if cont_sum_pos_sum >= 335.76 and cont_sum_pos_sum <= 17492.63 and cont_sum_neg_sum >= -6255.58 and cont_sum_neg_sum <= -141.21:
-    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
-else:
-    result = 0
-执行三次分析第2次
-【三次分析第2次完成】全局top_three更新:
-  第1名: 0.7788461538461539 - if cont_sum_pos_sum >= 198 and cont_sum_pos_sum <= 17493:
-    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
-else:
-    result = 0
-  第2名: 0.7788461538461539 - if cont_sum_pos_sum >= 335.76 and cont_sum_pos_sum <= 17492.63:
-    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
-else:
-    result = 0
-  第3名: 0.7788461538461539 - if cont_sum_pos_sum >= 335.76 and cont_sum_pos_sum <= 17492.63 and cont_sum_neg_sum >= -6255.58 and cont_sum_neg_sum <= -141.21:
-    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
-else:
-    result = 0
-本次最优值 0.78 不小于上一次最优值 0.78，更新 overall_stats
-参数cont_sum_neg_sum第2次最优公式: if cont_sum_pos_sum >= 335.76 and cont_sum_pos_sum <= 17492.63 and cont_sum_neg_sum >= -6255.58 and cont_sum_neg_sum <= -141.21:
-    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
-else:
-    result = 0
-三次分析：第二次 cont_sum_neg_sum 下限：-6255.58，上限：-141.21，有较优方案。上次分析最优值：0.7788461538461539，本次分析最优值：0.7788461538461539
-三次分析-目标参数cont_sum_neg_sum第3次 下限=-6255.58 上限=-141.21 步长=156 生成的全部公式:
-  [1] if cont_sum_pos_sum >= 335.76 and cont_sum_pos_sum <= 17492.63 and cont_sum_neg_sum >= -6255.58 and cont_sum_neg_sum <= -141.21:
-    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum
-else:
-    result = 0
-执行三次分析第3次
+三次分析：第三次 valid_neg_sum 下限：-2938.19，上限：-561.26，有较优方案。上次分析最优值：1.4134615384615383，本次分析最优值：1.4134615384615383
+记录参数valid_neg_sum的最优条件：最优条件为：下限-2938.19，上限-561.26， 组合排序输出值为：1.4134615384615383，valid_neg_sum_median：-1467.76，valid_neg_sum_positive_median：None，valid_neg_sum_negative_median：-1467.76
+三次分析完成，总共记录了1个参数的最优条件，0个参数的无最优结果
+补充记录完成后，best_param_condition_list长度：1
+【第最终次】有最优方案出现！当前最优组合排序输出值：1.41，大于上次分析最优值：1.39 的 100.0% = 1.39
+
+但不大于锁定最优值 1.47

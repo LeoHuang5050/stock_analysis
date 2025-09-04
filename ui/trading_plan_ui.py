@@ -420,7 +420,12 @@ class TradingPlanWidget(QWidget):
         params_text.append(f"排序方式: {params.get('last_sort_mode', '')}")
         params_text.append(f"开始日期值选择: {params.get('start_option', '')}")
         params_text.append(f"交易方式: {params.get('trade_mode', '')}")
-        params_text.append(f"操作值: {params.get('expr', '')}")
+        
+        # 构建盈损操作值显示
+        profit_type = params.get('profit_type', 'INC')
+        loss_type = params.get('loss_type', 'INC')
+        operation_value = f"盈（{profit_type}），损（{loss_type}）"
+        params_text.append(f"操作值: {operation_value}")
         params_text.append(f"日期宽度: {params.get('width', '')}")
         params_text.append(f"操作天数: {params.get('op_days', '')}")
         params_text.append(f"止盈递增率: {self._get_increment_rate_value(params)}")
@@ -488,6 +493,85 @@ class TradingPlanWidget(QWidget):
             label_vars.setStyleSheet("font-size:12px;")
             label_vars.setAlignment(Qt.AlignLeft)
             vbox.addWidget(label_vars)
+            
+            # 添加空行
+            empty_label2 = QLabel("")
+            empty_label2.setFixedHeight(10)
+            vbox.addWidget(empty_label2)
+            
+            # 添加备注功能
+            remark_layout = QVBoxLayout()  # 改为垂直布局，确保备注文本能够换行
+            remark_layout.setSpacing(3)
+            remark_layout.setContentsMargins(0, 0, 0, 0)  # 减少边距，确保布局紧凑
+            
+            # 第一行：备注标签和编辑按钮
+            remark_header_layout = QHBoxLayout()
+            remark_header_layout.setSpacing(5)
+            
+            # 备注标签
+            remark_label = QLabel("备注:")
+            remark_label.setStyleSheet("font-size:12px;font-weight:bold;")
+            remark_header_layout.addWidget(remark_label)
+            
+            # 编辑图标按钮
+            edit_remark_btn = QPushButton("✎")
+            edit_remark_btn.setFixedSize(20, 20)
+            edit_remark_btn.setStyleSheet("font-weight:bold;border:none;background:transparent;color:blue;")
+            edit_remark_btn.setToolTip("编辑备注")
+            edit_remark_btn.clicked.connect(lambda _, i=idx: self.edit_plan_remark(i))
+            remark_header_layout.addWidget(edit_remark_btn)
+            
+            remark_header_layout.addStretch()
+            remark_layout.addLayout(remark_header_layout)
+            
+            # 备注布局不需要设置大小策略，这是QWidget的方法
+            
+            # 第二行：备注显示文本（独占一行，支持换行）
+            remark_text = plan.get('remark', '')
+            if remark_text:
+                # 使用QTextEdit来确保文本换行，但设置为只读模式
+                from PyQt5.QtWidgets import QTextEdit
+                remark_display = QTextEdit()
+                remark_display.setPlainText(remark_text)
+                remark_display.setReadOnly(True)  # 设置为只读
+                remark_display.setStyleSheet("""
+                    QTextEdit {
+                        font-size: 12px;
+                        color: #333;
+                        border: none;
+                        background: transparent;
+                        padding: 0px;
+                        margin: 0px;
+                    }
+                """)
+                
+                # 计算文本需要的实际高度
+                font_metrics = remark_display.fontMetrics()
+                text_width = card_width - 20  # 减去左右边距
+                
+                # 使用QTextEdit的document来精确计算换行后的高度
+                document = remark_display.document()
+                document.setTextWidth(text_width)
+                
+                # 获取文档的实际高度
+                required_height = max(20, int(document.size().height()) + 10)
+                
+                # 设置固定宽度和动态高度
+                remark_display.setFixedWidth(text_width)
+                remark_display.setFixedHeight(required_height)
+                
+                # 设置大小策略
+                remark_display.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+                remark_layout.addWidget(remark_display)
+            else:
+                remark_display = QLabel("暂无备注")
+                remark_display.setStyleSheet("font-size:12px;color:#999;font-style:italic;")
+                remark_display.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+                remark_display.setFixedWidth(card_width - 20)  # 同样设置固定宽度
+                remark_display.setFixedHeight(20)  # 设置固定高度
+                remark_layout.addWidget(remark_display)
+            
+            vbox.addLayout(remark_layout)
         
         # 分割线
         line1 = QFrame()
@@ -954,6 +1038,21 @@ class TradingPlanWidget(QWidget):
                 except Exception as e:
                     print(f"恢复组合分析次数失败: {e}")
             
+            # 恢复结束日期
+            if 'end_date' in params and hasattr(self.main_window, 'date_picker'):
+                try:
+                    end_date = params['end_date']
+                    if end_date:
+                        from PyQt5.QtCore import QDate
+                        qdate = QDate.fromString(end_date, "yyyy-MM-dd")
+                        if qdate.isValid():
+                            self.main_window.date_picker.setDate(qdate)
+                            print(f"恢复结束日期: {end_date}")
+                        else:
+                            print(f"结束日期格式无效: {end_date}")
+                except Exception as e:
+                    print(f"恢复结束日期失败: {e}")
+            
             # 恢复操作相关参数
             if 'op_days' in params and hasattr(self.main_window, 'op_days_edit'):
                 try:
@@ -1052,11 +1151,18 @@ class TradingPlanWidget(QWidget):
                 except:
                     pass
             
-            # 恢复操作值表达式
-            if 'expr' in params:
+            # 恢复盈损选择框选项
+            if 'profit_type' in params:
                 try:
-                    self.main_window.last_expr = params['expr']
-                    print(f"恢复操作值表达式: {params['expr']}")
+                    self.main_window.last_profit_type = params['profit_type']
+                    print(f"恢复盈类型选择: {params['profit_type']}")
+                except:
+                    pass
+            
+            if 'loss_type' in params:
+                try:
+                    self.main_window.last_loss_type = params['loss_type']
+                    print(f"恢复损类型选择: {params['loss_type']}")
                 except:
                     pass
             
@@ -1593,8 +1699,13 @@ class TradingPlanWidget(QWidget):
                 import traceback
                 traceback.print_exc()
             
+            # 构建盈损操作值显示
+            profit_type = params.get('profit_type', 'INC')
+            loss_type = params.get('loss_type', 'INC')
+            operation_value = f"盈（{profit_type}），损（{loss_type}）"
+            
             # 显示成功消息
-            QMessageBox.information(self, "恢复成功", f"已成功恢复操盘方案参数！\n公式: {formula}\n排序方式: {params.get('last_sort_mode', '')}\n选股数量: {params.get('last_select_count', '')}\n开始日期值选择: {params.get('start_option', '')}\n前移天数: {params.get('shift', '')}\n是否计算向前: {params.get('direction', False)}\n交易方式: {params.get('trade_mode', '')}\n操作值: {params.get('expr', '')}\n开始日到结束日之间最高价/最低价小于: {params.get('range_value', '')}\n开始日到结束日之间连续累加值绝对值小于: {params.get('continuous_abs_threshold', '')}\n开始日到结束日之间有效累加值绝对值小于: {params.get('valid_abs_sum_threshold', '')}\n第1组后N最大值逻辑: {params.get('n_days', '')}\n前1组结束地址后N日的最大值: {params.get('n_days_max', '')}\n操作涨幅: {params.get('ops_change', '')}\n日期宽度: {params.get('width', '')}\n操作天数: {params.get('op_days', '')}\n止盈递增率: {self._get_increment_rate_value(params)}\n止盈后值大于结束值比例: {params.get('after_gt_end_edit', '')}\n止盈后值大于前值比例: {params.get('after_gt_prev_edit', '')}\n止损递增率: {params.get('stop_loss_inc_rate', '')}\n止损后值大于结束值比例: {params.get('stop_loss_after_gt_end_edit', '')}\n止损后值大于前值比例: {params.get('stop_loss_after_gt_start_edit', '')}")
+            QMessageBox.information(self, "恢复成功", f"已成功恢复操盘方案参数！\n公式: {formula}\n排序方式: {params.get('last_sort_mode', '')}\n选股数量: {params.get('last_select_count', '')}\n开始日期值选择: {params.get('start_option', '')}\n前移天数: {params.get('shift', '')}\n是否计算向前: {params.get('direction', False)}\n交易方式: {params.get('trade_mode', '')}\n操作值: {operation_value}\n开始日到结束日之间最高价/最低价小于: {params.get('range_value', '')}\n开始日到结束日之间连续累加值绝对值小于: {params.get('continuous_abs_threshold', '')}\n开始日到结束日之间有效累加值绝对值小于: {params.get('valid_abs_sum_threshold', '')}\n第1组后N最大值逻辑: {params.get('n_days', '')}\n前1组结束地址后N日的最大值: {params.get('n_days_max', '')}\n操作涨幅: {params.get('ops_change', '')}\n日期宽度: {params.get('width', '')}\n操作天数: {params.get('op_days', '')}\n止盈递增率: {self._get_increment_rate_value(params)}\n止盈后值大于结束值比例: {params.get('after_gt_end_edit', '')}\n止盈后值大于前值比例: {params.get('after_gt_prev_edit', '')}\n止损递增率: {params.get('stop_loss_inc_rate', '')}\n止损后值大于结束值比例: {params.get('stop_loss_after_gt_end_edit', '')}\n止损后值大于前值比例: {params.get('stop_loss_after_gt_start_edit', '')}")
             
         except Exception as e:
             QMessageBox.critical(self, "恢复失败", f"恢复操盘方案参数失败：{e}")
@@ -1699,6 +1810,88 @@ class TradingPlanWidget(QWidget):
         except Exception as e:
             print(f"检查交易计划过期状态时出错: {e}")
             return False, None
+
+    def edit_plan_remark(self, plan_idx):
+        """编辑操盘方案备注"""
+        try:
+            # 获取操盘方案列表
+            if hasattr(self.main_window, 'trading_plan_list') and self.main_window.trading_plan_list:
+                # 确保索引在有效范围内
+                if 0 <= plan_idx < len(self.main_window.trading_plan_list):
+                    plan = self.main_window.trading_plan_list[plan_idx]
+                    current_remark = plan.get('remark', '')
+                    
+                    # 创建备注编辑对话框
+                    dialog = RemarkEditDialog(current_remark, self)
+                    if dialog.exec_() == QDialog.Accepted:
+                        new_remark = dialog.get_remark_text()
+                        # 更新操盘方案的备注
+                        plan['remark'] = new_remark
+                        print(f"已保存操盘方案 {plan_idx + 1} 的备注: {new_remark}")
+                        # 刷新卡片显示
+                        self.refresh_cards()
+                else:
+                    print(f"操盘方案索引超出范围: {plan_idx}")
+            else:
+                print("主窗口中没有找到操盘方案列表")
+        except Exception as e:
+            print(f"编辑备注时出错: {e}")
+            QMessageBox.critical(self, "错误", f"编辑备注失败：{e}")
+
+    def _on_remark_changed(self, plan_idx, remark_text):
+        """处理备注变更并保存到操盘方案中（保留兼容性）"""
+        try:
+            # 获取操盘方案列表
+            if hasattr(self.main_window, 'trading_plan_list') and self.main_window.trading_plan_list:
+                # 确保索引在有效范围内
+                if 0 <= plan_idx < len(self.main_window.trading_plan_list):
+                    # 更新操盘方案的备注
+                    self.main_window.trading_plan_list[plan_idx]['remark'] = remark_text
+                    print(f"已保存操盘方案 {plan_idx + 1} 的备注: {remark_text}")
+                else:
+                    print(f"操盘方案索引超出范围: {plan_idx}")
+            else:
+                print("主窗口中没有找到操盘方案列表")
+        except Exception as e:
+            print(f"保存备注时出错: {e}")
+
+class RemarkEditDialog(QDialog):
+    """备注编辑对话框"""
+    def __init__(self, current_remark, parent=None):
+        super().__init__(parent)
+        self.current_remark = current_remark
+        self.init_ui()
+        
+    def init_ui(self):
+        self.setWindowTitle("编辑备注")
+        self.setFixedSize(400, 200)
+        
+        layout = QVBoxLayout(self)
+        
+        # 备注输入标签
+        layout.addWidget(QLabel("请输入备注信息:"))
+        
+        # 备注输入框（使用QTextEdit支持多行输入）
+        from PyQt5.QtWidgets import QTextEdit
+        self.remark_edit = QTextEdit()
+        self.remark_edit.setPlainText(self.current_remark)
+        self.remark_edit.setPlaceholderText("请输入备注信息...")
+        self.remark_edit.setStyleSheet("font-size:12px;border:1px solid #ccc;padding:5px;")
+        layout.addWidget(self.remark_edit)
+        
+        # 按钮
+        button_layout = QHBoxLayout()
+        save_btn = QPushButton("保存")
+        save_btn.clicked.connect(self.accept)
+        cancel_btn = QPushButton("取消")
+        cancel_btn.clicked.connect(self.reject)
+        button_layout.addWidget(save_btn)
+        button_layout.addWidget(cancel_btn)
+        layout.addLayout(button_layout)
+        
+    def get_remark_text(self):
+        """获取编辑后的备注文本"""
+        return self.remark_edit.toPlainText().strip()
 
 class PlanNameEditDialog(QDialog):
     """操盘方案名称编辑对话框"""

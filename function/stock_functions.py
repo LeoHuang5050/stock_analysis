@@ -6168,7 +6168,7 @@ def calculate_analysis_result(valid_items):
 
         # 新增：处理止盈停损日均涨幅, 停盈止损日均涨幅
         take_and_stop_daily_change = round(mean_take_and_stop_change / mean_hold_days, 2) if mean_take_and_stop_change != '' and mean_hold_days != '' and mean_hold_days != 0 else ''
-        stop_and_take_daily_change = round(mean_stop_and_take_change / mean_hold_days, 2) if mean_stop_and_take_change != '' and mean_hold_days != '' and mean_hold_days != 0 else ''
+        stop_and_take_daily_change = round(mean_stop_and_take_change / mean_adjust_days, 2) if mean_stop_and_take_change != '' and mean_adjust_days != '' and mean_adjust_days != 0 else ''
         
         if mean_hold_days != '':
             hold_days_list.append(mean_hold_days)
@@ -6209,11 +6209,17 @@ def calculate_analysis_result(valid_items):
         if mean_stop_and_take_change != '':
             stop_and_take_change_list.append(mean_stop_and_take_change)
 
-        # 新增：处理止盈停损日均涨跌幅, 停盈止损日均涨跌幅
+        # 止盈停损日均涨跌幅
         if take_and_stop_daily_change != '':
             take_and_stop_daily_with_nan_list.append(take_and_stop_daily_change)
+        else:
+            take_and_stop_daily_with_nan_list.append(0)
+
+        #停盈止损日均涨跌幅
         if stop_and_take_daily_change != '':
             stop_and_take_daily_with_nan_list.append(stop_and_take_daily_change)
+        else:
+            stop_and_take_daily_with_nan_list.append(0)
 
         # 添加到items列表
         items.append({
