@@ -6309,6 +6309,14 @@ def calculate_analysis_result(valid_items, parent=None):
                 mean_min_calc = parent.mean_min_calc_checkbox.isChecked()
             except AttributeError:
                 mean_min_calc = False
+        
+        # 获取收益法均值勾选框状态
+        profit_mean_calc = False
+        if parent and hasattr(parent, 'profit_mean_checkbox') and parent.profit_mean_checkbox:
+            try:
+                profit_mean_calc = parent.profit_mean_checkbox.isChecked()
+            except AttributeError:
+                profit_mean_calc = False
 
         # 计算单值均值法的日均涨跌幅
         daily_change_single = round(mean_ops_change / mean_adjust_days, 2) if mean_ops_change != '' and mean_adjust_days != '' and mean_adjust_days != 0 else ''
@@ -6609,6 +6617,101 @@ def calculate_analysis_result(valid_items, parent=None):
     hold_days_val = safe_mean(hold_days_list)
     mean_take_and_stop_change_val = safe_mean(take_and_stop_change_list)
     mean_stop_and_take_change_val = safe_mean(stop_and_take_change_list)
+    
+    # 收益法均值计算
+    if profit_mean_calc:
+        # 初始可投入资金为100
+        initial_capital = 100.0
+        # 存储每个日期的资金占用情况
+        capital_usage = {}  # {date: {stock_id: (amount, release_date)}}
+        # 存储每个日期的收益
+        daily_profits = {}  # {date: profit}
+        
+        # 遍历每个日期，计算收益
+        for i, (date_key, stocks) in enumerate(valid_items):
+            if not stocks:
+                continue
+                
+            # 计算当前可投入资金
+            available_capital = initial_capital
+            # 减去被占用的资金
+            for usage_date, usages in capital_usage.items():
+                for stock_id, (amount, release_date) in usages.items():
+                    # 简化日期比较，假设日期是字符串格式
+                    if str(release_date) > str(date_key):  # 资金还未释放
+                        available_capital -= amount
+            
+            # 对选出的股票均分资金
+            stock_count = len(stocks)
+            if stock_count > 0:
+                capital_per_stock = available_capital / stock_count
+                
+                # 计算当天的总收益
+                daily_profit = 0.0
+                for stock in stocks:
+                    # 获取股票涨幅
+                    stock_change = 0.0
+                    if hasattr(stock, 'ops_change') and stock.ops_change != '':
+                        try:
+                            stock_change = float(stock.ops_change)
+                        except (ValueError, TypeError):
+                            stock_change = 0.0
+                    
+                    # 获取持有天数
+                    hold_days = 1
+                    if hasattr(stock, 'hold_days') and stock.hold_days != '':
+                        try:
+                            hold_days = int(stock.hold_days)
+                        except (ValueError, TypeError):
+                            hold_days = 1
+                    
+                    # 计算收益
+                    if hold_days == 1 and adjust_days_val != '' and adjust_days_val == 2:
+                        # 特例：持有天数为1，调整天数为2时，收益为 可投入资金 * 对应涨幅 / 2
+                        profit = capital_per_stock * stock_change / 2
+                    else:
+                        # 正常情况：收益为 可投入资金 * 对应涨幅
+                        profit = capital_per_stock * stock_change
+                    
+                    daily_profit += profit
+                    
+                    # 记录资金占用
+                    if date_key not in capital_usage:
+                        capital_usage[date_key] = {}
+                    # 计算资金释放日期（简化处理，假设按交易日计算）
+                    # 这里需要根据实际的日期格式来处理，暂时使用索引方式
+                    current_index = i
+                    release_index = current_index + hold_days
+                    # 如果释放日期超出了valid_items的范围，则使用最后一个日期
+                    if release_index >= len(valid_items):
+                        release_date = valid_items[-1][0] if valid_items else date_key
+                    else:
+                        release_date = valid_items[release_index][0]
+                    capital_usage[date_key][stock.id if hasattr(stock, 'id') else str(stock)] = (capital_per_stock, release_date)
+                
+                daily_profits[date_key] = daily_profit
+        
+        # 计算总收益和总持有天数
+        total_profit = sum(daily_profits.values())
+        total_hold_days = len(valid_items)  # 总持有天数（结束日期数量）
+        
+        # 计算各收益率
+        if total_hold_days > 0:
+            profit_rate = total_profit / total_hold_days
+        else:
+            profit_rate = 0.0
+        
+        # 更新四个含空均值
+        mean_daily_with_nan_profit = profit_rate
+        mean_adjust_daily_with_nan_profit = profit_rate
+        mean_take_and_stop_daily_with_nan_profit = profit_rate
+        mean_stop_and_take_daily_with_nan_profit = profit_rate
+    else:
+        # 当收益法均值为false时，按照目前逻辑统计
+        mean_daily_with_nan_profit = None
+        mean_adjust_daily_with_nan_profit = None
+        mean_take_and_stop_daily_with_nan_profit = None
+        mean_stop_and_take_daily_with_nan_profit = None
     summary = {
         'mean_hold_days': hold_days_val,
         'mean_ops_change': mean_ops_change_val,
@@ -6619,14 +6722,14 @@ def calculate_analysis_result(valid_items, parent=None):
         'mean_adjust_daily_change': safe_mean(adjust_daily_change_list),
         'mean_non_nan': safe_mean(non_nan_mean_list),    # 停盈停损从下往上非空均值
         'mean_with_nan': safe_mean(with_nan_mean_list),  # 停盈停损从下往上含空均值
-        'mean_daily_with_nan': safe_mean(daily_change_list_with_nan),  # 使用含空值的列表计算均值
+        'mean_daily_with_nan': mean_daily_with_nan_profit if mean_daily_with_nan_profit is not None else safe_mean(daily_change_list_with_nan),  # 使用含空值的列表计算均值
         'max_change': max(daily_change_list) if daily_change_list else '',
         'min_change': min(daily_change_list) if daily_change_list else '',
         # 新增：调幅相关统计
         'mean_adjust_ops_incre_rate': safe_mean(adjust_ops_incre_rate_list),
         'mean_adjust_non_nan': safe_mean(adjust_non_nan_mean_list), # 止盈止损从下往上非空均值
         'mean_adjust_with_nan': safe_mean(adjust_with_nan_mean_list), # 止盈止损从下往上含空均值
-        'mean_adjust_daily_with_nan': safe_mean(adjust_ops_incre_rate_list_with_nan),
+        'mean_adjust_daily_with_nan': mean_adjust_daily_with_nan_profit if mean_adjust_daily_with_nan_profit is not None else safe_mean(adjust_ops_incre_rate_list_with_nan),
         'max_adjust_ops_incre_rate': max(adjust_ops_incre_rate_list) if adjust_ops_incre_rate_list else '',
         'min_adjust_ops_incre_rate': min(adjust_ops_incre_rate_list) if adjust_ops_incre_rate_list else '',
         # 新增：止盈停损相关统计，停盈止损相关统计
@@ -6635,13 +6738,13 @@ def calculate_analysis_result(valid_items, parent=None):
         'mean_take_and_stop_daily_change': safe_mean(take_and_stop_daily_change_list),
         'mean_take_and_stop_non_nan': safe_mean(take_and_stop_non_nan_mean_list),
         'mean_take_and_stop_with_nan': safe_mean(take_and_stop_with_nan_mean_list),
-        'mean_take_and_stop_daily_with_nan': safe_mean(take_and_stop_daily_with_nan_list),
+        'mean_take_and_stop_daily_with_nan': mean_take_and_stop_daily_with_nan_profit if mean_take_and_stop_daily_with_nan_profit is not None else safe_mean(take_and_stop_daily_with_nan_list),
         'mean_stop_and_take_change': mean_stop_and_take_change_val,
         'comprehensive_stop_and_take_change': round(mean_stop_and_take_change_val / hold_days_val, 2) if mean_stop_and_take_change_val != '' and hold_days_val != '' and hold_days_val != 0 else '',
         'mean_stop_and_take_daily_change': safe_mean(stop_and_take_daily_change_list),
         'mean_stop_and_take_non_nan': safe_mean(stop_and_take_non_nan_mean_list),
         'mean_stop_and_take_with_nan': safe_mean(stop_and_take_with_nan_mean_list),
-        'mean_stop_and_take_daily_with_nan': safe_mean(stop_and_take_daily_with_nan_list),
+        'mean_stop_and_take_daily_with_nan': mean_stop_and_take_daily_with_nan_profit if mean_stop_and_take_daily_with_nan_profit is not None else safe_mean(stop_and_take_daily_with_nan_list),
         # 新增：调整天数和止盈止损涨幅统计
         'mean_adjust_days': adjust_days_val,
         # 添加从下往上的前1~4个的非空均值和含空均值
