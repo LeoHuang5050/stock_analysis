@@ -1,6 +1,6 @@
 import sys
 from PyQt5.QtWidgets import (
-    QApplication, QWidget, QLabel, QPushButton, QComboBox, QSpinBox, QDateEdit, QCheckBox, QGridLayout, QHBoxLayout, QVBoxLayout, QSizePolicy, QTextEdit, QLineEdit, QDialog, QMessageBox, QFrame, QStackedLayout, QTableWidget, QTableWidgetItem, QHeaderView
+    QApplication, QWidget, QLabel, QPushButton, QComboBox, QSpinBox, QDoubleSpinBox, QDateEdit, QCheckBox, QGridLayout, QHBoxLayout, QVBoxLayout, QSizePolicy, QTextEdit, QLineEdit, QDialog, QMessageBox, QFrame, QStackedLayout, QTableWidget, QTableWidgetItem, QHeaderView
 )
 from PyQt5.QtCore import Qt, QDate, QItemSelectionModel
 from PyQt5.QtGui import QKeySequence, QGuiApplication, QIntValidator, QPixmap, QDoubleValidator, QValidator
@@ -342,7 +342,7 @@ class StockAnalysisApp(QWidget):
         top_grid.addWidget(self.direction_checkbox, 0, 7)
         top_grid.addWidget(self.range_label, 0, 9)
         top_grid.addWidget(self.range_value_edit, 0, 10)
-        top_grid.addWidget(abs_sum_widget, 0, 11)
+        # top_grid.addWidget(abs_sum_widget, 0, 11)
        
 
         # 第二行
@@ -511,7 +511,7 @@ class StockAnalysisApp(QWidget):
         top_grid.addWidget(ops_change_widget, 2, 8)
         top_grid.addWidget(self.valid_abs_sum_label, 2, 9)
         top_grid.addWidget(self.valid_abs_sum_threshold_edit, 2, 10)
-        top_grid.addWidget(cpu_widget, 2, 11)  # 添加CPU核心数控件
+        # top_grid.addWidget(cpu_widget, 2, 11)  # 添加CPU核心数控件
 
         # 添加交易方式下拉框
         trade_mode_widget = QWidget()
@@ -650,6 +650,49 @@ class StockAnalysisApp(QWidget):
         new_before_high2_logic_layout.addWidget(self.new_before_high2_logic_label)
         new_before_high2_logic_layout.addWidget(self.new_before_high2_logic_combo)
         new_before_high2_logic_widget.setLayout(new_before_high2_logic_layout)
+
+        # 综合均值系数控件
+        self.mean_coefficient_label = QLabel("综合均值系数")
+        self.mean_coefficient_edit = QLineEdit()
+        self.mean_coefficient_edit.setText("0.00")
+        self.mean_coefficient_edit.setMaximumWidth(20)
+        mean_coefficient_widget = QWidget()
+        mean_coefficient_layout = QHBoxLayout()
+        mean_coefficient_layout.setContentsMargins(0, 0, 0, 0)
+        mean_coefficient_layout.setSpacing(0)
+        mean_coefficient_layout.setAlignment(Qt.AlignLeft)
+        # 设置数值验证器，允许0-1之间的数值
+        validator = QDoubleValidator(0.0, 1.0, 2)
+        validator.setNotation(QDoubleValidator.StandardNotation)
+        self.mean_coefficient_edit.setValidator(validator)
+        mean_coefficient_layout.addWidget(self.mean_coefficient_label)
+        mean_coefficient_layout.addWidget(self.mean_coefficient_edit)
+        mean_coefficient_widget.setLayout(mean_coefficient_layout)
+        mean_coefficient_widget.setMaximumWidth(100)
+
+        # 均值按两者最小值计算勾选框
+        mean_min_calc_widget = QWidget()
+        mean_min_calc_layout = QHBoxLayout()
+        mean_min_calc_layout.setContentsMargins(0, 0, 0, 0)
+        mean_min_calc_layout.setSpacing(5)
+        mean_min_calc_layout.setAlignment(Qt.AlignLeft)
+        self.mean_min_calc_label = QLabel("均值按两者最小值计算")
+        self.mean_min_calc_checkbox = QCheckBox()
+        mean_min_calc_layout.addWidget(self.mean_min_calc_label)
+        mean_min_calc_layout.addWidget(self.mean_min_calc_checkbox)
+        mean_min_calc_widget.setLayout(mean_min_calc_layout)
+
+        # 收益法均值勾选框
+        profit_mean_widget = QWidget()
+        profit_mean_layout = QHBoxLayout()
+        profit_mean_layout.setContentsMargins(0, 0, 0, 0)
+        profit_mean_layout.setSpacing(5)
+        profit_mean_layout.setAlignment(Qt.AlignLeft)
+        self.profit_mean_label = QLabel("收益法均值")
+        self.profit_mean_checkbox = QCheckBox()
+        profit_mean_layout.addWidget(self.profit_mean_label)
+        profit_mean_layout.addWidget(self.profit_mean_checkbox)
+        profit_mean_widget.setLayout(profit_mean_layout)
 
         top_grid.addWidget(new_before_high_start_widget, 2, 0)
         top_grid.addWidget(new_before_high_range_widget, 2, 1)
@@ -791,6 +834,9 @@ class StockAnalysisApp(QWidget):
         top_grid.addWidget(new_after_high2_range_widget, 3, 5)
         top_grid.addWidget(new_after_high2_span_widget, 3, 6)
         top_grid.addWidget(new_after_high2_logic_widget, 3, 7)
+        top_grid.addWidget(mean_coefficient_widget, 3, 8)
+        top_grid.addWidget(mean_min_calc_widget, 3, 9)
+        top_grid.addWidget(profit_mean_widget, 3, 10)
 
         # 创新低开始日期天数
         self.new_before_low_flag_checkbox = QCheckBox()
@@ -1044,6 +1090,7 @@ class StockAnalysisApp(QWidget):
         top_grid.addWidget(new_before_low2_range_widget, 4, 5)
         top_grid.addWidget(new_before_low2_span_widget, 4, 6)
         top_grid.addWidget(new_before_low2_logic_widget, 4, 7)
+        top_grid.addWidget(abs_sum_widget, 4, 8)
 
         top_grid.addWidget(new_after_low_start_widget, 5, 0)
         top_grid.addWidget(new_after_low_range_widget, 5, 1)
@@ -1053,6 +1100,7 @@ class StockAnalysisApp(QWidget):
         top_grid.addWidget(new_after_low2_range_widget, 5, 5)
         top_grid.addWidget(new_after_low2_span_widget, 5, 6)
         top_grid.addWidget(new_after_low2_logic_widget, 5, 7)
+        top_grid.addWidget(cpu_widget, 5, 8)
 
         # 查询区控件
         self.query_input = QLineEdit()
@@ -1287,7 +1335,8 @@ class StockAnalysisApp(QWidget):
                                 end_date_start=None, end_date_end=None, end_date=None, comparison_vars=None, width=None, op_days=None, 
                                 inc_rate=None, after_gt_end_ratio=None, after_gt_start_ratio=None,
                                 stop_loss_inc_rate=None, stop_loss_after_gt_end_ratio=None, stop_loss_after_gt_start_ratio=None,
-                                new_high_low_params=None, profit_type="INC", loss_type="INC"):
+                                new_high_low_params=None, profit_type="INC", loss_type="INC", 
+                                negative_multiplier=1.0, positive_multiplier=1.0):
         # 直接在此处校验创新高/创新低日期范围
         workdays = getattr(self.init, 'workdays_str', None)
         # 如果没有传入end_date，则从控件获取
@@ -1539,8 +1588,14 @@ class StockAnalysisApp(QWidget):
         # 添加盈损参数
         params['profit_type'] = profit_type
         params['loss_type'] = loss_type
-
         
+        # 添加倍增系数参数
+        params['negative_multiplier'] = negative_multiplier
+        params['positive_multiplier'] = positive_multiplier
+        # INSERT_YOUR_CODE
+        print(f"负值倍增系数: {negative_multiplier}")
+        print(f"正值倍增系数: {positive_multiplier}")
+
         if only_show_selected is not None:
             params['only_show_selected'] = only_show_selected
         # 添加CPU核心数参数
@@ -1595,7 +1650,7 @@ class StockAnalysisApp(QWidget):
         table.setEditTriggers(QTableWidget.NoEditTriggers)
 
         # 使用新的分析结果计算函数
-        result = calculate_analysis_result(valid_items)
+        result = calculate_analysis_result(valid_items, self)
         
         # 设置第一行的均值数据
         summary = result['summary']
@@ -3099,6 +3154,9 @@ class StockAnalysisApp(QWidget):
             'component_only_better_trading_plan_percent': getattr(self, 'last_component_only_better_trading_plan_percent', 0.0),
             'component_comprehensive_daily_change_threshold': getattr(self, 'last_component_comprehensive_daily_change_threshold', 0.0),
             'component_comprehensive_stop_daily_change_threshold': getattr(self, 'last_component_comprehensive_stop_daily_change_threshold', 0.0),
+            # 新增：综合均值系数和均值按两者最小值计算
+            'mean_coefficient': self.mean_coefficient_edit.text(),
+            'mean_min_calc': self.mean_min_calc_checkbox.isChecked(),
             # 新增：保存组合分析总体结果
             'overall_stats': getattr(self, 'overall_stats', None),
             # 新增：保存三次分析相关数据
@@ -3138,17 +3196,67 @@ class StockAnalysisApp(QWidget):
             elif hasattr(self, 'trading_plan_widget'):
                 config['trading_plan_end_date'] = self.trading_plan_widget.end_date_picker.date().toString("yyyy-MM-dd")
         try:
-            with open('config.json', 'w', encoding='utf-8') as f:
-                json.dump(config, f, ensure_ascii=False, indent=2)
+            # 使用原子性写入，先写入临时文件，成功后再替换原文件
+            import tempfile
+            import shutil
+            
+            # 备份原文件（如果存在）
+            if os.path.exists('config.json'):
+                shutil.copy2('config.json', 'config.json.backup')
+            
+            # 创建临时文件
+            with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', delete=False, suffix='.tmp') as temp_file:
+                json.dump(config, temp_file, ensure_ascii=False, indent=2)
+                temp_file.flush()  # 确保数据写入磁盘
+                temp_file_path = temp_file.name
+            
+            # 原子性替换：将临时文件重命名为目标文件
+            # 这个操作在大多数文件系统上是原子的
+            shutil.move(temp_file_path, 'config.json')
+            
         except Exception as e:
             print(f"保存配置失败: {e}")
+            # 清理可能残留的临时文件
+            if 'temp_file_path' in locals() and os.path.exists(temp_file_path):
+                try:
+                    os.unlink(temp_file_path)
+                except:
+                    pass
 
     def load_config(self):
         if not os.path.exists('config.json'):
             return
+        
+        # 首先尝试加载配置文件
+        config = None
         try:
             with open('config.json', 'r', encoding='utf-8') as f:
                 config = json.load(f)
+        except (json.JSONDecodeError, ValueError) as e:
+            print(f"配置文件格式错误，可能已损坏: {e}")
+            # 尝试从备份恢复（如果有的话）
+            if os.path.exists('config.json.backup'):
+                try:
+                    print("尝试从备份文件恢复配置...")
+                    import shutil
+                    shutil.copy2('config.json.backup', 'config.json')
+                    with open('config.json', 'r', encoding='utf-8') as f:
+                        config = json.load(f)
+                    print("已从备份恢复配置文件")
+                except Exception as restore_e:
+                    print(f"从备份恢复失败: {restore_e}")
+                    return
+            else:
+                print("没有找到备份文件，跳过配置加载")
+                return
+        except Exception as e:
+            print(f"加载配置文件失败: {e}")
+            return
+        
+        if config is None:
+            return
+        
+        try:
             if 'width' in config:
                 self.width_spin.setValue(config['width'])
             if 'start_option' in config:
@@ -3367,6 +3475,11 @@ class StockAnalysisApp(QWidget):
                 self.last_component_comprehensive_daily_change_threshold = config['component_comprehensive_daily_change_threshold']
             if 'component_comprehensive_stop_daily_change_threshold' in config:
                 self.last_component_comprehensive_stop_daily_change_threshold = config['component_comprehensive_stop_daily_change_threshold']
+            # 新增：恢复综合均值系数和均值按两者最小值计算
+            if 'mean_coefficient' in config:
+                self.mean_coefficient_edit.setText(config['mean_coefficient'])
+            if 'mean_min_calc' in config:
+                self.mean_min_calc_checkbox.setChecked(config['mean_min_calc'])
             # 新增：恢复组合分析总体结果
             if 'overall_stats' in config:
                 self.overall_stats = config['overall_stats']

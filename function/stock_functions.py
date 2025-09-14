@@ -1734,6 +1734,31 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
         profit_type = profit_combo.currentText()
         loss_type = loss_combo.currentText()
         
+        # 获取倍增系数参数（选股时使用下限值）
+        negative_multiplier = 1.0
+        positive_multiplier = 1.0
+        
+        # 从特殊变量控件中获取倍增系数
+        if 'negative_multiplier' in formula_widget.var_widgets:
+            widgets = formula_widget.var_widgets['negative_multiplier']
+            if 'checkbox' in widgets and widgets['checkbox'].isChecked():
+                lower_text = widgets.get('lower', '').text().strip()
+                if lower_text:
+                    try:
+                        negative_multiplier = round(float(lower_text), 2)
+                    except ValueError:
+                        negative_multiplier = 1.0
+        
+        if 'positive_multiplier' in formula_widget.var_widgets:
+            widgets = formula_widget.var_widgets['positive_multiplier']
+            if 'checkbox' in widgets and widgets['checkbox'].isChecked():
+                lower_text = widgets.get('lower', '').text().strip()
+                if lower_text:
+                    try:
+                        positive_multiplier = round(float(lower_text), 2)
+                    except ValueError:
+                        positive_multiplier = 1.0
+        
         all_param_result = parent.get_or_calculate_result(
             formula_expr=formula_expr,
             select_count=select_count,
@@ -1742,7 +1767,9 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
             only_show_selected=False,  # 保持False以获取完整数据
             comparison_vars=comparison_vars,
             profit_type=profit_type,
-            loss_type=loss_type
+            loss_type=loss_type,
+            negative_multiplier=negative_multiplier,
+            positive_multiplier=positive_multiplier
         )
         if all_param_result is None:
             # QMessageBox.information(parent, "提示", "请先上传数据文件！")
@@ -1778,31 +1805,41 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
             stock_indices = [stock.get('stock_idx') for stock in first_stocks if 'stock_idx' in stock]
             print(f"选股第一个日期 {first_date} 的stock_idx: {stock_indices}")
         parent.all_param_result = all_param_result
-        if not merged_results or not any(merged_results.values()):
-            QMessageBox.information(parent, "提示", "没有选股结果。")
-            return
-        first_date = list(merged_results.keys())[0]
-        stocks = merged_results[first_date]
-        import math
-        filtered = []
-        for stock in stocks:
-            score = stock.get('score')
-            end_value = stock.get('end_value', [None, None])[1] if isinstance(stock.get('end_value'), (list, tuple)) else stock.get('end_value')
-            hold_days = stock.get('hold_days', None)
-            if score is not None and score != 0 and not (isinstance(end_value, float) and math.isnan(end_value)) and hold_days != -1:
-                filtered.append(stock)
-        reverse = sort_mode == "最大值排序"
-        filtered.sort(key=lambda x: x['score'], reverse=reverse)
-        selected_result = filtered[:select_count]
-        if not selected_result:
-            QMessageBox.information(parent, "提示", "没有选股结果。")
-            return
-        parent.last_formula_select_result_data = {'dates': {first_date: selected_result}}
-        
-        # 保存当前日期的索引到缓存中
-        workdays_str = getattr(parent.init, 'workdays_str', [])
-        if first_date in workdays_str:
-            parent.last_selected_date_idx_for_navigation = workdays_str.index(first_date)
+        # 获取第一个日期，无论是否有选股结果
+        if merged_results:
+            first_date = list(merged_results.keys())[0]
+            # 处理选股结果
+            if any(merged_results.values()):
+                # 有选股结果，进行过滤和排序
+                stocks = merged_results[first_date]
+                import math
+                filtered = []
+                for stock in stocks:
+                    score = stock.get('score')
+                    end_value = stock.get('end_value', [None, None])[1] if isinstance(stock.get('end_value'), (list, tuple)) else stock.get('end_value')
+                    hold_days = stock.get('hold_days', None)
+                    if score is not None and score != 0 and not (isinstance(end_value, float) and math.isnan(end_value)) and hold_days != -1:
+                        filtered.append(stock)
+                reverse = sort_mode == "最大值排序"
+                filtered.sort(key=lambda x: x['score'], reverse=reverse)
+                selected_result = filtered[:select_count]
+            else:
+                # 没有选股结果，使用空列表
+                selected_result = []
+            
+            # 创建选股结果数据
+            parent.last_formula_select_result_data = {'dates': {first_date: selected_result}}
+            
+            # 保存当前日期的索引到缓存中
+            workdays_str = getattr(parent.init, 'workdays_str', [])
+            if first_date in workdays_str:
+                parent.last_selected_date_idx_for_navigation = workdays_str.index(first_date)
+            else:
+                parent.last_selected_date_idx_for_navigation = 0
+        else:
+            # 完全没有merged_results，创建空数据
+            parent.last_formula_select_result_data = {'dates': {}}
+            parent.last_selected_date_idx_for_navigation = 0
         
         table = show_formula_select_table_result(parent, parent.last_formula_select_result_data, getattr(parent, 'init', None) and getattr(parent.init, 'price_data', None), is_select_action=True)
         # 弹窗展示 - 使用主窗口级别的窗口管理
@@ -2185,9 +2222,57 @@ def show_formula_select_table_result(parent, result, price_data=None, output_edi
     mean_stop_and_take_incre_rate = safe_mean(stop_and_take_incre_rate_list)
     #print(f"mean_hold_days={mean_hold_days}, mean_adjust_ops_change={mean_adjust_ops_change}")
     #print(f"mean_hold_days={mean_adjust_days}, mean_adjust_ops_change={mean_ops_incre_rate}")
-    # 计算日均涨幅均值
-    mean_adjust_ops_incre_rate_daily = mean_adjust_ops_change / mean_hold_days if mean_adjust_ops_change != '' and mean_hold_days != '' and mean_hold_days != 0 else ''
-    mean_ops_incre_rate_daily = mean_ops_change / mean_adjust_days if mean_ops_change != '' and mean_adjust_days != '' and mean_adjust_days != 0 else ''
+    
+    # 从父窗口控件获取综合均值系数和均值按两者最小值计算参数
+    mean_coefficient = 0.0
+    mean_min_calc = False
+    if hasattr(parent, 'mean_coefficient_edit') and parent.mean_coefficient_edit:
+        try:
+            mean_coefficient = float(parent.mean_coefficient_edit.text()) if parent.mean_coefficient_edit.text() else 0.0
+        except (ValueError, AttributeError):
+            mean_coefficient = 0.0
+    
+    if hasattr(parent, 'mean_min_calc_checkbox') and parent.mean_min_calc_checkbox:
+        try:
+            mean_min_calc = parent.mean_min_calc_checkbox.isChecked()
+        except AttributeError:
+            mean_min_calc = False
+    
+    # 计算日均涨幅均值（单值均值法）
+    mean_adjust_ops_incre_rate_daily_single = mean_adjust_ops_change / mean_hold_days if mean_adjust_ops_change != '' and mean_hold_days != '' and mean_hold_days != 0 else ''
+    mean_ops_incre_rate_daily_single = mean_ops_change / mean_adjust_days if mean_ops_change != '' and mean_adjust_days != '' and mean_adjust_days != 0 else ''
+    mean_take_and_stop_incre_rate_daily_single = mean_take_and_stop_change / mean_hold_days if mean_take_and_stop_change != '' and mean_hold_days != '' and mean_hold_days != 0 else ''
+    mean_stop_and_take_incre_rate_daily_single = mean_stop_and_take_change / mean_adjust_days if mean_stop_and_take_change != '' and mean_adjust_days != '' and mean_adjust_days != 0 else ''
+    
+    # 计算综合均值法（涨幅和值/平均天数）
+    # 获取涨幅和值
+    total_adjust_ops_change = sum(adjust_ops_change_list) if adjust_ops_change_list else 0
+    total_ops_change = sum(ops_change_list) if ops_change_list else 0
+    total_take_and_stop_change = sum(take_and_stop_change_list) if take_and_stop_change_list else 0
+    total_stop_and_take_change = sum(stop_and_take_change_list) if stop_and_take_change_list else 0
+    
+    # 计算综合均值法的日均涨幅
+    mean_adjust_ops_incre_rate_daily_comprehensive = total_adjust_ops_change / mean_hold_days if total_adjust_ops_change != 0 and mean_hold_days != '' and mean_hold_days != 0 else ''
+    mean_ops_incre_rate_daily_comprehensive = total_ops_change / mean_adjust_days if total_ops_change != 0 and mean_adjust_days != '' and mean_adjust_days != 0 else ''
+    mean_take_and_stop_incre_rate_daily_comprehensive = total_take_and_stop_change / mean_hold_days if total_take_and_stop_change != 0 and mean_hold_days != '' and mean_hold_days != 0 else ''
+    mean_stop_and_take_incre_rate_daily_comprehensive = total_stop_and_take_change / mean_adjust_days if total_stop_and_take_change != 0 and mean_adjust_days != '' and mean_adjust_days != 0 else ''
+    
+    # 根据综合均值系数混合两种方法
+    single_weight = 1 - mean_coefficient
+    comprehensive_weight = mean_coefficient
+    
+    # 如果启用均值按两者最小值计算，则使用最小值
+    if mean_min_calc:
+        mean_adjust_ops_incre_rate_daily = min(mean_adjust_ops_incre_rate_daily_single, mean_adjust_ops_incre_rate_daily_comprehensive) if mean_adjust_ops_incre_rate_daily_single != '' and mean_adjust_ops_incre_rate_daily_comprehensive != '' else (mean_adjust_ops_incre_rate_daily_single if mean_adjust_ops_incre_rate_daily_single != '' else mean_adjust_ops_incre_rate_daily_comprehensive)
+        mean_ops_incre_rate_daily = min(mean_ops_incre_rate_daily_single, mean_ops_incre_rate_daily_comprehensive) if mean_ops_incre_rate_daily_single != '' and mean_ops_incre_rate_daily_comprehensive != '' else (mean_ops_incre_rate_daily_single if mean_ops_incre_rate_daily_single != '' else mean_ops_incre_rate_daily_comprehensive)
+        mean_take_and_stop_incre_rate_daily = min(mean_take_and_stop_incre_rate_daily_single, mean_take_and_stop_incre_rate_daily_comprehensive) if mean_take_and_stop_incre_rate_daily_single != '' and mean_take_and_stop_incre_rate_daily_comprehensive != '' else (mean_take_and_stop_incre_rate_daily_single if mean_take_and_stop_incre_rate_daily_single != '' else mean_take_and_stop_incre_rate_daily_comprehensive)
+        mean_stop_and_take_incre_rate_daily = min(mean_stop_and_take_incre_rate_daily_single, mean_stop_and_take_incre_rate_daily_comprehensive) if mean_stop_and_take_incre_rate_daily_single != '' and mean_stop_and_take_incre_rate_daily_comprehensive != '' else (mean_stop_and_take_incre_rate_daily_single if mean_stop_and_take_incre_rate_daily_single != '' else mean_stop_and_take_incre_rate_daily_comprehensive)
+    else:
+        # 按权重混合两种方法
+        mean_adjust_ops_incre_rate_daily = (single_weight * mean_adjust_ops_incre_rate_daily_single + comprehensive_weight * mean_adjust_ops_incre_rate_daily_comprehensive) if mean_adjust_ops_incre_rate_daily_single != '' and mean_adjust_ops_incre_rate_daily_comprehensive != '' else (mean_adjust_ops_incre_rate_daily_single if mean_adjust_ops_incre_rate_daily_single != '' else mean_adjust_ops_incre_rate_daily_comprehensive)
+        mean_ops_incre_rate_daily = (single_weight * mean_ops_incre_rate_daily_single + comprehensive_weight * mean_ops_incre_rate_daily_comprehensive) if mean_ops_incre_rate_daily_single != '' and mean_ops_incre_rate_daily_comprehensive != '' else (mean_ops_incre_rate_daily_single if mean_ops_incre_rate_daily_single != '' else mean_ops_incre_rate_daily_comprehensive)
+        mean_take_and_stop_incre_rate_daily = (single_weight * mean_take_and_stop_incre_rate_daily_single + comprehensive_weight * mean_take_and_stop_incre_rate_daily_comprehensive) if mean_take_and_stop_incre_rate_daily_single != '' and mean_take_and_stop_incre_rate_daily_comprehensive != '' else (mean_take_and_stop_incre_rate_daily_single if mean_take_and_stop_incre_rate_daily_single != '' else mean_take_and_stop_incre_rate_daily_comprehensive)
+        mean_stop_and_take_incre_rate_daily = (single_weight * mean_stop_and_take_incre_rate_daily_single + comprehensive_weight * mean_stop_and_take_incre_rate_daily_comprehensive) if mean_stop_and_take_incre_rate_daily_single != '' and mean_stop_and_take_incre_rate_daily_comprehensive != '' else (mean_stop_and_take_incre_rate_daily_single if mean_stop_and_take_incre_rate_daily_single != '' else mean_stop_and_take_incre_rate_daily_comprehensive)
     # 插入均值行
     mean_row_idx = len(stocks) + 1
     table.setItem(mean_row_idx, 0, QTableWidgetItem(""))
@@ -2196,12 +2281,12 @@ def show_formula_select_table_result(parent, result, price_data=None, output_edi
     table.setItem(mean_row_idx, 3, QTableWidgetItem(f"{mean_adjust_ops_change}%" if mean_adjust_ops_change != '' else ''))  # 止盈止损涨幅均值
     table.setItem(mean_row_idx, 4, QTableWidgetItem(f"{mean_adjust_ops_incre_rate_daily:.2f}%" if mean_adjust_ops_incre_rate_daily != '' else ''))  # 止盈止损日均涨幅均值
     table.setItem(mean_row_idx, 5, QTableWidgetItem(f"{mean_take_and_stop_change}%" if mean_take_and_stop_change != '' else ''))  # 止盈停损涨幅均值
-    table.setItem(mean_row_idx, 6, QTableWidgetItem(f"{mean_take_and_stop_incre_rate:.2f}%" if mean_take_and_stop_incre_rate != '' else ''))  # 止盈停损日均涨幅均值
+    table.setItem(mean_row_idx, 6, QTableWidgetItem(f"{mean_take_and_stop_incre_rate_daily:.2f}%" if mean_take_and_stop_incre_rate_daily != '' else ''))  # 止盈停损日均涨幅均值
     table.setItem(mean_row_idx, 7, QTableWidgetItem(str(mean_adjust_days)))
     table.setItem(mean_row_idx, 8, QTableWidgetItem(f"{mean_ops_change}%" if mean_ops_change != '' else ''))  # 停盈停损涨幅均值
     table.setItem(mean_row_idx, 9, QTableWidgetItem(f"{mean_ops_incre_rate_daily:.2f}%" if mean_ops_incre_rate_daily != '' else ''))  # 停盈停损日均涨幅均值
     table.setItem(mean_row_idx, 10, QTableWidgetItem(f"{mean_stop_and_take_change}%" if mean_stop_and_take_change != '' else ''))  # 停盈止损涨幅均值
-    table.setItem(mean_row_idx, 11, QTableWidgetItem(f"{mean_stop_and_take_incre_rate:.2f}%" if mean_stop_and_take_incre_rate != '' else ''))  # 停盈止损日均涨幅均值
+    table.setItem(mean_row_idx, 11, QTableWidgetItem(f"{mean_stop_and_take_incre_rate_daily:.2f}%" if mean_stop_and_take_incre_rate_daily != '' else ''))  # 停盈止损日均涨幅均值
     table.resizeColumnsToContents()
     table.horizontalHeader().setFixedHeight(50)
     table.horizontalHeader().setStyleSheet("font-size: 12px;")
@@ -2288,7 +2373,10 @@ def get_special_abbr_map():
         ("创前后新高低1展宽期天数", "new_high_low1_span"),
         ("创前后新高低2开始日期距结束日期天数", "new_high_low2_start"),
         ("创前后新高低2日期范围", "new_high_low2_range"),
-        ("创前后新高低2展宽期天数", "new_high_low2_span")
+        ("创前后新高低2展宽期天数", "new_high_low2_span"),
+        # 新增：负值倍增系数和正值倍增系数
+        ("负值倍增系数", "negative_multiplier"),
+        ("正值倍增系数", "positive_multiplier")
     ]
     return {zh: en for zh, en in abbrs}
 class FormulaSelectWidget(QWidget):
@@ -4732,7 +4820,7 @@ class FormulaSelectWidget(QWidget):
         
         # 先收集勾选的变量
         for en, widgets in self.var_widgets.items():
-            if en in ['width', 'op_days', 'increment_rate', 'after_gt_end_ratio', 'after_gt_start_ratio', 'stop_loss_inc_rate', 'stop_loss_after_gt_end_ratio', 'stop_loss_after_gt_start_ratio']:
+            if en in ['width', 'op_days', 'increment_rate', 'after_gt_end_ratio', 'after_gt_start_ratio', 'stop_loss_inc_rate', 'stop_loss_after_gt_end_ratio', 'stop_loss_after_gt_start_ratio', 'negative_multiplier', 'positive_multiplier']:
                 if 'checkbox' in widgets and widgets['checkbox'].isChecked():
                     lower_text = widgets.get('lower', '').text().strip()
                     upper_text = widgets.get('upper', '').text().strip()
@@ -4746,6 +4834,13 @@ class FormulaSelectWidget(QWidget):
                                 step_val = int(float(step_text))
                                 # 生成整数序列
                                 values = list(range(lower_val, upper_val + 1, step_val))
+                            elif en in ['negative_multiplier', 'positive_multiplier']:
+                                # 倍增系数使用浮点数，保留两位小数
+                                lower_val = float(lower_text)
+                                upper_val = float(upper_text)
+                                step_val = float(step_text)
+                                values = [round(v, 2) for v in
+                                         list(self._frange(lower_val, upper_val, step_val))]
                             else:
                                 # 止盈递增率使用浮点数，保留两位小数
                                 lower_val = float(lower_text)
@@ -4767,33 +4862,61 @@ class FormulaSelectWidget(QWidget):
             'after_gt_start_ratio': getattr(self.main_window, 'after_gt_prev_edit', None),
             'stop_loss_inc_rate': getattr(self.main_window, 'stop_loss_inc_rate_edit', None),
             'stop_loss_after_gt_end_ratio': getattr(self.main_window, 'stop_loss_after_gt_end_edit', None),
-            'stop_loss_after_gt_start_ratio': getattr(self.main_window, 'stop_loss_after_gt_start_edit', None)
+            'stop_loss_after_gt_start_ratio': getattr(self.main_window, 'stop_loss_after_gt_start_edit', None),
+            'negative_multiplier': None,  # 倍增系数没有对应的主界面控件
+            'positive_multiplier': None   # 倍增系数没有对应的主界面控件
         }
         
-        for en in ['width', 'op_days', 'increment_rate', 'after_gt_end_ratio', 'after_gt_start_ratio', 'stop_loss_inc_rate', 'stop_loss_after_gt_end_ratio', 'stop_loss_after_gt_start_ratio']:
+        for en in ['width', 'op_days', 'increment_rate', 'after_gt_end_ratio', 'after_gt_start_ratio', 'stop_loss_inc_rate', 'stop_loss_after_gt_end_ratio', 'stop_loss_after_gt_start_ratio', 'negative_multiplier', 'positive_multiplier']:
             if en not in special_vars:
-                widget = param_map[en]
-                if widget is not None:
+                # 倍增系数从选股界面控件获取，其他参数从主界面控件获取
+                if en in ['negative_multiplier', 'positive_multiplier']:
+                    val = 1.0  # 默认值
                     try:
-                        # 根据控件类型获取值
-                        if hasattr(widget, 'value'):  # QSpinBox类型
-                            val = widget.value()
-                        elif hasattr(widget, 'text'):  # QLineEdit类型
-                            val = widget.text()
-                        else:
-                            val = 30 if en == 'width' else 5 if en == 'op_days' else 0
-                        
-                        # 根据变量类型转换
-                        if en in ['width', 'op_days']:
-                            val = int(float(val))
-                        else:
-                            val = round(float(val), 2)
+                        # 从当前选股界面控件获取倍增系数值
+                        if en in self.var_widgets:
+                            widgets = self.var_widgets[en]
+                            if 'checkbox' in widgets and widgets['checkbox'].isChecked():
+                                if 'lower' in widgets:
+                                    lower_text = widgets['lower'].text().strip()
+                                    if lower_text:
+                                        val = round(float(lower_text), 2)
                     except (ValueError, AttributeError):
-                        # 如果获取失败，使用默认值
-                        val = 30 if en == 'width' else 5 if en == 'op_days' else 0
+                        val = 1.0
                 else:
-                    # 如果控件不存在，使用默认值
-                    val = 30 if en == 'width' else 5 if en == 'op_days' else 0
+                    # 其他参数从主界面控件获取
+                    widget = param_map[en]
+                    if widget is not None:
+                        try:
+                            # 根据控件类型获取值
+                            if hasattr(widget, 'value'):  # QSpinBox类型
+                                val = widget.value()
+                            elif hasattr(widget, 'text'):  # QLineEdit类型
+                                val = widget.text()
+                            else:
+                                val = 30 if en == 'width' else 5 if en == 'op_days' else 0
+                            
+                            # 根据变量类型转换
+                            if en in ['width', 'op_days']:
+                                val = int(float(val))
+                            else:
+                                val = round(float(val), 2)
+                        except (ValueError, AttributeError):
+                            # 如果获取失败，使用默认值
+                            if en == 'width':
+                                val = 30
+                            elif en == 'op_days':
+                                val = 5
+                            else:
+                                val = 0
+                    else:
+                        # 如果控件不存在，使用默认值
+                        if en == 'width':
+                            val = 30
+                        elif en == 'op_days':
+                            val = 5
+                        else:
+                            val = 0
                 special_vars[en] = {'values': [val]}
         
         # 处理创新高/创新低参数，根据flag的勾选情况确定具体参数
@@ -4818,6 +4941,10 @@ class FormulaSelectWidget(QWidget):
         new_high_low2_range_values = special_vars.get('new_high_low2_range', {'values': [0]})['values']
         new_high_low2_span_values = special_vars.get('new_high_low2_span', {'values': [0]})['values']
         
+        # 倍增系数参数
+        negative_multiplier_values = special_vars.get('negative_multiplier', {'values': [1.0]})['values']
+        positive_multiplier_values = special_vars.get('positive_multiplier', {'values': [1.0]})['values']
+        
         for width in width_values:
             for op_days in op_days_values:
                 for increment_rate in increment_rate_values:
@@ -4832,12 +4959,15 @@ class FormulaSelectWidget(QWidget):
                                                     for new_high_low2_start in new_high_low2_start_values:
                                                         for new_high_low2_range in new_high_low2_range_values:
                                                             for new_high_low2_span in new_high_low2_span_values:
-                                                                special_combinations.append((
-                                                                    width, op_days, increment_rate, after_gt_end_ratio, after_gt_start_ratio, 
-                                                                    stop_loss_inc_rate, stop_loss_after_gt_end_ratio, stop_loss_after_gt_start_ratio,
-                                                                    new_high_low1_start, new_high_low1_range, new_high_low1_span,
-                                                                    new_high_low2_start, new_high_low2_range, new_high_low2_span
-                                                                ))
+                                                                for negative_multiplier in negative_multiplier_values:
+                                                                    for positive_multiplier in positive_multiplier_values:
+                                                                        special_combinations.append((
+                                                                            width, op_days, increment_rate, after_gt_end_ratio, after_gt_start_ratio, 
+                                                                            stop_loss_inc_rate, stop_loss_after_gt_end_ratio, stop_loss_after_gt_start_ratio,
+                                                                            new_high_low1_start, new_high_low1_range, new_high_low1_span,
+                                                                            new_high_low2_start, new_high_low2_range, new_high_low2_span,
+                                                                            negative_multiplier, positive_multiplier
+                                                                        ))
         
         for i, combination in enumerate(special_combinations):
             print(f"组合 {i+1}: {combination}")
@@ -5803,7 +5933,7 @@ def parse_formula_to_config(formula, abbr_map=None):
         config.setdefault('comparison_widgets', []).append(comp)
     return config
 
-def calculate_analysis_result(valid_items):
+def calculate_analysis_result(valid_items, parent=None):
     """
     计算分析结果，包含每个日期的详细数据和总体统计
     
@@ -6024,6 +6154,11 @@ def calculate_analysis_result(valid_items):
         stock_indices_per_date = []
         
         for stock in stocks:
+            # 排除统计行（stock_idx为负数的行）
+            stock_idx = stock.get('stock_idx', 0)
+            if stock_idx < 0:
+                continue
+                
             # 新增：统计end_state并收集涨跌幅数据
             try:
                 end_state_raw = stock.get('end_state', '')
@@ -6159,16 +6294,56 @@ def calculate_analysis_result(valid_items):
         mean_ops_incre_rate = safe_mean(ops_incre_rate_list_per_date)
         
         mean_adjust_ops_incre_rate = safe_mean(adjust_ops_incre_rate_list_per_date)
-        # 停盈停损日均涨跌幅
-        #daily_change = mean_ops_incre_rate
-        daily_change = round(mean_ops_change / mean_adjust_days, 2) if mean_ops_change != '' and mean_adjust_days != '' and mean_adjust_days != 0 else ''
-        #print(f"mean_ops_change={mean_ops_change}, mean_adjust_days={mean_adjust_days}, daily_change={daily_change}")
-        # 止盈止损日均涨跌幅
-        adjust_daily_change = round(mean_adjust_ops_change / mean_hold_days, 2) if mean_adjust_ops_change != '' and mean_hold_days != '' and mean_hold_days != 0 else ''
+        
+        # 从父窗口控件获取综合均值系数和均值按两者最小值计算参数
+        mean_coefficient = 0.0
+        mean_min_calc = False
+        if parent and hasattr(parent, 'mean_coefficient_edit') and parent.mean_coefficient_edit:
+            try:
+                mean_coefficient = float(parent.mean_coefficient_edit.text()) if parent.mean_coefficient_edit.text() else 0.0
+            except (ValueError, AttributeError):
+                mean_coefficient = 0.0
+        
+        if parent and hasattr(parent, 'mean_min_calc_checkbox') and parent.mean_min_calc_checkbox:
+            try:
+                mean_min_calc = parent.mean_min_calc_checkbox.isChecked()
+            except AttributeError:
+                mean_min_calc = False
 
-        # 新增：处理止盈停损日均涨幅, 停盈止损日均涨幅
-        take_and_stop_daily_change = round(mean_take_and_stop_change / mean_hold_days, 2) if mean_take_and_stop_change != '' and mean_hold_days != '' and mean_hold_days != 0 else ''
-        stop_and_take_daily_change = round(mean_stop_and_take_change / mean_adjust_days, 2) if mean_stop_and_take_change != '' and mean_adjust_days != '' and mean_adjust_days != 0 else ''
+        # 计算单值均值法的日均涨跌幅
+        daily_change_single = round(mean_ops_change / mean_adjust_days, 2) if mean_ops_change != '' and mean_adjust_days != '' and mean_adjust_days != 0 else ''
+        adjust_daily_change_single = round(mean_adjust_ops_change / mean_hold_days, 2) if mean_adjust_ops_change != '' and mean_hold_days != '' and mean_hold_days != 0 else ''
+        take_and_stop_daily_change_single = round(mean_take_and_stop_change / mean_hold_days, 2) if mean_take_and_stop_change != '' and mean_hold_days != '' and mean_hold_days != 0 else ''
+        stop_and_take_daily_change_single = round(mean_stop_and_take_change / mean_adjust_days, 2) if mean_stop_and_take_change != '' and mean_adjust_days != '' and mean_adjust_days != 0 else ''
+        
+        # 计算综合均值法的日均涨跌幅（涨幅和值/平均天数）
+        # 获取当天的涨幅和值
+        total_ops_change = sum(ops_change_list_per_date) if ops_change_list_per_date else 0
+        total_adjust_ops_change = sum(adjust_ops_change_list_per_date) if adjust_ops_change_list_per_date else 0
+        total_take_and_stop_change = sum(take_and_stop_change_list_per_date) if take_and_stop_change_list_per_date else 0
+        total_stop_and_take_change = sum(stop_and_take_change_list_per_date) if stop_and_take_change_list_per_date else 0
+        
+        daily_change_comprehensive = round(total_ops_change / mean_adjust_days, 2) if total_ops_change != 0 and mean_adjust_days != '' and mean_adjust_days != 0 else ''
+        adjust_daily_change_comprehensive = round(total_adjust_ops_change / mean_hold_days, 2) if total_adjust_ops_change != 0 and mean_hold_days != '' and mean_hold_days != 0 else ''
+        take_and_stop_daily_change_comprehensive = round(total_take_and_stop_change / mean_hold_days, 2) if total_take_and_stop_change != 0 and mean_hold_days != '' and mean_hold_days != 0 else ''
+        stop_and_take_daily_change_comprehensive = round(total_stop_and_take_change / mean_adjust_days, 2) if total_stop_and_take_change != 0 and mean_adjust_days != '' and mean_adjust_days != 0 else ''
+        
+        # 根据综合均值系数混合两种方法
+        single_weight = 1 - mean_coefficient
+        comprehensive_weight = mean_coefficient
+        
+        # 如果启用均值按两者最小值计算，则使用最小值
+        if mean_min_calc:
+            daily_change = round(min(daily_change_single, daily_change_comprehensive), 2) if daily_change_single != '' and daily_change_comprehensive != '' else (daily_change_single if daily_change_single != '' else daily_change_comprehensive)
+            adjust_daily_change = round(min(adjust_daily_change_single, adjust_daily_change_comprehensive), 2) if adjust_daily_change_single != '' and adjust_daily_change_comprehensive != '' else (adjust_daily_change_single if adjust_daily_change_single != '' else adjust_daily_change_comprehensive)
+            take_and_stop_daily_change = round(min(take_and_stop_daily_change_single, take_and_stop_daily_change_comprehensive), 2) if take_and_stop_daily_change_single != '' and take_and_stop_daily_change_comprehensive != '' else (take_and_stop_daily_change_single if take_and_stop_daily_change_single != '' else take_and_stop_daily_change_comprehensive)
+            stop_and_take_daily_change = round(min(stop_and_take_daily_change_single, stop_and_take_daily_change_comprehensive), 2) if stop_and_take_daily_change_single != '' and stop_and_take_daily_change_comprehensive != '' else (stop_and_take_daily_change_single if stop_and_take_daily_change_single != '' else stop_and_take_daily_change_comprehensive)
+        else:
+            # 按权重混合两种方法
+            daily_change = round(single_weight * daily_change_single + comprehensive_weight * daily_change_comprehensive, 2) if daily_change_single != '' and daily_change_comprehensive != '' else (daily_change_single if daily_change_single != '' else daily_change_comprehensive)
+            adjust_daily_change = round(single_weight * adjust_daily_change_single + comprehensive_weight * adjust_daily_change_comprehensive, 2) if adjust_daily_change_single != '' and adjust_daily_change_comprehensive != '' else (adjust_daily_change_single if adjust_daily_change_single != '' else adjust_daily_change_comprehensive)
+            take_and_stop_daily_change = round(single_weight * take_and_stop_daily_change_single + comprehensive_weight * take_and_stop_daily_change_comprehensive, 2) if take_and_stop_daily_change_single != '' and take_and_stop_daily_change_comprehensive != '' else (take_and_stop_daily_change_single if take_and_stop_daily_change_single != '' else take_and_stop_daily_change_comprehensive)
+            stop_and_take_daily_change = round(single_weight * stop_and_take_daily_change_single + comprehensive_weight * stop_and_take_daily_change_comprehensive, 2) if stop_and_take_daily_change_single != '' and stop_and_take_daily_change_comprehensive != '' else (stop_and_take_daily_change_single if stop_and_take_daily_change_single != '' else stop_and_take_daily_change_comprehensive)
         
         if mean_hold_days != '':
             hold_days_list.append(mean_hold_days)
@@ -6244,13 +6419,6 @@ def calculate_analysis_result(valid_items):
             'stop_and_take_non_nan_mean': '', # 停盈止损从下往上非空均值
         })
         
-        # 调试打印：股票索引和ops_change列表
-        # print(f"日期: {date_key}")
-        # print(f"股票索引列表: {stock_indices_per_date}")
-        # print(f"ops_change列表: {ops_change_list_per_date}")
-        # print(f"ops_change列表长度: {len(ops_change_list_per_date)}")
-        # print(f"股票索引列表长度: {len(stock_indices_per_date)}")
-        # print("-" * 50)
 
     # 计算从下往上的均值
     n = len(items)

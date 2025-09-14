@@ -829,6 +829,8 @@ class ComponentAnalysisWidget(QWidget):
             
             # 生成特殊参数组合
             special_params_combinations = temp_formula_widget.generate_special_params_combinations()
+            print(f"special_params_combinations = {special_params_combinations}")
+            
             print(f"生成了 {len(special_params_combinations)} 个特殊参数组合")
             
             # 检查特殊参数组合中的日期宽度是否超过数据范围
@@ -2514,9 +2516,11 @@ class ComponentAnalysisWidget(QWidget):
             new_high_low2_start = param_combination.get('new_high_low2_start', 0)
             new_high_low2_range = param_combination.get('new_high_low2_range', 0)
             new_high_low2_span = param_combination.get('new_high_low2_span', 0)
+            negative_multiplier = param_combination.get('negative_multiplier', 1.0)
+            positive_multiplier = param_combination.get('positive_multiplier', 1.0)
         else:
             # 元组/列表格式：使用解包（向后兼容）
-            width, op_days, increment_rate, after_gt_end_ratio, after_gt_start_ratio, stop_loss_inc_rate, stop_loss_after_gt_end_ratio, stop_loss_after_gt_start_ratio, new_high_low1_start, new_high_low1_range, new_high_low1_span, new_high_low2_start, new_high_low2_range, new_high_low2_span = param_combination
+            width, op_days, increment_rate, after_gt_end_ratio, after_gt_start_ratio, stop_loss_inc_rate, stop_loss_after_gt_end_ratio, stop_loss_after_gt_start_ratio, new_high_low1_start, new_high_low1_range, new_high_low1_span, new_high_low2_start, new_high_low2_range, new_high_low2_span, negative_multiplier, positive_multiplier = param_combination
         
         # 根据第二组创新高/创新低flag的勾选情况决定width值
         # 如果有勾选第二组，则使用new_high_low2_start作为width
@@ -2667,7 +2671,7 @@ class ComponentAnalysisWidget(QWidget):
         progress_msg += f"排序方式: {sort_mode}\n"
         progress_msg += f"参数组合 {param_idx + 1}/{len(self.special_params_combinations)}\n"
         
-        progress_msg += f"日期宽度={width}, 操作天数={op_days}, 递增值={increment_rate}, 后值大于结束值比例={after_gt_end_ratio}, 后值大于开始值比例={after_gt_start_ratio}, 止损递增值={stop_loss_inc_rate}, 止损后值大于结束值比例={stop_loss_after_gt_end_ratio}, 止损后值大于开始值比例={stop_loss_after_gt_start_ratio}, {new_high_low1_type}开始日期距结束日期天数={new_high_low1_start}, {new_high_low1_type}日期范围={new_high_low1_range}, {new_high_low1_type}展宽期天数={new_high_low1_span}, {new_high_low2_type}开始日期距结束日期天数={new_high_low2_start}, {new_high_low2_type}日期范围={new_high_low2_range}, {new_high_low2_type}展宽期天数={new_high_low2_span}"
+        progress_msg += f"正值倍增系数={positive_multiplier}, 负值倍增系数={negative_multiplier}, 日期宽度={width}, 操作天数={op_days}, 递增值={increment_rate}, 后值大于结束值比例={after_gt_end_ratio}, 后值大于开始值比例={after_gt_start_ratio}, 止损递增值={stop_loss_inc_rate}, 止损后值大于结束值比例={stop_loss_after_gt_end_ratio}, 止损后值大于开始值比例={stop_loss_after_gt_start_ratio}, {new_high_low1_type}开始日期距结束日期天数={new_high_low1_start}, {new_high_low1_type}日期范围={new_high_low1_range}, {new_high_low1_type}展宽期天数={new_high_low1_span}, {new_high_low2_type}开始日期距结束日期天数={new_high_low2_start}, {new_high_low2_type}日期范围={new_high_low2_range}, {new_high_low2_type}展宽期天数={new_high_low2_span}"
         self.show_message(progress_msg)
         
         try:
@@ -2675,7 +2679,7 @@ class ComponentAnalysisWidget(QWidget):
             self.main_window.last_formula_expr = formula
             
             # 执行组合分析专用方法，直接传递参数
-            result = self._execute_component_analysis_single(formula, width, op_days, increment_rate, after_gt_end_ratio, after_gt_start_ratio, stop_loss_inc_rate, stop_loss_after_gt_end_ratio, stop_loss_after_gt_start_ratio, sort_mode, new_high_low1_start, new_high_low1_range, new_high_low1_span, new_high_low2_start, new_high_low2_range, new_high_low2_span)
+            result = self._execute_component_analysis_single(formula, width, op_days, increment_rate, after_gt_end_ratio, after_gt_start_ratio, stop_loss_inc_rate, stop_loss_after_gt_end_ratio, stop_loss_after_gt_start_ratio, sort_mode, new_high_low1_start, new_high_low1_range, new_high_low1_span, new_high_low2_start, new_high_low2_range, new_high_low2_span, negative_multiplier, positive_multiplier)
             
             # 再次检查是否被终止
             if self.analysis_terminated:
@@ -2687,7 +2691,7 @@ class ComponentAnalysisWidget(QWidget):
                 valid_items = [(date_key, stocks) for date_key, stocks in merged_results.items()]
                 
                 # 调用calculate_analysis_result计算统计结果
-                analysis_stats = calculate_analysis_result(valid_items)
+                analysis_stats = calculate_analysis_result(valid_items, self.main_window)
                 #print(f"_execute_single_analysis result overall_stats: {result.get('overall_stats')}")
                 
                 # 获取选股数量
@@ -2713,6 +2717,8 @@ class ComponentAnalysisWidget(QWidget):
                     'new_high_low2_start': new_high_low2_start,
                     'new_high_low2_range': new_high_low2_range,
                     'new_high_low2_span': new_high_low2_span,
+                    'negative_multiplier': negative_multiplier,
+                    'positive_multiplier': positive_multiplier,
                     'select_count': select_count,  # 添加选股数量
                     'result': result,
                     'valid_items': valid_items,
@@ -2815,7 +2821,7 @@ class ComponentAnalysisWidget(QWidget):
         # 使用QTimer延迟执行下一次分析，确保当前分析完全完成
         QTimer.singleShot(3000, self.execute_next_analysis)  # 3秒后执行下一次分析
     
-    def _execute_component_analysis_single(self, formula, width, op_days, increment_rate, after_gt_end_ratio, after_gt_start_ratio, stop_loss_inc_rate, stop_loss_after_gt_end_ratio, stop_loss_after_gt_start_ratio, sort_mode, new_high_low1_start=0, new_high_low1_range=0, new_high_low1_span=0, new_high_low2_start=0, new_high_low2_range=0, new_high_low2_span=0):
+    def _execute_component_analysis_single(self, formula, width, op_days, increment_rate, after_gt_end_ratio, after_gt_start_ratio, stop_loss_inc_rate, stop_loss_after_gt_end_ratio, stop_loss_after_gt_start_ratio, sort_mode, new_high_low1_start=0, new_high_low1_range=0, new_high_low1_span=0, new_high_low2_start=0, new_high_low2_range=0, new_high_low2_span=0, negative_multiplier=1.0, positive_multiplier=1.0):
         """
         执行单次组合分析
         专门为组合分析创建的方法，避免依赖自动分析子界面的控件
@@ -3077,7 +3083,9 @@ class ComponentAnalysisWidget(QWidget):
             comparison_vars=comparison_vars,
             new_high_low_params=new_high_low_params,  # 直接传递
             profit_type=profit_type,
-            loss_type=loss_type
+            loss_type=loss_type,
+            negative_multiplier=negative_multiplier,
+            positive_multiplier=positive_multiplier
         )
         
         if result:
@@ -3274,7 +3282,9 @@ class ComponentAnalysisWidget(QWidget):
                     'new_high_low1_span': top1_analysis.get('new_high_low1_span', 0),
                     'new_high_low2_start': top1_analysis.get('new_high_low2_start', 0),
                     'new_high_low2_range': top1_analysis.get('new_high_low2_range', 0),
-                    'new_high_low2_span': top1_analysis.get('new_high_low2_span', 0)
+                    'new_high_low2_span': top1_analysis.get('new_high_low2_span', 0),
+                    'negative_multiplier': top1_analysis.get('negative_multiplier', 1.0),
+                    'positive_multiplier': top1_analysis.get('positive_multiplier', 1.0)
                 }
                 self.main_window.last_component_analysis_top1['special_params_combinations'] = single_params_combination
                 print(f"已从最优结果中提取参数组合：{single_params_combination}")
@@ -3497,6 +3507,8 @@ class ComponentAnalysisWidget(QWidget):
             loss_type = analysis.get('loss_type', 'INC')
             operation_value = f"盈（{profit_type}），损（{loss_type}）"
             params_text.append(f"操作值: {operation_value}")
+            params_text.append(f"正值倍增系数: {analysis.get('positive_multiplier', '')}")
+            params_text.append(f"负值倍增系数: {analysis.get('negative_multiplier', '')}")
             params_text.append(f"日期宽度: {analysis.get('width', '')}")
             params_text.append(f"操作天数: {analysis.get('op_days', '')}")
             params_text.append(f"止盈递增率: {analysis.get('increment_rate', '')}")
@@ -3780,6 +3792,35 @@ class ComponentAnalysisWidget(QWidget):
                     if hasattr(self.main_window, 'last_loss_type'):
                         self.main_window.last_loss_type = loss_type
                         print(f"恢复损类型选择：{loss_type}")
+                
+                # 恢复倍增系数参数（恢复勾选框、下限和上限）
+                if 'negative_multiplier' in analysis_data:
+                    negative_multiplier = analysis_data['negative_multiplier']
+                    if 'negative_multiplier' in temp_formula_widget.var_widgets:
+                        widgets = temp_formula_widget.var_widgets['negative_multiplier']
+                        if 'checkbox' in widgets:
+                            widgets['checkbox'].setChecked(True)
+                            print(f"勾选负值倍增系数复选框")
+                        if 'lower' in widgets:
+                            widgets['lower'].setText(str(negative_multiplier))
+                            print(f"设置负值倍增系数下限: {negative_multiplier}")
+                        if 'upper' in widgets:
+                            widgets['upper'].setText(str(negative_multiplier))
+                            print(f"设置负值倍增系数上限: {negative_multiplier}")
+                
+                if 'positive_multiplier' in analysis_data:
+                    positive_multiplier = analysis_data['positive_multiplier']
+                    if 'positive_multiplier' in temp_formula_widget.var_widgets:
+                        widgets = temp_formula_widget.var_widgets['positive_multiplier']
+                        if 'checkbox' in widgets:
+                            widgets['checkbox'].setChecked(True)
+                            print(f"勾选正值倍增系数复选框")
+                        if 'lower' in widgets:
+                            widgets['lower'].setText(str(positive_multiplier))
+                            print(f"设置正值倍增系数下限: {positive_multiplier}")
+                        if 'upper' in widgets:
+                            widgets['upper'].setText(str(positive_multiplier))
+                            print(f"设置正值倍增系数上限: {positive_multiplier}")
                 
                 # 解析公式并设置控件状态
                 
@@ -5174,6 +5215,12 @@ class ComponentAnalysisWidget(QWidget):
                     loss_type = getattr(self.main_window, 'last_loss_type', 'INC')
                     writer.writerow(['profit_type', profit_type])
                     writer.writerow(['loss_type', loss_type])
+                    
+                    # 倍增系数参数
+                    negative_multiplier = analysis.get('negative_multiplier', 1.0)
+                    positive_multiplier = analysis.get('positive_multiplier', 1.0)
+                    writer.writerow(['negative_multiplier', negative_multiplier])
+                    writer.writerow(['positive_multiplier', positive_multiplier])
                 
                 # 只添加三次分析最优值
                 best_value_formatted = None
@@ -5543,6 +5590,12 @@ class ComponentAnalysisWidget(QWidget):
                                                    'new_after_low_flag', 'new_after_low2_flag']:
                                     # 布尔值参数
                                     analysis_data[param_name] = param_value.lower() in ['true', '1', 'yes', '是']
+                                elif param_name in ['negative_multiplier', 'positive_multiplier']:
+                                    # 倍增系数参数
+                                    try:
+                                        analysis_data[param_name] = float(param_value)
+                                    except (ValueError, TypeError):
+                                        analysis_data[param_name] = 1.0
                                 else:
                                     # 普通参数
                                     analysis_data[param_name] = param_value
@@ -5591,6 +5644,12 @@ class ComponentAnalysisWidget(QWidget):
                                                        'new_before_low_flag', 'new_before_low2_flag', 
                                                        'new_after_low_flag', 'new_after_low2_flag']:
                                         analysis_data[param_name] = param_value.lower() in ['true', '1', 'yes', '是']
+                                    elif param_name in ['negative_multiplier', 'positive_multiplier']:
+                                        # 倍增系数参数
+                                        try:
+                                            analysis_data[param_name] = float(param_value)
+                                        except (ValueError, TypeError):
+                                            analysis_data[param_name] = 1.0
                                     else:
                                         analysis_data[param_name] = param_value
                                         
@@ -6454,7 +6513,9 @@ class ComponentAnalysisWidget(QWidget):
                 'stop_loss_after_gt_start_ratio': analysis.get('stop_loss_after_gt_start_ratio', ''),
                 'expr': analysis.get('expr', ''),
                 'selected_vars_with_values': analysis.get('selected_vars_with_values', []),
-                'n_values': analysis.get('n_values', [])
+                'n_values': analysis.get('n_values', []),
+                'negative_multiplier': analysis.get('negative_multiplier', 1.0),
+                'positive_multiplier': analysis.get('positive_multiplier', 1.0)
             })
 
             print(f"component_analysis_ui selected_vars_with_values: {params.get('selected_vars_with_values', [])}")
@@ -6598,7 +6659,9 @@ class ComponentAnalysisWidget(QWidget):
                 'stop_loss_after_gt_start_ratio': analysis.get('stop_loss_after_gt_start_ratio', ''),
                 'expr': analysis.get('expr', ''),
                 'selected_vars_with_values': analysis.get('selected_vars_with_values', []),
-                'n_values': analysis.get('n_values', [])
+                'n_values': analysis.get('n_values', []),
+                'negative_multiplier': analysis.get('negative_multiplier', 1.0),
+                'positive_multiplier': analysis.get('positive_multiplier', 1.0)
             })
             
             # 添加盈损类型参数

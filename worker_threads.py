@@ -611,6 +611,24 @@ class CalculateThread(QThread):
         end_date_end_idx = date_columns.index(end_date_end)
         price_data_np = self.price_data.iloc[:, 2:].values.astype(np.float64)
         diff_data_np = self.diff_data.values.astype(np.float64)
+
+        # 倍增系数参数
+        negative_multiplier = float(params.get('negative_multiplier', 1.0))
+        positive_multiplier = float(params.get('positive_multiplier', 1.0))
+        
+        # 应用倍增系数到diff_data
+        if negative_multiplier != 1.0 or positive_multiplier != 1.0:
+            # 创建掩码：负数位置为True，正数位置为False
+            negative_mask = diff_data_np < 0
+            positive_mask = diff_data_np > 0
+            
+            # 对负数应用负值倍增系数
+            if negative_multiplier != 1.0:
+                diff_data_np[negative_mask] *= negative_multiplier
+            
+            # 对正数应用正值倍增系数
+            if positive_multiplier != 1.0:
+                diff_data_np[positive_mask] *= positive_multiplier
         num_stocks = price_data_np.shape[0]
         trade_t1_mode = params.get('trade_mode', 'T+1') == 'T+1'
 

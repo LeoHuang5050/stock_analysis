@@ -426,6 +426,8 @@ class TradingPlanWidget(QWidget):
         loss_type = params.get('loss_type', 'INC')
         operation_value = f"盈（{profit_type}），损（{loss_type}）"
         params_text.append(f"操作值: {operation_value}")
+        params_text.append(f"正值倍增系数: {params.get('positive_multiplier', '')}")
+        params_text.append(f"负值倍增系数: {params.get('negative_multiplier', '')}")
         params_text.append(f"日期宽度: {params.get('width', '')}")
         params_text.append(f"操作天数: {params.get('op_days', '')}")
         params_text.append(f"止盈递增率: {self._get_increment_rate_value(params)}")
@@ -1166,6 +1168,7 @@ class TradingPlanWidget(QWidget):
                 except:
                     pass
             
+            
             # 恢复选股数量和排序方式
             if 'last_select_count' in params:
                 try:
@@ -1691,6 +1694,47 @@ class TradingPlanWidget(QWidget):
                             if 'n_input' in widgets:
                                 widgets['n_input'].setText(str(n_value))
                                 print(f"恢复n_input变量 {var_name} 输入值: {n_value}")
+                
+                # 恢复倍增系数参数（恢复勾选框、下限和上限）
+                if 'negative_multiplier' in params:
+                    try:
+                        negative_multiplier = params['negative_multiplier']
+                        print(f"恢复负值倍增系数: {negative_multiplier}")
+                        if 'negative_multiplier' in temp_formula_widget.var_widgets:
+                            widgets = temp_formula_widget.var_widgets['negative_multiplier']
+                            if 'checkbox' in widgets:
+                                widgets['checkbox'].setChecked(True)
+                                print(f"勾选负值倍增系数复选框")
+                            if 'lower' in widgets:
+                                widgets['lower'].setText(str(negative_multiplier))
+                                print(f"设置负值倍增系数下限: {negative_multiplier}")
+                            if 'upper' in widgets:
+                                widgets['upper'].setText(str(negative_multiplier))
+                                print(f"设置负值倍增系数上限: {negative_multiplier}")
+                        else:
+                            print(f"负值倍增系数不在var_widgets中")
+                    except Exception as e:
+                        print(f"恢复负值倍增系数失败: {e}")
+                
+                if 'positive_multiplier' in params:
+                    try:
+                        positive_multiplier = params['positive_multiplier']
+                        print(f"恢复正值倍增系数: {positive_multiplier}")
+                        if 'positive_multiplier' in temp_formula_widget.var_widgets:
+                            widgets = temp_formula_widget.var_widgets['positive_multiplier']
+                            if 'checkbox' in widgets:
+                                widgets['checkbox'].setChecked(True)
+                                print(f"勾选正值倍增系数复选框")
+                            if 'lower' in widgets:
+                                widgets['lower'].setText(str(positive_multiplier))
+                                print(f"设置正值倍增系数下限: {positive_multiplier}")
+                            if 'upper' in widgets:
+                                widgets['upper'].setText(str(positive_multiplier))
+                                print(f"设置正值倍增系数上限: {positive_multiplier}")
+                        else:
+                            print(f"正值倍增系数不在var_widgets中")
+                    except Exception as e:
+                        print(f"恢复正值倍增系数失败: {e}")
                 
                 print("选股控件状态恢复完成")
                 
