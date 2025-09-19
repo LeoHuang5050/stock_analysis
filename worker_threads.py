@@ -913,7 +913,6 @@ class CalculateThread(QThread):
         total_time = t1 - t0
         print(f"calculate_batch_{n_proc}_cores 总耗时: {total_time:.4f}秒")
         self._log_to_file(f"计算完成，总耗时: {total_time:.4f}秒")
-        
         # 统一处理股票代码和名称
         for end_date in merged_results:
             for stock in merged_results[end_date]:

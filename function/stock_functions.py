@@ -6002,6 +6002,17 @@ def calculate_analysis_result(valid_items, parent=None):
             }
         }
     """
+    # 在方法入口处过滤掉stock_idx为负数的股票（统计行）
+    filtered_valid_items = []
+    for date_key, stocks in valid_items:
+        # 过滤掉stock_idx为负数的股票
+        filtered_stocks = [stock for stock in stocks if stock.get('stock_idx', 0) >= 0]
+        if filtered_stocks:  # 只保留有有效股票的日期
+            filtered_valid_items.append((date_key, filtered_stocks))
+    
+    # 使用过滤后的数据
+    valid_items = filtered_valid_items
+    
     def safe_val(val):
         if val is None:
             return ''
@@ -6154,11 +6165,6 @@ def calculate_analysis_result(valid_items, parent=None):
         stock_indices_per_date = []
         
         for stock in stocks:
-            # 排除统计行（stock_idx为负数的行）
-            stock_idx = stock.get('stock_idx', 0)
-            if stock_idx < 0:
-                continue
-                
             # 新增：统计end_state并收集涨跌幅数据
             try:
                 end_state_raw = stock.get('end_state', '')
@@ -6620,92 +6626,257 @@ def calculate_analysis_result(valid_items, parent=None):
     
     # 收益法均值计算
     if profit_mean_calc:
+        print("=" * 50)
+        print("开始收益法均值计算")
+        print("=" * 50)
+        
         # 初始可投入资金为100
         initial_capital = 100.0
         # 存储每个日期的资金占用情况
         capital_usage = {}  # {date: {stock_id: (amount, release_date)}}
-        # 存储每个日期的收益
-        daily_profits = {}  # {date: profit}
+        # 存储每个日期的收益 - 分别计算四种不同的收益
+        daily_profits_ops = {}  # {date: profit} - 停盈停损收益
+        daily_profits_adjust = {}  # {date: profit} - 止盈止损收益
+        daily_profits_take_and_stop = {}  # {date: profit} - 止盈停损收益
+        daily_profits_stop_and_take = {}  # {date: profit} - 停盈止损收益
         
         # 遍历每个日期，计算收益
         for i, (date_key, stocks) in enumerate(valid_items):
             if not stocks:
                 continue
                 
+            print(f"\n第{i+1}天 ({date_key})")
+            print("-" * 30)
+            
+            # 统计当前持有的股票和当天释放的股票
+            holding_stocks = []  # 当前持有的股票
+            releasing_stocks = []  # 当天释放的股票
+            total_holding_capital = 0.0
+            total_releasing_capital = 0.0
+            
             # 计算当前可投入资金
             available_capital = initial_capital
-            # 减去被占用的资金
+            # 减去被占用的资金（基于每只股票的持有天数）
             for usage_date, usages in capital_usage.items():
-                for stock_id, (amount, release_date) in usages.items():
-                    # 简化日期比较，假设日期是字符串格式
-                    if str(release_date) > str(date_key):  # 资金还未释放
-                        available_capital -= amount
+                for stock_id, (amount, hold_days_for_stock) in usages.items():
+                    # 计算该股票的资金释放日期（基于其持有天数）
+                    usage_date_index = None
+                    for idx, (d_key, _) in enumerate(valid_items):
+                        if d_key == usage_date:
+                            usage_date_index = idx
+                            break
+                    
+                    if usage_date_index is not None:
+                        release_date_index = usage_date_index + hold_days_for_stock
+                        # 如果释放日期索引大于当前日期索引，说明资金还未释放
+                        if release_date_index > i:
+                            available_capital -= amount
+                            holding_stocks.append({
+                                'id': stock_id,
+                                'amount': amount,
+                                'hold_days': hold_days_for_stock,
+                                'release_date': f"第{release_date_index+1}天"
+                            })
+                            total_holding_capital += amount
+                        # 如果释放日期索引等于当前日期索引，说明当天释放
+                        elif release_date_index == i:
+                            releasing_stocks.append({
+                                'id': stock_id,
+                                'amount': amount,
+                                'hold_days': hold_days_for_stock,
+                                'usage_date': usage_date
+                            })
+                            total_releasing_capital += amount
+            
+            print(f"可投入资金：{available_capital:.2f}")
+            
+            # 显示持有股票信息
+            if holding_stocks:
+                print(f"持有股票：")
+                for stock in holding_stocks:
+                    # 只显示股票代码和名称，不显示完整字典
+                    stock_info = stock['id']
+                    if isinstance(stock_info, dict):
+                        code = stock_info.get('code', 'N/A')
+                        name = stock_info.get('name', 'N/A')
+                        stock_display = f"{code}({name})"
+                    else:
+                        stock_display = str(stock_info)
+                    print(f"  {stock_display}, 持有资金：{stock['amount']:.2f}, 释放日期：{stock['release_date']}")
+                print(f"  持有资金总计：{total_holding_capital:.2f}")
+            else:
+                print(f"持有股票：无")
+            
+            # 显示当天释放股票信息
+            if releasing_stocks:
+                print(f"释放股票：")
+                for stock in releasing_stocks:
+                    # 只显示股票代码和名称，不显示完整字典
+                    stock_info = stock['id']
+                    if isinstance(stock_info, dict):
+                        code = stock_info.get('code', 'N/A')
+                        name = stock_info.get('name', 'N/A')
+                        stock_display = f"{code}({name})"
+                    else:
+                        stock_display = str(stock_info)
+                    print(f"  {stock_display}, 释放资金：{stock['amount']:.2f}, 原投入日期：{stock['usage_date']}")
+                print(f"  释放资金总计：{total_releasing_capital:.2f}")
+            else:
+                print(f"释放股票：无")
             
             # 对选出的股票均分资金
-            stock_count = len(stocks)
+            valid_stocks = stocks  # 已经在方法入口处过滤了stock_idx为负数的股票
+            stock_count = len(valid_stocks)
             if stock_count > 0:
                 capital_per_stock = available_capital / stock_count
+                print(f"股票数量：{stock_count}，每只股票投入：{capital_per_stock:.2f}")
                 
-                # 计算当天的总收益
-                daily_profit = 0.0
-                for stock in stocks:
-                    # 获取股票涨幅
-                    stock_change = 0.0
-                    if hasattr(stock, 'ops_change') and stock.ops_change != '':
-                        try:
-                            stock_change = float(stock.ops_change)
-                        except (ValueError, TypeError):
-                            stock_change = 0.0
+                # 计算当天的总收益 - 分别计算四种不同的收益
+                daily_profit_ops = 0.0  # 停盈停损收益
+                daily_profit_adjust = 0.0  # 止盈止损收益
+                daily_profit_take_and_stop = 0.0  # 止盈停损收益
+                daily_profit_stop_and_take = 0.0  # 停盈止损收益
+                
+                for j, stock in enumerate(valid_stocks):
+                    # 获取股票标识
+                    if stock.get('code') and stock.get('name'):
+                        stock_id = f"{stock.get('code')}({stock.get('name')})"
+                    else:
+                        stock_id = f"股票{j+1}"
                     
                     # 获取持有天数
                     hold_days = 1
-                    if hasattr(stock, 'hold_days') and stock.hold_days != '':
+                    if stock.get('hold_days') and stock.get('hold_days') != '':
                         try:
-                            hold_days = int(stock.hold_days)
+                            hold_days = int(stock.get('hold_days'))
                         except (ValueError, TypeError):
                             hold_days = 1
                     
-                    # 计算收益
+                    # 获取各种涨幅
+                    ops_change = 0.0  # 停盈停损涨幅
+                    adjust_ops_change = 0.0  # 止盈止损涨幅
+                    take_and_stop_change = 0.0  # 止盈停损涨幅
+                    stop_and_take_change = 0.0  # 停盈止损涨幅
+                    
+                    if stock.get('ops_change') and stock.get('ops_change') != '':
+                        try:
+                            ops_change = float(stock.get('ops_change'))
+                        except (ValueError, TypeError):
+                            ops_change = 0.0
+                    
+                    if stock.get('adjust_ops_change') and stock.get('adjust_ops_change') != '':
+                        try:
+                            adjust_ops_change = float(stock.get('adjust_ops_change'))
+                        except (ValueError, TypeError):
+                            adjust_ops_change = 0.0
+                    
+                    if stock.get('take_and_stop_change') and stock.get('take_and_stop_change') != '':
+                        try:
+                            take_and_stop_change = float(stock.get('take_and_stop_change'))
+                        except (ValueError, TypeError):
+                            take_and_stop_change = 0.0
+                    
+                    if stock.get('stop_and_take_change') and stock.get('stop_and_take_change') != '':
+                        try:
+                            stop_and_take_change = float(stock.get('stop_and_take_change'))
+                        except (ValueError, TypeError):
+                            stop_and_take_change = 0.0
+                    
+                    # 计算各种收益（涨幅是百分比，需要除以100）
                     if hold_days == 1 and adjust_days_val != '' and adjust_days_val == 2:
-                        # 特例：持有天数为1，调整天数为2时，收益为 可投入资金 * 对应涨幅 / 2
-                        profit = capital_per_stock * stock_change / 2
+                        # 特例：持有天数为1，调整天数为2时，收益为 可投入资金 * 对应涨幅 / 100 / 2
+                        profit_ops = capital_per_stock * ops_change / 100 / 2
+                        profit_adjust = capital_per_stock * adjust_ops_change / 100 / 2
+                        profit_take_and_stop = capital_per_stock * take_and_stop_change / 100 / 2
+                        profit_stop_and_take = capital_per_stock * stop_and_take_change / 100 / 2
+                        special_case = True
                     else:
-                        # 正常情况：收益为 可投入资金 * 对应涨幅
-                        profit = capital_per_stock * stock_change
+                        # 正常情况：收益为 可投入资金 * 对应涨幅 / 100
+                        profit_ops = capital_per_stock * ops_change / 100
+                        profit_adjust = capital_per_stock * adjust_ops_change / 100
+                        profit_take_and_stop = capital_per_stock * take_and_stop_change / 100
+                        profit_stop_and_take = capital_per_stock * stop_and_take_change / 100
+                        special_case = False
                     
-                    daily_profit += profit
+                    # 打印股票详细信息
+                    print(f"  {stock_id}：")
+                    print(f"    投入资金：{capital_per_stock:.2f}")
+                    print(f"    持有天数：{hold_days}")
+                    print(f"    停盈停损涨幅：{ops_change:.2f}%，收益：{profit_ops:.2f}")
+                    print(f"    止盈止损涨幅：{adjust_ops_change:.2f}%，收益：{profit_adjust:.2f}")
+                    print(f"    止盈停损涨幅：{take_and_stop_change:.2f}%，收益：{profit_take_and_stop:.2f}")
+                    print(f"    停盈止损涨幅：{stop_and_take_change:.2f}%，收益：{profit_stop_and_take:.2f}")
+                    if special_case:
+                        print(f"    (特例：持有天数1，调整天数2，收益减半)")
                     
-                    # 记录资金占用
+                    daily_profit_ops += profit_ops
+                    daily_profit_adjust += profit_adjust
+                    daily_profit_take_and_stop += profit_take_and_stop
+                    daily_profit_stop_and_take += profit_stop_and_take
+                    
+                    # 记录资金占用（记录投入金额和持有天数）
                     if date_key not in capital_usage:
                         capital_usage[date_key] = {}
-                    # 计算资金释放日期（简化处理，假设按交易日计算）
-                    # 这里需要根据实际的日期格式来处理，暂时使用索引方式
-                    current_index = i
-                    release_index = current_index + hold_days
-                    # 如果释放日期超出了valid_items的范围，则使用最后一个日期
-                    if release_index >= len(valid_items):
-                        release_date = valid_items[-1][0] if valid_items else date_key
-                    else:
-                        release_date = valid_items[release_index][0]
-                    capital_usage[date_key][stock.id if hasattr(stock, 'id') else str(stock)] = (capital_per_stock, release_date)
+                    # 直接记录持有天数，用于后续计算资金释放
+                    capital_usage[date_key][stock_id] = (capital_per_stock, hold_days)
                 
-                daily_profits[date_key] = daily_profit
+                # 保存各种收益
+                daily_profits_ops[date_key] = daily_profit_ops
+                daily_profits_adjust[date_key] = daily_profit_adjust
+                daily_profits_take_and_stop[date_key] = daily_profit_take_and_stop
+                daily_profits_stop_and_take[date_key] = daily_profit_stop_and_take
+                
+                # 打印当天总收益
+                print(f"  当天总收益：")
+                print(f"    停盈停损：{daily_profit_ops:.2f}")
+                print(f"    止盈止损：{daily_profit_adjust:.2f}")
+                print(f"    止盈停损：{daily_profit_take_and_stop:.2f}")
+                print(f"    停盈止损：{daily_profit_stop_and_take:.2f}")
+            else:
+                print(f"没有有效股票，跳过该日期")
+                continue
         
         # 计算总收益和总持有天数
-        total_profit = sum(daily_profits.values())
+        total_profit_ops = sum(daily_profits_ops.values())
+        total_profit_adjust = sum(daily_profits_adjust.values())
+        total_profit_take_and_stop = sum(daily_profits_take_and_stop.values())
+        total_profit_stop_and_take = sum(daily_profits_stop_and_take.values())
         total_hold_days = len(valid_items)  # 总持有天数（结束日期数量）
         
-        # 计算各收益率
-        if total_hold_days > 0:
-            profit_rate = total_profit / total_hold_days
-        else:
-            profit_rate = 0.0
+        print(f"\n" + "=" * 50)
+        print("收益法均值计算结果汇总")
+        print("=" * 50)
+        print(f"总持有天数：{total_hold_days}")
+        print(f"总收益：")
+        print(f"  停盈停损：{total_profit_ops:.2f}")
+        print(f"  止盈止损：{total_profit_adjust:.2f}")
+        print(f"  止盈停损：{total_profit_take_and_stop:.2f}")
+        print(f"  停盈止损：{total_profit_stop_and_take:.2f}")
         
-        # 更新四个含空均值
-        mean_daily_with_nan_profit = profit_rate
-        mean_adjust_daily_with_nan_profit = profit_rate
-        mean_take_and_stop_daily_with_nan_profit = profit_rate
-        mean_stop_and_take_daily_with_nan_profit = profit_rate
+        # 计算各收益率（保留两位小数）
+        if total_hold_days > 0:
+            profit_rate_ops = round(total_profit_ops / total_hold_days, 2)
+            profit_rate_adjust = round(total_profit_adjust / total_hold_days, 2)
+            profit_rate_take_and_stop = round(total_profit_take_and_stop / total_hold_days, 2)
+            profit_rate_stop_and_take = round(total_profit_stop_and_take / total_hold_days, 2)
+        else:
+            profit_rate_ops = 0.0
+            profit_rate_adjust = 0.0
+            profit_rate_take_and_stop = 0.0
+            profit_rate_stop_and_take = 0.0
+        
+        print(f"收益率（总收益/总持有天数）：")
+        print(f"  停盈停损含空均值：{profit_rate_ops:.2f}")
+        print(f"  止盈止损含空均值：{profit_rate_adjust:.2f}")
+        print(f"  止盈停损含空均值：{profit_rate_take_and_stop:.2f}")
+        print(f"  停盈止损含空均值：{profit_rate_stop_and_take:.2f}")
+        print("=" * 50)
+        
+        # 更新四个含空均值 - 使用对应的收益率
+        mean_daily_with_nan_profit = profit_rate_ops  # 停盈停损含空均值
+        mean_adjust_daily_with_nan_profit = profit_rate_adjust  # 止盈止损含空均值
+        mean_take_and_stop_daily_with_nan_profit = profit_rate_take_and_stop  # 止盈停损含空均值
+        mean_stop_and_take_daily_with_nan_profit = profit_rate_stop_and_take  # 停盈止损含空均值
     else:
         # 当收益法均值为false时，按照目前逻辑统计
         mean_daily_with_nan_profit = None

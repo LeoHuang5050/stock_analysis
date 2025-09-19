@@ -2318,7 +2318,8 @@ def calculate_batch_cy(
                         print(traceback.format_exc())
                         score = None
                 
-                #print(f"score的值为: {score}")
+                #if stock_idx == 2315:
+                    #print(f"stock_idx=2315, score={score}, cont_sum_pos_sum={cont_sum_pos_sum}, cont_sum_neg_sum={cont_sum_neg_sum}, valid_pos_sum={valid_pos_sum}, valid_neg_sum={valid_neg_sum}, 选股公式: {formula_expr}")
                 #if stock_idx == 129:
                     #print(f"stock_idx={stock_idx}, cont_sum_pos_sum={cont_sum_pos_sum}, valid_pos_sum={valid_pos_sum}, forward_min_cont_sum_pos_sum={forward_min_cont_sum_pos_sum}")
                 if only_show_selected:

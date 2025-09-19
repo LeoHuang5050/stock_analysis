@@ -836,7 +836,7 @@ class StockAnalysisApp(QWidget):
         top_grid.addWidget(new_after_high2_logic_widget, 3, 7)
         top_grid.addWidget(mean_coefficient_widget, 3, 8)
         top_grid.addWidget(mean_min_calc_widget, 3, 9)
-        top_grid.addWidget(profit_mean_widget, 3, 10)
+        #top_grid.addWidget(profit_mean_widget, 3, 10)
 
         # 创新低开始日期天数
         self.new_before_low_flag_checkbox = QCheckBox()
@@ -1983,6 +1983,31 @@ class StockAnalysisApp(QWidget):
         comparison_vars = list(comparison_vars)  # 转换为list
         print(f"最终自动分析comparison_vars: {comparison_vars}")
         
+        # 获取倍增系数参数（选股时使用下限值）
+        negative_multiplier = 1.0
+        positive_multiplier = 1.0
+        
+        # 从last_formula_select_state中获取倍增系数
+        if hasattr(self, 'last_formula_select_state') and self.last_formula_select_state:
+            state = self.last_formula_select_state
+            if 'negative_multiplier' in state:
+                var_state = state['negative_multiplier']
+                if var_state.get('checked', False) and 'lower' in var_state:
+                    try:
+                        negative_multiplier = round(float(var_state['lower']), 2)
+                    except (ValueError, TypeError):
+                        negative_multiplier = 1.0
+            
+            if 'positive_multiplier' in state:
+                var_state = state['positive_multiplier']
+                if var_state.get('checked', False) and 'lower' in var_state:
+                    try:
+                        positive_multiplier = round(float(var_state['lower']), 2)
+                    except (ValueError, TypeError):
+                        positive_multiplier = 1.0
+        
+        print(f"自动分析倍增系数 - 负值: {negative_multiplier}, 正值: {positive_multiplier}")
+        
         result = self.get_or_calculate_result(
             formula_expr=formula, 
             show_main_output=False, 
@@ -1994,7 +2019,9 @@ class StockAnalysisApp(QWidget):
             end_date_end=end_date,
             comparison_vars=comparison_vars,
             profit_type=profit_type,
-            loss_type=loss_type
+            loss_type=loss_type,
+            negative_multiplier=negative_multiplier,
+            positive_multiplier=positive_multiplier
         )
         self.last_auto_analysis_result = result  # 新增：只给自动分析用
         merged_results = result.get('dates', {}) if result else {}
@@ -3157,6 +3184,8 @@ class StockAnalysisApp(QWidget):
             # 新增：综合均值系数和均值按两者最小值计算
             'mean_coefficient': self.mean_coefficient_edit.text(),
             'mean_min_calc': self.mean_min_calc_checkbox.isChecked(),
+            # 新增：收益法均值勾选框状态
+            #'profit_mean_calc': self.profit_mean_checkbox.isChecked(),
             # 新增：保存组合分析总体结果
             'overall_stats': getattr(self, 'overall_stats', None),
             # 新增：保存三次分析相关数据
@@ -3480,6 +3509,9 @@ class StockAnalysisApp(QWidget):
                 self.mean_coefficient_edit.setText(config['mean_coefficient'])
             if 'mean_min_calc' in config:
                 self.mean_min_calc_checkbox.setChecked(config['mean_min_calc'])
+            # 新增：恢复收益法均值勾选框状态
+            if 'profit_mean_calc' in config:
+                self.profit_mean_checkbox.setChecked(config['profit_mean_calc'])
             # 新增：恢复组合分析总体结果
             if 'overall_stats' in config:
                 self.overall_stats = config['overall_stats']
