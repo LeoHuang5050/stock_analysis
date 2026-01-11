@@ -634,7 +634,7 @@ class CalculateThread(QThread):
 
         stock_idx_arr = np.arange(num_stocks, dtype=np.int32)
         n_days_max = params.get("n_days_max", 0)
-        op_days = int(params.get('op_days', 0))
+        op_days = int(float(params.get('op_days', 0)))
         inc_rate = float(params.get('inc_rate', 0)) * 0.01
         after_gt_end_ratio = float(params.get('after_gt_end_ratio', 0)) * 0.01
         after_gt_start_ratio = float(params.get('after_gt_start_ratio', 0)) * 0.01

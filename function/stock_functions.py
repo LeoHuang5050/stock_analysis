@@ -6307,13 +6307,13 @@ def calculate_analysis_result(valid_items, parent=None):
         if parent and hasattr(parent, 'mean_coefficient_edit') and parent.mean_coefficient_edit:
             try:
                 mean_coefficient = float(parent.mean_coefficient_edit.text()) if parent.mean_coefficient_edit.text() else 0.0
-            except (ValueError, AttributeError):
+            except (ValueError, AttributeError, RuntimeError):
                 mean_coefficient = 0.0
         
         if parent and hasattr(parent, 'mean_min_calc_checkbox') and parent.mean_min_calc_checkbox:
             try:
                 mean_min_calc = parent.mean_min_calc_checkbox.isChecked()
-            except AttributeError:
+            except (AttributeError, RuntimeError):
                 mean_min_calc = False
         
         # 获取收益法均值勾选框状态
@@ -6321,7 +6321,7 @@ def calculate_analysis_result(valid_items, parent=None):
         if parent and hasattr(parent, 'profit_mean_checkbox') and parent.profit_mean_checkbox:
             try:
                 profit_mean_calc = parent.profit_mean_checkbox.isChecked()
-            except AttributeError:
+            except (AttributeError, RuntimeError):
                 profit_mean_calc = False
 
         # 计算单值均值法的日均涨跌幅
