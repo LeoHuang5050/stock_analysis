@@ -1,6 +1,6 @@
 import sys
 from PyQt5.QtWidgets import (
-    QApplication, QWidget, QLabel, QPushButton, QComboBox, QSpinBox, QDateEdit, QCheckBox, QGridLayout, QHBoxLayout, QVBoxLayout, QSizePolicy, QTextEdit, QLineEdit, QDialog, QMessageBox, QFrame, QStackedLayout, QTableWidget, QTableWidgetItem, QHeaderView
+    QApplication, QWidget, QLabel, QPushButton, QComboBox, QSpinBox, QDoubleSpinBox, QDateEdit, QCheckBox, QGridLayout, QHBoxLayout, QVBoxLayout, QSizePolicy, QTextEdit, QLineEdit, QDialog, QMessageBox, QFrame, QStackedLayout, QTableWidget, QTableWidgetItem, QHeaderView
 )
 from PyQt5.QtCore import Qt, QDate, QItemSelectionModel
 from PyQt5.QtGui import QKeySequence, QGuiApplication, QIntValidator, QPixmap, QDoubleValidator, QValidator
@@ -147,7 +147,21 @@ class StockAnalysisApp(QWidget):
         self.last_formula_select_state = {}  # 初始化公式选股状态
         self.last_analysis_start_date = ''
         self.last_analysis_end_date = ''
+        self.last_component_actual_executions = 0  # 组合分析实际执行次数
         self.cached_component_analysis_results = None
+        # 新增：三次分析相关变量
+        self.last_analysis_was_three_stage = False
+        # 新增：组合-三次连续分析勾选框状态
+        self.last_component_auto_three_stage = False
+        # 新增：三次分析统计信息
+        self.last_three_stage_total_elapsed_time = None
+        self.last_three_stage_actual_executions = 0
+        # 新增：三次分析关键状态，便于程序重启后继续导出
+        self.three_stage_best_top_one = None
+        self.three_stage_param_best_conditions = {}
+        self.best_param_condition_list = []
+        self.current_three_stage_variable = None
+
         self.init_ui()
         self.connect_signals()
         # 默认最大化显示
@@ -157,6 +171,35 @@ class StockAnalysisApp(QWidget):
         self.last_calculate_result = None
         # 加载参数
         self.load_config()
+
+    def _get_smart_scaled_size(self, base_width, base_height):
+        """智能缩放：优先使用固定尺寸，屏幕不够时按比例缩放"""
+        from PyQt5.QtWidgets import QApplication
+        screen = QApplication.primaryScreen()
+        screen_geometry = screen.geometry()
+        screen_width = screen_geometry.width()
+        screen_height = screen_geometry.height()
+        
+        # 如果屏幕足够大，直接使用固定尺寸
+        if screen_width >= base_width and screen_height >= base_height:
+            return base_width, base_height
+        
+        # 如果屏幕不够大，按比例缩放
+        width_ratio = screen_width / base_width
+        height_ratio = screen_height / base_height
+        
+        # 使用较小的缩放比例，确保不会超出屏幕
+        scale_ratio = min(width_ratio, height_ratio)
+        
+        # 计算缩放后的尺寸
+        scaled_width = int(base_width * scale_ratio)
+        scaled_height = int(base_height * scale_ratio)
+        
+        # 确保最小尺寸不会太小
+        scaled_width = max(scaled_width, 800)
+        scaled_height = max(scaled_height, 400)
+        
+        return scaled_width, scaled_height
 
     def init_ui(self):
         # 设置窗口标题为当前exe文件名（不带扩展名）
@@ -180,6 +223,8 @@ class StockAnalysisApp(QWidget):
         self.date_label = QLabel("请选择结束日期：")
         self.date_picker = QDateEdit(calendarPopup=True)
         self.date_picker.setDisplayFormat("yyyy/M/d")
+        # 设置默认值为今天
+        self.date_picker.setDate(QDate.currentDate())
         # 绑定日期修正事件
         self.date_picker.editingFinished.connect(self._fix_date_range)
 
@@ -194,10 +239,16 @@ class StockAnalysisApp(QWidget):
         self.cpu_spin.setMinimum(1)
         # 获取实际CPU核心数
         max_cores = cpu_count()
-        self.cpu_spin.setMaximum(max_cores)  # 设置为实际CPU核心数
-        self.cpu_spin.setValue(min(10, max_cores))  # 默认值设为4或实际核心数（取较小值）
+        # 最大值设为CPU核心数
+        max_setting = max_cores
+        # 默认值设为CPU核心数的75%
+        default_setting = int(max_cores * 0.75)
+        
+        self.cpu_spin.setMaximum(max_setting)
+        # 默认值设为CPU核心数的75%
+        self.cpu_spin.setValue(default_setting)
         self.cpu_spin.setFixedWidth(60)
-        self.cpu_max_label = QLabel(f"当前CPU配置最大可设置: {max_cores}")
+        self.cpu_max_label = QLabel(f"当前CPU配置最大可设置: {max_setting}")
         self.cpu_max_label.setStyleSheet("font-weight: bold;")
 
         # 问号图标及提示
@@ -291,7 +342,7 @@ class StockAnalysisApp(QWidget):
         top_grid.addWidget(self.direction_checkbox, 0, 7)
         top_grid.addWidget(self.range_label, 0, 9)
         top_grid.addWidget(self.range_value_edit, 0, 10)
-        top_grid.addWidget(abs_sum_widget, 0, 11)
+        # top_grid.addWidget(abs_sum_widget, 0, 11)
        
 
         # 第二行
@@ -460,7 +511,7 @@ class StockAnalysisApp(QWidget):
         top_grid.addWidget(ops_change_widget, 2, 8)
         top_grid.addWidget(self.valid_abs_sum_label, 2, 9)
         top_grid.addWidget(self.valid_abs_sum_threshold_edit, 2, 10)
-        top_grid.addWidget(cpu_widget, 2, 11)  # 添加CPU核心数控件
+        # top_grid.addWidget(cpu_widget, 2, 11)  # 添加CPU核心数控件
 
         # 添加交易方式下拉框
         trade_mode_widget = QWidget()
@@ -599,6 +650,49 @@ class StockAnalysisApp(QWidget):
         new_before_high2_logic_layout.addWidget(self.new_before_high2_logic_label)
         new_before_high2_logic_layout.addWidget(self.new_before_high2_logic_combo)
         new_before_high2_logic_widget.setLayout(new_before_high2_logic_layout)
+
+        # 综合均值系数控件
+        self.mean_coefficient_label = QLabel("综合均值系数")
+        self.mean_coefficient_edit = QLineEdit()
+        self.mean_coefficient_edit.setText("0.00")
+        self.mean_coefficient_edit.setMaximumWidth(20)
+        mean_coefficient_widget = QWidget()
+        mean_coefficient_layout = QHBoxLayout()
+        mean_coefficient_layout.setContentsMargins(0, 0, 0, 0)
+        mean_coefficient_layout.setSpacing(0)
+        mean_coefficient_layout.setAlignment(Qt.AlignLeft)
+        # 设置数值验证器，允许0-1之间的数值
+        validator = QDoubleValidator(0.0, 1.0, 2)
+        validator.setNotation(QDoubleValidator.StandardNotation)
+        self.mean_coefficient_edit.setValidator(validator)
+        mean_coefficient_layout.addWidget(self.mean_coefficient_label)
+        mean_coefficient_layout.addWidget(self.mean_coefficient_edit)
+        mean_coefficient_widget.setLayout(mean_coefficient_layout)
+        mean_coefficient_widget.setMaximumWidth(100)
+
+        # 均值按两者最小值计算勾选框
+        mean_min_calc_widget = QWidget()
+        mean_min_calc_layout = QHBoxLayout()
+        mean_min_calc_layout.setContentsMargins(0, 0, 0, 0)
+        mean_min_calc_layout.setSpacing(5)
+        mean_min_calc_layout.setAlignment(Qt.AlignLeft)
+        self.mean_min_calc_label = QLabel("均值按两者最小值计算")
+        self.mean_min_calc_checkbox = QCheckBox()
+        mean_min_calc_layout.addWidget(self.mean_min_calc_label)
+        mean_min_calc_layout.addWidget(self.mean_min_calc_checkbox)
+        mean_min_calc_widget.setLayout(mean_min_calc_layout)
+
+        # 收益法均值勾选框
+        profit_mean_widget = QWidget()
+        profit_mean_layout = QHBoxLayout()
+        profit_mean_layout.setContentsMargins(0, 0, 0, 0)
+        profit_mean_layout.setSpacing(5)
+        profit_mean_layout.setAlignment(Qt.AlignLeft)
+        self.profit_mean_label = QLabel("收益法均值")
+        self.profit_mean_checkbox = QCheckBox()
+        profit_mean_layout.addWidget(self.profit_mean_label)
+        profit_mean_layout.addWidget(self.profit_mean_checkbox)
+        profit_mean_widget.setLayout(profit_mean_layout)
 
         top_grid.addWidget(new_before_high_start_widget, 2, 0)
         top_grid.addWidget(new_before_high_range_widget, 2, 1)
@@ -740,6 +834,9 @@ class StockAnalysisApp(QWidget):
         top_grid.addWidget(new_after_high2_range_widget, 3, 5)
         top_grid.addWidget(new_after_high2_span_widget, 3, 6)
         top_grid.addWidget(new_after_high2_logic_widget, 3, 7)
+        top_grid.addWidget(mean_coefficient_widget, 3, 8)
+        top_grid.addWidget(mean_min_calc_widget, 3, 9)
+        #top_grid.addWidget(profit_mean_widget, 3, 10)
 
         # 创新低开始日期天数
         self.new_before_low_flag_checkbox = QCheckBox()
@@ -993,6 +1090,7 @@ class StockAnalysisApp(QWidget):
         top_grid.addWidget(new_before_low2_range_widget, 4, 5)
         top_grid.addWidget(new_before_low2_span_widget, 4, 6)
         top_grid.addWidget(new_before_low2_logic_widget, 4, 7)
+        top_grid.addWidget(abs_sum_widget, 4, 8)
 
         top_grid.addWidget(new_after_low_start_widget, 5, 0)
         top_grid.addWidget(new_after_low_range_widget, 5, 1)
@@ -1002,6 +1100,7 @@ class StockAnalysisApp(QWidget):
         top_grid.addWidget(new_after_low2_range_widget, 5, 5)
         top_grid.addWidget(new_after_low2_span_widget, 5, 6)
         top_grid.addWidget(new_after_low2_logic_widget, 5, 7)
+        top_grid.addWidget(cpu_widget, 5, 8)
 
         # 查询区控件
         self.query_input = QLineEdit()
@@ -1135,7 +1234,9 @@ class StockAnalysisApp(QWidget):
         self.clear_result_area()
         table = show_continuous_sum_table(self, all_results, self.init.price_data, as_widget=True)
         if table:
-            table.setMinimumSize(1200, 600)
+            # 使用智能缩放设置表格尺寸
+            scaled_width, scaled_height = self._get_smart_scaled_size(1200, 600)
+            table.setMinimumSize(scaled_width, scaled_height)
             self.table_widget = table
             self.output_stack.addWidget(table)
             self.output_stack.setCurrentWidget(table)
@@ -1187,7 +1288,9 @@ class StockAnalysisApp(QWidget):
             price_data=self.init.price_data
         )
         if table:
-            table.setMinimumSize(1200, 600)
+            # 使用智能缩放设置表格尺寸
+            scaled_width, scaled_height = self._get_smart_scaled_size(1200, 600)
+            table.setMinimumSize(scaled_width, scaled_height)
             self.table_widget = table
             self.output_stack.addWidget(table)
             self.output_stack.setCurrentWidget(table)
@@ -1205,7 +1308,9 @@ class StockAnalysisApp(QWidget):
             # 查找公式输入框（FormulaExprEdit）并设置内容
             for child in table.findChildren(type(table)):
                 pass  # 占位，防止findChildren报错
-            table.setMinimumSize(1200, 600)
+            # 使用智能缩放设置表格尺寸
+            scaled_width, scaled_height = self._get_smart_scaled_size(1200, 600)
+            table.setMinimumSize(scaled_width, scaled_height)
             self.table_widget = table
             self.output_stack.addWidget(table)
             self.output_stack.setCurrentWidget(table)
@@ -1227,20 +1332,43 @@ class StockAnalysisApp(QWidget):
 
     def get_or_calculate_result(self, formula_expr=None, select_count=None, sort_mode=None, 
                                 show_main_output=True, only_show_selected=None, is_auto_analysis=False, 
-                                end_date_start=None, end_date_end=None, comparison_vars=None, width=None, op_days=None, 
+                                end_date_start=None, end_date_end=None, end_date=None, comparison_vars=None, width=None, op_days=None, 
                                 inc_rate=None, after_gt_end_ratio=None, after_gt_start_ratio=None,
-                                stop_loss_inc_rate=None, stop_loss_after_gt_end_ratio=None, stop_loss_after_gt_start_ratio=None):
+                                stop_loss_inc_rate=None, stop_loss_after_gt_end_ratio=None, stop_loss_after_gt_start_ratio=None,
+                                new_high_low_params=None, profit_type="INC", loss_type="INC", 
+                                negative_multiplier=1.0, positive_multiplier=1.0):
         # 直接在此处校验创新高/创新低日期范围
         workdays = getattr(self.init, 'workdays_str', None)
-        end_date = self.date_picker.date().toString("yyyy-MM-dd")
+        # 如果没有传入end_date，则从控件获取
+        if end_date is None:
+            end_date = self.date_picker.date().toString("yyyy-MM-dd")
+        
         if hasattr(self.init, 'workdays_str'):
             if not self.init.workdays_str:
                 QMessageBox.warning(self, "提示", "请先上传数据文件！")
                 return None
-            date_str = self.date_picker.date().toString("yyyy-MM-dd")
-            if date_str not in self.init.workdays_str:
-                QMessageBox.warning(self, "提示", "只能选择交易日！")
-                return None
+            
+            # 自动修正结束日期：如果end_date不是交易日，则往日期减小的方向找到第一个可用交易日
+            if end_date not in workdays:
+                print(f"end_date not in workdays: {end_date}")
+                from datetime import datetime
+                end_dt = datetime.strptime(end_date, "%Y-%m-%d").date()
+                workday_first = datetime.strptime(workdays[0], "%Y-%m-%d").date()
+                if end_dt < workday_first:
+                    end_date = workdays[0]
+                else:
+                    for d in reversed(workdays):
+                        if d <= end_date:
+                            end_date = d
+                            break
+                print(f"自动修正后的end_date: {end_date}")
+            
+            # 更新控件显示（如果end_date是从控件获取的）
+            if end_date is None or end_date == self.date_picker.date().toString("yyyy-MM-dd"):
+                from PyQt5.QtCore import QDate
+                qdate = QDate.fromString(end_date, "yyyy-MM-dd")
+                if qdate.isValid():
+                    self.date_picker.setDate(qdate)
         
         if not is_auto_analysis:
             try:
@@ -1347,8 +1475,12 @@ class StockAnalysisApp(QWidget):
         params['continuous_abs_threshold'] = self.continuous_abs_threshold_edit.text()
         params['op_days'] = str(op_days) if op_days is not None else self.op_days_edit.text()
         params['inc_rate'] = str(inc_rate) if inc_rate is not None else self.inc_rate_edit.text()
-        params['after_gt_end_ratio'] = str(after_gt_end_ratio) if after_gt_end_ratio is not None else self.after_gt_end_edit.text()
-        params['after_gt_start_ratio'] = str(after_gt_start_ratio) if after_gt_start_ratio is not None else self.after_gt_prev_edit.text()
+        # 获取参数值，使用 or 0 保护机制
+        after_gt_end_ratio_val = after_gt_end_ratio if after_gt_end_ratio is not None else float(self.after_gt_end_edit.text() or 0)
+        after_gt_start_ratio_val = after_gt_start_ratio if after_gt_start_ratio is not None else float(self.after_gt_prev_edit.text() or 0)
+        
+        params['after_gt_end_ratio'] = str(after_gt_end_ratio_val)
+        params['after_gt_start_ratio'] = str(after_gt_start_ratio_val)
         # 止损参数直接使用输入值，因为验证器已确保输入为非正数
                 # 获取参数值
         stop_loss_inc_rate_val = stop_loss_inc_rate if stop_loss_inc_rate is not None else float(self.stop_loss_inc_rate_edit.text() or 0)
@@ -1376,6 +1508,43 @@ class StockAnalysisApp(QWidget):
         # 选股计算公式
         params['formula_expr'] = current_formula
         # 新增：创新高/创新低相关SpinBox参数
+        # 如果有传递的new_high_low_params，使用传递的参数更新勾选的控件值
+        if new_high_low_params and is_auto_analysis:
+            # 更新勾选的创新高/创新低控件值
+            if 'new_before_high_start' in new_high_low_params:
+                self.new_before_high_start_spin.setValue(new_high_low_params['new_before_high_start'])
+                self.new_before_high_range_spin.setValue(new_high_low_params['new_before_high_range'])
+                self.new_before_high_span_spin.setValue(new_high_low_params['new_before_high_span'])
+            if 'new_before_high2_start' in new_high_low_params:
+                self.new_before_high2_start_spin.setValue(new_high_low_params['new_before_high2_start'])
+                self.new_before_high2_range_spin.setValue(new_high_low_params['new_before_high2_range'])
+                self.new_before_high2_span_spin.setValue(new_high_low_params['new_before_high2_span'])
+            if 'new_after_high_start' in new_high_low_params:
+                self.new_after_high_start_spin.setValue(new_high_low_params['new_after_high_start'])
+                self.new_after_high_range_spin.setValue(new_high_low_params['new_after_high_range'])
+                self.new_after_high_span_spin.setValue(new_high_low_params['new_after_high_span'])
+            if 'new_after_high2_start' in new_high_low_params:
+                self.new_after_high2_start_spin.setValue(new_high_low_params['new_after_high2_start'])
+                self.new_after_high2_range_spin.setValue(new_high_low_params['new_after_high2_range'])
+                self.new_after_high2_span_spin.setValue(new_high_low_params['new_after_high2_span'])
+            if 'new_before_low_start' in new_high_low_params:
+                self.new_before_low_start_spin.setValue(new_high_low_params['new_before_low_start'])
+                self.new_before_low_range_spin.setValue(new_high_low_params['new_before_low_range'])
+                self.new_before_low_span_spin.setValue(new_high_low_params['new_before_low_span'])
+            if 'new_before_low2_start' in new_high_low_params:
+                self.new_before_low2_start_spin.setValue(new_high_low_params['new_before_low2_start'])
+                self.new_before_low2_range_spin.setValue(new_high_low_params['new_before_low2_range'])
+                self.new_before_low2_span_spin.setValue(new_high_low_params['new_before_low2_span'])
+            if 'new_after_low_start' in new_high_low_params:
+                self.new_after_low_start_spin.setValue(new_high_low_params['new_after_low_start'])
+                self.new_after_low_range_spin.setValue(new_high_low_params['new_after_low_range'])
+                self.new_after_low_span_spin.setValue(new_high_low_params['new_after_low_span'])
+            if 'new_after_low2_start' in new_high_low_params:
+                self.new_after_low2_start_spin.setValue(new_high_low_params['new_after_low2_start'])
+                self.new_after_low2_range_spin.setValue(new_high_low_params['new_after_low2_range'])
+                self.new_after_low2_span_spin.setValue(new_high_low_params['new_after_low2_span'])
+        
+        # 收集创新高/创新低参数（使用更新后的控件值）
         params['new_before_high_start'] = self.new_before_high_start_spin.value()
         params['new_before_high_range'] = self.new_before_high_range_spin.value()
         params['new_before_high_span'] = self.new_before_high_span_spin.value()
@@ -1415,8 +1584,18 @@ class StockAnalysisApp(QWidget):
         params['new_after_low2_span'] = self.new_after_low2_span_spin.value()
         params['new_after_low2_logic'] = self.new_after_low2_logic_combo.currentText()
         params['comparison_vars'] = comparison_vars
-
         
+        # 添加盈损参数
+        params['profit_type'] = profit_type
+        params['loss_type'] = loss_type
+        
+        # 添加倍增系数参数
+        params['negative_multiplier'] = negative_multiplier
+        params['positive_multiplier'] = positive_multiplier
+        # INSERT_YOUR_CODE
+        print(f"负值倍增系数: {negative_multiplier}")
+        print(f"正值倍增系数: {positive_multiplier}")
+
         if only_show_selected is not None:
             params['only_show_selected'] = only_show_selected
         # 添加CPU核心数参数
@@ -1458,53 +1637,87 @@ class StockAnalysisApp(QWidget):
             formula = ''
         formula = formula.strip()
         row_count = len(valid_items)
-        table = CopyableTableWidget(row_count + 2, 15, self.analysis_widget)  # 修正为14列
+        table = CopyableTableWidget(row_count + 2, 23, self.analysis_widget)  # 修正为13列
         table.setHorizontalHeaderLabels([
-            "结束日期", "操作天数", "持有涨跌幅", 
-            "调天日均涨跌幅", "调天从下往上非空均值", "调天从下往上含空均值", "调天含空值均值", "调天最大值", "调天最小值",
-            "调幅日均涨跌幅", "调幅从下往上非空均值", "调幅从下往上含空均值", "调幅含空值均值", "调幅最大值", "调幅最小值"
+            "结束日期", 
+            "持有天数", "止盈止损涨幅", "综合止盈止损日均涨幅", "止盈止损日均涨跌幅", "止盈止损从下往上含空均值", "止盈止损含空均值",
+            "止盈停损涨幅", "综合止盈停损日均涨幅", "止盈停损日均涨跌幅", "止盈停损从下往上含空均值", "止盈停损含空均值",
+            "调整天数", "停盈停损涨幅", "综合停盈停损日均涨幅", "停盈停损日均涨跌幅", "停盈停损从下往上含空均值", "停盈停损含空均值",
+            "停盈止损涨幅", "综合停盈止损日均涨幅", "停盈止损日均涨跌幅", "停盈止损从下往上含空均值", "停盈止损含空均值"
         ])
         table.setSelectionBehavior(QTableWidget.SelectItems)
         table.setSelectionMode(QTableWidget.ExtendedSelection)
         table.setEditTriggers(QTableWidget.NoEditTriggers)
 
         # 使用新的分析结果计算函数
-        result = calculate_analysis_result(valid_items)
+        result = calculate_analysis_result(valid_items, self)
         
         # 设置第一行的均值数据
         summary = result['summary']
         table.setItem(0, 1, QTableWidgetItem(str(summary['mean_hold_days'])))
-        table.setItem(0, 2, QTableWidgetItem(f"{summary['mean_ops_change']}%" if summary['mean_ops_change'] != '' else ''))
-        table.setItem(0, 3, QTableWidgetItem(f"{summary['mean_daily_change']}%" if summary['mean_daily_change'] != '' else ''))
-        table.setItem(0, 4, QTableWidgetItem(f"{summary['mean_non_nan']}%" if summary['mean_non_nan'] != '' else ''))
-        table.setItem(0, 5, QTableWidgetItem(f"{summary['mean_with_nan']}%" if summary['mean_with_nan'] != '' else ''))
-        table.setItem(0, 6, QTableWidgetItem(f"{summary['mean_daily_with_nan']}%" if summary['mean_daily_with_nan'] != '' else ''))
-        table.setItem(0, 7, QTableWidgetItem(f"{summary['max_change']}%" if summary['max_change'] != '' else ''))
-        table.setItem(0, 8, QTableWidgetItem(f"{summary['min_change']}%" if summary['min_change'] != '' else ''))
-        table.setItem(0, 9, QTableWidgetItem(f"{summary['mean_adjust_ops_incre_rate']}%" if summary['mean_adjust_ops_incre_rate'] != '' else ''))
-        table.setItem(0, 10, QTableWidgetItem(f"{summary['mean_adjust_non_nan']}%" if summary['mean_adjust_non_nan'] != '' else ''))
-        table.setItem(0, 11, QTableWidgetItem(f"{summary['mean_adjust_with_nan']}%" if summary['mean_adjust_with_nan'] != '' else ''))
-        table.setItem(0, 12, QTableWidgetItem(f"{summary['mean_adjust_daily_with_nan']}%" if summary.get('mean_adjust_daily_with_nan', '') != '' else ''))
-        table.setItem(0, 13, QTableWidgetItem(f"{summary['max_adjust_ops_incre_rate']}%" if summary['max_adjust_ops_incre_rate'] != '' else ''))
-        table.setItem(0, 14, QTableWidgetItem(f"{summary['min_adjust_ops_incre_rate']}%" if summary['min_adjust_ops_incre_rate'] != '' else ''))
+        # 止盈止损
+        table.setItem(0, 2, QTableWidgetItem(f"{summary['mean_adjust_ops_change']}%" if summary['mean_adjust_ops_change'] != '' else ''))
+        table.setItem(0, 3, QTableWidgetItem(f"{summary['comprehensive_daily_change']}%" if summary['comprehensive_daily_change'] != '' else ''))
+        table.setItem(0, 4, QTableWidgetItem(f"{summary['mean_adjust_daily_change']}%" if summary.get('mean_adjust_daily_change', '') != '' else ''))
+        table.setItem(0, 5, QTableWidgetItem(f"{summary['mean_adjust_with_nan']}%" if summary['mean_adjust_with_nan'] != '' else ''))
+        table.setItem(0, 6, QTableWidgetItem(f"{summary['mean_adjust_daily_with_nan']}%" if summary.get('mean_adjust_daily_with_nan', '') != '' else ''))
+
+        # 止盈停损
+        table.setItem(0, 7, QTableWidgetItem(f"{summary['mean_take_and_stop_change']}%" if summary['mean_take_and_stop_change'] != '' else ''))
+        table.setItem(0, 8, QTableWidgetItem(f"{summary['comprehensive_take_and_stop_change']}%" if summary['comprehensive_take_and_stop_change'] != '' else ''))
+        table.setItem(0, 9, QTableWidgetItem(f"{summary['mean_take_and_stop_daily_change']}%" if summary['mean_take_and_stop_daily_change'] != '' else ''))
+        table.setItem(0, 10, QTableWidgetItem(f"{summary['mean_take_and_stop_with_nan']}%" if summary['mean_take_and_stop_with_nan'] != '' else ''))
+        table.setItem(0, 11, QTableWidgetItem(f"{summary['mean_take_and_stop_daily_with_nan']}%" if summary['mean_take_and_stop_daily_with_nan'] != '' else ''))
+
+        table.setItem(0, 12, QTableWidgetItem(str(summary['mean_adjust_days'])))
+
+        # 停盈停损
+        table.setItem(0, 13, QTableWidgetItem(f"{summary['mean_ops_change']}%" if summary['mean_ops_change'] != '' else ''))
+        table.setItem(0, 14, QTableWidgetItem(f"{summary['comprehensive_stop_daily_change']}%" if summary['comprehensive_stop_daily_change'] != '' else ''))
+        table.setItem(0, 15, QTableWidgetItem(f"{summary['mean_daily_change']}%" if summary['mean_daily_change'] != '' else ''))
+        table.setItem(0, 16, QTableWidgetItem(f"{summary['mean_with_nan']}%" if summary['mean_with_nan'] != '' else ''))
+        table.setItem(0, 17, QTableWidgetItem(f"{summary['mean_daily_with_nan']}%" if summary['mean_daily_with_nan'] != '' else ''))
+
+        # 停盈止损
+        table.setItem(0, 18, QTableWidgetItem(f"{summary['mean_stop_and_take_change']}%" if summary['mean_stop_and_take_change'] != '' else ''))
+        table.setItem(0, 19, QTableWidgetItem(f"{summary['comprehensive_stop_and_take_change']}%" if summary['comprehensive_stop_and_take_change'] != '' else ''))
+        table.setItem(0, 20, QTableWidgetItem(f"{summary['mean_stop_and_take_daily_change']}%" if summary['mean_stop_and_take_daily_change'] != '' else ''))
+        table.setItem(0, 21, QTableWidgetItem(f"{summary['mean_stop_and_take_with_nan']}%" if summary['mean_stop_and_take_with_nan'] != '' else ''))
+        table.setItem(0, 22, QTableWidgetItem(f"{summary['mean_stop_and_take_daily_with_nan']}%" if summary['mean_stop_and_take_daily_with_nan'] != '' else ''))
 
         # 设置每行的数据
         for row_idx, item in enumerate(result['items']):
             table.setItem(row_idx + 2, 0, QTableWidgetItem(item['date']))
             table.setItem(row_idx + 2, 1, QTableWidgetItem(str(item['hold_days'])))
-            table.setItem(row_idx + 2, 2, QTableWidgetItem(f"{item['ops_change']}%" if item['ops_change'] != '' else ''))
-            table.setItem(row_idx + 2, 3, QTableWidgetItem(f"{item['daily_change']}%" if item['daily_change'] != '' else ''))
-            table.setItem(row_idx + 2, 4, QTableWidgetItem(f"{round(item['non_nan_mean'],2)}%" if not math.isnan(item['non_nan_mean']) else ''))
-            table.setItem(row_idx + 2, 5, QTableWidgetItem(f"{round(item['with_nan_mean'],2)}%" if not math.isnan(item['with_nan_mean']) else ''))
-            table.setItem(row_idx + 2, 6, QTableWidgetItem(""))  # 含空值均值在summary中，这里暂时留空
-            table.setItem(row_idx + 2, 7, QTableWidgetItem(""))  # 最大值在summary中，这里暂时留空
-            table.setItem(row_idx + 2, 8, QTableWidgetItem(""))  # 最小值在summary中，这里暂时留空
-            table.setItem(row_idx + 2, 9, QTableWidgetItem(f"{item['adjust_daily_change']}%" if item['adjust_daily_change'] != '' else ''))
-            table.setItem(row_idx + 2, 10, QTableWidgetItem(f"{round(item['adjust_non_nan_mean'],2)}%" if not math.isnan(item['adjust_non_nan_mean']) else ''))
-            table.setItem(row_idx + 2, 11, QTableWidgetItem(f"{round(item['adjust_with_nan_mean'],2)}%" if not math.isnan(item['adjust_with_nan_mean']) else ''))
-            table.setItem(row_idx + 2, 12, QTableWidgetItem(""))  # 调幅含空值均值只在均值行
-            table.setItem(row_idx + 2, 13, QTableWidgetItem(""))  # 调幅最大值只在均值行
-            table.setItem(row_idx + 2, 14, QTableWidgetItem(""))  # 调幅最小值只在均值行
+            # 止盈止损
+            table.setItem(row_idx + 2, 2, QTableWidgetItem(f"{item['adjust_ops_change']}%" if item['adjust_ops_change'] != '' else ''))
+            table.setItem(row_idx + 2, 3, QTableWidgetItem(""))
+            table.setItem(row_idx + 2, 4, QTableWidgetItem(f"{item['adjust_daily_change']}%" if item['adjust_daily_change'] != '' else ''))
+            table.setItem(row_idx + 2, 5, QTableWidgetItem(f"{round(item['adjust_with_nan_mean'],2)}%" if not math.isnan(item['adjust_with_nan_mean']) else ''))
+            table.setItem(row_idx + 2, 6, QTableWidgetItem(""))  # 调幅含空值均值只在均值行
+
+            # 止盈停损
+            table.setItem(row_idx + 2, 7, QTableWidgetItem(f"{item['take_and_stop_change']}%" if item['take_and_stop_change'] != '' else ''))
+            table.setItem(row_idx + 2, 8, QTableWidgetItem(""))
+            table.setItem(row_idx + 2, 9, QTableWidgetItem(f"{item['take_and_stop_daily_change']}%" if item['take_and_stop_daily_change'] != '' else ''))
+            table.setItem(row_idx + 2, 10, QTableWidgetItem(f"{round(item['take_and_stop_with_nan_mean'],2)}%" if not math.isnan(item['take_and_stop_with_nan_mean']) else ''))
+            table.setItem(row_idx + 2, 11, QTableWidgetItem(""))
+
+            table.setItem(row_idx + 2, 12, QTableWidgetItem(str(item['adjust_days'])))
+
+            # 停盈停损
+            table.setItem(row_idx + 2, 13, QTableWidgetItem(f"{item['ops_change']}%" if item['ops_change'] != '' else ''))
+            table.setItem(row_idx + 2, 14, QTableWidgetItem(""))
+            table.setItem(row_idx + 2, 15, QTableWidgetItem(f"{item['daily_change']}%" if item['daily_change'] != '' else ''))
+            table.setItem(row_idx + 2, 16, QTableWidgetItem(f"{round(item['with_nan_mean'],2)}%" if not math.isnan(item['with_nan_mean']) else ''))
+            table.setItem(row_idx + 2, 17, QTableWidgetItem(""))  # 含空值均值在summary中，这里暂时留空
+
+            # 停盈止损
+            table.setItem(row_idx + 2, 18, QTableWidgetItem(f"{item['stop_and_take_change']}%" if item['stop_and_take_change'] != '' else ''))
+            table.setItem(row_idx + 2, 19, QTableWidgetItem(""))
+            table.setItem(row_idx + 2, 20, QTableWidgetItem(f"{item['stop_and_take_daily_change']}%" if item['stop_and_take_daily_change'] != '' else ''))
+            table.setItem(row_idx + 2, 21, QTableWidgetItem(f"{round(item['stop_and_take_with_nan_mean'],2)}%" if not math.isnan(item['stop_and_take_with_nan_mean']) else ''))
+            table.setItem(row_idx + 2, 22, QTableWidgetItem(""))
 
         table.horizontalHeader().setFixedHeight(40)
         table.horizontalHeader().setStyleSheet("font-size: 12px;")
@@ -1513,11 +1726,14 @@ class StockAnalysisApp(QWidget):
         row = table.rowCount()
         table.insertRow(row)
         
+        # 根据当前选中的变量类别动态生成文本
+        profit_text, loss_text, profit_median_text, loss_median_text = self.get_profit_loss_text_by_category()
+        
         # 构建止盈止损率统计文本
         stats_text = f"总股票数: {summary.get('total_stocks', 0)} | "
         stats_text += f"持有率: {summary.get('hold_rate', 0)}% | "
-        stats_text += f"止盈率: {summary.get('profit_rate', 0)}% | "
-        stats_text += f"止损率: {summary.get('loss_rate', 0)}%"
+        stats_text += f"{profit_text}: {summary.get('profit_rate', 0)}% | "
+        stats_text += f"{loss_text}: {summary.get('loss_rate', 0)}%"
         
         item = QTableWidgetItem(stats_text)
         item.setFlags(item.flags() & ~Qt.ItemIsEditable)
@@ -1538,8 +1754,8 @@ class StockAnalysisApp(QWidget):
         loss_median = summary.get('loss_median')
         
         median_text = f"持有中位数: {hold_median}%" if hold_median is not None else "持有中位数: 无"
-        median_text += f" | 止盈中位数: {profit_median}%" if profit_median is not None else " | 止盈中位数: 无"
-        median_text += f" | 止损中位数: {loss_median}%" if loss_median is not None else " | 止损中位数: 无"
+        median_text += f" | {profit_median_text}: {profit_median}%" if profit_median is not None else f" | {profit_median_text}: 无"
+        median_text += f" | {loss_median_text}: {loss_median}%" if loss_median is not None else f" | {loss_median_text}: 无"
         
         item = QTableWidgetItem(median_text)
         item.setFlags(item.flags() & ~Qt.ItemIsEditable)
@@ -1740,6 +1956,8 @@ class StockAnalysisApp(QWidget):
         # 获取选股数量和排序方式
         select_count = getattr(self, 'last_select_count', 10)
         sort_mode = getattr(self, 'last_sort_mode', '最大值排序')
+        profit_type = getattr(self, 'last_profit_type', 'INC')
+        loss_type = getattr(self, 'last_loss_type', 'INC')
         
         # 获取比较变量列表 - 参考选股的do_select()函数
         comparison_vars = []
@@ -1765,6 +1983,31 @@ class StockAnalysisApp(QWidget):
         comparison_vars = list(comparison_vars)  # 转换为list
         print(f"最终自动分析comparison_vars: {comparison_vars}")
         
+        # 获取倍增系数参数（选股时使用下限值）
+        negative_multiplier = 1.0
+        positive_multiplier = 1.0
+        
+        # 从last_formula_select_state中获取倍增系数
+        if hasattr(self, 'last_formula_select_state') and self.last_formula_select_state:
+            state = self.last_formula_select_state
+            if 'negative_multiplier' in state:
+                var_state = state['negative_multiplier']
+                if var_state.get('checked', False) and 'lower' in var_state:
+                    try:
+                        negative_multiplier = round(float(var_state['lower']), 2)
+                    except (ValueError, TypeError):
+                        negative_multiplier = 1.0
+            
+            if 'positive_multiplier' in state:
+                var_state = state['positive_multiplier']
+                if var_state.get('checked', False) and 'lower' in var_state:
+                    try:
+                        positive_multiplier = round(float(var_state['lower']), 2)
+                    except (ValueError, TypeError):
+                        positive_multiplier = 1.0
+        
+        print(f"自动分析倍增系数 - 负值: {negative_multiplier}, 正值: {positive_multiplier}")
+        
         result = self.get_or_calculate_result(
             formula_expr=formula, 
             show_main_output=False, 
@@ -1774,7 +2017,11 @@ class StockAnalysisApp(QWidget):
             sort_mode=sort_mode,
             end_date_start=start_date,
             end_date_end=end_date,
-            comparison_vars=comparison_vars
+            comparison_vars=comparison_vars,
+            profit_type=profit_type,
+            loss_type=loss_type,
+            negative_multiplier=negative_multiplier,
+            positive_multiplier=positive_multiplier
         )
         self.last_auto_analysis_result = result  # 新增：只给自动分析用
         merged_results = result.get('dates', {}) if result else {}
@@ -1793,7 +2040,7 @@ class StockAnalysisApp(QWidget):
         # 创建新表格
         table = self.create_analysis_table(valid_items, start_date, end_date)
         self.analysis_result_layout.addWidget(table)
-        # 保存表格数据
+        
         self.cached_table_data = {
             "headers": [table.horizontalHeaderItem(i).text() for i in range(table.columnCount())],
             "data": [[table.item(i, j).text() if table.item(i, j) else "" for j in range(table.columnCount())] for i in range(table.rowCount())],
@@ -1809,25 +2056,28 @@ class StockAnalysisApp(QWidget):
         row_layout = QHBoxLayout()
         self.start_date_label = QLabel("结束日期开始日:")
         self.start_date_picker = QDateEdit(calendarPopup=True)
-        # 使用保存的日期值或默认值
-        if hasattr(self, 'last_analysis_start_date'):
+        # 优先使用last_analysis_start_date，如果没有则默认今天
+        if hasattr(self, 'last_analysis_start_date') and self.last_analysis_start_date:
             self.start_date_picker.setDate(QDate.fromString(self.last_analysis_start_date, "yyyy-MM-dd"))
-            print(f"获取到了 last_analysis_start_date: {self.last_analysis_start_date}")
+            print(f"使用last_analysis_start_date: {self.last_analysis_start_date}")
         else:
-            print("没有获取到 last_analysis_start_date")
-            self.start_date_picker.setDate(self.date_picker.date())
+            self.start_date_picker.setDate(QDate.currentDate())
+            print("使用默认今天作为开始日期")
         self.end_date_label = QLabel("结束日期结束日:")
         self.end_date_picker = QDateEdit(calendarPopup=True)
-        # 使用保存的日期值或默认值
-        if hasattr(self, 'last_analysis_end_date'):
-            print(f"获取到了 last_analysis_end_date: {self.last_analysis_end_date}")
+        # 优先使用last_analysis_end_date，如果没有则默认今天
+        if hasattr(self, 'last_analysis_end_date') and self.last_analysis_end_date:
             self.end_date_picker.setDate(QDate.fromString(self.last_analysis_end_date, "yyyy-MM-dd"))
+            print(f"使用last_analysis_end_date: {self.last_analysis_end_date}")
         else:
-            print("没有获取到 last_analysis_end_date")
-            self.end_date_picker.setDate(self.date_picker.date())
+            self.end_date_picker.setDate(QDate.currentDate())
+            print("使用默认今天作为结束日期")
         # 绑定信号，变更时同步变量
         self.start_date_picker.dateChanged.connect(self._on_analysis_date_changed_save)
         self.end_date_picker.dateChanged.connect(self._on_analysis_date_changed_save)
+        
+        # 设置文件上传监听器
+        self.setup_analysis_file_upload_listener()
         # 新增导出按钮
         self.export_excel_btn = QPushButton("导出Excel")
         self.export_excel_btn.clicked.connect(self.on_export_excel)
@@ -1880,11 +2130,15 @@ class StockAnalysisApp(QWidget):
             formula = self.cached_table_data["formula"]
             table = QTableWidget(len(data), len(self.cached_table_data["headers"]), self.analysis_widget)
             table.setHorizontalHeaderLabels(self.cached_table_data["headers"])
+            
+            # 获取动态文本
+            profit_text, loss_text, profit_median_text, loss_median_text = self.get_profit_loss_text_by_category()
+            
             # 填充数据
             for i, row in enumerate(data):
                 for j, cell in enumerate(row):
                     # 检查是否是止盈止损率统计行
-                    if j == 0 and '总股票数' in cell and '持有率' in cell and '止盈率' in cell and '止损率' in cell:
+                    if j == 0 and '总股票数' in cell and '持有率' in cell and profit_text in cell and loss_text in cell:
                         item = QTableWidgetItem(cell)
                         item.setFlags(item.flags() & ~Qt.ItemIsEditable)
                         item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
@@ -1894,7 +2148,7 @@ class StockAnalysisApp(QWidget):
                         table.setWordWrap(True)
                         table.resizeRowToContents(i)
                     # 检查是否是中位数统计行
-                    elif j == 0 and '持有中位数' in cell and '止盈中位数' in cell and '止损中位数' in cell:
+                    elif j == 0 and '持有中位数' in cell and profit_median_text in cell and loss_median_text in cell:
                         item = QTableWidgetItem(cell)
                         item.setFlags(item.flags() & ~Qt.ItemIsEditable)
                         item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
@@ -1933,6 +2187,43 @@ class StockAnalysisApp(QWidget):
         self.last_analysis_start_date = self.start_date_picker.date().toString("yyyy-MM-dd")
         self.last_analysis_end_date = self.end_date_picker.date().toString("yyyy-MM-dd")
 
+    def setup_analysis_file_upload_listener(self):
+        
+        #设置自动分析界面的文件上传成功监听器
+        # 监听主窗口的文件上传成功事件
+        if hasattr(self, 'init') and hasattr(self.init, 'on_file_loaded'):
+            # 保存原始的文件加载完成方法
+            original_on_file_loaded = self.init.on_file_loaded
+            
+            def new_on_file_loaded(df, price_data, diff_data, workdays_str, error_msg):
+                # 调用原始方法
+                original_on_file_loaded(df, price_data, diff_data, workdays_str, error_msg)
+                
+                # 如果没有错误，更新自动分析界面的日期
+                if not error_msg and workdays_str and len(workdays_str) > 0:
+                    # 更新主窗口的缓存
+                    self.last_analysis_start_date = workdays_str[-1]
+                    self.last_analysis_end_date = workdays_str[-1]
+                    print(f"文件上传成功，更新自动分析日期: {workdays_str[-1]}")
+                    
+                    # 如果自动分析界面已经创建，则立即设置日期
+                    if hasattr(self, 'start_date_picker') and self.start_date_picker is not None:
+                        try:
+                            self.start_date_picker.setDate(QDate.fromString(workdays_str[-1], "yyyy-MM-dd"))
+                            print(f"立即设置自动分析开始日期为: {workdays_str[-1]}")
+                        except Exception as e:
+                            print(f"立即设置开始日期失败: {e}")
+                    
+                    if hasattr(self, 'end_date_picker') and self.end_date_picker is not None:
+                        try:
+                            self.end_date_picker.setDate(QDate.fromString(workdays_str[-1], "yyyy-MM-dd"))
+                            print(f"立即设置自动分析结束日期为: {workdays_str[-1]}")
+                        except Exception as e:
+                            print(f"立即设置结束日期失败: {e}")
+            
+            # 替换方法
+            self.init.on_file_loaded = new_on_file_loaded
+
     def on_op_stat_btn_clicked(self):
         self.clear_result_area()
         # 创建操作统计子界面整体widget
@@ -1961,6 +2252,16 @@ class StockAnalysisApp(QWidget):
             self.result_text.setText("请先进行自动分析")
             self.output_stack.setCurrentWidget(self.result_text)
             return
+        
+        # 过滤掉stock_idx为-1、-2、-3的结果
+        filtered_merged_results = {}
+        for end_date, stocks in merged_results.items():
+            filtered_stocks = [stock for stock in stocks if stock.get('stock_idx') not in [-1, -2, -3]]
+            if filtered_stocks:  # 只保留有有效股票数据的日期
+                filtered_merged_results[end_date] = filtered_stocks
+        
+        merged_results = filtered_merged_results  # 使用过滤后的结果
+        
         group_size = 19
         end_dates = [d for d, stocks in merged_results.items() if stocks]
         blocks = [end_dates[i:i+group_size] for i in range(0, len(end_dates), group_size)]
@@ -2035,7 +2336,8 @@ class StockAnalysisApp(QWidget):
         data = []
         headers = []
         for col in range(table.columnCount()):
-            headers.append(table.horizontalHeaderItem(col).text())
+            header_item = table.horizontalHeaderItem(col)
+            headers.append(header_item.text() if header_item else f"列{col+1}")
         for row in range(table.rowCount()):
             row_data = []
             for col in range(table.columnCount()):
@@ -2068,7 +2370,8 @@ class StockAnalysisApp(QWidget):
         data = []
         headers = []
         for col in range(table.columnCount()):
-            headers.append(table.horizontalHeaderItem(col).text())
+            header_item = table.horizontalHeaderItem(col)
+            headers.append(header_item.text() if header_item else f"列{col+1}")
         for row in range(table.rowCount()):
             row_data = []
             for col in range(table.columnCount()):
@@ -2104,7 +2407,9 @@ class StockAnalysisApp(QWidget):
         if hasattr(self, 'last_component_valid_sum_logic'):
             component_widget.valid_sum_logic_checkbox.setChecked(self.last_component_valid_sum_logic)
         
-        component_widget.setMinimumSize(1200, 600)
+        # 使用智能缩放设置组件尺寸
+        scaled_width, scaled_height = self._get_smart_scaled_size(1200, 600)
+        component_widget.setMinimumSize(scaled_width, scaled_height)
         self.component_widget = component_widget  # 保存引用以便后续保存状态
         self.table_widget = component_widget
         self.output_stack.addWidget(component_widget)
@@ -2113,6 +2418,16 @@ class StockAnalysisApp(QWidget):
         if hasattr(self, '_pending_component_analysis_results'):
             component_widget.set_cached_analysis_results(self._pending_component_analysis_results)
             del self._pending_component_analysis_results
+        
+        # 恢复三次分析状态，便于程序重启后继续导出
+        if hasattr(self, 'three_stage_best_top_one'):
+            component_widget.three_stage_best_top_one = self.three_stage_best_top_one
+        if hasattr(self, 'three_stage_param_best_conditions'):
+            component_widget.three_stage_param_best_conditions = self.three_stage_param_best_conditions
+        if hasattr(self, 'best_param_condition_list'):
+            component_widget.best_param_condition_list = self.best_param_condition_list
+        if hasattr(self, 'current_three_stage_variable'):
+            component_widget.current_three_stage_variable = self.current_three_stage_variable
 
     def on_export_excel(self):
         # 获取当前表格数据
@@ -2360,7 +2675,7 @@ class StockAnalysisApp(QWidget):
         for i in range(1, table.columnCount()):
             header.setSectionResizeMode(i, QHeaderView.ResizeToContents)
         self.analysis_result_layout.addWidget(table)
-        # 保存表格数据
+        
         self.cached_table_data = {
             "headers": [table.horizontalHeaderItem(i).text() for i in range(table.columnCount())],
             "data": [[table.item(i, j).text() if table.item(i, j) else "" for j in range(table.columnCount())] for i in range(table.rowCount())],
@@ -2472,17 +2787,17 @@ class StockAnalysisApp(QWidget):
             
             # 先找出所有比较控件的变量，避免被当作普通上下限处理
             comparison_vars = set()
-            for m in re.finditer(r'([a-zA-Z0-9_]+)\s*>=\s*([\-\d\.]+)\s*\*\s*([a-zA-Z0-9_]+)', formula):
-                var1, lower, var2 = m.group(1), m.group(2), m.group(3)
+            for m in re.finditer(r'([a-zA-Z0-9_]+)\s*/\s*([a-zA-Z0-9_]+)\s*>=\s*([\-\d\.]+)', formula):
+                var1, var2, lower = m.group(1), m.group(2), m.group(3)
                 comparison_vars.add(var1)
                 comparison_vars.add(var2)
-                print(f"找到比较控件: {var1} >= {lower} * {var2}")
+                print(f"找到比较控件: {var1} / {var2} >= {lower}")
             
-            for m in re.finditer(r'([a-zA-Z0-9_]+)\s*<=\s*([\-\d\.]+)\s*\*\s*([a-zA-Z0-9_]+)', formula):
-                var1, upper, var2 = m.group(1), m.group(2), m.group(3)
+            for m in re.finditer(r'([a-zA-Z0-9_]+)\s*/\s*([a-zA-Z0-9_]+)\s*<=\s*([\-\d\.]+)', formula):
+                var1, var2, upper = m.group(1), m.group(2), m.group(3)
                 comparison_vars.add(var1)
                 comparison_vars.add(var2)
-                print(f"找到比较控件: {var1} <= {upper} * {var2}")
+                print(f"找到比较控件: {var1} / {var2} <= {upper}")
             
             # 记录已处理的变量，避免重复处理
             processed_vars = set()
@@ -2654,8 +2969,8 @@ class StockAnalysisApp(QWidget):
             en2zh = {en: zh for zh, en in abbr_map.items()}
             comparison_configs = []
             # >=
-            for m in re.finditer(r'([a-zA-Z0-9_]+)\s*>=\s*([\-\d\.]+)\s*\*\s*([a-zA-Z0-9_]+)', formula):
-                var1, lower, var2 = m.group(1), m.group(2), m.group(3)
+            for m in re.finditer(r'([a-zA-Z0-9_]+)\s*/\s*([a-zA-Z0-9_]+)\s*>=\s*([\-\d\.]+)', formula):
+                var1, var2, lower = m.group(1), m.group(2), m.group(3)
                 zh_var1 = en2zh.get(var1, var1)
                 zh_var2 = en2zh.get(var2, var2)
                 existing = next((c for c in comparison_configs if c['var1'] == zh_var1 and c['var2'] == zh_var2), None)
@@ -2664,8 +2979,8 @@ class StockAnalysisApp(QWidget):
                 else:
                     comparison_configs.append({'var1': zh_var1, 'lower': lower, 'upper': '', 'var2': zh_var2})
             # <=
-            for m in re.finditer(r'([a-zA-Z0-9_]+)\s*<=\s*([\-\d\.]+)\s*\*\s*([a-zA-Z0-9_]+)', formula):
-                var1, upper, var2 = m.group(1), m.group(2), m.group(3)
+            for m in re.finditer(r'([a-zA-Z0-9_]+)\s*/\s*([a-zA-Z0-9_]+)\s*<=\s*([\-\d\.]+)', formula):
+                var1, var2, upper = m.group(1), m.group(2), m.group(3)
                 zh_var1 = en2zh.get(var1, var1)
                 zh_var2 = en2zh.get(var2, var2)
                 existing = next((c for c in comparison_configs if c['var1'] == zh_var1 and c['var2'] == zh_var2), None)
@@ -2760,7 +3075,6 @@ class StockAnalysisApp(QWidget):
 
     def save_config(self):
         config = {
-            'date': self.date_picker.date().toString("yyyy-MM-dd"),
             'width': self.width_spin.value(),
             'start_option': self.start_option_combo.currentIndex(),
             'shift': self.shift_spin.value(),
@@ -2780,9 +3094,9 @@ class StockAnalysisApp(QWidget):
             'last_formula_expr': getattr(self, 'last_formula_expr', ''),
             'last_select_count': getattr(self, 'last_select_count', 10),
             'last_sort_mode': getattr(self, 'last_sort_mode', '最大值排序'),
+            'last_profit_type': getattr(self, 'last_profit_type', 'INC'),  # 新增：盈类型缓存
+            'last_loss_type': getattr(self, 'last_loss_type', 'INC'),      # 新增：损类型缓存
             'direction': self.direction_checkbox.isChecked(),
-            'analysis_start_date': getattr(self, 'last_analysis_start_date', ''),
-            'analysis_end_date': getattr(self, 'last_analysis_end_date', ''),
             'component_analysis_start_date': getattr(self, 'last_component_analysis_start_date', ''),
             'component_analysis_end_date': getattr(self, 'last_component_analysis_end_date', ''),
             'cpu_cores': self.cpu_spin.value(),
@@ -2844,17 +3158,47 @@ class StockAnalysisApp(QWidget):
             'new_after_low2_flag': self.new_after_low2_flag_checkbox.isChecked(),
             # 新增：组合分析界面勾选框状态
             'component_generate_trading_plan': getattr(self, 'last_component_generate_trading_plan', False),
-            'component_only_better_trading_plan': getattr(self, 'last_component_only_better_trading_plan', False),
+            'component_auto_three_stage': getattr(self, 'last_component_auto_three_stage', False),
             # 新增：组合分析次数
             'component_analysis_count': getattr(self, 'last_component_analysis_count', 1),
             # 新增：组合输出锁定状态
             'last_lock_output': getattr(self, 'last_lock_output', False),
             # 新增保存组合分析总耗时
             'last_component_total_elapsed_time': getattr(self, 'last_component_total_elapsed_time', None),
-            # 新增保存组合分析组合次数
-            'last_component_total_combinations': getattr(self, 'last_component_total_combinations', None),
+            # 新增保存组合分析实际执行次数
+            'last_component_actual_executions': getattr(self, 'last_component_actual_executions', None),
             # 新增保存last_adjusted_value
             'last_adjusted_value': getattr(self, 'last_adjusted_value', None),
+            # 新增保存locked_adjusted_value
+            'locked_adjusted_value': getattr(self, 'locked_adjusted_value', None),
+            # 新增：保存组合分析率值区间参数
+            'component_hold_rate_min': getattr(self, 'last_component_hold_rate_min', 0),
+            'component_hold_rate_max': getattr(self, 'last_component_hold_rate_max', 100),
+            'component_profit_rate_min': getattr(self, 'last_component_profit_rate_min', 0),
+            'component_profit_rate_max': getattr(self, 'last_component_profit_rate_max', 100),
+            'component_loss_rate_min': getattr(self, 'last_component_loss_rate_min', 0),
+            'component_loss_rate_max': getattr(self, 'last_component_loss_rate_max', 100),
+            'component_only_better_trading_plan_percent': getattr(self, 'last_component_only_better_trading_plan_percent', 0.0),
+            'component_comprehensive_daily_change_threshold': getattr(self, 'last_component_comprehensive_daily_change_threshold', 0.0),
+            'component_comprehensive_stop_daily_change_threshold': getattr(self, 'last_component_comprehensive_stop_daily_change_threshold', 0.0),
+            # 新增：综合均值系数和均值按两者最小值计算
+            'mean_coefficient': self.mean_coefficient_edit.text(),
+            'mean_min_calc': self.mean_min_calc_checkbox.isChecked(),
+            # 新增：收益法均值勾选框状态
+            #'profit_mean_calc': self.profit_mean_checkbox.isChecked(),
+            # 新增：保存组合分析总体结果
+            'overall_stats': getattr(self, 'overall_stats', None),
+            # 新增：保存三次分析相关数据
+            'last_analysis_was_three_stage': getattr(self, 'last_analysis_was_three_stage', False),
+            'cached_component_analysis_results': getattr(self, 'cached_component_analysis_results', None),
+            # 新增：保存三次分析统计信息
+            'last_three_stage_total_elapsed_time': getattr(self, 'last_three_stage_total_elapsed_time', None),
+            'last_three_stage_actual_executions': getattr(self, 'last_three_stage_actual_executions', 0),
+            # 新增：保存三次分析关键状态，便于程序重启后继续导出
+            'three_stage_best_top_one': getattr(self, 'three_stage_best_top_one', None),
+            'three_stage_param_best_conditions': getattr(self, 'three_stage_param_best_conditions', {}),
+            'best_param_condition_list': getattr(self, 'best_param_condition_list', []),
+            'current_three_stage_variable': getattr(self, 'current_three_stage_variable', None),
         }
         # 保存公式选股控件状态
         if hasattr(self, 'formula_widget') and self.formula_widget is not None:
@@ -2881,22 +3225,67 @@ class StockAnalysisApp(QWidget):
             elif hasattr(self, 'trading_plan_widget'):
                 config['trading_plan_end_date'] = self.trading_plan_widget.end_date_picker.date().toString("yyyy-MM-dd")
         try:
-            with open('config.json', 'w', encoding='utf-8') as f:
-                json.dump(config, f, ensure_ascii=False, indent=2)
+            # 使用原子性写入，先写入临时文件，成功后再替换原文件
+            import tempfile
+            import shutil
+            
+            # 备份原文件（如果存在）
+            if os.path.exists('config.json'):
+                shutil.copy2('config.json', 'config.json.backup')
+            
+            # 创建临时文件
+            with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', delete=False, suffix='.tmp') as temp_file:
+                json.dump(config, temp_file, ensure_ascii=False, indent=2)
+                temp_file.flush()  # 确保数据写入磁盘
+                temp_file_path = temp_file.name
+            
+            # 原子性替换：将临时文件重命名为目标文件
+            # 这个操作在大多数文件系统上是原子的
+            shutil.move(temp_file_path, 'config.json')
+            
         except Exception as e:
             print(f"保存配置失败: {e}")
+            # 清理可能残留的临时文件
+            if 'temp_file_path' in locals() and os.path.exists(temp_file_path):
+                try:
+                    os.unlink(temp_file_path)
+                except:
+                    pass
 
     def load_config(self):
         if not os.path.exists('config.json'):
             return
+        
+        # 首先尝试加载配置文件
+        config = None
         try:
             with open('config.json', 'r', encoding='utf-8') as f:
                 config = json.load(f)
-            if 'date' in config:
-                self.date_picker.blockSignals(True)
-                self.date_picker.setDate(QDate.fromString(config['date'], "yyyy-MM-dd"))
-                self.date_picker.blockSignals(False)
-                self.pending_date = config['date']  # 依然保留，等workdays加载后再做一次校验
+        except (json.JSONDecodeError, ValueError) as e:
+            print(f"配置文件格式错误，可能已损坏: {e}")
+            # 尝试从备份恢复（如果有的话）
+            if os.path.exists('config.json.backup'):
+                try:
+                    print("尝试从备份文件恢复配置...")
+                    import shutil
+                    shutil.copy2('config.json.backup', 'config.json')
+                    with open('config.json', 'r', encoding='utf-8') as f:
+                        config = json.load(f)
+                    print("已从备份恢复配置文件")
+                except Exception as restore_e:
+                    print(f"从备份恢复失败: {restore_e}")
+                    return
+            else:
+                print("没有找到备份文件，跳过配置加载")
+                return
+        except Exception as e:
+            print(f"加载配置文件失败: {e}")
+            return
+        
+        if config is None:
+            return
+        
+        try:
             if 'width' in config:
                 self.width_spin.setValue(config['width'])
             if 'start_option' in config:
@@ -2935,13 +3324,12 @@ class StockAnalysisApp(QWidget):
                 self.last_select_count = config['last_select_count']
             if 'last_sort_mode' in config:
                 self.last_sort_mode = config['last_sort_mode']
+            if 'last_profit_type' in config:
+                self.last_profit_type = config['last_profit_type']
+            if 'last_loss_type' in config:
+                self.last_loss_type = config['last_loss_type']
             if 'direction' in config:
                 self.direction_checkbox.setChecked(config['direction'])
-            # 加载自动分析子界面的日期配置
-            if 'analysis_start_date' in config:
-                self.last_analysis_start_date = config['analysis_start_date']
-            if 'analysis_end_date' in config:
-                self.last_analysis_end_date = config['analysis_end_date']
             # 加载组合分析子界面的日期配置
             if 'component_analysis_start_date' in config:
                 self.last_component_analysis_start_date = config['component_analysis_start_date']
@@ -3073,8 +3461,8 @@ class StockAnalysisApp(QWidget):
                 self.trading_plan_list = config['trading_plan_list']
             if 'component_generate_trading_plan' in config:
                 self.last_component_generate_trading_plan = config['component_generate_trading_plan']
-            if 'component_only_better_trading_plan' in config:
-                self.last_component_only_better_trading_plan = config['component_only_better_trading_plan']
+            if 'component_auto_three_stage' in config:
+                self.last_component_auto_three_stage = config['component_auto_three_stage']
             # 恢复trading_plan_end_date
             if 'trading_plan_end_date' in config:
                 self.last_trading_plan_end_date = config['trading_plan_end_date']
@@ -3084,20 +3472,74 @@ class StockAnalysisApp(QWidget):
             # 恢复组合分析总耗时
             if 'last_component_total_elapsed_time' in config:
                 self.last_component_total_elapsed_time = config['last_component_total_elapsed_time']
-            # 新增：恢复组合分析组合次数
-            if 'last_component_total_combinations' in config:
-                self.last_component_total_combinations = config['last_component_total_combinations']
+            # 新增：恢复组合分析实际执行次数
+            if 'last_component_actual_executions' in config:
+                self.last_component_actual_executions = config['last_component_actual_executions']
             # 新增：恢复last_adjusted_value
             if 'last_adjusted_value' in config:
                 self.last_adjusted_value = config['last_adjusted_value']
+            # 新增：恢复locked_adjusted_value
+            if 'locked_adjusted_value' in config:
+                self.locked_adjusted_value = config['locked_adjusted_value']
             # 恢复组合分析次数
             if 'component_analysis_count' in config:
                 self.last_component_analysis_count = config['component_analysis_count']
+            # 新增：恢复组合分析率值区间参数
+            if 'component_hold_rate_min' in config:
+                self.last_component_hold_rate_min = config['component_hold_rate_min']
+            if 'component_hold_rate_max' in config:
+                self.last_component_hold_rate_max = config['component_hold_rate_max']
+            if 'component_profit_rate_min' in config:
+                self.last_component_profit_rate_min = config['component_profit_rate_min']
+            if 'component_profit_rate_max' in config:
+                self.last_component_profit_rate_max = config['component_profit_rate_max']
+            if 'component_loss_rate_min' in config:
+                self.last_component_loss_rate_min = config['component_loss_rate_min']
+            if 'component_loss_rate_max' in config:
+                self.last_component_loss_rate_max = config['component_loss_rate_max']
+            if 'component_only_better_trading_plan_percent' in config:
+                self.last_component_only_better_trading_plan_percent = config['component_only_better_trading_plan_percent']
+            # 新增：恢复综合止盈止损和停盈停损阈值
+            if 'component_comprehensive_daily_change_threshold' in config:
+                self.last_component_comprehensive_daily_change_threshold = config['component_comprehensive_daily_change_threshold']
+            if 'component_comprehensive_stop_daily_change_threshold' in config:
+                self.last_component_comprehensive_stop_daily_change_threshold = config['component_comprehensive_stop_daily_change_threshold']
+            # 新增：恢复综合均值系数和均值按两者最小值计算
+            if 'mean_coefficient' in config:
+                self.mean_coefficient_edit.setText(config['mean_coefficient'])
+            if 'mean_min_calc' in config:
+                self.mean_min_calc_checkbox.setChecked(config['mean_min_calc'])
+            # 新增：恢复收益法均值勾选框状态
+            if 'profit_mean_calc' in config:
+                self.profit_mean_checkbox.setChecked(config['profit_mean_calc'])
+            # 新增：恢复组合分析总体结果
+            if 'overall_stats' in config:
+                self.overall_stats = config['overall_stats']
+            # 新增：恢复三次分析相关数据
+            if 'last_analysis_was_three_stage' in config:
+                self.last_analysis_was_three_stage = config['last_analysis_was_three_stage']
+            if 'cached_component_analysis_results' in config:
+                self.cached_component_analysis_results = config['cached_component_analysis_results']
+            # 新增：恢复三次分析统计信息
+            if 'last_three_stage_total_elapsed_time' in config:
+                self.last_three_stage_total_elapsed_time = config['last_three_stage_total_elapsed_time']
+            if 'last_three_stage_actual_executions' in config:
+                self.last_three_stage_actual_executions = config['last_three_stage_actual_executions']
+            # 新增：恢复三次分析关键状态，便于程序重启后继续导出
+            if 'three_stage_best_top_one' in config:
+                self.three_stage_best_top_one = config['three_stage_best_top_one']
+            if 'three_stage_param_best_conditions' in config:
+                self.three_stage_param_best_conditions = config['three_stage_param_best_conditions']
+            if 'best_param_condition_list' in config:
+                self.best_param_condition_list = config['best_param_condition_list']
+            if 'current_three_stage_variable' in config:
+                self.current_three_stage_variable = config['current_three_stage_variable']
         except Exception as e:
             print(f"加载配置失败: {e}")
 
     def closeEvent(self, event):
         self.save_config()
+        # 不再需要清理全局进程池，因为每次都新建进程池
         super().closeEvent(event)
 
     def _fix_date_range(self):
@@ -3116,8 +3558,72 @@ class StockAnalysisApp(QWidget):
         """显示操盘方案界面"""
         from ui.trading_plan_ui import TradingPlanWidget
         trading_plan_widget = TradingPlanWidget(self)
-        trading_plan_widget.setMinimumSize(1200, 600)
+        # 使用智能缩放设置操盘方案界面尺寸
+        scaled_width, scaled_height = self._get_smart_scaled_size(1200, 600)
+        trading_plan_widget.setMinimumSize(scaled_width, scaled_height)
         self.trading_plan_widget = trading_plan_widget
         self.table_widget = trading_plan_widget
         self.output_stack.addWidget(trading_plan_widget)
         self.output_stack.setCurrentWidget(trading_plan_widget)
+
+    def get_profit_loss_text_by_category(self):
+        """
+        根据当前选中的变量类别动态生成止盈止损相关的文本
+        返回: (profit_text, loss_text, profit_median_text, loss_median_text)
+        """
+        # 默认文本
+        default_profit_text = "止盈率"
+        default_loss_text = "止损率"
+        default_profit_median_text = "止盈中位数"
+        default_loss_median_text = "止损中位数"
+        
+        # 如果没有公式选择状态，返回默认文本
+        if not hasattr(self, 'last_formula_select_state') or not self.last_formula_select_state:
+            return default_profit_text, default_loss_text, default_profit_median_text, default_loss_median_text
+        
+        # 获取当前选中的变量
+        from function.stock_functions import get_abbr_round_only_map
+        abbr_round_only_map = get_abbr_round_only_map()
+        
+        # 检查选中的变量属于哪个类别
+        selected_vars = []
+        for (zh, en), en_val in abbr_round_only_map.items():
+            if en_val in self.last_formula_select_state:
+                var_state = self.last_formula_select_state[en_val]
+                if var_state.get('round_checked', False):  # 检查圆框是否勾选
+                    selected_vars.append((zh, en_val))
+        
+        if not selected_vars:
+            return default_profit_text, default_loss_text, default_profit_median_text, default_loss_median_text
+        
+        # 根据选中的变量确定类别
+        category = None
+        for zh, en_val in selected_vars:
+            if "停盈停损" in zh:
+                category = "停盈停损"
+                break
+            elif "停盈止损" in zh:
+                category = "停盈止损"
+                break
+            elif "止盈止损" in zh:
+                category = "止盈止损"
+                break
+            elif "止盈停损" in zh:
+                category = "止盈停损"
+                break
+        
+        if not category:
+            return default_profit_text, default_loss_text, default_profit_median_text, default_loss_median_text
+        
+        # 根据类别返回相应的文本
+        if category == "停盈停损":
+            return "止盈率", "停损率", "止盈中位数", "停损中位数"
+        elif category == "停盈止损":
+            return "止盈率", "止损率", "止盈中位数", "止损中位数"
+        elif category == "止盈止损":
+            return "止盈率", "止损率", "止盈中位数", "止损中位数"
+        elif category == "止盈停损":
+            return "止盈率", "停损率", "止盈中位数", "停损中位数"
+        else:
+            return default_profit_text, default_loss_text, default_profit_median_text, default_loss_median_text
+

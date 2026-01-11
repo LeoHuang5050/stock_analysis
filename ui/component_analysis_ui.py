@@ -6,12 +6,13 @@
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QDateEdit, QPushButton, 
     QTextEdit, QTableWidget, QTableWidgetItem, QHeaderView, QMessageBox,
-    QFileDialog, QCheckBox, QTabWidget, QSpinBox, QDialog, QScrollArea, QMainWindow
+    QFileDialog, QCheckBox, QTabWidget, QSpinBox, QDialog, QScrollArea, QMainWindow, QLineEdit
 )
 from PyQt5.QtCore import Qt, QDate, QTimer
-from PyQt5.QtGui import QFont
+from PyQt5.QtGui import QFont, QIntValidator
 import pandas as pd
 from datetime import datetime
+import math
 from function.stock_functions import show_formula_select_table, calculate_analysis_result, get_abbr_map, get_abbr_logic_map, get_abbr_round_map, FormulaSelectWidget
 from ui.common_widgets import CopyableTableWidget
 import time
@@ -26,13 +27,160 @@ class ComponentAnalysisWidget(QWidget):
         self.main_window = main_window
         self.cached_analysis_results = None
         self.analysis_terminated = False  # 添加终止标志
+        self.is_three_stage_mode = False  # 三次分析模式标记
+        self.three_stage_round_better = None  # 本轮是否优于上一轮（用于三次分析）
+        self.best_param_condition_list = []  # 跟踪每个参数的最优条件，用于导出JSON
+        self.no_better_result_list = []  # 跟踪每个参数的无最优结果情况，用于导出
+        self.analysis_completed_callback = None  # 分析完成后的回调函数
         self.init_ui()
         
         # 连接勾选框状态改变信号
         self.continuous_sum_logic_checkbox.stateChanged.connect(self._on_continuous_sum_logic_changed)
         self.valid_sum_logic_checkbox.stateChanged.connect(self._on_valid_sum_logic_changed)
         self.generate_trading_plan_checkbox.stateChanged.connect(self._on_generate_trading_plan_changed)
-        self.only_better_trading_plan_checkbox.stateChanged.connect(self._on_only_better_trading_plan_changed)
+    
+    def log_three_analysis(self, message):
+        """记录三次分析日志到文件"""
+        try:
+            with open('three_analysis_log.txt', 'a', encoding='utf-8') as f:
+                f.write(message + '\n')
+        except Exception:
+            pass
+    
+    def clear_three_analysis_log(self):
+        """清空三次分析日志文件"""
+        try:
+            with open('three_analysis_log.txt', 'w', encoding='utf-8') as f:
+                f.write('')  # 清空文件内容
+        except Exception:
+            pass
+    
+    def _generate_trading_plan_with_notification(self, top_one, is_three_stage_mode=False, round_index=None):
+        """
+        生成操盘方案并显示相应的提醒信息
+        
+        Args:
+            top_one: 最优分析结果
+            is_three_stage_mode: 是否为三次分析模式
+            round_index: 三次分析的轮次索引
+        """
+        if not top_one:
+            # 没有满足条件的结果，弹框提醒
+            message = "没有满足条件的组合分析结果"
+            QMessageBox.warning(self, "无满足条件结果", message)
+            return False
+            
+        new_value = top_one.get('adjusted_value', None)
+        if new_value is None:
+            return False
+            
+        try:
+            new_value_float = float(new_value)
+        except (ValueError, TypeError):
+            return False
+            
+        # 获取上次分析最优值和锁定最优值
+        # 在三次分析模式下，使用保存的快照；在普通模式下，使用当前的last_adjusted_value
+        if is_three_stage_mode:
+            last_value = getattr(self, 'three_stage_initial_last_value', None)
+        else:
+            last_value = getattr(self.main_window, 'last_adjusted_value', None)
+        locked_value = getattr(self.main_window, 'locked_adjusted_value', None)
+        
+        try:
+            last_value_float = float(last_value) if last_value is not None else None
+            locked_value_float = float(locked_value) if locked_value is not None else None
+        except (ValueError, TypeError):
+            last_value_float = None
+            locked_value_float = None
+        
+        # 判断是否应该生成操盘方案
+        should_generate = False
+        threshold = None
+        better_percent = 0.0
+        
+        if new_value_float > 0:
+            try:
+                better_percent = float(self.only_better_trading_plan_edit.text())
+            except ValueError:
+                better_percent = 0.0
+            
+            if last_value_float is not None:
+                # 计算需要超过的阈值：上次分析最优值 * (百分比/100)
+                threshold = last_value_float * (better_percent / 100)
+                should_generate = new_value_float > threshold
+            else:
+                # 第一次生成时，直接生成
+                should_generate = True
+        
+        # 构建提醒信息
+        if should_generate:
+            # 成功提示
+            if last_value_float is not None:
+                message = f"有最优方案出现！当前最优组合排序输出值：{new_value_float:.2f}，大于上次分析最优值：{last_value_float:.2f} 的 {better_percent}% = {threshold:.2f}"
+            else:
+                message = f"有最优方案出现！当前最优组合排序输出值：{new_value_float:.2f}，这是第一次分析"
+            
+            # 如果有锁定最优值，也提示是否大于锁定最优值
+            if locked_value_float is not None:
+                if new_value_float > locked_value_float:
+                    message += f"\n\n且大于锁定最优值 {locked_value_float:.2f}"
+                else:
+                    message += f"\n\n但不大于锁定最优值 {locked_value_float:.2f}"
+            
+            # 在三次分析模式下，记录到日志；在普通模式下，弹框提示
+            if is_three_stage_mode:
+                round_info = f"第{round_index}次" if round_index is not None else ""
+                self.log_three_analysis(f"【{round_info}】{message}")
+                # 如果是最终轮次，也显示弹框提醒
+                if round_index == "最终":
+                    QMessageBox.information(self, "三次分析完成 - 最优方案提示", message)
+            else:
+                # 在连续分析模式下，不显示弹窗提示，只记录日志
+                if getattr(self, 'is_auto_three_stage_mode', False):
+                    self.log_three_analysis(f"连续分析组合分析阶段：{message}")
+                else:
+                    QMessageBox.information(self, "最优方案提示", message)
+        else:
+            # 失败提示
+            if last_value_float is not None and threshold is not None:
+                message = f"该组合分析最优方案的输出值 {new_value_float:.2f} 不大于上次分析最优值 {last_value_float:.2f} 的 {better_percent}% = {threshold:.2f}，此方案无效，不生成操盘方案"
+                
+                # 如果有锁定最优值，也提示是否大于锁定最优值
+                if locked_value_float is not None:
+                    if new_value_float > locked_value_float:
+                        message += f"\n\n但大于锁定最优值 {locked_value_float:.2f}"
+                    else:
+                        message += f"\n\n且不大于锁定最优值 {locked_value_float:.2f}"
+                
+                # 在三次分析模式下，记录到日志；在普通模式下，弹框提示
+                if is_three_stage_mode:
+                    round_info = f"第{round_index}次" if round_index is not None else ""
+                    self.log_three_analysis(f"【{round_info}】{message}")
+                    # 如果是最终轮次，也显示弹框提醒
+                    if round_index == "最终":
+                        QMessageBox.warning(self, "三次分析完成 - 方案无效", message)
+                else:
+                    # 在连续分析模式下，不显示弹窗提示，只记录日志
+                    if getattr(self, 'is_auto_three_stage_mode', False):
+                        self.log_three_analysis(f"连续分析组合分析阶段：{message}")
+                    else:
+                        QMessageBox.warning(self, "方案无效", message)
+        
+        # 如果满足条件，生成操盘方案
+        if should_generate and self.generate_trading_plan_checkbox.isChecked():
+            self._add_top_result_to_trading_plan(top_one)
+            
+            # 更新锁定最优值
+            if locked_value_float is None or new_value_float > locked_value_float:
+                self.main_window.locked_adjusted_value = new_value_float
+            
+            # 更新显示
+            self._update_last_best_value_display()
+            
+            return True
+        
+        return False
         
     def init_ui(self):
         """初始化UI"""
@@ -87,19 +235,53 @@ class ComponentAnalysisWidget(QWidget):
         # 绑定信号，变更时同步变量
         self.analysis_count_spin.valueChanged.connect(self._on_analysis_count_changed_save)
         
+        # 二次分析次数设置控件
+        self.secondary_analysis_count_label = QLabel("二次分析次数:")
+        self.secondary_analysis_count_spin = QSpinBox()
+        self.secondary_analysis_count_spin.setMinimum(1)
+        self.secondary_analysis_count_spin.setMaximum(9999999)
+        self.secondary_analysis_count_spin.setValue(1)  # 默认1次
+        self.secondary_analysis_count_spin.setFixedWidth(45)
+        
+        # 恢复保存的二次分析次数
+        if hasattr(self.main_window, 'last_component_secondary_analysis_count'):
+            self.secondary_analysis_count_spin.setValue(self.main_window.last_component_secondary_analysis_count)
+        
+        # 绑定信号，变更时同步变量
+        self.secondary_analysis_count_spin.valueChanged.connect(self._on_secondary_analysis_count_changed_save)
+        
         # 功能按钮
         self.analyze_btn = QPushButton("点击分析")
         self.analyze_btn.clicked.connect(self.on_analyze_clicked)
+        
+        self.optimize_btn = QPushButton("二次分析")
+        self.optimize_btn.clicked.connect(self.on_optimize_clicked)
+        
+        self.three_stage_btn = QPushButton("三次分析")
+        self.three_stage_btn.clicked.connect(self.on_three_stage_clicked)
         
         self.terminate_btn = QPushButton("终止分析")
         self.terminate_btn.clicked.connect(self.on_terminate_clicked)
         self.terminate_btn.setEnabled(False)  # 初始状态禁用
         
-        self.export_json_btn = QPushButton("导出最优方案")
-        self.export_json_btn.clicked.connect(self.on_export_json)
+        # self.export_json_btn = QPushButton("导出最优方案(JSON)")
+        # self.export_json_btn.clicked.connect(self.on_export_json)
         
-        self.import_json_btn = QPushButton("导入方案")
-        self.import_json_btn.clicked.connect(self.on_import_json)
+        self.export_csv_btn = QPushButton("导出最优方案")
+        self.export_csv_btn.clicked.connect(self.on_export_csv)
+        
+        # self.import_json_btn = QPushButton("导入方案")
+        # self.import_json_btn.clicked.connect(self.on_import_json)
+
+        self.import_csv_btn = QPushButton("导入方案")
+        self.import_csv_btn.clicked.connect(self.on_import_csv)
+        
+        # 添加导出和导入三次分析结果按钮
+        # self.export_three_stage_btn = QPushButton("导出三次分析结果")
+        # self.export_three_stage_btn.clicked.connect(self.on_export_three_stage_clicked)
+        
+        # self.import_three_stage_btn = QPushButton("导入三次分析结果")
+        # self.import_three_stage_btn.clicked.connect(self.on_import_three_stage_clicked)
         
         # 生成操盘方案勾选框
         self.generate_trading_plan_checkbox = QCheckBox("生成操盘方案")
@@ -109,23 +291,152 @@ class ComponentAnalysisWidget(QWidget):
         if hasattr(self.main_window, 'last_component_generate_trading_plan'):
             self.generate_trading_plan_checkbox.setChecked(self.main_window.last_component_generate_trading_plan)
         
-        # 大于上次最优值才生成操盘方案勾选框
-        self.only_better_trading_plan_checkbox = QCheckBox("大于上次最优值才生成操盘方案")
-        self.only_better_trading_plan_checkbox.setChecked(False)  # 默认不勾选
+        # 新增：组合-三次连续分析按钮
+        self.auto_three_stage_btn = QPushButton("组合-三次连续分析")
+        self.auto_three_stage_btn.clicked.connect(self.on_auto_three_stage_clicked)
         
-        # 恢复大于上次最优值才生成操盘方案勾选框状态
-        if hasattr(self.main_window, 'last_component_only_better_trading_plan'):
-            self.only_better_trading_plan_checkbox.setChecked(self.main_window.last_component_only_better_trading_plan)
+        # 大于上次最优值才生成操盘方案输入框
+        self.only_better_trading_plan_label = QLabel("大于上次最优值")
+        self.only_better_trading_plan_edit = QSpinBox()
+        self.only_better_trading_plan_edit.setRange(1, 9999)  # 设置最小值1，最大值9999
+        self.only_better_trading_plan_edit.setValue(100)  # 默认100%
+        self.only_better_trading_plan_edit.setFixedWidth(30)
+        self.only_better_trading_plan_edit.setButtonSymbols(QSpinBox.ButtonSymbols.NoButtons)  # 隐藏上下箭头按钮
+        self.only_better_trading_plan_percent_label = QLabel("%才生成操盘方案")
         
-        # 上次最优值显示标签
-        self.last_best_value_label = QLabel("上次最优值：")
+        # 恢复大于上次最优值才生成操盘方案输入框状态
+        if hasattr(self.main_window, 'last_component_only_better_trading_plan_percent'):
+            saved_value = self.main_window.last_component_only_better_trading_plan_percent
+            # 确保保存的值大于0，否则使用默认值100
+            if saved_value > 0:
+                self.only_better_trading_plan_edit.setValue(int(saved_value))
+            else:
+                self.only_better_trading_plan_edit.setValue(100)
+        else:
+            # 如果没有保存的值，使用默认值100
+            self.only_better_trading_plan_edit.setValue(100)
+        
+        # 绑定信号，变更时同步变量
+        self.only_better_trading_plan_edit.valueChanged.connect(self._on_only_better_trading_plan_percent_changed_save)
+        
+        # 添加持有率、止盈率、止损率区间输入框
+        self.hold_rate_label = QLabel("持有率:")
+        self.hold_rate_min_edit = QLineEdit()
+        self.hold_rate_min_edit.setPlaceholderText("0")
+        self.hold_rate_min_edit.setText("0")  # 默认下限0
+        self.hold_rate_min_edit.setFixedWidth(30)
+        
+        self.hold_rate_separator = QLabel("~")
+        self.hold_rate_separator.setFixedWidth(15)
+        
+        self.hold_rate_max_edit = QLineEdit()
+        self.hold_rate_max_edit.setPlaceholderText("100")
+        self.hold_rate_max_edit.setText("100")  # 默认上限100
+        self.hold_rate_max_edit.setFixedWidth(30)
+        
+        # 恢复保存的持有率区间
+        if hasattr(self.main_window, 'last_component_hold_rate_min'):
+            self.hold_rate_min_edit.setText(str(self.main_window.last_component_hold_rate_min))
+        if hasattr(self.main_window, 'last_component_hold_rate_max'):
+            self.hold_rate_max_edit.setText(str(self.main_window.last_component_hold_rate_max))
+        
+        # 绑定信号，变更时同步变量
+        self.hold_rate_min_edit.textChanged.connect(self._on_hold_rate_min_changed_save)
+        self.hold_rate_max_edit.textChanged.connect(self._on_hold_rate_max_changed_save)
+        
+        self.profit_rate_label = QLabel("止盈率:")
+        self.profit_rate_min_edit = QLineEdit()
+        self.profit_rate_min_edit.setPlaceholderText("0")
+        self.profit_rate_min_edit.setText("0")  # 默认下限0
+        self.profit_rate_min_edit.setFixedWidth(30)
+        
+        self.profit_rate_separator = QLabel("~")
+        self.profit_rate_separator.setFixedWidth(15)
+        
+        self.profit_rate_max_edit = QLineEdit()
+        self.profit_rate_max_edit.setPlaceholderText("100")
+        self.profit_rate_max_edit.setText("100")  # 默认上限100
+        self.profit_rate_max_edit.setFixedWidth(30)
+        
+        # 恢复保存的止盈率区间
+        if hasattr(self.main_window, 'last_component_profit_rate_min'):
+            self.profit_rate_min_edit.setText(str(self.main_window.last_component_profit_rate_min))
+        if hasattr(self.main_window, 'last_component_profit_rate_max'):
+            self.profit_rate_max_edit.setText(str(self.main_window.last_component_profit_rate_max))
+        
+        # 绑定信号，变更时同步变量
+        self.profit_rate_min_edit.textChanged.connect(self._on_profit_rate_min_changed_save)
+        self.profit_rate_max_edit.textChanged.connect(self._on_profit_rate_max_changed_save)
+        
+        self.loss_rate_label = QLabel("止损率:")
+        self.loss_rate_min_edit = QLineEdit()
+        self.loss_rate_min_edit.setPlaceholderText("0")
+        self.loss_rate_min_edit.setText("0")  # 默认下限0
+        self.loss_rate_min_edit.setFixedWidth(30)
+        
+        self.loss_rate_separator = QLabel("~")
+        self.loss_rate_separator.setFixedWidth(15)
+        
+        self.loss_rate_max_edit = QLineEdit()
+        self.loss_rate_max_edit.setPlaceholderText("100")
+        self.loss_rate_max_edit.setText("100")  # 默认上限100
+        self.loss_rate_max_edit.setFixedWidth(30)
+        
+        # 恢复保存的止损率区间
+        if hasattr(self.main_window, 'last_component_loss_rate_min'):
+            self.loss_rate_min_edit.setText(str(self.main_window.last_component_loss_rate_min))
+        if hasattr(self.main_window, 'last_component_loss_rate_max'):
+            self.loss_rate_max_edit.setText(str(self.main_window.last_component_loss_rate_max))
+        
+        # 绑定信号，变更时同步变量
+        self.loss_rate_min_edit.textChanged.connect(self._on_loss_rate_min_changed_save)
+        self.loss_rate_max_edit.textChanged.connect(self._on_loss_rate_max_changed_save)
+        
+        # 综合止盈止损需大于输入框
+        self.comprehensive_daily_change_label = QLabel("综合止盈止损需大于")
+        self.comprehensive_daily_change_edit = QLineEdit()
+        self.comprehensive_daily_change_edit.setPlaceholderText("0")
+        self.comprehensive_daily_change_edit.setText("0")  # 默认0%
+        self.comprehensive_daily_change_edit.setFixedWidth(30)
+        self.comprehensive_daily_change_percent_label = QLabel("%")
+        
+        # 恢复综合止盈止损需大于输入框状态
+        if hasattr(self.main_window, 'last_component_comprehensive_daily_change_threshold'):
+            self.comprehensive_daily_change_edit.setText(str(self.main_window.last_component_comprehensive_daily_change_threshold))
+        
+        # 综合停盈停损需大于输入框
+        self.comprehensive_stop_daily_change_label = QLabel("综合停盈停损需大于")
+        self.comprehensive_stop_daily_change_edit = QLineEdit()
+        self.comprehensive_stop_daily_change_edit.setPlaceholderText("0")
+        self.comprehensive_stop_daily_change_edit.setText("0")  # 默认0%
+        self.comprehensive_stop_daily_change_edit.setFixedWidth(30)
+        self.comprehensive_stop_daily_change_percent_label = QLabel("%")
+        
+        # 恢复综合停盈停损需大于输入框状态
+        if hasattr(self.main_window, 'last_component_comprehensive_stop_daily_change_threshold'):
+            self.comprehensive_stop_daily_change_edit.setText(str(self.main_window.last_component_comprehensive_stop_daily_change_threshold))
+
+        self.comprehensive_daily_change_edit.textChanged.connect(self._on_comprehensive_daily_change_threshold_changed_save)
+        self.comprehensive_stop_daily_change_edit.textChanged.connect(self._on_comprehensive_stop_daily_change_threshold_changed_save)
+        
+        # 上次分析最优值显示标签
+        self.last_best_value_label = QLabel("上次分析最优值：")
         self.last_best_value_display = QLabel("无")
         self.last_best_value_display.setStyleSheet("color: #2196F3; font-weight: bold;")
         
-        # 新增：清空按钮
-        self.clear_best_value_btn = QPushButton("清空")
-        self.clear_best_value_btn.setFixedWidth(40)
-        self.clear_best_value_btn.clicked.connect(self._on_clear_best_value)
+        # 新增：锁定最优值显示标签
+        self.locked_best_value_label = QLabel("锁定最优值：")
+        self.locked_best_value_display = QLabel("无")
+        self.locked_best_value_display.setStyleSheet("color: #2196F3; font-weight: bold;")
+        
+        # 新增：分别的清空按钮
+        self.clear_last_best_value_btn = QPushButton("清空上次")
+        self.clear_last_best_value_btn.setFixedWidth(60)
+        self.clear_last_best_value_btn.clicked.connect(self._on_clear_last_best_value)
+        
+        self.clear_locked_best_value_btn = QPushButton("清空锁定")
+        self.clear_locked_best_value_btn.setFixedWidth(60)
+        self.clear_locked_best_value_btn.clicked.connect(self._on_clear_locked_best_value)
         
         # 更新上次最优值显示
         self._update_last_best_value_display()
@@ -139,15 +450,47 @@ class ComponentAnalysisWidget(QWidget):
         # row_layout.addWidget(self.valid_sum_logic_checkbox)
         row_layout.addWidget(self.analysis_count_label)
         row_layout.addWidget(self.analysis_count_spin)
+        row_layout.addWidget(self.secondary_analysis_count_label)
+        row_layout.addWidget(self.secondary_analysis_count_spin)
         row_layout.addWidget(self.analyze_btn)
+        row_layout.addWidget(self.optimize_btn)
+        row_layout.addWidget(self.three_stage_btn)
+        row_layout.addWidget(self.auto_three_stage_btn)
         row_layout.addWidget(self.terminate_btn)
-        row_layout.addWidget(self.export_json_btn)
-        row_layout.addWidget(self.import_json_btn)
+        # row_layout.addWidget(self.export_json_btn)
+        row_layout.addWidget(self.export_csv_btn)
+        # row_layout.addWidget(self.import_json_btn)
+        row_layout.addWidget(self.import_csv_btn)
+        # row_layout.addWidget(self.export_three_stage_btn)
+        # row_layout.addWidget(self.import_three_stage_btn)
         row_layout.addWidget(self.generate_trading_plan_checkbox)
-        row_layout.addWidget(self.only_better_trading_plan_checkbox)
+        row_layout.addWidget(self.only_better_trading_plan_label)
+        row_layout.addWidget(self.only_better_trading_plan_edit)
+        row_layout.addWidget(self.only_better_trading_plan_percent_label)
+        row_layout.addWidget(self.hold_rate_label)
+        row_layout.addWidget(self.hold_rate_min_edit)
+        row_layout.addWidget(self.hold_rate_separator)
+        row_layout.addWidget(self.hold_rate_max_edit)
+        row_layout.addWidget(self.profit_rate_label)
+        row_layout.addWidget(self.profit_rate_min_edit)
+        row_layout.addWidget(self.profit_rate_separator)
+        row_layout.addWidget(self.profit_rate_max_edit)
+        row_layout.addWidget(self.loss_rate_label)
+        row_layout.addWidget(self.loss_rate_min_edit)
+        row_layout.addWidget(self.loss_rate_separator)
+        row_layout.addWidget(self.loss_rate_max_edit)
+        row_layout.addWidget(self.comprehensive_daily_change_label)
+        row_layout.addWidget(self.comprehensive_daily_change_edit)
+        row_layout.addWidget(self.comprehensive_daily_change_percent_label)
+        row_layout.addWidget(self.comprehensive_stop_daily_change_label)
+        row_layout.addWidget(self.comprehensive_stop_daily_change_edit)
+        row_layout.addWidget(self.comprehensive_stop_daily_change_percent_label)
         row_layout.addWidget(self.last_best_value_label)
         row_layout.addWidget(self.last_best_value_display)
-        row_layout.addWidget(self.clear_best_value_btn)
+        row_layout.addWidget(self.locked_best_value_label)
+        row_layout.addWidget(self.locked_best_value_display)
+        row_layout.addWidget(self.clear_last_best_value_btn)
+        row_layout.addWidget(self.clear_locked_best_value_btn)
         row_layout.addStretch()
         
         layout.addLayout(row_layout)
@@ -169,7 +512,17 @@ class ComponentAnalysisWidget(QWidget):
         
         # 新增：优先从主窗口恢复
         if hasattr(self.main_window, 'cached_component_analysis_results') and self.main_window.cached_component_analysis_results:
-            self.set_cached_analysis_results(self.main_window.cached_component_analysis_results)
+            # 检查上一次执行的分析是否是三次分析
+            if hasattr(self.main_window, 'last_analysis_was_three_stage') and self.main_window.last_analysis_was_three_stage:
+                # 上一次是三次分析，将三次分析的全局top_three设置到本地，但不改变分析模式状态
+                self.three_stage_global_top_three = self.main_window.cached_component_analysis_results
+                print(f"恢复三次分析结果，长度 = {len(self.three_stage_global_top_three)}")
+                # 恢复三次分析结果后，需要调用show_analysis_results来显示表格
+                self.show_analysis_results([])
+            else:
+                # 上一次是普通分析，直接恢复结果
+                self.set_cached_analysis_results(self.main_window.cached_component_analysis_results)
+                print("恢复普通分析结果")
         else:
             print("没有缓存结果")
         
@@ -185,7 +538,177 @@ class ComponentAnalysisWidget(QWidget):
         """保存分析次数变更"""
         self.main_window.last_component_analysis_count = self.analysis_count_spin.value()
         
-    def on_analyze_clicked(self):
+    def _on_secondary_analysis_count_changed_save(self):
+        """保存二次分析次数变更"""
+        self.main_window.last_component_secondary_analysis_count = self.secondary_analysis_count_spin.value()
+        
+    def _on_hold_rate_min_changed_save(self):
+        """保存持有率最小值变更"""
+        try:
+            value = int(self.hold_rate_min_edit.text())
+            self.main_window.last_component_hold_rate_min = value
+        except ValueError:
+            pass  # 如果输入的不是有效数字，忽略
+        
+    def _on_hold_rate_max_changed_save(self):
+        """保存持有率最大值变更"""
+        try:
+            value = int(self.hold_rate_max_edit.text())
+            self.main_window.last_component_hold_rate_max = value
+        except ValueError:
+            pass  # 如果输入的不是有效数字，忽略
+        
+    def _on_profit_rate_min_changed_save(self):
+        """保存止盈率最小值变更"""
+        try:
+            value = int(self.profit_rate_min_edit.text())
+            self.main_window.last_component_profit_rate_min = value
+        except ValueError:
+            pass  # 如果输入的不是有效数字，忽略
+        
+    def _on_profit_rate_max_changed_save(self):
+        """保存止盈率最大值变更"""
+        try:
+            value = int(self.profit_rate_max_edit.text())
+            self.main_window.last_component_profit_rate_max = value
+        except ValueError:
+            pass  # 如果输入的不是有效数字，忽略
+        
+    def _on_loss_rate_min_changed_save(self):
+        """保存止损率最小值变更"""
+        try:
+            value = int(self.loss_rate_min_edit.text())
+            self.main_window.last_component_loss_rate_min = value
+        except ValueError:
+            pass  # 如果输入的不是有效数字，忽略
+        
+    def _on_loss_rate_max_changed_save(self):
+        """保存止损率最大值变更"""
+        try:
+            value = int(self.loss_rate_max_edit.text())
+            self.main_window.last_component_loss_rate_max = value
+        except ValueError:
+            pass  # 如果输入的不是有效数字，忽略
+            
+
+    
+
+    
+    def _on_only_better_trading_plan_percent_changed_save(self):
+        """保存大于上次最优值百分比变更"""
+        try:
+            value = self.only_better_trading_plan_edit.value()
+            self.main_window.last_component_only_better_trading_plan_percent = value
+        except:
+            pass  # 如果获取值失败，忽略
+    
+    def _on_comprehensive_daily_change_threshold_changed_save(self):
+        """保存综合止盈止损需大于阈值"""
+        try:
+            value = float(self.comprehensive_daily_change_edit.text())
+            self.main_window.last_component_comprehensive_daily_change_threshold = value
+        except ValueError:
+            pass  # 如果输入的不是有效数字，忽略
+    
+    def _on_comprehensive_stop_daily_change_threshold_changed_save(self):
+        """保存综合停盈停损需大于阈值"""
+        try:
+            value = float(self.comprehensive_stop_daily_change_edit.text())
+            self.main_window.last_component_comprehensive_stop_daily_change_threshold = value
+        except ValueError:
+            pass  # 如果输入的不是有效数字，忽略
+    
+    def _set_buttons_enabled(self, enabled):
+        """设置按钮启用/禁用状态"""
+        self.analyze_btn.setEnabled(enabled)
+        self.optimize_btn.setEnabled(enabled)
+        self.three_stage_btn.setEnabled(enabled)
+        self.auto_three_stage_btn.setEnabled(enabled)
+        self.terminate_btn.setEnabled(not enabled)
+    
+    def _start_auto_three_stage_analysis(self):
+        """开始组合-三次连续分析"""
+        try:
+            # 禁用相关按钮
+            self._set_buttons_enabled(False)
+            
+            # 设置连续分析模式标识
+            self.is_auto_three_stage_mode = True
+            
+            # 设置主窗口的三次分析标志，用于show_analysis_results的条件判断
+            self.main_window.last_analysis_was_three_stage = True
+            
+            # 设置回调函数，确保组合分析完成后执行三次分析
+            self.analysis_completed_callback = self._continue_with_three_stage
+            
+            # 先执行组合分析（传入连续分析模式参数）
+            self.on_analyze_clicked(is_auto_mode=True)
+            
+        except Exception as e:
+            print(f"开始连续分析失败: {e}")
+            self._set_buttons_enabled(True)
+            self.is_auto_three_stage_mode = False
+    
+    def _continue_with_three_stage(self):
+        """继续执行三次分析"""
+        try:
+            # 检查是否在连续分析模式下，如果不是则直接返回
+            if not getattr(self, 'is_auto_three_stage_mode', False):
+                return
+                
+            # 检查组合分析是否完成
+            if hasattr(self, 'analysis_terminated') and self.analysis_terminated:
+                print("组合分析被终止，停止连续分析")
+                self._set_buttons_enabled(True)
+                self.is_auto_three_stage_mode = False
+                return
+            
+            # 执行三次分析
+            self.on_three_stage_clicked()
+            
+        except Exception as e:
+            print(f"继续三次分析失败: {e}")
+            self._set_buttons_enabled(True)
+            self.is_auto_three_stage_mode = False
+    
+    def on_auto_three_stage_clicked(self):
+        """组合-三次连续分析按钮点击处理"""
+        self._start_auto_three_stage_analysis()
+        
+    def on_analyze_clicked(self, is_auto_mode=False):
+        """
+        执行组合分析
+        
+        Args:
+            is_auto_mode: 是否为连续三次分析模式，默认为False（普通分析模式）
+        """
+        
+        # 根据参数设置分析模式
+        self.is_auto_three_stage_mode = is_auto_mode
+        
+        # 验证组合输出参数选择
+        if not self._validate_abbr_round_only_selection():
+            return
+        
+        # 验证组合分析输出值类别选择
+        is_valid, error_message = self._validate_category_selection()
+        if not is_valid:
+            QMessageBox.warning(self, "提示", error_message)
+            return
+        
+        # 清空最优参数条件列表，因为这是普通分析，不是三次分析
+        if hasattr(self, 'best_param_condition_list'):
+            self.best_param_condition_list.clear()
+        if hasattr(self, 'no_better_result_list'):
+            self.no_better_result_list.clear()
+        
+        # 根据分析模式设置主窗口的三次分析标志
+        if is_auto_mode:
+            # 连续三次分析模式：设置为True，因为后续会执行三次分析
+            self.main_window.last_analysis_was_three_stage = True
+        else:
+            # 普通分析模式：设置为False
+            self.main_window.last_analysis_was_three_stage = False
         
         # 获取组合分析次数
         analysis_count = self.analysis_count_spin.value()
@@ -198,24 +721,33 @@ class ComponentAnalysisWidget(QWidget):
         if not workdays:
             QMessageBox.warning(self, "数据错误", "没有可用的日期范围，请先上传数据文件！")
             return
+               
+        # 自动修正结束日期：如果end_date不是交易日，则往日期减小的方向找到第一个可用交易日
+        if end_date not in workdays:
+            print(f"end_date not in workdays: {end_date}")
+            from datetime import datetime
+            end_dt = datetime.strptime(end_date, "%Y-%m-%d").date()
+            workday_first = datetime.strptime(workdays[0], "%Y-%m-%d").date()
+            if end_dt < workday_first:
+                end_date = workdays[0]
+            else:
+                for d in reversed(workdays):
+                    if d <= end_date:
+                        end_date = d
+                        break
+        
+        # 获取结束日期在workdays中的索引
+        end_date_idx = workdays.index(end_date)
+        # 根据分析次数计算开始日期索引
+        start_date_idx = end_date_idx - (analysis_count - 1)
+        
+        # 检查索引是否有效
+        # if start_date_idx < 0:
+        #     QMessageBox.warning(self, "数据错误", f"组合分析次数 {analysis_count} 超出可用日期范围！\n当前结束日期索引: {end_date_idx}，需要开始日期索引: {start_date_idx}")
+        #     return
             
-        try:
-            # 获取结束日期在workdays中的索引
-            end_date_idx = workdays.index(end_date)
-            # 根据分析次数计算开始日期索引
-            start_date_idx = end_date_idx - (analysis_count - 1)
-            
-            # 检查索引是否有效
-            if start_date_idx < 0:
-                QMessageBox.warning(self, "数据错误", f"组合分析次数 {analysis_count} 超出可用日期范围！\n当前结束日期索引: {end_date_idx}，需要开始日期索引: {start_date_idx}")
-                return
-                
-            # 获取开始日期
-            start_date = workdays[start_date_idx]
-            
-        except ValueError:
-            QMessageBox.warning(self, "日期错误", f"结束日期 {end_date} 不在交易日列表中！")
-            return
+        # 获取开始日期
+        start_date = workdays[start_date_idx]
         
         # 获取勾选框状态
         continuous_sum_logic = self.continuous_sum_logic_checkbox.isChecked()
@@ -255,10 +787,10 @@ class ComponentAnalysisWidget(QWidget):
             
             # 获取N位控件值
             n_values = {}
-            n_vars = ['bottom_nth_non_nan1', 'bottom_nth_non_nan2', 'bottom_nth_non_nan3',
-                     'bottom_nth_with_nan1', 'bottom_nth_with_nan2', 'bottom_nth_with_nan3',
-                     'bottom_nth_adjust_non_nan1', 'bottom_nth_adjust_non_nan2', 'bottom_nth_adjust_non_nan3',
-                     'bottom_nth_adjust_with_nan1', 'bottom_nth_adjust_with_nan2', 'bottom_nth_adjust_with_nan3']
+            n_vars = ['bottom_nth_take_and_stop_with_nan1', 'bottom_nth_take_and_stop_with_nan2', 'bottom_nth_take_and_stop_with_nan3',
+                        'bottom_nth_with_nan1', 'bottom_nth_with_nan2', 'bottom_nth_with_nan3',
+                        'bottom_nth_stop_and_take_with_nan1', 'bottom_nth_stop_and_take_with_nan2', 'bottom_nth_stop_and_take_with_nan3',
+                        'bottom_nth_adjust_with_nan1', 'bottom_nth_adjust_with_nan2', 'bottom_nth_adjust_with_nan3']
             
             for var_name in n_vars:
                 try:
@@ -291,9 +823,39 @@ class ComponentAnalysisWidget(QWidget):
             formula_list = temp_formula_widget.generate_formula_list()
             print(f"生成了 {len(formula_list)} 个组合公式")
             
+            # 对公式进行排序，让大范围的公式优先执行
+            formula_list = self._sort_component_formulas_by_range(formula_list)
+            print(f"公式排序完成，大范围公式将优先执行")
+            
             # 生成特殊参数组合
             special_params_combinations = temp_formula_widget.generate_special_params_combinations()
+            print(f"special_params_combinations = {special_params_combinations}")
+            
             print(f"生成了 {len(special_params_combinations)} 个特殊参数组合")
+            
+            # 检查特殊参数组合中的日期宽度是否超过数据范围
+            max_width = 0
+            for params in special_params_combinations:
+                # 检查params是字典还是元组
+                if isinstance(params, dict) and 'width' in params:
+                    # 如果是字典格式，直接获取width值
+                    max_width = max(max_width, params['width'])
+                elif isinstance(params, (tuple, list)) and len(params) > 0:
+                    # 如果是元组或列表格式，第一个元素通常是width
+                    try:
+                        width_val = int(float(params[0]))
+                        max_width = max(max_width, width_val)
+
+                    except (ValueError, TypeError):
+                        pass
+            
+            # 如果特殊参数组合中没有width，则使用主控件中的日期宽度
+            if max_width == 0 and hasattr(self.main_window, 'width_spin'):
+                max_width = self.main_window.width_spin.value()
+            
+            if max_width > 0 and start_date_idx - max_width < 0:
+                QMessageBox.warning(self, "提示", f"最大日期宽度：{max_width} 超过数据最大范围，请检查！")
+                return
             
             # 清理临时控件
             temp_formula_widget.deleteLater()
@@ -320,8 +882,16 @@ class ComponentAnalysisWidget(QWidget):
             self.analysis_terminated = False
             
             # 切换按钮状态
-            self.analyze_btn.setEnabled(False)
-            self.terminate_btn.setEnabled(True)
+            if hasattr(self, 'is_auto_three_stage_mode') and self.is_auto_three_stage_mode:
+                # 连续分析模式：使用统一的按钮状态管理
+                self._set_buttons_enabled(False)
+            else:
+                # 普通分析模式：使用原有的按钮状态管理
+                self.analyze_btn.setEnabled(False)
+                self.terminate_btn.setEnabled(True)
+                self.optimize_btn.setEnabled(False)
+                self.three_stage_btn.setEnabled(False)  # 禁用三次分析按钮
+                self.auto_three_stage_btn.setEnabled(False)  # 禁用自动三次分析按钮
             
             # 开始执行组合分析
             self.execute_component_analysis(formula_list, special_params_combinations, start_date, end_date)
@@ -338,8 +908,482 @@ class ComponentAnalysisWidget(QWidget):
         self.show_message("分析已终止")
         
         # 切换按钮状态
-        self.analyze_btn.setEnabled(True)
-        self.terminate_btn.setEnabled(False)
+        if hasattr(self, 'is_auto_three_stage_mode') and self.is_auto_three_stage_mode:
+            # 连续分析模式：使用统一的按钮状态管理
+            self._set_buttons_enabled(True)
+            self.is_auto_three_stage_mode = False
+        else:
+            # 普通分析模式：使用原有的按钮状态管理
+            self.analyze_btn.setEnabled(True)
+            self.terminate_btn.setEnabled(False)
+            self.optimize_btn.setEnabled(True)
+            self.three_stage_btn.setEnabled(True)  # 恢复三次分析按钮
+            self.auto_three_stage_btn.setEnabled(True)  # 恢复自动三次分析按钮
+        
+        # 重置三次分析模式
+        if hasattr(self, 'is_three_stage_mode'):
+            self.is_three_stage_mode = False
+            # 重置三次分析完成标识
+            if hasattr(self, 'three_stage_completed'):
+                self.three_stage_completed = False
+            # 清空最优参数条件列表
+            if hasattr(self, 'best_param_condition_list'):
+                self.best_param_condition_list.clear()
+                print("终止三次分析，清空最优参数条件列表")
+        
+    def on_optimize_clicked(self):
+        """二次分析按钮点击处理"""
+        try:
+            from PyQt5.QtWidgets import QMessageBox
+            import time
+            
+            # 验证组合输出参数选择
+            if not self._validate_abbr_round_only_selection():
+                return
+            
+            # 验证组合分析输出值类别选择
+            is_valid, error_message = self._validate_category_selection()
+            if not is_valid:
+                QMessageBox.warning(self, "提示", error_message)
+                return
+            
+            # 记录开始时间
+            start_time = time.time()
+            
+            # 检查是否有分析结果
+            if not hasattr(self.main_window, 'overall_stats') or not self.main_window.overall_stats:
+                QMessageBox.warning(self, "提示", "请先进行组合分析，获取最优结果后再进行二次分析！")
+                return
+                
+            # 获取组合分析次数和二次分析次数
+            analysis_count = self.analysis_count_spin.value()
+            secondary_analysis_count = self.secondary_analysis_count_spin.value()
+            
+            # 获取结束日期（使用主界面的date_picker）
+            end_date = self.main_window.date_picker.date().toString("yyyy-MM-dd")
+            
+            # 根据组合分析次数计算开始日期
+            workdays = getattr(self.main_window.init, 'workdays_str', None)
+            if not workdays:
+                QMessageBox.warning(self, "数据错误", "没有可用的日期范围，请先上传数据文件！")
+                return
+            
+            # 自动修正结束日期：如果end_date不是交易日，则往日期减小的方向找到第一个可用交易日
+            if end_date not in workdays:
+                print(f"end_date not in workdays: {end_date}")
+                from datetime import datetime
+                end_dt = datetime.strptime(end_date, "%Y-%m-%d").date()
+                workday_first = datetime.strptime(workdays[0], "%Y-%m-%d").date()
+                if end_dt < workday_first:
+                    end_date = workdays[0]
+                else:
+                    for d in reversed(workdays):
+                        if d <= end_date:
+                            end_date = d
+                            break
+            
+            # 获取结束日期在workdays中的索引
+            end_date_idx = workdays.index(end_date)
+            # 根据分析次数计算开始日期索引
+            start_date_idx = end_date_idx - (analysis_count - 1)
+
+                
+            # 获取开始日期
+            start_date = workdays[start_date_idx]
+            
+            # 保存当前设置
+            self.main_window.last_component_analysis_start_date = start_date
+            self.main_window.last_component_analysis_end_date = end_date
+            self.main_window.last_component_analysis_count = analysis_count
+            self.main_window.last_component_secondary_analysis_count = secondary_analysis_count
+            
+            # 创建临时的FormulaSelectWidget实例，避免访问已删除的控件
+            from function.stock_functions import FormulaSelectWidget, get_abbr_map, get_abbr_logic_map, get_abbr_round_map
+            
+            # 获取映射数据
+            abbr_map = get_abbr_map()
+            logic_map = get_abbr_logic_map()
+            round_map = get_abbr_round_map()
+            
+            # 传入所有必需的参数
+            temp_formula_widget = FormulaSelectWidget(abbr_map, logic_map, round_map, self.main_window)
+            
+            # 恢复上次保存的公式选股状态
+            if hasattr(self.main_window, 'last_formula_select_state'):
+                temp_formula_widget.set_state(self.main_window.last_formula_select_state)
+            
+            # 使用优化公式列表方法，传入二次分析次数
+            formula_list = temp_formula_widget.optimize_formula_list(secondary_analysis_count)
+            
+            # 计算耗时
+            end_time = time.time()
+            
+            if not formula_list:
+                QMessageBox.warning(self, "提示", "没有生成任何优化公式，请检查变量设置和统计结果！")
+                temp_formula_widget.deleteLater()
+                return
+            
+            # 保存优化信息到主窗口
+            if formula_list:
+                self.main_window.component_analysis_formula_list = formula_list
+            
+            # 检查公式列表长度并显示警告
+            if len(formula_list) > 64:
+                QMessageBox.warning(self, "提示", f"组合分析公式超过64个（当前{len(formula_list)}个），没二次优化效果！")
+                temp_formula_widget.deleteLater()
+                return
+            
+            # 生成特殊参数组合
+            special_params_combinations = temp_formula_widget.generate_special_params_combinations()
+            
+            # 检查特殊参数组合中的日期宽度是否超过数据范围
+            max_width = 0
+            for params in special_params_combinations:
+                # 检查params是字典还是元组
+                if isinstance(params, dict) and 'width' in params:
+                    # 如果是字典格式，直接获取width值
+                    max_width = max(max_width, params['width'])
+                elif isinstance(params, (tuple, list)) and len(params) > 0:
+                    # 如果是元组或列表格式，第一个元素通常是width
+                    try:
+                        width_val = int(float(params[0]))
+                        max_width = max(max_width, width_val)
+
+                    except (ValueError, TypeError):
+                        pass
+            
+            # 如果特殊参数组合中没有width，则使用主控件中的日期宽度
+            if max_width == 0 and hasattr(self.main_window, 'width_spin'):
+                max_width = self.main_window.width_spin.value()
+
+            if max_width > 0 and start_date_idx - max_width < 0:
+                QMessageBox.warning(self, "提示", f"最大日期宽度：{max_width} 超过数据最大范围，请检查！")
+                temp_formula_widget.deleteLater()
+                return
+            
+            # 删除临时控件
+            temp_formula_widget.deleteLater()
+            
+            # 显示进度信息
+            total_analyses = len(formula_list) * len(special_params_combinations) * analysis_count
+            self.show_message(f"生成了 {len(formula_list)} 个组合公式，开始执行二次分析，总共 {total_analyses} 次分析...")
+            
+            # 重置终止标志
+            self.analysis_terminated = False
+            
+            # 切换按钮状态
+            if hasattr(self, 'is_auto_three_stage_mode') and self.is_auto_three_stage_mode:
+                # 连续分析模式：使用统一的按钮状态管理
+                self._set_buttons_enabled(False)
+            else:
+                # 普通分析模式：使用原有的按钮状态管理
+                self.analyze_btn.setEnabled(False)
+                self.terminate_btn.setEnabled(True)
+                self.optimize_btn.setEnabled(False)
+                self.three_stage_btn.setEnabled(False)  # 禁用三次分析按钮
+                self.auto_three_stage_btn.setEnabled(False)  # 禁用自动三次分析按钮
+            
+            # 执行组合分析
+            self.execute_component_analysis(formula_list, special_params_combinations, start_date, end_date)
+                
+        except Exception as e:
+            print(f"二次分析出错: {e}")
+            QMessageBox.critical(self, "错误", f"二次分析出错: {e}")
+            # 恢复按钮状态
+            if hasattr(self, 'is_auto_three_stage_mode') and self.is_auto_three_stage_mode:
+                # 连续分析模式：使用统一的按钮状态管理
+                self._set_buttons_enabled(True)
+                self.is_auto_three_stage_mode = False
+            else:
+                # 普通分析模式：使用原有的按钮状态管理
+                self.analyze_btn.setEnabled(True)
+                self.terminate_btn.setEnabled(False)
+                self.optimize_btn.setEnabled(True)
+        
+    def on_three_stage_clicked(self):
+        """三次分析按钮点击处理：
+        1) 生成第一轮公式列表并打印
+        2) 以此公式列表执行组合分析（流程同二次分析）
+        """
+        # 清空三次分析日志文件
+        self.clear_three_analysis_log()
+        
+        # 清空最优参数条件列表，准备记录新的三次分析结果
+        self.best_param_condition_list.clear()
+        
+        try:
+            from PyQt5.QtWidgets import QMessageBox
+            from function.stock_functions import FormulaSelectWidget, get_abbr_map, get_abbr_logic_map, get_abbr_round_map, get_sorted_params_from_widget
+
+            # 验证组合输出参数选择
+            if not self._validate_abbr_round_only_selection():
+                return
+
+            # 验证组合分析输出值类别选择
+            is_valid, error_message = self._validate_category_selection()
+            if not is_valid:
+                QMessageBox.warning(self, "提示", error_message)
+                return
+
+            # 需要已有组合分析统计结果
+            if not hasattr(self.main_window, 'overall_stats') or not self.main_window.overall_stats:
+                QMessageBox.warning(self, "提示", "请先进行组合分析，获取最优结果后再进行三次分析！")
+                return
+
+            # 获取组合分析次数
+            analysis_count = self.analysis_count_spin.value()
+
+            # 结束日期与开始日期（同二次分析）
+            end_date = self.main_window.date_picker.date().toString("yyyy-MM-dd")
+            workdays = getattr(self.main_window.init, 'workdays_str', None)
+            if not workdays:
+                QMessageBox.warning(self, "数据错误", "没有可用的日期范围，请先上传数据文件！")
+                return
+    
+            # 自动修正结束日期：如果end_date不是交易日，则往日期减小的方向找到第一个可用交易日
+            if end_date not in workdays:
+                print(f"end_date not in workdays: {end_date}")
+                from datetime import datetime
+                end_dt = datetime.strptime(end_date, "%Y-%m-%d").date()
+                workday_first = datetime.strptime(workdays[0], "%Y-%m-%d").date()
+                if end_dt < workday_first:
+                    end_date = workdays[0]
+                else:
+                    for d in reversed(workdays):
+                        if d <= end_date:
+                            end_date = d
+                            break
+            
+            # 获取结束日期在workdays中的索引
+            end_date_idx = workdays.index(end_date)
+            # 根据分析次数计算开始日期索引
+            start_date_idx = end_date_idx - (analysis_count - 1)
+            start_date = workdays[start_date_idx]
+
+            # 构建临时控件，用于恢复选择状态与生成特殊参数组合
+            abbr_map = get_abbr_map()
+            logic_map = get_abbr_logic_map()
+            round_map = get_abbr_round_map()
+            temp_formula_widget = FormulaSelectWidget(abbr_map, logic_map, round_map, self.main_window)
+            
+            # 恢复选择状态，包括向前参数状态
+            if hasattr(self.main_window, 'last_formula_select_state'):
+                temp_formula_widget.set_state(self.main_window.last_formula_select_state)
+            
+            # 确保向前参数状态被正确恢复
+            if hasattr(self.main_window, 'forward_param_state'):
+                temp_formula_widget.main_window.forward_param_state = self.main_window.forward_param_state
+
+            # 变量排序（优先输出参数）
+            sorted_params = get_sorted_params_from_widget(temp_formula_widget)
+
+            output_vars_ordered = [var_name for var_name, _ in sorted_params['output_params']]
+            auxiliary_vars_ordered = [var_name for var_name, _ in sorted_params['auxiliary_params']]
+            
+            # 调试信息：打印获取到的参数
+            log_message = f"获取到的输出参数: {output_vars_ordered}"
+            print(log_message)
+            self.log_three_analysis(log_message)
+            log_message = f"获取到的辅助参数: {auxiliary_vars_ordered}"
+            print(log_message)
+            self.log_three_analysis(log_message)
+            
+            if not output_vars_ordered and not auxiliary_vars_ordered:
+                QMessageBox.warning(self, "提示", "没有选中任何变量进行三次分析！")
+                temp_formula_widget.deleteLater()
+                return
+
+            # 构建三次分析参数队列（输出参数优先，然后分析辅助参数）
+            param_queue = []
+            if output_vars_ordered:
+                param_queue.extend(output_vars_ordered)
+            if auxiliary_vars_ordered:
+                param_queue.extend(auxiliary_vars_ordered)
+            
+            if not param_queue:
+                QMessageBox.warning(self, "提示", "没有选中任何变量进行三次分析！")
+                temp_formula_widget.deleteLater()
+                return
+                
+            self.three_stage_param_queue = list(param_queue)
+            self.three_stage_current_param_idx = 0
+            # 选择本轮目标变量
+            target_variable = self.three_stage_param_queue[self.three_stage_current_param_idx]
+            log_message = f"三次分析目标变量: {self.three_stage_param_queue}"
+            print(log_message)
+            self.log_three_analysis(log_message)
+
+            # 切换按钮状态：禁用点击分析和二次分析，启用终止分析
+            if hasattr(self, 'is_auto_three_stage_mode') and self.is_auto_three_stage_mode:
+                # 连续分析模式：使用统一的按钮状态管理
+                self._set_buttons_enabled(False)
+            else:
+                # 普通分析模式：使用原有的按钮状态管理
+                self.analyze_btn.setEnabled(False)
+                self.optimize_btn.setEnabled(False)
+                self.three_stage_btn.setEnabled(False)
+                self.terminate_btn.setEnabled(True)
+                self.auto_three_stage_btn.setEnabled(False)  # 禁用自动三次分析按钮
+            
+            # 标记进入三次分析模式，并清空上一轮基准
+            self.is_three_stage_mode = True
+            # 设置主窗口的三次分析标志，用于show_analysis_results的条件判断
+            self.main_window.last_analysis_was_three_stage = True
+            self.main_window.three_stage_prev_best_value = getattr(self.main_window, 'last_adjusted_value', None)
+            # 保存三次分析开始前的last_adjusted_value快照，用于最终判断是否生成操盘方案
+            self.three_stage_initial_last_value = getattr(self.main_window, 'last_adjusted_value', None)
+            self.three_stage_round_better = None
+            self.three_stage_best_top_one = None
+            # 维护当前参数名和每参数结果列表
+            self.current_three_stage_variable = target_variable
+            self.main_window.per_param_result_list = []
+
+            # 跟踪每个参数的最优公式和条件，用于公式回退
+            self.three_stage_param_best_formulas = {}
+            self.three_stage_param_best_conditions = {}
+            # 跟踪每个参数的最优条件，用于导出JSON
+            self.best_param_condition_list = []
+            # 跟踪全局最优公式，用于后续参数分析
+            if hasattr(self.main_window, 'last_component_analysis_top1') and self.main_window.last_component_analysis_top1:
+                top1_analysis = self.main_window.last_component_analysis_top1.get('analysis', {})
+                if top1_analysis:
+                    self.three_stage_current_best_overall_formula = top1_analysis.get('formula', 'if True:\n    result = 0\nelse:\n    result = 0')
+                else:
+                    self.three_stage_current_best_overall_formula = 'if True:\n    result = 0\nelse:\n    result = 0'
+            else:
+                print(f"没有last_component_analysis_top1")
+                self.three_stage_current_best_overall_formula = 'if True:\n    result = 0\nelse:\n    result = 0'
+            
+            # 初始化参数特定的基准统计
+            # 第一个参数使用当前的overall_stats作为基准
+            if hasattr(self.main_window, 'overall_stats') and self.main_window.overall_stats:
+                self.three_stage_param_baseline_stats = self.main_window.overall_stats.copy()
+                # 保存三次分析开始前的overall_stats作为初始值，用于导出时无最优参数的情况
+                self.three_stage_initial_overall_stats = self.main_window.overall_stats.copy()
+                print(f"保存三次分析初始overall_stats，包含 {len(self.three_stage_initial_overall_stats)} 个统计项")
+            else:
+                self.three_stage_param_baseline_stats = None
+                self.three_stage_initial_overall_stats = None
+                print("警告：没有找到overall_stats，无法保存初始统计值")
+            
+            # 初始化日志去重集合
+            self._logged_no_better_solutions = set()
+            # 新增：三次分析完成标识
+            self.three_stage_completed = False
+            
+            # 新增：记录三次分析开始时间
+            self.three_stage_start_time = time.time()
+            
+            # 新增：记录三次分析总公式数量（初始为0，后续累加）
+            self.three_stage_total_formulas = 0
+            
+            # 新增：初始化跳过完成标志
+            self.three_stage_skipped_completed = False
+            
+            # 新增：初始化三次分析实际执行次数计数器
+            self.three_stage_actual_execution_count = 0
+            
+            # 重置全局三次分析结果，避免被其他三次分析的最优结果占据
+            if hasattr(self, 'three_stage_global_top_three'):
+                self.three_stage_global_top_three.clear()
+            else:
+                self.three_stage_global_top_three = []
+            print("重置三次分析全局结果列表，准备开始新的三次分析")
+
+            # 1) 生成第一轮公式列表，并打印所有公式
+            # 使用正确的基础公式：如果有保存的最优公式则使用，否则使用last_formula_expr
+            base_formula = None
+            if hasattr(self, 'three_stage_current_best_overall_formula') and self.three_stage_current_best_overall_formula:
+                base_formula = self.three_stage_current_best_overall_formula
+                print(f"使用保存的最优公式作为基础公式：{base_formula}")
+            elif hasattr(self.main_window, 'last_formula_expr') and self.main_window.last_formula_expr:
+                base_formula = self.main_window.last_formula_expr
+                print(f"使用last_formula_expr作为基础公式：{base_formula}")
+            
+            formula_list = self.generate_first_stage_formulas(target_variable, base_formula=base_formula)
+            if not formula_list:
+                QMessageBox.warning(self, "提示", "三次分析未生成任何公式！")
+                temp_formula_widget.deleteLater()
+                return
+            
+            print("三次分析生成的公式列表：")
+            for idx, formula in enumerate(formula_list, 1):
+                print(f"{idx}: {formula}")
+
+            # 使用组合分析得到的最优结果的参数组合快照
+            # 从top1中获取，如果没有则使用当前生成的
+            top1 = getattr(self.main_window, 'last_component_analysis_top1', None)
+            if top1 and 'special_params_combinations' in top1:
+                # 使用保存的单个参数组合
+                single_params = top1['special_params_combinations']
+                # 将单个参数组合转换为generate_special_params_combinations期望的格式
+                special_params_combinations = [single_params]
+                log_message = f"使用组合分析最优结果的参数组合快照：{single_params}"
+                print(log_message)
+                self.log_three_analysis(log_message)
+            else:
+                # 如果没有快照，则生成新的参数组合
+                special_params_combinations = temp_formula_widget.generate_special_params_combinations()
+                log_message = f"未找到参数组合快照，生成了 {len(special_params_combinations)} 个新的特殊参数组合"
+                print(log_message)
+                self.log_three_analysis(log_message)
+            
+            # 检查特殊参数组合中的日期宽度是否超过数据范围
+            max_width = 0
+            for params in special_params_combinations:
+                # 检查params是字典还是元组
+                if isinstance(params, dict) and 'width' in params:
+                    # 如果是字典格式，直接获取width值
+                    max_width = max(max_width, params['width'])
+                elif isinstance(params, (tuple, list)) and len(params) > 0:
+                    # 如果是元组或列表格式，第一个元素通常是width
+                    try:
+                        width_val = int(float(params[0]))
+                        max_width = max(max_width, width_val)
+
+                    except (ValueError, TypeError):
+                        pass
+            
+            # 如果特殊参数组合中没有width，则使用主控件中的日期宽度
+            if max_width == 0 and hasattr(self.main_window, 'width_spin'):
+                max_width = self.main_window.width_spin.value()
+            
+            if max_width > 0 and start_date_idx - max_width < 0:
+                QMessageBox.warning(self, "提示", f"最大日期宽度：{max_width} 超过数据最大范围，请检查！")
+                temp_formula_widget.deleteLater()
+                return
+
+            # 清理临时控件
+            temp_formula_widget.deleteLater()
+
+            # 记录三次分析必要上下文
+            self.three_stage_round_index = 1
+            self.three_stage_target_variable = target_variable
+            self._three_stage_start_date = start_date
+            self._three_stage_end_date = end_date
+            self._three_stage_special_params_combinations = special_params_combinations
+
+            # 启动第一轮（异步，完成后在execute_next_analysis中判断是否进入下一轮）
+            self._start_three_stage_round(step_divisor=10)
+            
+        except Exception as e:
+            log_message = f"三次分析执行出错: {e}"
+            print(log_message)
+            self.log_three_analysis(log_message)
+            QMessageBox.critical(self, "错误", f"三次分析执行出错: {e}")
+            
+            # 恢复按钮状态
+            if hasattr(self, 'is_auto_three_stage_mode') and self.is_auto_three_stage_mode:
+                # 连续分析模式：使用统一的按钮状态管理
+                self._set_buttons_enabled(True)
+                self.is_auto_three_stage_mode = False
+            else:
+                # 普通分析模式：使用原有的按钮状态管理
+                self.analyze_btn.setEnabled(True)
+                self.terminate_btn.setEnabled(False)
+                self.optimize_btn.setEnabled(True)
+                self.three_stage_btn.setEnabled(True)
+                self.auto_three_stage_btn.setEnabled(True)
         
     def execute_component_analysis(self, formula_list, special_params_combinations, start_date, end_date):
         """
@@ -350,6 +1394,9 @@ class ComponentAnalysisWidget(QWidget):
         try:
             # 记录开始时间
             self.analysis_start_time = time.time()
+            
+            # 重置实际执行次数计数器
+            self.actual_analysis_execution_count = 0
             
             # 计算总的分析次数（考虑排序方式）
             total_analyses = len(formula_list) * len(special_params_combinations)
@@ -377,6 +1424,296 @@ class ComponentAnalysisWidget(QWidget):
         except Exception as e:
             print(f"组合分析执行出错: {e}")
             self.show_message(f"组合分析执行出错: {e}")
+
+    def _start_three_stage_round(self, step_divisor: int):
+        """启动三次分析的某一轮，依据步长除数生成公式并异步执行。"""
+        try:
+            target_variable = getattr(self, 'three_stage_target_variable', None)
+            if not target_variable:
+                log_message = "三次分析：缺少目标变量"
+                print(log_message)
+                self.log_three_analysis(log_message)
+                return
+            start_date = getattr(self, '_three_stage_start_date', None)
+            end_date = getattr(self, '_three_stage_end_date', None)
+            special_params_combinations = getattr(self, '_three_stage_special_params_combinations', [])
+
+            # 生成当前轮公式，使用全局最优公式作为基础
+            base_formula = getattr(self, 'three_stage_current_best_overall_formula', None)
+            if not base_formula:
+                base_formula = 'if True:\n    result = 0\nelse:\n    result = 0'
+            
+            # 开始新轮次时，清空日志去重集合
+            if hasattr(self, '_logged_no_better_solutions'):
+                self._logged_no_better_solutions.clear()
+            
+            formula_list = self.generate_first_stage_formulas(target_variable, step_divisor=step_divisor, base_formula=base_formula)
+            if not formula_list:
+                log_message = f"三次分析：第{getattr(self, 'three_stage_round_index', '?')}次未生成公式"
+                print(log_message)
+                self.log_three_analysis(log_message)
+                # 如果没有生成公式，跳过当前参数或完成分析
+                self._skip_to_next_parameter_or_complete()
+            
+            # 新增：累加三次分析总公式数量
+            if hasattr(self, 'three_stage_total_formulas'):
+                self.three_stage_total_formulas += len(formula_list)
+            else:
+                self.three_stage_total_formulas = len(formula_list)
+            # 计算具体步长值 - 从overall_stats中获取当前变量的统计值
+            target_variable = getattr(self, 'current_three_stage_variable', 'unknown')
+            overall_stats = getattr(self.main_window, 'overall_stats', {})
+            max_key = f"{target_variable}_max"
+            min_key = f"{target_variable}_min"
+            max_value = overall_stats.get(max_key, 0)
+            min_value = overall_stats.get(min_key, 0)
+            abs_max = max(abs(max_value), abs(min_value))
+            actual_step = int(abs_max / step_divisor) if step_divisor > 0 else 1
+            log_message = f"三次分析-目标参数{target_variable}第{getattr(self, 'three_stage_round_index', '?')}次 下限={min_value} 上限={max_value} 步长={actual_step} 生成的全部公式:"
+            print(log_message)
+            self.log_three_analysis(log_message)
+            for idx, f in enumerate(formula_list, 1):
+                formula_message = f"  [{idx}] {f['formula']}"
+                print(formula_message)
+                self.log_three_analysis(formula_message)
+
+            # 启动该轮组合分析
+            self.main_window.component_analysis_formula_list = formula_list
+            self.main_window.component_analysis_special_params_combinations = special_params_combinations
+            self.analysis_terminated = False
+            log_message = f"执行三次分析第{getattr(self, 'three_stage_round_index', '?')}次"
+            print(log_message)
+            self.log_three_analysis(log_message)
+            
+            # 启动组合分析
+            self.execute_component_analysis(formula_list, special_params_combinations, start_date, end_date)
+            
+        except Exception as e:
+            log_message = f"启动三次分析某一轮出错: {e}"
+            print(log_message)
+            self.log_three_analysis(log_message)
+    
+    def _skip_to_next_parameter_or_complete(self):
+        """跳过当前参数或完成三次分析"""
+        try:
+            queue = getattr(self, 'three_stage_param_queue', [])
+            idx = getattr(self, 'three_stage_current_param_idx', 0)
+            
+            if idx + 1 < len(queue):
+                # 还有下一个参数，切换到下一个参数
+                self.three_stage_current_param_idx = idx + 1
+                next_var = queue[self.three_stage_current_param_idx]
+                self.current_three_stage_variable = next_var
+                self.three_stage_target_variable = next_var
+                self.three_stage_round_index = 1
+                
+                # 切换到新参数时，清空日志去重集合
+                if hasattr(self, '_logged_no_better_solutions'):
+                    self._logged_no_better_solutions.clear()
+                
+                # 新参数直接使用当前的overall_stats作为基准
+                if hasattr(self.main_window, 'overall_stats') and self.main_window.overall_stats:
+                    self.three_stage_param_baseline_stats = self.main_window.overall_stats.copy()
+                else:
+                    print("没有overall_stats")
+                    self.three_stage_param_baseline_stats = None
+                
+                log_message = f"【跳过】参数{queue[idx]}（无统计值），切换到下一个参数：{next_var}"
+                print(log_message)
+                self.log_three_analysis(log_message)
+                
+                # 启动下一个参数的第一轮分析
+                self._start_three_stage_round(step_divisor=10)
+            else:
+                # 这是最后一个参数，完成三次分析
+                log_message = f"【跳过】最后一个参数{queue[idx]}（无统计值），完成三次分析"
+                print(log_message)
+                self.log_three_analysis(log_message)
+                # 设置跳过完成标志，防止重复调用
+                self.three_stage_skipped_completed = True
+                self._complete_three_stage_analysis()
+                # 直接返回，防止主线程继续执行导致重复调用
+                return
+        except Exception as e:
+            log_message = f"跳过参数时出错: {e}"
+            print(log_message)
+            self.log_three_analysis(log_message)
+            # 出错时也尝试完成分析
+            self._complete_three_stage_analysis()
+            # 直接返回，防止主线程继续执行导致重复调用
+            return
+    
+    def _complete_three_stage_analysis(self):
+        """完成三次分析"""
+        try:
+            # 设置三次分析完成标识
+            self.three_stage_completed = True
+            # 保持跳过完成标志，不要重置，防止重复调用
+            # self.three_stage_skipped_completed = False
+            
+            # 计算三次分析总耗时
+            if hasattr(self, 'three_stage_start_time'):
+                three_stage_total_time = time.time() - self.three_stage_start_time
+                if three_stage_total_time < 60:
+                    three_stage_time_str = f"{three_stage_total_time:.1f}秒"
+                elif three_stage_total_time < 3600:
+                    minutes = int(three_stage_total_time // 60)
+                    seconds = int(three_stage_total_time % 60)
+                    three_stage_time_str = f"{minutes}分{seconds}秒"
+                else:
+                    hours = int(three_stage_total_time // 3600)
+                    minutes = int((three_stage_total_time % 3600) // 60)
+                    three_stage_time_str = f"{hours}小时{minutes}分"
+                
+                # 保存三次分析统计信息到主窗口
+                self.main_window.last_three_stage_total_elapsed_time = three_stage_time_str
+                # 保存三次分析实际执行次数
+                self.main_window.last_three_stage_actual_executions = getattr(self, 'three_stage_actual_execution_count', 0)
+            else:
+                three_stage_time_str = "未知"
+                self.main_window.last_three_stage_total_elapsed_time = three_stage_time_str
+                # 保存三次分析实际执行次数
+                self.main_window.last_three_stage_actual_executions = getattr(self, 'three_stage_actual_execution_count', 0)
+            
+            # 同步三次分析关键状态到主窗口，便于程序重启后继续导出
+            if hasattr(self, 'three_stage_best_top_one'):
+                self.main_window.three_stage_best_top_one = self.three_stage_best_top_one
+            if hasattr(self, 'three_stage_param_best_conditions'):
+                self.main_window.three_stage_param_best_conditions = self.three_stage_param_best_conditions
+            if hasattr(self, 'best_param_condition_list'):
+                self.main_window.best_param_condition_list = self.best_param_condition_list
+            if hasattr(self, 'no_better_result_list'):
+                self.main_window.no_better_result_list = self.no_better_result_list
+            if hasattr(self, 'current_three_stage_variable'):
+                self.main_window.current_three_stage_variable = self.current_three_stage_variable
+            
+            total_conditions = len(self.best_param_condition_list) + len(self.no_better_result_list)
+            print(f"三次分析完成，总共记录了{len(self.best_param_condition_list)}个参数的最优条件，{len(self.no_better_result_list)}个参数的无最优结果")
+            self.log_three_analysis(f"三次分析完成，总共记录了{len(self.best_param_condition_list)}个参数的最优条件，{len(self.no_better_result_list)}个参数的无最优结果")
+            
+            # 在展示结果之前，确保所有有最优条件的参数都被记录到best_param_condition_list
+            self._ensure_all_best_conditions_recorded()
+            
+            # 展示最终的分析结果
+            self._show_final_three_stage_results()
+            
+            # 恢复按钮状态
+            self.analyze_btn.setEnabled(True)
+            self.terminate_btn.setEnabled(False)
+            self.optimize_btn.setEnabled(True)
+            self.three_stage_btn.setEnabled(True)
+            self.auto_three_stage_btn.setEnabled(True)
+            self.is_three_stage_mode = False
+            
+        except Exception as e:
+            log_message = f"完成三次分析时出错: {e}"
+            print(log_message)
+            self.log_three_analysis(log_message)
+            # 出错时也要恢复按钮状态
+            self.analyze_btn.setEnabled(True)
+            self.terminate_btn.setEnabled(False)
+            self.optimize_btn.setEnabled(True)
+            self.three_stage_btn.setEnabled(True)
+            self.auto_three_stage_btn.setEnabled(True)
+            self.is_three_stage_mode = False
+    
+    def _ensure_all_best_conditions_recorded(self):
+        """确保所有有最优条件的参数都被记录到best_param_condition_list"""
+        try:
+            if hasattr(self, 'three_stage_param_best_conditions') and self.three_stage_param_best_conditions:
+                # 检查哪些参数有最优条件但还没有被记录到best_param_condition_list
+                recorded_params = set()
+                for condition in self.best_param_condition_list:
+                    for param_name in condition.keys():
+                        recorded_params.add(param_name)
+                
+                # 遍历所有有最优条件的参数
+                for param_name, best_conditions in self.three_stage_param_best_conditions.items():
+                    if param_name not in recorded_params:
+                        # 这个参数有最优条件但还没有被记录，现在记录它
+                        best_output_value = best_conditions.get('output_value', '未知')
+                        
+                        # 获取当前参数的median值（从初始overall_stats快照中获取）
+                        median_value = ''
+                        positive_median_value = ''
+                        negative_median_value = ''
+                        if hasattr(self, 'three_stage_param_baseline_stats') and self.three_stage_param_baseline_stats:
+                            median_key = f'{param_name}_median'
+                            positive_median_key = f'{param_name}_positive_median'
+                            negative_median_key = f'{param_name}_negative_median'
+                            if median_key in self.three_stage_param_baseline_stats:
+                                median_value = str(self.three_stage_param_baseline_stats[median_key])
+                            if positive_median_key in self.three_stage_param_baseline_stats:
+                                positive_median_value = str(self.three_stage_param_baseline_stats[positive_median_key])
+                            if negative_median_key in self.three_stage_param_baseline_stats:
+                                negative_median_value = str(self.three_stage_param_baseline_stats[negative_median_key])
+                        
+                        # 获取上下限值
+                        lower_value = best_conditions.get('lower', '')
+                        upper_value = best_conditions.get('upper', '')
+                        if lower_value == '未知':
+                            lower_value = ''
+                        if upper_value == '未知':
+                            upper_value = ''
+                        
+                        condition_text = f"最优条件为：下限{lower_value}，上限{upper_value}， 组合排序输出值为：{best_output_value}，{param_name}_median：{median_value}，{param_name}_positive_median：{positive_median_value}，{param_name}_negative_median：{negative_median_value}"
+                        self.best_param_condition_list.append({param_name: condition_text})
+                        print(f"补充记录参数{param_name}的最优条件：{condition_text}")
+                        self.log_three_analysis(f"补充记录参数{param_name}的最优条件：{condition_text}")
+                
+                print(f"补充记录完成后，best_param_condition_list长度：{len(self.best_param_condition_list)}")
+                self.log_three_analysis(f"补充记录完成后，best_param_condition_list长度：{len(self.best_param_condition_list)}")
+        except Exception as e:
+            log_message = f"确保所有最优条件记录时出错: {e}"
+            print(log_message)
+            self.log_three_analysis(log_message)
+    
+    def _show_final_three_stage_results(self):
+        """显示三次分析的最终结果"""
+        try:
+            # 优先使用全局的top_three，如果没有则直接传入空列表
+            if hasattr(self, 'three_stage_global_top_three') and self.three_stage_global_top_three:
+                print(f"三次分析完成：使用全局top_three展示结果，长度 = {len(self.three_stage_global_top_three)}")
+                
+                # 将三次分析的全局top_three保存到主窗口缓存，供tab切换时使用
+                self.main_window.cached_component_analysis_results = self.three_stage_global_top_three
+                # 标记这是三次分析的结果
+                self.main_window.last_analysis_was_three_stage = True
+                print(f"三次分析完成：使用全局top_three展示结果，长度 = {len(self.three_stage_global_top_three)}")
+                self.show_analysis_results([])  # 传入空列表，让show_analysis_results使用全局top_three
+            else:
+                # 如果没有全局top_three，直接传入空列表，让show_analysis_results处理
+                print("三次分析完成：没有全局top_three，传入空列表")
+                self.show_analysis_results([])
+            
+            # 判断是否生成操盘方案
+            final_top_one = None
+            try:
+                # 使用全局最优结果
+                if hasattr(self, 'three_stage_global_top_three') and self.three_stage_global_top_three:
+                    final_top_one = self.three_stage_global_top_three[0]  # 取全局最优
+                elif hasattr(self, 'three_stage_current_best_top_one') and self.three_stage_current_best_top_one:
+                    final_top_one = self.three_stage_current_best_top_one
+                
+                # 确保使用最优公式的 overall_stats
+                if final_top_one:
+                    self.main_window.overall_stats = final_top_one.get('overall_stats')
+                    
+                # 使用分离的方法处理操盘方案生成和提醒
+                self._generate_trading_plan_with_notification(
+                    final_top_one, 
+                    is_three_stage_mode=True, 
+                    round_index="最终"
+                )
+            except Exception as e:
+                log_message = f"三次分析完成后生成操盘方案出错: {e}"
+                print(log_message)
+                self.log_three_analysis(log_message)
+                    
+        except Exception as e:
+            log_message = f"显示三次分析最终结果时出错: {e}"
+            print(log_message)
+            self.log_three_analysis(log_message)
     
     def check_analysis_completed(self):
         """
@@ -393,44 +1730,435 @@ class ComponentAnalysisWidget(QWidget):
             # 恢复按钮状态
             self.analyze_btn.setEnabled(True)
             self.terminate_btn.setEnabled(False)
+            self.optimize_btn.setEnabled(True)
+            self.three_stage_btn.setEnabled(True)
+            self.auto_three_stage_btn.setEnabled(True)
+            return
+            
+        # 检查三次分析是否已经通过跳过方式完成，如果是则直接返回
+        if hasattr(self, 'is_three_stage_mode') and self.is_three_stage_mode and getattr(self, 'three_stage_skipped_completed', False):
+            print("三次分析已通过跳过方式完成，跳过execute_next_analysis")
             return
             
         if self.current_analysis_index >= self.total_analyses:
             # 所有分析完成
-            self.show_analysis_results(self.all_analysis_results)
+            # 在三次分析模式下，每次都处理结果更新top_three，但只在最后展示表格
+            if hasattr(self, 'is_three_stage_mode') and self.is_three_stage_mode:
+                # 三次分析模式：每次都处理结果更新缓存
+                current_top_three = self.process_analysis_results(self.all_analysis_results)
+                
+                # 维护三次分析全局的top_three
+                if not hasattr(self, 'three_stage_global_top_three'):
+                    self.three_stage_global_top_three = []
+                
+                # 将当前轮次的结果合并到全局结果中
+                if current_top_three:
+                    # 合并当前轮次的结果到全局结果
+                    for current_result in current_top_three:
+                        # 检查是否已经存在相同的结果（基于adjusted_value和公式）
+                        exists = False
+                        for global_result in self.three_stage_global_top_three:
+                            if (global_result.get('adjusted_value') == current_result.get('adjusted_value') and 
+                                global_result.get('analysis', {}).get('formula') == current_result.get('analysis', {}).get('formula')):
+                                exists = True
+                                break
+                        
+                        if not exists:
+                            self.three_stage_global_top_three.append(current_result)
+                    
+                    # 按adjusted_value排序，取前3个
+                    self.three_stage_global_top_three.sort(key=lambda x: x.get('adjusted_value', 0), reverse=True)
+                    self.three_stage_global_top_three = self.three_stage_global_top_three[:3]
+                    
+                    # 记录全局top_three的更新
+                    round_index = getattr(self, 'three_stage_round_index', '?')
+                    self.log_three_analysis(f"【三次分析第{round_index}次完成】全局top_three更新:")
+                    for i, result in enumerate(self.three_stage_global_top_three):
+                        self.log_three_analysis(f"  第{i+1}名: {result.get('adjusted_value', 'N/A')} - {result.get('analysis', {}).get('formula', 'N/A')}")
+                
+                # 调试：记录当前轮次的top_one信息到日志
+                # if self.cached_analysis_results:
+                #     current_top_one = self.cached_analysis_results[0]
+                #     round_index = getattr(self, 'three_stage_round_index', '?')
+                #     self.log_three_analysis(f"【三次分析第{round_index}轮完成】调试信息:")
+                #     self.log_three_analysis(f"当前top_one的adjusted_value: {current_top_one.get('adjusted_value', 'N/A')}")
+                #     self.log_three_analysis(f"当前top_one的完整内容: {current_top_one}")
+            else:
+                # 普通分析模式：直接展示结果
+                # 标记这是普通分析的结果
+                self.main_window.last_analysis_was_three_stage = False
+                self.show_analysis_results(self.all_analysis_results)
             
-            # 检查是否有更优结果（用于弹框提示，独立于勾选框状态）
+            # 分析全部完成后，检查最优方案是否满足条件
+            # 初始化变量，确保在所有情况下都被定义
+            new_value = None
+            new_value_float = None
+            last_value = None
+            last_value_float = None
+            locked_value = None
+            locked_value_float = None
+            
             if self.cached_analysis_results:
                 top_one = self.cached_analysis_results[0]
+                
+                # 获取新值和上次分析最优值
                 new_value = top_one.get('adjusted_value', None)
                 last_value = getattr(self.main_window, 'last_adjusted_value', None)
+                locked_value = getattr(self.main_window, 'locked_adjusted_value', None)
+                new_value_float = float(new_value) if new_value is not None else None
+                last_value_float = float(last_value) if last_value is not None else None
+                locked_value_float = float(locked_value) if locked_value is not None else None
                 
-                if new_value is not None and last_value is not None:
+                # 在三次分析模式下，计算本轮是否优于上一轮，并据此决定是否更新 overall_stats
+                if self.is_three_stage_mode:
+                    try:
+                        prev_best = getattr(self.main_window, 'three_stage_prev_best_value', None)
+                        prev_best_float = float(prev_best) if prev_best is not None else None
+                    except Exception:
+                        prev_best_float = None
+                    is_better_this_round = False
+                    if new_value_float is not None:
+                        if prev_best_float is None:
+                            is_better_this_round = True
+                        else:
+                            try:
+                                # 以与展示一致的两位小数为准进行比较，避免浮点微小误差导致等值被判为更差
+                                rounded_new = round(float(new_value_float), 2)
+                                rounded_prev = round(float(prev_best_float), 2)
+                                is_better_this_round = rounded_new >= rounded_prev
+                            except Exception:
+                                is_better_this_round = new_value_float >= prev_best_float
+                    self.three_stage_round_better = is_better_this_round
+                    if is_better_this_round:
+                        self.main_window.overall_stats = top_one.get('overall_stats')
+                        self.main_window.three_stage_prev_best_value = new_value_float
+                        # 同步更新参数特定的基准统计，确保后续轮次使用最新的统计值
+                        if hasattr(self, 'three_stage_param_baseline_stats'):
+                            self.three_stage_param_baseline_stats = top_one.get('overall_stats')
+                        # 更新全局最优公式
+                        if hasattr(self, 'three_stage_current_best_overall_formula'):
+                            self.three_stage_current_best_overall_formula = top_one.get('analysis', {}).get('formula', self.three_stage_current_best_overall_formula)
+                        # 处理prev_best_float为None的情况
+                        if prev_best_float is not None:
+                            log_message = f"本次最优值 {new_value_float:.2f} 不小于上一次最优值 {prev_best_float:.2f}，更新 overall_stats"
+                        else:
+                            log_message = f"本次最优值 {new_value_float:.2f}，这是第一次分析，更新 overall_stats"
+                        print(log_message)
+                        self.log_three_analysis(log_message)
+                        
+                        # 记录更新后的overall_stats内容
+                        # if hasattr(self.main_window, 'overall_stats') and self.main_window.overall_stats:
+                        #     stats_log = f"更新后的overall_stats内容: {self.main_window.overall_stats}"
+                        #     print(stats_log)
+                        #     self.log_three_analysis(stats_log)
+                        
+                        # 记录更新统计值时候的top_one的公式
+                        # try:
+                        #     # 先打印top_one的完整结构，用于调试
+                        #     print(f"调试：top_one的完整内容: {top_one}")
+                        #     self.log_three_analysis(f"调试：top_one的完整内容: {top_one}")
+                        #     if top_one and 'analysis' in top_one and 'formula' in top_one['analysis']:
+                        #         formula_log = f"更新统计值时候的top_one公式: {top_one['analysis']['formula']}"
+                        #         print(formula_log)
+                        #         self.log_three_analysis(formula_log)
+                        #     else:
+                        #         # 如果结构不完整，记录详细信息
+                        #         if not top_one:
+                        #             debug_log = "调试：top_one为None或空"
+                        #         elif 'analysis' not in top_one:
+                        #             debug_log = f"调试：top_one中没有analysis字段，top_one的keys: {list(top_one.keys()) if top_one else 'None'}"
+                        #         elif 'formula' not in top_one['analysis']:
+                        #             debug_log = f"调试：top_one['analysis']中没有formula字段，analysis的keys: {list(top_one['analysis'].keys()) if top_one.get('analysis') else 'None'}"
+                        #         else:
+                        #             debug_log = "调试：未知原因导致无法获取formula"
+                                
+                        #         print(debug_log)
+                        #         self.log_three_analysis(debug_log)
+                        # except Exception as e:
+                        #     error_log = f"记录top_one公式时出错: {e}"
+                        #     print(error_log)
+                        #     self.log_three_analysis(error_log)
+                        
+                        # 三次分析：记录该参数的最优上下限和公式
+                        try:
+                            # 直接从当前分析的参数角度提取上下限，而不是依赖formula_idx
+                            param_name = getattr(self, 'current_three_stage_variable', '参数')
+                            lower_val = upper_val = None
+                            
+                            # 从当前轮次的公式列表中查找包含当前参数的公式
+                            if hasattr(self.main_window, 'component_analysis_formula_list'):
+                                for formula_info in self.main_window.component_analysis_formula_list:
+                                    if formula_info.get('variable') == param_name:
+                                        lower_val = formula_info.get('lower')
+                                        upper_val = formula_info.get('upper')
+                                        break
+                            
+                            # 如果没找到，尝试从formula_idx获取（兼容性）
+                            if lower_val is None and upper_val is None:
+                                formula_idx = top_one.get('analysis', {}).get('formula_idx')
+                                if formula_idx is not None:
+                                    try:
+                                        formula_info = self.main_window.component_analysis_formula_list[int(formula_idx) - 1]
+                                        lower_val = formula_info.get('lower')
+                                        upper_val = formula_info.get('upper')
+                                    except Exception:
+                                        pass
+                            
+                            # 保存当前参数的最优公式和条件
+                            if param_name:
+                                self.three_stage_param_best_formulas[param_name] = top_one
+                                # 获取当前组合排序输出值
+                                current_output_value = "未知"
+                                if top_one and 'adjusted_value' in top_one:
+                                    try:
+                                        current_output_value = str(top_one.get('adjusted_value'))
+                                    except Exception:
+                                        current_output_value = "未知"
+                                
+                                self.three_stage_param_best_conditions[param_name] = {
+                                    'lower': lower_val,
+                                    'upper': upper_val,
+                                    'round': getattr(self, 'three_stage_round_index', 1),
+                                    'output_value': current_output_value
+                                }
+                                
+                                # 记录当前轮次的最优结果到日志
+                                try:
+                                    if top_one and 'analysis' in top_one and 'formula' in top_one['analysis']:
+                                        formula_log = f"参数{param_name}第{getattr(self, 'three_stage_round_index', 1)}次最优公式: {top_one['analysis']['formula']}"
+                                        print(formula_log)
+                                        self.log_three_analysis(formula_log)
+                                except Exception as e:
+                                    print(f"记录参数公式到日志时出错: {e}")
+                            
+                            msg = f"（{param_name}）最优结果：下限：{lower_val}，上限：{upper_val}"
+                        except Exception:
+                            msg = f"（{getattr(self, 'current_three_stage_variable', '参数')}）最优结果：上限：未知，下限：未知"
+                        try:
+                            if not hasattr(self.main_window, 'per_param_result_list') or self.main_window.per_param_result_list is None:
+                                self.main_window.per_param_result_list = []
+                            self.main_window.per_param_result_list.append(msg)
+                            print(msg)
+                            # 三次分析模式下：仅打印，不弹框，并标注轮次
+                            try:
+                                round_idx = int(getattr(self, 'three_stage_round_index', 1))
+                            except Exception:
+                                round_idx = 1
+                            round_name = {1: '第一次', 2: '第二次', 3: '第三次'}.get(round_idx, f"第{round_idx}次")
+                            log_message = f"三次分析：{round_name} {param_name} 下限：{lower_val}，上限：{upper_val}，有较优方案。上次分析最优值：{prev_best_float}，本次分析最优值：{new_value_float}"
+                            print(log_message)
+                            self.log_three_analysis(log_message)
+                        except Exception:
+                            pass
+                    else:
+                        # 处理prev_best_float为None的情况
+                        if prev_best_float is not None:
+                            log_message = f"本次最优值 {new_value_float:.2f} 小于上一次最优值 {prev_best_float:.2f}，不更新 overall_stats"
+                        else:
+                            log_message = f"本次最优值 {new_value_float:.2f}，这是第一次分析，不更新 overall_stats"
+                        print(log_message)
+                        self.log_three_analysis(log_message)
+                        
+                        # 记录当前overall_stats内容（未更新）
+                        if hasattr(self.main_window, 'overall_stats') and self.main_window.overall_stats:
+                            stats_log = f"当前overall_stats内容（未更新）: {self.main_window.overall_stats}"
+                            print(stats_log)
+                            self.log_three_analysis(stats_log)
+                        
+                        # 记录当前top_one的公式（未更新统计值）
+                        if top_one and 'analysis' in top_one and 'formula' in top_one['analysis']:
+                            formula_log = f"当前top_one公式（未更新统计值）: {top_one['analysis']['formula']}"
+                            print(formula_log)
+                            self.log_three_analysis(formula_log)
+                        
+                        # 三次分析：记录没有最优结果
+                        try:
+                            param_name = getattr(self, 'current_three_stage_variable', '参数')
+                            msg = f"（{param_name}）没有最优结果"
+                            if not hasattr(self.main_window, 'per_param_result_list') or self.main_window.per_param_result_list is None:
+                                self.main_window.per_param_result_list = []
+                            self.main_window.per_param_result_list.append(msg)
+                            print(msg)
+                            # 三次分析模式下：仅打印，不弹框
+                            try:
+                                # 直接从当前分析的参数角度提取上下限
+                                param_name = getattr(self, 'current_three_stage_variable', '参数')
+                                lower_val = upper_val = None
+                                
+                                # 从当前轮次的公式列表中查找包含当前参数的公式
+                                if hasattr(self.main_window, 'component_analysis_formula_list'):
+                                    for formula_info in self.main_window.component_analysis_formula_list:
+                                        if formula_info.get('variable') == param_name:
+                                            lower_val = formula_info.get('lower')
+                                            upper_val = formula_info.get('upper')
+                                            break
+                                
+                                # 如果没找到，尝试从formula_idx获取（兼容性）
+                                if lower_val is None and upper_val is None:
+                                    formula_idx = top_one.get('analysis', {}).get('formula_idx')
+                                    if formula_idx is not None:
+                                        try:
+                                            formula_info = self.main_window.component_analysis_formula_list[int(formula_idx) - 1]
+                                            lower_val = formula_info.get('lower')
+                                            upper_val = formula_info.get('upper')
+                                        except Exception:
+                                            pass
+                                try:
+                                    round_idx = int(getattr(self, 'three_stage_round_index', 1))
+                                except Exception:
+                                    round_idx = 1
+                                round_name = {1: '第一次', 2: '第二次', 3: '第三次'}.get(round_idx, f"第{round_idx}次")
+                                
+                                # 避免重复记录相同的日志信息
+                                log_key = f"{param_name}_{round_idx}_{lower_val}_{upper_val}"
+                                if not hasattr(self, '_logged_no_better_solutions'):
+                                    self._logged_no_better_solutions = set()
+                                
+                                if log_key not in self._logged_no_better_solutions:
+                                    log_message = f"三次分析：{param_name} 下限：{lower_val}，上限：{upper_val}，无较优方案。上次分析最优值：{prev_best_float}，本次分析最优值：{new_value_float}"
+                                    print(log_message)
+                                    self.log_three_analysis(log_message)
+                                    self._logged_no_better_solutions.add(log_key)
+                                    
+                                    # 记录无最优结果到no_better_result_list，包含详细信息
+                                    round_name = {1: '第一次', 2: '第二次', 3: '第三次'}.get(round_idx, f"第{round_idx}次")
+                                    
+                                    # 获取当前参数的median值（从初始overall_stats快照中获取）
+                                    median_value = ''
+                                    positive_median_value = ''
+                                    negative_median_value = ''
+                                    if hasattr(self, 'three_stage_param_baseline_stats') and self.three_stage_param_baseline_stats:
+                                        median_key = f'{param_name}_median'
+                                        positive_median_key = f'{param_name}_positive_median'
+                                        negative_median_key = f'{param_name}_negative_median'
+                                        if median_key in self.three_stage_param_baseline_stats:
+                                            median_value = str(self.three_stage_param_baseline_stats[median_key])
+                                        if positive_median_key in self.three_stage_param_baseline_stats:
+                                            positive_median_value = str(self.three_stage_param_baseline_stats[positive_median_key])
+                                        if negative_median_key in self.three_stage_param_baseline_stats:
+                                            negative_median_value = str(self.three_stage_param_baseline_stats[negative_median_key])
+                                    
+                                    # 获取上下限值，如果没有则使用空字符串
+                                    lower_value = lower_val if lower_val else ''
+                                    upper_value = upper_val if upper_val else ''
+                                    if lower_value == '未知':
+                                        lower_value = ''
+                                    if upper_value == '未知':
+                                        upper_value = ''
+                                    
+                                    # 获取当前最优值（使用本次分析最优值，而不是上次分析最优值）
+                                    current_best_value = new_value_float if new_value_float is not None else '未知'
+                                    if current_best_value != '未知':
+                                        current_best_value = f"{current_best_value:.2f}"
+                                    
+                                    no_better_text = f"无最优条件为：下限{lower_value}，上限{upper_value}， 组合排序输出值为：{current_best_value}，{param_name}_median：{median_value}，{param_name}_positive_median：{positive_median_value}，{param_name}_negative_median：{negative_median_value}"
+                                    self.no_better_result_list.append({param_name: no_better_text})
+                                    print(f"记录参数{param_name}的无最优结果：{no_better_text}")
+                                    self.log_three_analysis(f"记录参数{param_name}的无最优结果：{no_better_text}")
+                                
+                                # 检查是否是最后一个参数，如果是最后一个参数且没有找到最优结果，则跳过公式回退
+                                queue = getattr(self, 'three_stage_param_queue', [])
+                                idx = getattr(self, 'three_stage_current_param_idx', 0)
+                                is_last_param = (idx + 1 >= len(queue))
+                                
+                                if is_last_param:
+                                    # 最后一个参数没有找到最优结果，跳过公式回退，直接完成分析
+                                    log_message = f"三次分析：{param_name} 是最后一个参数且没有找到最优结果，跳过公式回退，直接完成分析"
+                                    print(log_message)
+                                    self.log_three_analysis(log_message)
+                                    
+                                    # 直接调用完成分析，避免流程中断
+                                    self._complete_three_stage_analysis()
+                                    return
+                                else:
+                                    # 公式回退：如果当前轮次没有找到更优方案，回退到上一轮的最优公式
+                                    if param_name and param_name in self.three_stage_param_best_formulas:
+                                        # 回退到该参数的最优公式
+                                        best_formula = self.three_stage_param_best_formulas[param_name]
+                                        best_conditions = self.three_stage_param_best_conditions[param_name]
+                                        
+                                        # 不要直接覆盖全局overall_stats，而是保存为参数特定的基准
+                                        if best_formula.get('overall_stats'):
+                                            self.three_stage_param_baseline_stats = best_formula.get('overall_stats')
+                                        
+                                        # 避免重复记录公式回退日志
+                                        fallback_log_key = f"fallback_{param_name}_{round_idx}"
+                                        if fallback_log_key not in self._logged_no_better_solutions:
+                                            log_message = f"公式回退：{param_name} 回退到第{best_conditions['round']}次的最优公式（下限：{best_conditions['lower']}，上限：{best_conditions['upper']}）"
+                                            print(log_message)
+                                            self.log_three_analysis(log_message)
+                                            self._logged_no_better_solutions.add(fallback_log_key)
+                                    else:
+                                        # 如果没有该参数的最优公式，回退到上次最优公式（不包含该参数条件）
+                                        # 避免重复记录公式回退日志
+                                        fallback_log_key = f"fallback_no_formula_{param_name}_{round_idx}"
+                                        if fallback_log_key not in self._logged_no_better_solutions:
+                                            # 处理prev_best_float为None的情况
+                                            if prev_best_float is not None:
+                                                log_message = f"公式回退：{param_name} 没有找到最优公式，回退到上次最优公式，上次最优公式值：{prev_best_float:.2f}"
+                                            else:
+                                                log_message = f"公式回退：{param_name} 没有找到最优公式，这是第一次分析，没有上次最优公式值"
+                                            print(log_message)
+                                            self.log_three_analysis(log_message)
+                                            self._logged_no_better_solutions.add(fallback_log_key)
+                                        
+                                        # 确保使用全局最优的overall_stats作为基准
+                                        if hasattr(self.main_window, 'overall_stats') and self.main_window.overall_stats:
+                                            self.three_stage_param_baseline_stats = self.main_window.overall_stats.copy()
+                            except Exception:
+                                pass
+                        except Exception:
+                            pass
+                else:
+                    # 非三次分析模式按原逻辑直接更新
+                    self.main_window.overall_stats = top_one.get('overall_stats')
+                
+                # 检查是否满足条件
+                should_generate = False
+                if new_value is not None:
                     try:
                         new_value_float = float(new_value)
-                        last_value_float = float(last_value)
-                        if new_value_float > last_value_float:
-                            QMessageBox.information(self, "最优方案提示", f"有最优方案出现！当前最优组合排序输出值：{new_value_float:.2f}，上次最优：{last_value_float:.2f}")
+                        if new_value_float > 0:
+                            should_generate = True
+                        else:
+                            if not self.is_three_stage_mode and not getattr(self, 'is_auto_three_stage_mode', False):
+                                QMessageBox.warning(self, "方案无效", f"该组合分析最优方案的输出值 {new_value_float:.2f} 不大于0，此方案无效，不生成操盘方案")
+                            should_generate = False
                     except Exception:
-                        pass  # 转换失败时不处理
-            
-            # 只在分析全部完成后，且勾选生成操盘方案时，添加一次方案
-            if self.generate_trading_plan_checkbox.isChecked() and self.cached_analysis_results:
-                top_one = self.cached_analysis_results[0]
-                # 比较top_one的adjusted_value与上次的last_adjusted_value
-                new_value = top_one.get('adjusted_value', None)
-                last_value = getattr(self.main_window, 'last_adjusted_value', None)
+                        if not self.is_three_stage_mode and not getattr(self, 'is_auto_three_stage_mode', False):
+                            QMessageBox.warning(self, "方案无效", "该组合分析最优方案的输出值无效，此方案无效，不生成操盘方案")
+                        should_generate = False
+                else:
+                    if not self.is_three_stage_mode and not getattr(self, 'is_auto_three_stage_mode', False):
+                        QMessageBox.warning(self, "方案无效", "该组合分析最优方案的输出值为空，此方案无效，不生成操盘方案")
+                    should_generate = False
                 
-                # 第一步：判断是否要生成操盘方案
-                should_generate = True
-                
-                # 第二步：如果勾选了"更优才生成"，则进一步判断是否更优
-                if self.only_better_trading_plan_checkbox.isChecked():
+                # 如果输出值大于0，进一步判断是否满足百分比要求
+                if should_generate:
+                    try:
+                        better_percent = float(self.only_better_trading_plan_edit.text())
+                    except ValueError:
+                        better_percent = 0.0
+                    
+                    # 判断是否大于上次分析最优值
                     if new_value is not None and last_value is not None:
                         try:
-                            new_value_float = float(new_value)
-                            last_value_float = float(last_value)
-                            should_generate = new_value_float > last_value_float
+                            # 计算需要超过的阈值：上次分析最优值 * (1 + 百分比/100)
+                            threshold = last_value_float * (better_percent / 100)
+                            should_generate = new_value_float > threshold
+                            if not should_generate:
+                                # 构建提示信息
+                                message = f"该组合分析最优方案的输出值 {new_value_float:.2f} 不大于上次分析最优值 {last_value_float:.2f} 的 {better_percent}% = {threshold:.2f}，此方案无效，不生成操盘方案"
+                                
+                                # 如果有锁定最优值，也提示是否大于锁定最优值
+                                if locked_value_float is not None:
+                                    if new_value_float > locked_value_float:
+                                        message += f"\n\n但大于锁定最优值 {locked_value_float:.2f}"
+                                    else:
+                                        message += f"\n\n且不大于锁定最优值 {locked_value_float:.2f}"
+                                
+                                if not self.is_three_stage_mode and not getattr(self, 'is_auto_three_stage_mode', False):
+                                    QMessageBox.warning(self, "方案无效", message)
                         except Exception:
                             should_generate = True  # 转换失败时默认生成
                     elif new_value is not None and last_value is None:
@@ -438,36 +2166,282 @@ class ComponentAnalysisWidget(QWidget):
                         should_generate = True
                     else:
                         should_generate = False
-                # 如果没有勾选"更优才生成"，则直接生成（should_generate保持为True）
                 
-                # 根据should_generate决定是否生成操盘方案
+                # 如果满足所有条件，显示成功提示
                 if should_generate:
-                    # 生成操盘方案
-                    self._add_top_result_to_trading_plan(top_one)
-                    # 更新上次最优值显示
+                    # 处理last_value_float为None的情况
+                    if last_value_float is not None:
+                        message = f"有最优方案出现！当前最优组合排序输出值：{new_value_float:.2f}，大于上次分析最优值：{last_value_float:.2f} 的 {better_percent}% = {threshold:.2f}"
+                    else:
+                        message = f"有最优方案出现！当前最优组合排序输出值：{new_value_float:.2f}，这是第一次分析"
+                    
+                    # 如果有锁定最优值，也提示是否大于锁定最优值
+                    if locked_value_float is not None:
+                        if new_value_float > locked_value_float:
+                            message += f"\n\n且大于锁定最优值 {locked_value_float:.2f}"
+                        else:
+                            message += f"\n\n但不大于锁定最优值 {locked_value_float:.2f}"
+                    
+                    if not self.is_three_stage_mode and not getattr(self, 'is_auto_three_stage_mode', False):
+                        QMessageBox.information(self, "最优方案提示", message)
+                
+                # 只有在普通模式下才即时生成操盘方案；三次分析模式下推迟到全部轮次结束后生成
+                if not self.is_three_stage_mode:
+                    if should_generate and self.generate_trading_plan_checkbox.isChecked():
+                        self._add_top_result_to_trading_plan(top_one)
+                    
+                    # 更新锁定最优值
+                    if locked_value_float is None or new_value_float > locked_value_float:
+                        self.main_window.locked_adjusted_value = new_value_float
+                    
+                    # 更新显示
                     self._update_last_best_value_display()
                 
-                # 更新last_adjusted_value（只有在新的值大于上次的值时才更新）
+                # 更新last_adjusted_value（只有在非三次分析模式或找到更优方案时才更新）
                 if new_value is not None:
                     try:
                         new_value_float = float(new_value)
-                        last_value_float = float(last_value) if last_value is not None else None
-                        
-                        # 只有当新值大于上次值时才更新
-                        if last_value_float is None or new_value_float > last_value_float:
+                        if not self.is_three_stage_mode or self.three_stage_round_better:
+                            # 普通模式：每次都更新；三次分析模式：只有找到更优方案才更新
                             self.main_window.last_adjusted_value = new_value_float
-                            # 更新上次最优值显示
-                            self._update_last_best_value_display()
                     except Exception:
                         # 转换失败时，如果last_value为None则设置，否则保持原值
                         if last_value is None:
                             self.main_window.last_adjusted_value = new_value
-                            # 更新上次最优值显示
-                            self._update_last_best_value_display()
+                    
+                    # 更新显示
+                    self._update_last_best_value_display()
+            else:
+                # 在三次分析模式和连续分析模式下，如果没有满足条件的结果，不弹框提示，只记录日志
+                if not self.is_three_stage_mode and not getattr(self, 'is_auto_three_stage_mode', False):
+                    self.show_analysis_results([])
+                    QMessageBox.information(self, "分析完成", "没有满足条件的组合分析结果")
+                elif self.is_three_stage_mode:
+                    # 三次分析模式：记录到日志，但不弹框
+                    log_message = f"三次分析第{getattr(self, 'three_stage_round_index', '?')}次：没有满足条件的组合分析结果"
+                    print(log_message)
+                    self.log_three_analysis(log_message)
+                    
+                    # 记录当前参数的无最优结果到no_better_result_list，包含详细信息
+                    current_param = getattr(self, 'current_three_stage_variable', '参数')
+                    round_name = {1: '第一次', 2: '第二次', 3: '第三次'}.get(getattr(self, 'three_stage_round_index', 1), f"第{getattr(self, 'three_stage_round_index', 1)}次")
+                    
+                    # 获取当前参数的median值（从初始overall_stats快照中获取）
+                    median_value = ''
+                    positive_median_value = ''
+                    negative_median_value = ''
+                    if hasattr(self, 'three_stage_param_baseline_stats') and self.three_stage_param_baseline_stats:
+                        median_key = f'{current_param}_median'
+                        positive_median_key = f'{current_param}_positive_median'
+                        negative_median_key = f'{current_param}_negative_median'
+                        if median_key in self.three_stage_param_baseline_stats:
+                            median_value = str(self.three_stage_param_baseline_stats[median_key])
+                        if positive_median_key in self.three_stage_param_baseline_stats:
+                            positive_median_value = str(self.three_stage_param_baseline_stats[positive_median_key])
+                        if negative_median_key in self.three_stage_param_baseline_stats:
+                            negative_median_value = str(self.three_stage_param_baseline_stats[negative_median_key])
+                    
+                    # 获取上下限值，如果没有则使用空字符串
+                    lower_value = ''
+                    upper_value = ''
+                    if hasattr(self.main_window, 'component_analysis_formula_list'):
+                        for formula_info in self.main_window.component_analysis_formula_list:
+                            if formula_info.get('variable') == current_param:
+                                lower_value = formula_info.get('lower', '')
+                                upper_value = formula_info.get('upper', '')
+                                break
+                    
+                    if lower_value == '未知':
+                        lower_value = ''
+                    if upper_value == '未知':
+                        upper_value = ''
+                    
+                    # 获取当前最优值（使用本次分析最优值，而不是从best_conditions中获取）
+                    current_best_value = '未知'
+                    if new_value is not None:
+                        try:
+                            new_value_float = float(new_value)
+                            current_best_value = f"{new_value_float:.2f}"
+                        except (ValueError, TypeError):
+                            current_best_value = str(new_value)
+                    # 如果new_value不可用，则尝试从best_conditions中获取作为备选
+                    elif hasattr(self, 'three_stage_param_best_conditions') and current_param in self.three_stage_param_best_conditions:
+                        best_conditions = self.three_stage_param_best_conditions[current_param]
+                        if 'output_value' in best_conditions:
+                            current_best_value = best_conditions['output_value']
+                    
+                    no_better_text = f"无最优条件为：下限{lower_value}，上限{upper_value}， 组合排序输出值为：{current_best_value}，{current_param}_median：{median_value}，{current_param}_positive_median：{positive_median_value}，{current_param}_negative_median：{negative_median_value}"
+                    self.no_better_result_list.append({current_param: no_better_text})
+                    print(f"记录参数{current_param}的无最优结果：{no_better_text}")
+                    self.log_three_analysis(f"记录参数{current_param}的无最优结果：{no_better_text}")
+                    
+                    # 检查是否是最后一个参数，如果是且没有结果，则直接完成分析
+                    queue = getattr(self, 'three_stage_param_queue', [])
+                    idx = getattr(self, 'three_stage_current_param_idx', 0)
+                    is_last_param = (idx + 1 >= len(queue))
+                    
+                    if is_last_param:
+                        log_message = f"三次分析：{current_param} 是最后一个参数且没有满足条件的结果，直接完成分析"
+                        print(log_message)
+                        self.log_three_analysis(log_message)
+                        
+                        # 直接调用完成分析，避免流程中断
+                        self._complete_three_stage_analysis()
+                        return
+                elif getattr(self, 'is_auto_three_stage_mode', False):
+                    # 连续分析模式：记录到日志，但不弹框
+                    log_message = "连续分析组合分析阶段：没有满足条件的组合分析结果"
+                    print(log_message)
+                    self.log_three_analysis(log_message)
+
+            # 三次分析轮次推进（对当前参数）
+            if self.is_three_stage_mode:
+                try:
+                    current_round = getattr(self, 'three_stage_round_index', 1)
+                    # 只有在轮次小于3且满足条件时才继续递增
+                    if current_round == 1 and self.three_stage_round_better:
+                        self.three_stage_round_index = 2
+                        self._start_three_stage_round(step_divisor=20)
+                        return
+                    if current_round == 2 and self.three_stage_round_better:
+                        self.three_stage_round_index = 3
+                        self._start_three_stage_round(step_divisor=40)
+                        return
+                except Exception as e:
+                    log_message = f"三次分析轮次推进出错: {e}"
+                    print(log_message)
+                    self.log_three_analysis(log_message)
+                # 当前参数三轮已结束：更新该参数的全局最优记录（用于后续参数切换时的基准）
+                try:
+                    if self.cached_analysis_results:
+                        self.three_stage_best_top_one = self.cached_analysis_results[0]
+                        # 注意：每一轮的最优结果已经记录到日志中了
+                        # 这里只需要更新全局最优记录，用于后续参数切换时的基准
+                        
+                        # 记录当前参数的最优条件到best_param_condition_list
+                        current_param = getattr(self, 'current_three_stage_variable', '未知参数')
+                        if current_param in self.three_stage_param_best_conditions:
+                            best_conditions = self.three_stage_param_best_conditions[current_param]
+                            # 直接从best_conditions中获取输出值
+                            best_output_value = best_conditions.get('output_value', '未知')
+                            
+                            # 获取当前参数的median值（从初始overall_stats快照中获取）
+                            median_value = ''
+                            positive_median_value = ''
+                            negative_median_value = ''
+                            if hasattr(self, 'three_stage_param_baseline_stats') and self.three_stage_param_baseline_stats:
+                                median_key = f'{current_param}_median'
+                                positive_median_key = f'{current_param}_positive_median'
+                                negative_median_key = f'{current_param}_negative_median'
+                                if median_key in self.three_stage_param_baseline_stats:
+                                    median_value = str(self.three_stage_param_baseline_stats[median_key])
+                                if positive_median_key in self.three_stage_param_baseline_stats:
+                                    positive_median_value = str(self.three_stage_param_baseline_stats[positive_median_key])
+                                if negative_median_key in self.three_stage_param_baseline_stats:
+                                    negative_median_value = str(self.three_stage_param_baseline_stats[negative_median_key])
+                            
+                            # 获取上下限值，如果没有则使用空字符串
+                            lower_value = best_conditions.get('lower', '')
+                            upper_value = best_conditions.get('upper', '')
+                            if lower_value == '未知':
+                                lower_value = ''
+                            if upper_value == '未知':
+                                upper_value = ''
+                            
+                            condition_text = f"最优条件为：下限{lower_value}，上限{upper_value}， 组合排序输出值为：{best_output_value}，{current_param}_median：{median_value}，{current_param}_positive_median：{positive_median_value}，{current_param}_negative_median：{negative_median_value}"
+                            self.best_param_condition_list.append({current_param: condition_text})
+                            print(f"记录参数{current_param}的最优条件：{condition_text}")
+                            self.log_three_analysis(f"记录参数{current_param}的最优条件：{condition_text}")
+                except Exception:
+                    pass
+                
+                # 切换到下一个参数（若有）
+                try:
+                    queue = getattr(self, 'three_stage_param_queue', [])
+                    idx = getattr(self, 'three_stage_current_param_idx', 0)
+                    if idx + 1 < len(queue):
+                        # 准备下一参数的第一轮
+                        self.three_stage_current_param_idx = idx + 1
+                        next_var = queue[self.three_stage_current_param_idx]
+                        self.current_three_stage_variable = next_var
+                        self.three_stage_target_variable = next_var
+                        self.three_stage_round_index = 1
+                        # 基准值：优先使用上一参数的最优值，其次使用全局最优值
+                        prev_param_best = None
+                        if self.three_stage_best_top_one:
+                            try:
+                                prev_param_best = float(self.three_stage_best_top_one.get('adjusted_value', 0))
+                            except Exception:
+                                pass
+                        
+                        # 如果当前参数没有改善整体最优值，从其条件中移除该参数的条件
+                        if hasattr(self, 'three_stage_current_best_overall_formula') and not self.three_stage_round_better:
+                            # 移除未改善参数的条件
+                            self.three_stage_current_best_overall_formula = self._modify_formula_for_variable(
+                                self.three_stage_current_best_overall_formula, 
+                                self.current_three_stage_variable, 
+                                None, 
+                                None
+                            )
+                        
+                        # 注意：不再重置 three_stage_prev_best_value，保持全局最优值
+                        self.three_stage_round_better = None
+                        
+                        # 切换到新参数时，清空日志去重集合
+                        if hasattr(self, '_logged_no_better_solutions'):
+                            self._logged_no_better_solutions.clear()
+                        
+                        # 新参数直接使用当前的overall_stats作为基准
+                        # 在三次分析过程中，如果有较优结果，overall_stats会自动更新
+                        if hasattr(self.main_window, 'overall_stats') and self.main_window.overall_stats:
+                            self.three_stage_param_baseline_stats = self.main_window.overall_stats.copy()
+                        else:
+                            print("没有overall_stats")
+                            self.three_stage_param_baseline_stats = None
+                        
+                        self._start_three_stage_round(step_divisor=10)
+                        return
+                except Exception as e:
+                    log_message = f"三次分析切换参数出错: {e}"
+                    print(log_message)
+                    self.log_three_analysis(log_message)
+                
+                # 检查是否是最后一个参数的最后一轮
+                queue = getattr(self, 'three_stage_param_queue', [])
+                idx = getattr(self, 'three_stage_current_param_idx', 0)
+                is_last_param = (idx + 1 >= len(queue))
+                current_round = getattr(self, 'three_stage_round_index', 1)
+                
+                # 只有在最后一个参数的第三轮完成时才设置三次分析完成标识
+                if is_last_param and current_round >= 3:
+                    # 检查是否已经通过跳过方式完成，避免重复调用
+                    if not getattr(self, 'three_stage_skipped_completed', False):
+                        # 这是最后一个参数的最后一轮，完成三次分析
+                        print(f"这是最后一个参数的最后一轮，完成三次分析, current_round: {current_round}")
+                        # 设置跳过完成标志，防止重复调用
+                        self.three_stage_skipped_completed = True
+                        self._complete_three_stage_analysis()
+                    else:
+                        print("三次分析已通过跳过方式完成，跳过重复调用")
+
+            # 恢复按钮状态（三次分析结束或普通模式）
+            # 在三次分析模式下，只有在真正完成时才恢复按钮状态
+            if not (hasattr(self, 'is_three_stage_mode') and self.is_three_stage_mode and not self.three_stage_completed):
+                self.analyze_btn.setEnabled(True)
+                self.terminate_btn.setEnabled(False)
+                self.optimize_btn.setEnabled(True)
+                self.three_stage_btn.setEnabled(True)  # 恢复三次分析按钮
+                self.auto_three_stage_btn.setEnabled(True)  # 恢复连续分析按钮
+                self.is_three_stage_mode = False
             
-            # 恢复按钮状态
-            self.analyze_btn.setEnabled(True)
-            self.terminate_btn.setEnabled(False)
+            # 检查是否有回调函数需要执行（用于连续分析模式）
+            if hasattr(self, 'analysis_completed_callback') and self.analysis_completed_callback:
+                callback = self.analysis_completed_callback
+                self.analysis_completed_callback = None  # 清除回调，避免重复执行
+                print("组合分析完成，执行回调：开始三次分析")
+                callback()  # 执行三次分析
+                return
+            
             return
         
         # 如果是第一次分析，直接执行
@@ -490,6 +2464,18 @@ class ComponentAnalysisWidget(QWidget):
         if self.analysis_terminated:
             return
             
+        # 增加实际执行次数计数
+        if hasattr(self, 'is_three_stage_mode') and self.is_three_stage_mode:
+            # 三次分析模式：使用专门的计数器
+            if not hasattr(self, 'three_stage_actual_execution_count'):
+                self.three_stage_actual_execution_count = 0
+            self.three_stage_actual_execution_count += 1
+        else:
+            # 普通组合分析模式：使用原有的计数器
+            if not hasattr(self, 'actual_analysis_execution_count'):
+                self.actual_analysis_execution_count = 0
+            self.actual_analysis_execution_count += 1
+            
         # 计算当前公式和参数索引
         formula_idx = self.current_analysis_index // len(self.special_params_combinations)
         param_idx = self.current_analysis_index % len(self.special_params_combinations)
@@ -497,10 +2483,117 @@ class ComponentAnalysisWidget(QWidget):
         formula_obj = self.formula_list[formula_idx]
         formula = formula_obj['formula']
         sort_mode = formula_obj['sort_mode']
-        width, op_days, increment_rate, after_gt_end_ratio, after_gt_start_ratio, stop_loss_inc_rate, stop_loss_after_gt_end_ratio, stop_loss_after_gt_start_ratio = self.special_params_combinations[param_idx]
+        # 获取特殊参数组合，包含14个参数（8个基础参数 + 6个创新高/创新低参数）
+        # 在三次分析模式下，从保存的top1快照中获取参数组合，避免执行过程中top1被改变
+        if hasattr(self, 'is_three_stage_mode') and self.is_three_stage_mode:
+            # 三次分析模式：从保存的参数组合快照中获取
+            if hasattr(self, '_three_stage_special_params_combinations') and self._three_stage_special_params_combinations:
+                # 使用保存的参数组合快照
+                param_combination = self._three_stage_special_params_combinations[0]  # 三次分析只使用一个参数组合
+                print(f"三次分析模式：使用保存的参数组合快照：{param_combination}")
+            else:
+                # 如果没有保存的快照，回退到原来的方式
+                param_combination = self.special_params_combinations[param_idx]
+                print(f"三次分析模式：未找到保存的参数组合快照，使用当前生成的参数组合")
+        else:
+            # 普通分析模式：使用当前生成的参数组合
+            param_combination = self.special_params_combinations[param_idx]
+        
+        # 检查参数组合的格式，支持字典和元组/列表两种格式
+        if isinstance(param_combination, dict):
+            # 字典格式：直接从字典中获取值
+            width = param_combination.get('width', 30)
+            op_days = param_combination.get('op_days', 5)
+            increment_rate = param_combination.get('increment_rate', 0.0)
+            after_gt_end_ratio = param_combination.get('after_gt_end_ratio', 0.0)
+            after_gt_start_ratio = param_combination.get('after_gt_start_ratio', 0.0)
+            stop_loss_inc_rate = param_combination.get('stop_loss_inc_rate', 0.0)
+            stop_loss_after_gt_end_ratio = param_combination.get('stop_loss_after_gt_end_ratio', 0.0)
+            stop_loss_after_gt_start_ratio = param_combination.get('stop_loss_after_gt_start_ratio', 0.0)
+            new_high_low1_start = param_combination.get('new_high_low1_start', 0)
+            new_high_low1_range = param_combination.get('new_high_low1_range', 0)
+            new_high_low1_span = param_combination.get('new_high_low1_span', 0)
+            new_high_low2_start = param_combination.get('new_high_low2_start', 0)
+            new_high_low2_range = param_combination.get('new_high_low2_range', 0)
+            new_high_low2_span = param_combination.get('new_high_low2_span', 0)
+            negative_multiplier = param_combination.get('negative_multiplier', 1.0)
+            positive_multiplier = param_combination.get('positive_multiplier', 1.0)
+        else:
+            # 元组/列表格式：使用解包（向后兼容）
+            width, op_days, increment_rate, after_gt_end_ratio, after_gt_start_ratio, stop_loss_inc_rate, stop_loss_after_gt_end_ratio, stop_loss_after_gt_start_ratio, new_high_low1_start, new_high_low1_range, new_high_low1_span, new_high_low2_start, new_high_low2_range, new_high_low2_span, negative_multiplier, positive_multiplier = param_combination
+        
+        # 根据第二组创新高/创新低flag的勾选情况决定width值
+        # 如果有勾选第二组，则使用new_high_low2_start作为width
+        if (self.main_window.new_before_high2_flag_checkbox.isChecked() or 
+            self.main_window.new_after_high2_flag_checkbox.isChecked() or 
+            self.main_window.new_before_low2_flag_checkbox.isChecked() or 
+            self.main_window.new_after_low2_flag_checkbox.isChecked()):
+            width = new_high_low2_start
+            # 更新主界面width控件值为当前使用的width值
+            self.main_window.width_spin.setValue(width)
+        else:
+            # 没有勾选第二组，检查解包得到的width是否有效
+            if width <= 0:
+                # 如果解包得到的width无效，使用主界面控件值
+                width = self.main_window.width_spin.value()
+            # 更新主界面width控件值为当前使用的width值
+            self.main_window.width_spin.setValue(width)
+ 
+        self.main_window.inc_rate_edit.setText(str(increment_rate))
+        self.main_window.after_gt_end_edit.setText(str(after_gt_end_ratio))
+        self.main_window.after_gt_prev_edit.setText(str(after_gt_start_ratio))
+        self.main_window.stop_loss_inc_rate_edit.setText(str(stop_loss_inc_rate))
+        self.main_window.stop_loss_after_gt_end_edit.setText(str(stop_loss_after_gt_end_ratio))
+        self.main_window.stop_loss_after_gt_start_edit.setText(str(stop_loss_after_gt_start_ratio))
+
         # 打印当前执行的公式和参数
         print("正在执行分析，请不要切换界面导致分析中断...")
         print(f"\n{'='*80}")
+        
+        # 如果是三次分析模式，显示轮次和参数信息
+        if hasattr(self, 'is_three_stage_mode') and self.is_three_stage_mode:
+            round_index = getattr(self, 'three_stage_round_index', '?')
+            target_variable = getattr(self, 'three_stage_target_variable', '?')
+            # 获取参数类型和序号信息
+            # 使用正确的方法判断参数类型，而不是简单的队列分割
+            target_variable_type = "未知"
+            if hasattr(self.main_window, 'last_formula_select_state') and self.main_window.last_formula_select_state:
+                # 检查是否为输出参数（在abbr_round_map中的变量）
+                from function.stock_functions import get_abbr_round_map
+                output_vars = set(get_abbr_round_map().values())
+                if target_variable in output_vars:
+                    target_variable_type = "输出参数"
+                else:
+                    target_variable_type = "辅助参数"
+            elif hasattr(self.main_window, 'forward_param_state') and self.main_window.forward_param_state:
+                # 检查向前参数
+                from function.stock_functions import get_abbr_round_map, get_abbr_map
+                output_vars = set(get_abbr_round_map().values())
+                abbr_vars = set(get_abbr_map().values())
+                if target_variable in output_vars:
+                    target_variable_type = "输出参数"
+                elif target_variable in abbr_vars:
+                    target_variable_type = "辅助参数"
+            target_variable_index = getattr(self, 'three_stage_current_param_idx', 0) + 1
+            total_params = len(getattr(self, 'three_stage_param_queue', []))
+            
+            # 获取当前参数的排序值
+            sort_value = "未知"
+            # 先检查last_formula_select_state（普通参数）
+            if hasattr(self.main_window, 'last_formula_select_state') and self.main_window.last_formula_select_state:
+                if target_variable in self.main_window.last_formula_select_state:
+                    var_state = self.main_window.last_formula_select_state[target_variable]
+                    if 'sort' in var_state:
+                        sort_value = var_state['sort']
+            # 再检查forward_param_state（向前参数）
+            if hasattr(self.main_window, 'forward_param_state') and self.main_window.forward_param_state:
+                if target_variable in self.main_window.forward_param_state:
+                    var_state = self.main_window.forward_param_state[target_variable]
+                    if 'sort' in var_state:
+                        sort_value = var_state['sort']
+            
+            print(f"【三次分析第{round_index}次】参数{target_variable_index}/{total_params}：{target_variable}（{target_variable_type}）排序值：{sort_value}")
+        
         print(f"正在执行第 {self.current_analysis_index + 1}/{self.total_analyses} 次分析")
         print(f"公式组合 {formula_idx + 1}/{len(self.formula_list)}:")
         print(formula)
@@ -514,15 +2607,71 @@ class ComponentAnalysisWidget(QWidget):
         print(f"  止损递增值: {stop_loss_inc_rate}")
         print(f"  止损后值大于结束值比例: {stop_loss_after_gt_end_ratio}")
         print(f"  止损后值大于开始值比例: {stop_loss_after_gt_start_ratio}")
+        
+        # 获取创新高/创新低类型
+        new_high_low1_type, new_high_low2_type = self._get_new_high_low_types()
+        
+        print(f"  {new_high_low1_type}开始日期距结束日期天数: {new_high_low1_start}")
+        print(f"  {new_high_low1_type}日期范围: {new_high_low1_range}")
+        print(f"  {new_high_low1_type}展宽期天数: {new_high_low1_span}")
+        print(f"  {new_high_low2_type}开始日期距结束日期天数: {new_high_low2_start}")
+        print(f"  {new_high_low2_type}日期范围: {new_high_low2_range}")
+        print(f"  {new_high_low2_type}展宽期天数: {new_high_low2_span}")
         print(f"{'='*80}")
         # 显示当前进度
         progress_msg = f"正在执行分析，请不要切换界面导致分析中断...\n"
+        
+        # 如果是三次分析模式，显示轮次和参数信息
+        if hasattr(self, 'is_three_stage_mode') and self.is_three_stage_mode:
+            round_index = getattr(self, 'three_stage_round_index', '?')
+            target_variable = getattr(self, 'three_stage_target_variable', '?')
+            # 获取参数类型和序号信息
+            # 使用正确的方法判断参数类型，而不是简单的队列分割
+            target_variable_type = "未知"
+            if hasattr(self.main_window, 'last_formula_select_state') and self.main_window.last_formula_select_state:
+                # 检查是否为输出参数（在abbr_round_map中的变量）
+                from function.stock_functions import get_abbr_round_map
+                output_vars = set(get_abbr_round_map().values())
+                if target_variable in output_vars:
+                    target_variable_type = "输出参数"
+                else:
+                    target_variable_type = "辅助参数"
+            elif hasattr(self.main_window, 'forward_param_state') and self.main_window.forward_param_state:
+                # 检查向前参数
+                from function.stock_functions import get_abbr_round_map, get_abbr_map
+                output_vars = set(get_abbr_round_map().values())
+                abbr_vars = set(get_abbr_map().values())
+                if target_variable in output_vars:
+                    target_variable_type = "输出参数"
+                elif target_variable in abbr_vars:
+                    target_variable_type = "辅助参数"
+            target_variable_index = getattr(self, 'three_stage_current_param_idx', 0) + 1
+            total_params = len(getattr(self, 'three_stage_param_queue', []))
+            
+            # 获取当前参数的排序值
+            sort_value = "未知"
+            # 先检查last_formula_select_state（普通参数）
+            if hasattr(self.main_window, 'last_formula_select_state') and self.main_window.last_formula_select_state:
+                if target_variable in self.main_window.last_formula_select_state:
+                    var_state = self.main_window.last_formula_select_state[target_variable]
+                    if 'sort' in var_state:
+                        sort_value = var_state['sort']
+            # 再检查forward_param_state（向前参数）
+            if hasattr(self.main_window, 'forward_param_state') and self.main_window.forward_param_state:
+                if target_variable in self.main_window.forward_param_state:
+                    var_state = self.main_window.forward_param_state[target_variable]
+                    if 'sort' in var_state:
+                        sort_value = var_state['sort']
+            
+            progress_msg += f"【三次分析第{round_index}次】参数{target_variable_index}/{total_params}：{target_variable}（{target_variable_type}）排序值：{sort_value}\n"
+        
         progress_msg += f"正在执行第 {self.current_analysis_index + 1}/{self.total_analyses} 次分析...\n"
         progress_msg += f"公式组合 {formula_idx + 1}/{len(self.formula_list)}\n"
         progress_msg += f"{formula}\n"
         progress_msg += f"排序方式: {sort_mode}\n"
         progress_msg += f"参数组合 {param_idx + 1}/{len(self.special_params_combinations)}\n"
-        progress_msg += f"日期宽度={width}, 操作天数={op_days}, 递增值={increment_rate}, 后值大于结束值比例={after_gt_end_ratio}, 后值大于开始值比例={after_gt_start_ratio}, 止损递增值={stop_loss_inc_rate}, 止损后值大于结束值比例={stop_loss_after_gt_end_ratio}, 止损后值大于开始值比例={stop_loss_after_gt_start_ratio}"
+        
+        progress_msg += f"正值倍增系数={positive_multiplier}, 负值倍增系数={negative_multiplier}, 日期宽度={width}, 操作天数={op_days}, 递增值={increment_rate}, 后值大于结束值比例={after_gt_end_ratio}, 后值大于开始值比例={after_gt_start_ratio}, 止损递增值={stop_loss_inc_rate}, 止损后值大于结束值比例={stop_loss_after_gt_end_ratio}, 止损后值大于开始值比例={stop_loss_after_gt_start_ratio}, {new_high_low1_type}开始日期距结束日期天数={new_high_low1_start}, {new_high_low1_type}日期范围={new_high_low1_range}, {new_high_low1_type}展宽期天数={new_high_low1_span}, {new_high_low2_type}开始日期距结束日期天数={new_high_low2_start}, {new_high_low2_type}日期范围={new_high_low2_range}, {new_high_low2_type}展宽期天数={new_high_low2_span}"
         self.show_message(progress_msg)
         
         try:
@@ -530,7 +2679,7 @@ class ComponentAnalysisWidget(QWidget):
             self.main_window.last_formula_expr = formula
             
             # 执行组合分析专用方法，直接传递参数
-            result = self._execute_component_analysis_single(formula, width, op_days, increment_rate, after_gt_end_ratio, after_gt_start_ratio, stop_loss_inc_rate, stop_loss_after_gt_end_ratio, stop_loss_after_gt_start_ratio, sort_mode)
+            result = self._execute_component_analysis_single(formula, width, op_days, increment_rate, after_gt_end_ratio, after_gt_start_ratio, stop_loss_inc_rate, stop_loss_after_gt_end_ratio, stop_loss_after_gt_start_ratio, sort_mode, new_high_low1_start, new_high_low1_range, new_high_low1_span, new_high_low2_start, new_high_low2_range, new_high_low2_span, negative_multiplier, positive_multiplier)
             
             # 再次检查是否被终止
             if self.analysis_terminated:
@@ -542,7 +2691,8 @@ class ComponentAnalysisWidget(QWidget):
                 valid_items = [(date_key, stocks) for date_key, stocks in merged_results.items()]
                 
                 # 调用calculate_analysis_result计算统计结果
-                analysis_stats = calculate_analysis_result(valid_items)
+                analysis_stats = calculate_analysis_result(valid_items, self.main_window)
+                #print(f"_execute_single_analysis result overall_stats: {result.get('overall_stats')}")
                 
                 # 获取选股数量
                 select_count = getattr(self.main_window, 'last_select_count', 10)
@@ -561,14 +2711,100 @@ class ComponentAnalysisWidget(QWidget):
                     'stop_loss_inc_rate': stop_loss_inc_rate,
                     'stop_loss_after_gt_end_ratio': stop_loss_after_gt_end_ratio,
                     'stop_loss_after_gt_start_ratio': stop_loss_after_gt_start_ratio,
+                    'new_high_low1_start': new_high_low1_start,
+                    'new_high_low1_range': new_high_low1_range,
+                    'new_high_low1_span': new_high_low1_span,
+                    'new_high_low2_start': new_high_low2_start,
+                    'new_high_low2_range': new_high_low2_range,
+                    'new_high_low2_span': new_high_low2_span,
+                    'negative_multiplier': negative_multiplier,
+                    'positive_multiplier': positive_multiplier,
                     'select_count': select_count,  # 添加选股数量
                     'result': result,
                     'valid_items': valid_items,
-                    'analysis_stats': analysis_stats  # 添加统计结果
+                    'analysis_stats': analysis_stats,  # 添加统计结果
+                    'overall_stats': result.get('overall_stats'),
+                    
+                    # 添加更多控件值用于参数恢复
+                    'start_option': self.main_window.start_option_combo.currentText(),
+                    'shift_days': self.main_window.shift_spin.value(),
+                    'is_forward': self.main_window.direction_checkbox.isChecked(),
+                    'trade_mode': self.main_window.trade_mode_combo.currentText(),
+                    'range_value': self.main_window.range_value_edit.text(),
+                    'continuous_abs_threshold': self.main_window.continuous_abs_threshold_edit.text(),
+                    'valid_abs_sum_threshold': self.main_window.valid_abs_sum_threshold_edit.text(),
+                    'n_days': self.main_window.n_days_spin.value(),
+                    'n_days_max': self.main_window.n_days_max_spin.value(),
+                    'ops_change': self.main_window.ops_change_edit.text(),
+                    
+                    # 创新高/创新低相关参数
+                    'new_before_high_start': self.main_window.new_before_high_start_spin.value(),
+                    'new_before_high_range': self.main_window.new_before_high_range_spin.value(),
+                    'new_before_high_span': self.main_window.new_before_high_span_spin.value(),
+                    'new_before_high_logic': self.main_window.new_before_high_logic_combo.currentText(),
+                    'new_before_high2_start': self.main_window.new_before_high2_start_spin.value(),
+                    'new_before_high2_range': self.main_window.new_before_high2_range_spin.value(),
+                    'new_before_high2_span': self.main_window.new_before_high2_span_spin.value(),
+                    'new_before_high2_logic': self.main_window.new_before_high2_logic_combo.currentText(),
+                    'new_after_high_start': self.main_window.new_after_high_start_spin.value(),
+                    'new_after_high_range': self.main_window.new_after_high_range_spin.value(),
+                    'new_after_high_span': self.main_window.new_after_high_span_spin.value(),
+                    'new_after_high_logic': self.main_window.new_after_high_logic_combo.currentText(),
+                    'new_after_high2_start': self.main_window.new_after_high2_start_spin.value(),
+                    'new_after_high2_range': self.main_window.new_after_high2_range_spin.value(),
+                    'new_after_high2_span': self.main_window.new_after_high2_span_spin.value(),
+                    'new_after_high2_logic': self.main_window.new_after_high2_logic_combo.currentText(),
+                    'new_before_low_start': self.main_window.new_before_low_start_spin.value(),
+                    'new_before_low_range': self.main_window.new_before_low_range_spin.value(),
+                    'new_before_low_span': self.main_window.new_before_low_span_spin.value(),
+                    'new_before_low_logic': self.main_window.new_before_low_logic_combo.currentText(),
+                    'new_before_low2_start': self.main_window.new_before_low2_start_spin.value(),
+                    'new_before_low2_range': self.main_window.new_before_low2_range_spin.value(),
+                    'new_before_low2_span': self.main_window.new_before_low2_span_spin.value(),
+                    'new_before_low2_logic': self.main_window.new_before_low2_logic_combo.currentText(),
+                    'new_after_low_start': self.main_window.new_after_low_start_spin.value(),
+                    'new_after_low_range': self.main_window.new_after_low_range_spin.value(),
+                    'new_after_low_span': self.main_window.new_after_low_span_spin.value(),
+                    'new_after_low_logic': self.main_window.new_after_low_logic_combo.currentText(),
+                    'new_after_low2_start': self.main_window.new_after_low2_start_spin.value(),
+                    'new_after_low2_range': self.main_window.new_after_low2_range_spin.value(),
+                    'new_after_low2_span': self.main_window.new_after_low2_span_spin.value(),
+                    'new_after_low2_logic': self.main_window.new_after_low2_logic_combo.currentText(),
+                    
+                    # 创新高/创新低勾选状态
+                    'new_before_high_flag': self.main_window.new_before_high_flag_checkbox.isChecked(),
+                    'new_before_high2_flag': self.main_window.new_before_high2_flag_checkbox.isChecked(),
+                    'new_after_high_flag': self.main_window.new_after_high_flag_checkbox.isChecked(),
+                    'new_after_high2_flag': self.main_window.new_after_high2_flag_checkbox.isChecked(),
+                    'new_before_low_flag': self.main_window.new_before_low_flag_checkbox.isChecked(),
+                    'new_before_low2_flag': self.main_window.new_before_low2_flag_checkbox.isChecked(),
+                    'new_after_low_flag': self.main_window.new_after_low_flag_checkbox.isChecked(),
+                    'new_after_low2_flag': self.main_window.new_after_low2_flag_checkbox.isChecked(),
+
+                    # 组合分析次数
+                    'component_analysis_count': self.analysis_count_spin.value(),
+                    
+                    # 盈损选择框选项
+                    'profit_type': getattr(self.main_window, 'last_profit_type', 'INC'),
+                    'loss_type': getattr(self.main_window, 'last_loss_type', 'INC')
                 }
                 self.all_analysis_results.append(analysis_info)
                 
                 print(f"第 {self.current_analysis_index + 1} 次分析完成")
+                
+                # 在三次分析模式下，检查是否需要快速中断
+                # should_continue = self._check_fast_interrupt_condition(analysis_info)
+                # if not should_continue:
+                #     # 快速中断：跳过该参数的所有剩余分析（包括后续轮次），直接切换到下一个参数
+                #     current_param = getattr(self, 'current_three_stage_variable', '未知')
+                #     log_message = f"快速中断：跳过参数{current_param}的所有剩余分析，直接切换到下一个参数"
+                #     print(log_message)
+                #     self.log_three_analysis(log_message)
+                    
+                #     # 直接切换到下一个参数，而不是完成当前轮次
+                #     self._skip_to_next_parameter_after_fast_interrupt()
+                #     return  # 快速中断，不继续执行后续分析
+                    
             else:
                 error_msg = result.get('message', '分析失败') if result else '分析失败'
                 print(f"第 {self.current_analysis_index + 1} 次分析失败: {error_msg}")
@@ -585,7 +2821,7 @@ class ComponentAnalysisWidget(QWidget):
         # 使用QTimer延迟执行下一次分析，确保当前分析完全完成
         QTimer.singleShot(3000, self.execute_next_analysis)  # 3秒后执行下一次分析
     
-    def _execute_component_analysis_single(self, formula, width, op_days, increment_rate, after_gt_end_ratio, after_gt_start_ratio, stop_loss_inc_rate, stop_loss_after_gt_end_ratio, stop_loss_after_gt_start_ratio, sort_mode):
+    def _execute_component_analysis_single(self, formula, width, op_days, increment_rate, after_gt_end_ratio, after_gt_start_ratio, stop_loss_inc_rate, stop_loss_after_gt_end_ratio, stop_loss_after_gt_start_ratio, sort_mode, new_high_low1_start=0, new_high_low1_range=0, new_high_low1_span=0, new_high_low2_start=0, new_high_low2_range=0, new_high_low2_span=0, negative_multiplier=1.0, positive_multiplier=1.0):
         """
         执行单次组合分析
         专门为组合分析创建的方法，避免依赖自动分析子界面的控件
@@ -743,6 +2979,81 @@ class ComponentAnalysisWidget(QWidget):
         
         # 获取选股数量和排序方式
         select_count = getattr(self.main_window, 'last_select_count', 10)
+
+        profit_type = getattr(self.main_window, 'last_profit_type', 'INC')
+        loss_type = getattr(self.main_window, 'last_loss_type', 'INC')
+        
+        # 准备创新高/创新低参数，保持传递结构一致
+        new_high_low_params = {}
+        
+        # 第1组参数：根据勾选情况决定使用组合分析参数还是主界面控件值
+        if self.main_window.new_before_high_flag_checkbox.isChecked():
+            # 创前新高1被勾选，使用组合分析参数
+            new_high_low_params.update({
+                'new_before_high_start': new_high_low1_start,
+                'new_before_high_range': new_high_low1_range,
+                'new_before_high_span': new_high_low1_span
+            })
+        
+        if self.main_window.new_after_high_flag_checkbox.isChecked():
+            # 创后新高1被勾选，使用组合分析参数
+            new_high_low_params.update({
+                'new_after_high_start': new_high_low1_start,
+                'new_after_high_range': new_high_low1_range,
+                'new_after_high_span': new_high_low1_span
+            })
+        
+        if self.main_window.new_before_low_flag_checkbox.isChecked():
+            # 创前新低1被勾选，使用组合分析参数
+            new_high_low_params.update({
+                'new_before_low_start': new_high_low1_start,
+                'new_before_low_range': new_high_low1_range,
+                'new_before_low_span': new_high_low1_span
+            })
+        
+        if self.main_window.new_after_low_flag_checkbox.isChecked():
+            # 创后新低1被勾选，使用组合分析参数
+            new_high_low_params.update({
+                'new_after_low_start': new_high_low1_start,
+                'new_after_low_range': new_high_low1_range,
+                'new_after_low_span': new_high_low1_span
+            })
+        
+        # 第2组参数：根据勾选情况决定使用组合分析参数还是主界面控件值
+        if self.main_window.new_before_high2_flag_checkbox.isChecked():
+            # 创前新高2被勾选，使用组合分析参数
+            new_high_low_params.update({
+                'new_before_high2_start': new_high_low2_start,
+                'new_before_high2_range': new_high_low2_range,
+                'new_before_high2_span': new_high_low2_span
+            })
+        
+        if self.main_window.new_after_high2_flag_checkbox.isChecked():
+            # 创后新高2被勾选，使用组合分析参数
+            new_high_low_params.update({
+                'new_after_high2_start': new_high_low2_start,
+                'new_after_high2_range': new_high_low2_range,
+                'new_after_high2_span': new_high_low2_span
+            })
+        
+        if self.main_window.new_before_low2_flag_checkbox.isChecked():
+            # 创前新低2被勾选，使用组合分析参数
+            new_high_low_params.update({
+                'new_before_low2_start': new_high_low2_start,
+                'new_before_low2_range': new_high_low2_range,
+                'new_before_low2_span': new_high_low2_span
+            })
+        
+        if self.main_window.new_after_low2_flag_checkbox.isChecked():
+            # 创后新低2被勾选，使用组合分析参数
+            new_high_low_params.update({
+                'new_after_low2_start': new_high_low2_start,
+                'new_after_low2_range': new_high_low2_range,
+                'new_after_low2_span': new_high_low2_span
+            })
+
+        print(f"new_high_low_params = {new_high_low_params}")
+        
         # 调用主窗口的计算方法，直接传递参数
         # 获取比较变量列表
         comparison_vars = []
@@ -769,7 +3080,12 @@ class ComponentAnalysisWidget(QWidget):
             stop_loss_inc_rate=stop_loss_inc_rate,
             stop_loss_after_gt_end_ratio=stop_loss_after_gt_end_ratio,
             stop_loss_after_gt_start_ratio=stop_loss_after_gt_start_ratio,
-            comparison_vars=comparison_vars
+            comparison_vars=comparison_vars,
+            new_high_low_params=new_high_low_params,  # 直接传递
+            profit_type=profit_type,
+            loss_type=loss_type,
+            negative_multiplier=negative_multiplier,
+            positive_multiplier=positive_multiplier
         )
         
         if result:
@@ -783,15 +3099,16 @@ class ComponentAnalysisWidget(QWidget):
                 'message': "计算失败，请检查参数设置"
             }
     
-    def show_analysis_results(self, all_analysis_results):
+    def process_analysis_results(self, all_analysis_results):
         """
-        显示组合分析结果（只输出排序前3的单页表格）
+        处理分析结果，提取top_three并更新缓存，但不展示表格
+        这个方法专门用于三次分析过程中更新top_three结果
         """
         if not all_analysis_results:
-            self.show_message("没有有效的分析结果")
-            return
-        print(f"show_analysis_results length = {len(all_analysis_results)}")
-        # 如果已经是top_three结构，直接展示
+            return None
+        print(f"process_analysis_results length = {len(all_analysis_results)}")
+        
+        # 如果已经是top_three结构，直接使用
         if isinstance(all_analysis_results, list) and all_analysis_results and isinstance(all_analysis_results[0], dict) and 'analysis' in all_analysis_results[0]:
             top_three = all_analysis_results
         else:
@@ -803,6 +3120,7 @@ class ComponentAnalysisWidget(QWidget):
                 analysis_with_sum = []
                 for i, analysis in enumerate(all_analysis_results):
                     analysis_stats = analysis.get('analysis_stats')
+                    overall_stats = analysis.get('overall_stats')
                     if not analysis_stats:
                         continue
                     summary = analysis_stats.get('summary', {})
@@ -834,15 +3152,108 @@ class ComponentAnalysisWidget(QWidget):
                         # 获取n_values
                         n_values = getattr(self.main_window, 'component_analysis_n_values', {})
                         analysis['n_values'] = n_values
-                        analysis_with_sum.append({
-                            'index': i,
-                            'analysis': analysis,
-                            'total_sum': total_sum,
-                            'valid_count': valid_count,
-                            'avg_sum': total_sum / valid_count,
-                            'op_days': op_days,
-                            'adjusted_value': adjusted_value
-                        })
+                        # 从summary中提取comprehensive_stop_daily_change和comprehensive_daily_change
+                        comprehensive_stop_daily_change = summary.get('comprehensive_stop_daily_change', '')
+                        comprehensive_daily_change = summary.get('comprehensive_daily_change', '')
+                        
+                        # 检查是否满足所有条件
+                        conditions_met = True
+                        
+                        # 条件2：检查comprehensive_daily_change和comprehensive_stop_daily_change是否满足阈值要求
+                        try:
+                            comprehensive_daily_change_threshold = float(self.comprehensive_daily_change_edit.text())
+                        except ValueError:
+                            comprehensive_daily_change_threshold = 0.0
+                        
+                        try:
+                            comprehensive_stop_daily_change_threshold = float(self.comprehensive_stop_daily_change_edit.text())
+                        except ValueError:
+                            comprehensive_stop_daily_change_threshold = 0.0
+                        
+                        # 检查comprehensive_daily_change是否大于阈值
+                        if comprehensive_daily_change != '' and not (isinstance(comprehensive_daily_change, float) and math.isnan(comprehensive_daily_change)):
+                            try:
+                                comprehensive_daily_change_float = float(comprehensive_daily_change)
+                                if comprehensive_daily_change_float <= comprehensive_daily_change_threshold:
+                                    conditions_met = False
+                                    continue
+                            except (ValueError, TypeError):
+                                conditions_met = False
+                                continue
+                        else:
+                            conditions_met = False
+                            continue
+                        
+                        # 检查comprehensive_stop_daily_change是否大于阈值
+                        if comprehensive_stop_daily_change != '' and not (isinstance(comprehensive_stop_daily_change, float) and math.isnan(comprehensive_stop_daily_change)):
+                            try:
+                                comprehensive_stop_daily_change_float = float(comprehensive_stop_daily_change)
+                                if comprehensive_stop_daily_change_float <= comprehensive_stop_daily_change_threshold:
+                                    conditions_met = False
+                                    continue
+                            except (ValueError, TypeError):
+                                conditions_met = False
+                                continue
+                        else:
+                            conditions_met = False
+                            continue
+                        
+                        # 条件3：检查持有率、止盈率、止损率是否满足区间要求
+                        try:
+                            hold_rate_min = int(self.hold_rate_min_edit.text())
+                        except ValueError:
+                            hold_rate_min = 0
+                        try:
+                            hold_rate_max = int(self.hold_rate_max_edit.text())
+                        except ValueError:
+                            hold_rate_max = 100
+                        try:
+                            profit_rate_min = int(self.profit_rate_min_edit.text())
+                        except ValueError:
+                            profit_rate_min = 0
+                        try:
+                            profit_rate_max = int(self.profit_rate_max_edit.text())
+                        except ValueError:
+                            profit_rate_max = 100
+                        try:
+                            loss_rate_min = int(self.loss_rate_min_edit.text())
+                        except ValueError:
+                            loss_rate_min = 0
+                        try:
+                            loss_rate_max = int(self.loss_rate_max_edit.text())
+                        except ValueError:
+                            loss_rate_max = 100
+                        
+                        # 获取实际的率值
+                        actual_hold_rate = summary.get('hold_rate', 0)
+                        actual_profit_rate = summary.get('profit_rate', 0)
+                        actual_loss_rate = summary.get('loss_rate', 0)
+                        
+                        # 检查是否满足区间要求
+                        if actual_hold_rate < hold_rate_min or actual_hold_rate > hold_rate_max:
+                            conditions_met = False
+                            continue
+                        if actual_profit_rate < profit_rate_min or actual_profit_rate > profit_rate_max:
+                            conditions_met = False
+                            continue
+                        if actual_loss_rate < loss_rate_min or actual_loss_rate > loss_rate_max:
+                            conditions_met = False
+                            continue
+                        
+                        # 只有满足所有条件才添加到analysis_with_sum
+                        if conditions_met:
+                            analysis_with_sum.append({
+                                'index': i,
+                                'analysis': analysis,
+                                'total_sum': total_sum,
+                                'valid_count': valid_count,
+                                'avg_sum': total_sum / valid_count,
+                                'op_days': op_days,
+                                'adjusted_value': adjusted_value,
+                                'comprehensive_stop_daily_change': comprehensive_stop_daily_change,
+                                'comprehensive_daily_change': comprehensive_daily_change,
+                                'overall_stats': overall_stats
+                            })
                 analysis_with_sum.sort(key=lambda x: x['adjusted_value'], reverse=True)
                 top_three = analysis_with_sum[:3]
 
@@ -850,40 +3261,134 @@ class ComponentAnalysisWidget(QWidget):
         self.cached_analysis_results = top_three
         self.main_window.cached_component_analysis_results = top_three
         
+        # 新增：保存最优top1到主窗口缓存
+        if top_three:
+            self.main_window.last_component_analysis_top1 = top_three[0]
+            # 从最优结果的analysis中提取具体的参数组合，供三次分析使用
+            top1_analysis = top_three[0].get('analysis', {})
+            if top1_analysis:
+                # 提取具体的参数值，构建单个参数组合
+                single_params_combination = {
+                    'width': top1_analysis.get('width', 30),
+                    'op_days': top1_analysis.get('op_days', 5),
+                    'increment_rate': top1_analysis.get('increment_rate', 0.0),
+                    'after_gt_end_ratio': top1_analysis.get('after_gt_end_ratio', 0.0),
+                    'after_gt_start_ratio': top1_analysis.get('after_gt_start_ratio', 0.0),
+                    'stop_loss_inc_rate': top1_analysis.get('stop_loss_inc_rate', 0.0),
+                    'stop_loss_after_gt_end_ratio': top1_analysis.get('stop_loss_after_gt_end_ratio', 0.0),
+                    'stop_loss_after_gt_start_ratio': top1_analysis.get('stop_loss_after_gt_start_ratio', 0.0),
+                    'new_high_low1_start': top1_analysis.get('new_high_low1_start', 0),
+                    'new_high_low1_range': top1_analysis.get('new_high_low1_range', 0),
+                    'new_high_low1_span': top1_analysis.get('new_high_low1_span', 0),
+                    'new_high_low2_start': top1_analysis.get('new_high_low2_start', 0),
+                    'new_high_low2_range': top1_analysis.get('new_high_low2_range', 0),
+                    'new_high_low2_span': top1_analysis.get('new_high_low2_span', 0),
+                    'negative_multiplier': top1_analysis.get('negative_multiplier', 1.0),
+                    'positive_multiplier': top1_analysis.get('positive_multiplier', 1.0)
+                }
+                self.main_window.last_component_analysis_top1['special_params_combinations'] = single_params_combination
+                print(f"已从最优结果中提取参数组合：{single_params_combination}")
+        
+        return top_three
+
+    def show_analysis_results(self, all_analysis_results):
+        """
+        显示组合分析结果（只输出排序前3的单页表格）
+        """
+        # 检查是否在组合-连续三次分析模式中，且这是组合分析完成后的调用
+        # 在组合-连续三次分析模式中，组合分析完成后只处理结果，不显示表格
+        if (getattr(self, 'is_auto_three_stage_mode', False) and 
+            not getattr(self.main_window, 'last_analysis_was_three_stage', False)):
+            print("组合-连续三次分析模式：组合分析完成，只处理结果，不显示表格")
+            if not all_analysis_results:
+                self.show_message("没有有效的分析结果")
+                return
+            
+            # 使用process_analysis_results处理结果并获取top_three
+            top_three = self.process_analysis_results(all_analysis_results)
+            if not top_three:
+                return
+            
+            # 组合分析完成后，更新last_component_analysis_top1
+            if top_three:
+                self.main_window.last_component_analysis_top1 = top_three[0]
+                print(f"组合分析完成，已更新last_component_analysis_top1: {top_three[0].get('adjusted_value', 'N/A')}")
+            
+            # 只处理结果，不显示表格，直接返回
+            print("组合分析结果处理完成，等待三次分析完成后统一显示")
+            return
+        # 根据最后点击的分析类型来决定展示哪个top_three
+        if hasattr(self.main_window, 'last_analysis_was_three_stage') and self.main_window.last_analysis_was_three_stage:
+            # 最后点击的是三次分析，优先使用三次分析的全局top_three
+            if hasattr(self, 'three_stage_global_top_three') and self.three_stage_global_top_three:
+                print(f"最后点击的是三次分析：使用全局top_three，长度 = {len(self.three_stage_global_top_three)}")
+                top_three = self.process_analysis_results(self.three_stage_global_top_three)
+                self.three_stage_global_top_three = top_three
+            elif not all_analysis_results:
+                # 没有传入结果且没有全局top_three
+                self.show_message("没有有效的三次分析结果")
+                return
+            else:
+                # 有传入结果，使用传入的结果
+                print(f"最后点击的是三次分析，但有传入结果：使用传入结果，长度 = {len(all_analysis_results)}")
+                top_three = self.process_analysis_results(all_analysis_results)
+                if not top_three:
+                    return
+        else:
+            # 最后点击的是普通分析，使用传入的结果
+            if not all_analysis_results:
+                self.show_message("没有有效的分析结果")
+                return
+            print(f"最后点击的是普通分析：show_analysis_results length = {len(all_analysis_results)}")
+            
+            # 使用process_analysis_results处理结果并获取top_three
+            top_three = self.process_analysis_results(all_analysis_results)
+            if not top_three:
+                return
+        
         # 清理旧内容
         for i in reversed(range(self.result_layout.count())):
             widget = self.result_layout.itemAt(i).widget()
             if widget is not None:
                 widget.setParent(None)
-        # 计算组合次数和真实耗时
-        total_combinations = len(getattr(self.main_window, 'component_analysis_formula_list', [])) * len(getattr(self.main_window, 'component_analysis_special_params_combinations', []))
-        
-        # 计算真实耗时
-        if hasattr(self, 'analysis_start_time'):
-            real_time = time.time() - self.analysis_start_time
-            if real_time < 60:
-                time_str = f"{real_time:.1f}秒"
-            elif real_time < 3600:
-                minutes = int(real_time // 60)
-                seconds = int(real_time % 60)
-                time_str = f"{minutes}分{seconds}秒"
-            else:
-                hours = int(real_time // 3600)
-                minutes = int((real_time % 3600) // 60)
-                time_str = f"{hours}小时{minutes}分"
-                # 保存格式化后的时间字符串和组合次数到主窗口
-            self.main_window.last_component_total_elapsed_time = time_str
-            self.main_window.last_component_total_combinations = total_combinations
+        # 根据分析类型显示不同的统计信息
+        if hasattr(self.main_window, 'last_analysis_was_three_stage') and self.main_window.last_analysis_was_three_stage:
+            # 三次分析：显示三次分析的统计信息
+            # 使用实际执行次数而不是公式个数（因为快速中断机制）
+            three_stage_actual_executions = getattr(self.main_window, 'last_three_stage_actual_executions', 0)
+            three_stage_time = getattr(self.main_window, 'last_three_stage_total_elapsed_time', '未知')
+            info_label = QLabel(f"三次分析合计: {three_stage_actual_executions} | 三次分析总耗时: {three_stage_time}")
         else:
-            # 没有计算，从主窗口恢复总耗时和组合次数
-            if hasattr(self.main_window, 'last_component_total_elapsed_time') and self.main_window.last_component_total_elapsed_time:
-                time_str = self.main_window.last_component_total_elapsed_time
+            # 普通分析：显示组合分析的统计信息
+            # 使用实际执行次数而不是公式个数计算（因为快速中断机制）
+            actual_execution_count = getattr(self, 'actual_analysis_execution_count', 0)
+            
+            # 计算真实耗时
+            if hasattr(self, 'analysis_start_time'):
+                real_time = time.time() - self.analysis_start_time
+                if real_time < 60:
+                    time_str = f"{real_time:.1f}秒"
+                elif real_time < 3600:
+                    minutes = int(real_time // 60)
+                    seconds = int(real_time % 60)
+                    time_str = f"{minutes}分{seconds}秒"
+                else:
+                    hours = int(real_time // 3600)
+                    minutes = int((real_time % 3600) // 60)
+                    time_str = f"{hours}小时{minutes}分"
+                    # 保存格式化后的时间字符串和实际执行次数到主窗口
+                self.main_window.last_component_total_elapsed_time = time_str
+                self.main_window.last_component_actual_executions = actual_execution_count
             else:
-                time_str = "未知"
-            if hasattr(self.main_window, 'last_component_total_combinations') and self.main_window.last_component_total_combinations:
-                total_combinations = self.main_window.last_component_total_combinations
-        
-        info_label = QLabel(f"组合合计: {total_combinations} | 总耗时: {time_str}")
+                # 没有计算，从主窗口恢复总耗时和实际执行次数
+                if hasattr(self.main_window, 'last_component_total_elapsed_time') and self.main_window.last_component_total_elapsed_time:
+                    time_str = self.main_window.last_component_total_elapsed_time
+                else:
+                    time_str = "未知"
+                if hasattr(self.main_window, 'last_component_actual_executions') and self.main_window.last_component_actual_executions:
+                    actual_execution_count = self.main_window.last_component_actual_executions
+                
+            info_label = QLabel(f"组合合计: {actual_execution_count} | 总耗时: {time_str}")
         info_label.setStyleSheet("font-size: 13px; color: #333; padding: 6px 10px; background-color: #f5f5f5; border: 1px solid #ddd; border-radius: 3px;")
         self.result_layout.addWidget(info_label)
         # 输出top_three的单页表格
@@ -933,8 +3438,180 @@ class ComponentAnalysisWidget(QWidget):
                     self.main_window.component_analysis_detail_window = None
             
             window.destroyed.connect(on_window_destroyed)
+
         
-        def restore_formula_params(analysis_data):
+        for row, item in enumerate(top_three):
+            table.setItem(row, 0, QTableWidgetItem(f"{item['adjusted_value']:.2f}"))
+            analysis = item['analysis']
+            # 输出参数：显示勾选的get_abbr_round_only_map控件名称
+            selected_vars_with_values = analysis.get('selected_vars_with_values', [])
+            if selected_vars_with_values:
+                from function.stock_functions import get_abbr_round_only_map
+                abbr_map = get_abbr_round_only_map()
+                # 获取n_values用于替换第N位
+                n_values = analysis.get('n_values', {})
+                print(f"n_values: {n_values}")
+                # 直接使用selected_vars_with_values中的变量名和值
+                output_params = []
+                output_params_sum = 0
+                for var_name, value in selected_vars_with_values:
+                    for (zh, en) in abbr_map.keys():
+                        if en == var_name:
+                            # 处理第N位变量
+                            if "第N位" in zh:
+                                n_value = n_values.get(var_name, "N")
+                                zh_display = zh.replace("第N位", f"第{n_value}位")
+                            else:
+                                zh_display = zh
+                            
+                            # 直接使用预计算的值
+                            output_params_sum += value
+                            # 显示参数名称和数值
+                            output_params.append(f"{zh_display}: {value:.2f}")
+                            break
+                # 输出参数文本
+                output_params_text = "\n".join(output_params)
+                # 在最后一行加上总和
+                if output_params:
+                    output_params_text += f"\n总和: {output_params_sum:.2f}"
+                else:
+                    output_params_text = "无勾选参数"
+                output_params_item = QTableWidgetItem(output_params_text)
+                output_params_item.setTextAlignment(Qt.AlignLeft | Qt.AlignTop)
+                output_params_item.setToolTip(output_params_text)
+                table.setItem(row, 1, output_params_item)
+            else:
+                output_params_text = "无勾选参数"
+            
+            output_params_item = QTableWidgetItem(output_params_text)
+            output_params_item.setTextAlignment(Qt.AlignLeft | Qt.AlignTop)
+            output_params_item.setToolTip(output_params_text)
+            table.setItem(row, 1, output_params_item)
+            
+            # 第3列：选股公式
+            formula = analysis.get('formula', '')
+            formula_item = QTableWidgetItem(formula)
+            formula_item.setTextAlignment(Qt.AlignLeft | Qt.AlignTop)
+            formula_item.setToolTip(formula)
+            table.setItem(row, 2, formula_item)
+            
+            # 第4列：选股参数（按指定顺序分行输出）
+            params_text = []
+            params_text.append(f"选股数量: {analysis.get('select_count', 10)}")
+            params_text.append(f"排序方式: {analysis.get('sort_mode', '')}")
+            params_text.append(f"开始日期值选择: {analysis.get('start_option', '')}")
+            params_text.append(f"交易方式: {analysis.get('trade_mode', '')}")
+            
+            # 构建盈损操作值显示
+            profit_type = analysis.get('profit_type', 'INC')
+            loss_type = analysis.get('loss_type', 'INC')
+            operation_value = f"盈（{profit_type}），损（{loss_type}）"
+            params_text.append(f"操作值: {operation_value}")
+            params_text.append(f"正值倍增系数: {analysis.get('positive_multiplier', '')}")
+            params_text.append(f"负值倍增系数: {analysis.get('negative_multiplier', '')}")
+            params_text.append(f"日期宽度: {analysis.get('width', '')}")
+            params_text.append(f"操作天数: {analysis.get('op_days', '')}")
+            params_text.append(f"止盈递增率: {analysis.get('increment_rate', '')}")
+            params_text.append(f"止盈后值大于结束值比例: {analysis.get('after_gt_end_ratio', '')}")
+            params_text.append(f"止盈后值大于前值比例: {analysis.get('after_gt_start_ratio', '')}")
+            params_text.append(f"止损递增率: {analysis.get('stop_loss_inc_rate', '')}")
+            params_text.append(f"止损后值大于结束值比例: {analysis.get('stop_loss_after_gt_end_ratio', '')}")
+            params_text.append(f"止损后值大于前值比例: {analysis.get('stop_loss_after_gt_start_ratio', '')}")
+            
+            params_item = QTableWidgetItem("\n".join(params_text))
+            params_item.setTextAlignment(Qt.AlignLeft | Qt.AlignTop)
+            params_item.setToolTip("\n".join(params_text))
+            table.setItem(row, 3, params_item)
+            
+            # 添加查看分析结果按钮（第5列，列名为空）
+            view_btn = QPushButton("查看详情")
+            
+            # 检查是否有查看详情所需的数据
+            has_analysis_stats = 'analysis_stats' in analysis
+            if not has_analysis_stats:
+                # 如果没有analysis_stats数据，禁用按钮并改变样式
+                view_btn.setEnabled(False)
+                view_btn.setStyleSheet("""
+                    QPushButton {
+                        background-color: #cccccc;
+                        color: #666666;
+                        border: none;
+                        padding: 5px 10px;
+                        border-radius: 3px;
+                        font-size: 12px;
+                    }
+                    QPushButton:disabled {
+                        background-color: #cccccc;
+                        color: #666666;
+                    }
+                """)
+                view_btn.setToolTip("无查看详情数据（CSV导入限制）")
+            else:
+                # 有数据时使用正常样式
+                view_btn.setStyleSheet("""
+                    QPushButton {
+                        background-color: #4CAF50;
+                        color: white;
+                        border: none;
+                        padding: 5px 10px;
+                        border-radius: 3px;
+                        font-size: 12px;
+                    }
+                    QPushButton:hover {
+                        background-color: #45a049;
+                    }
+                    QPushButton:pressed {
+                        background-color: #3d8b40;
+                    }
+                """)
+                view_btn.setToolTip("点击查看详细分析结果")
+                view_btn.clicked.connect(lambda checked, data=analysis, idx=row: show_analysis_detail(data, idx))
+            table.setCellWidget(row, 4, view_btn)
+            
+            # 添加恢复参数按钮（第6列）
+            restore_btn = QPushButton("恢复参数")
+            restore_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #2196F3;
+                    color: white;
+                    border: none;
+                    padding: 5px 10px;
+                    border-radius: 3px;
+                    font-size: 12px;
+                }
+                QPushButton:hover {
+                    background-color: #1976D2;
+                }
+                QPushButton:pressed {
+                    background-color: #0D47A1;
+                }
+                         """)
+            restore_btn.clicked.connect(lambda checked, data=analysis: self.restore_formula_params(data))
+            table.setCellWidget(row, 5, restore_btn)
+            
+        table.resizeColumnsToContents()
+        # 设置列宽
+        table.setColumnWidth(0, 150)  # 输出值列宽度
+        table.setColumnWidth(1, 240)  # 输出参数列宽度
+        table.setColumnWidth(2, 300)  # 选股公式列宽度
+        table.setColumnWidth(3, 250)  # 选股参数列宽度
+        table.setColumnWidth(4, 100)  # 查看详情按钮列宽度
+        table.setColumnWidth(5, 100)  # 恢复参数按钮列宽度
+        # 自动调整行高以适配多行公式
+        for row in range(table.rowCount()):
+            table.resizeRowToContents(row)
+        self.result_layout.addWidget(table)
+        print(f"组合分析完成！输出前三名排序结果。")
+        
+        # 恢复按钮状态（在三次分析模式下，只有在真正完成时才恢复）
+        if not (hasattr(self, 'is_three_stage_mode') and self.is_three_stage_mode and not self.three_stage_completed):
+            self.analyze_btn.setEnabled(True)
+            self.terminate_btn.setEnabled(False)
+            self.optimize_btn.setEnabled(True)
+            self.three_stage_btn.setEnabled(True)
+            self.auto_three_stage_btn.setEnabled(True)
+
+    def restore_formula_params(self, analysis_data):
             """恢复选股参数到选股控件"""
             try:
                 # 获取当前组合的公式和参数
@@ -1005,6 +3682,11 @@ class ComponentAnalysisWidget(QWidget):
                         widgets['round_checkbox'].setChecked(False)
                         print(f"  重置round_checkbox: {var_name}")
                     
+                    # 清空含逻辑选项
+                    if 'logic_check' in widgets:
+                        widgets['logic_check'].setChecked(False)
+                        print(f"  重置含逻辑选项: {var_name}")
+                    
                     # 清空输入框
                     if 'lower' in widgets:
                         widgets['lower'].setText('')
@@ -1047,20 +3729,25 @@ class ComponentAnalysisWidget(QWidget):
                     # 取消勾选逻辑复选框
                     if 'logic_check' in comp:
                         comp['logic_check'].setChecked(False)
+                        print(f"  重置比较控件含逻辑选项")
                     print(f"  已重置比较控件")
                 
                 # 重置forward_param_state中的向前参数控件状态
                 if hasattr(self.main_window, 'forward_param_state') and self.main_window.forward_param_state:
-                    print(f"重置forward_param_state: {self.main_window.forward_param_state}")
                     for var_name, var_state in self.main_window.forward_param_state.items():
                         if isinstance(var_state, dict):
                             # 重置enable复选框状态
                             var_state['enable'] = False
                             # 重置round圆框状态
                             var_state['round'] = False
-                            # 清空上下限值
+                            # 重置含逻辑选项
+                            if 'logic' in var_state:
+                                var_state['logic'] = False
+                            # 清空上下限值和步长
                             var_state['lower'] = ''
                             var_state['upper'] = ''
+                            if 'step' in var_state:
+                                var_state['step'] = ''
                             print(f"重置向前参数: {var_name}")
                         elif isinstance(var_state, bool):
                             # 如果只是布尔值，重置为False
@@ -1069,7 +3756,6 @@ class ComponentAnalysisWidget(QWidget):
                 
                 # 恢复forward_param_state中的向前参数控件状态
                 if hasattr(self.main_window, 'forward_param_state') and self.main_window.forward_param_state:
-                    print(f"恢复forward_param_state: {self.main_window.forward_param_state}")
                     for var_name, var_state in self.main_window.forward_param_state.items():
                         if var_name in temp_formula_widget.var_widgets:
                             widgets = temp_formula_widget.var_widgets[var_name]
@@ -1094,21 +3780,63 @@ class ComponentAnalysisWidget(QWidget):
                                 widgets['checkbox'].setChecked(var_state)
                                 print(f"恢复向前参数复选框: {var_name} = {var_state}")
                 
+                # 恢复盈损选择框选项
+                if 'profit_type' in analysis_data:
+                    profit_type = analysis_data['profit_type']
+                    if hasattr(self.main_window, 'last_profit_type'):
+                        self.main_window.last_profit_type = profit_type
+                        print(f"恢复盈类型选择：{profit_type}")
+                
+                if 'loss_type' in analysis_data:
+                    loss_type = analysis_data['loss_type']
+                    if hasattr(self.main_window, 'last_loss_type'):
+                        self.main_window.last_loss_type = loss_type
+                        print(f"恢复损类型选择：{loss_type}")
+                
+                # 恢复倍增系数参数（恢复勾选框、下限和上限）
+                if 'negative_multiplier' in analysis_data:
+                    negative_multiplier = analysis_data['negative_multiplier']
+                    if 'negative_multiplier' in temp_formula_widget.var_widgets:
+                        widgets = temp_formula_widget.var_widgets['negative_multiplier']
+                        if 'checkbox' in widgets:
+                            widgets['checkbox'].setChecked(True)
+                            print(f"勾选负值倍增系数复选框")
+                        if 'lower' in widgets:
+                            widgets['lower'].setText(str(negative_multiplier))
+                            print(f"设置负值倍增系数下限: {negative_multiplier}")
+                        if 'upper' in widgets:
+                            widgets['upper'].setText(str(negative_multiplier))
+                            print(f"设置负值倍增系数上限: {negative_multiplier}")
+                
+                if 'positive_multiplier' in analysis_data:
+                    positive_multiplier = analysis_data['positive_multiplier']
+                    if 'positive_multiplier' in temp_formula_widget.var_widgets:
+                        widgets = temp_formula_widget.var_widgets['positive_multiplier']
+                        if 'checkbox' in widgets:
+                            widgets['checkbox'].setChecked(True)
+                            print(f"勾选正值倍增系数复选框")
+                        if 'lower' in widgets:
+                            widgets['lower'].setText(str(positive_multiplier))
+                            print(f"设置正值倍增系数下限: {positive_multiplier}")
+                        if 'upper' in widgets:
+                            widgets['upper'].setText(str(positive_multiplier))
+                            print(f"设置正值倍增系数上限: {positive_multiplier}")
+                
                 # 解析公式并设置控件状态
                 
                 # 先找出所有比较控件的变量，避免被当作普通上下限处理
                 comparison_vars = set()
-                for m in re.finditer(r'([a-zA-Z0-9_]+)\s*>=\s*([\-\d\.]+)\s*\*\s*([a-zA-Z0-9_]+)', formula):
-                    var1, lower, var2 = m.group(1), m.group(2), m.group(3)
+                for m in re.finditer(r'([a-zA-Z0-9_]+)\s*/\s*([a-zA-Z0-9_]+)\s*>=\s*([\-\d\.]+)', formula):
+                    var1, var2, lower = m.group(1), m.group(2), m.group(3)
                     comparison_vars.add(var1)
                     comparison_vars.add(var2)
-                    print(f"找到比较控件: {var1} >= {lower} * {var2}")
+                    print(f"找到比较控件: {var1} / {var2} >= {lower}")
                 
-                for m in re.finditer(r'([a-zA-Z0-9_]+)\s*<=\s*([\-\d\.]+)\s*\*\s*([a-zA-Z0-9_]+)', formula):
-                    var1, upper, var2 = m.group(1), m.group(2), m.group(3)
+                for m in re.finditer(r'([a-zA-Z0-9_]+)\s*/\s*([a-zA-Z0-9_]+)\s*<=\s*([\-\d\.]+)', formula):
+                    var1, var2, upper = m.group(1), m.group(2), m.group(3)
                     comparison_vars.add(var1)
                     comparison_vars.add(var2)
-                    print(f"找到比较控件: {var1} <= {upper} * {var2}")
+                    print(f"找到比较控件: {var1} / {var2} <= {upper}")
                 
                 # 记录已处理的变量，避免重复处理
                 processed_vars = set()
@@ -1293,8 +4021,8 @@ class ComponentAnalysisWidget(QWidget):
                 en2zh = {en: zh for zh, en in abbr_map.items()}
                 comparison_configs = []
                 # >=
-                for m in re.finditer(r'([a-zA-Z0-9_]+)\s*>=\s*([\-\d\.]+)\s*\*\s*([a-zA-Z0-9_]+)', formula):
-                    var1, lower, var2 = m.group(1), m.group(2), m.group(3)
+                for m in re.finditer(r'([a-zA-Z0-9_]+)\s*/\s*([a-zA-Z0-9_]+)\s*>=\s*([\-\d\.]+)', formula):
+                    var1, var2, lower = m.group(1), m.group(2), m.group(3)
                     zh_var1 = en2zh.get(var1, var1)
                     zh_var2 = en2zh.get(var2, var2)
                     existing = next((c for c in comparison_configs if c['var1'] == zh_var1 and c['var2'] == zh_var2), None)
@@ -1303,8 +4031,8 @@ class ComponentAnalysisWidget(QWidget):
                     else:
                         comparison_configs.append({'var1': zh_var1, 'lower': lower, 'upper': '', 'var2': zh_var2})
                 # <=
-                for m in re.finditer(r'([a-zA-Z0-9_]+)\s*<=\s*([\-\d\.]+)\s*\*\s*([a-zA-Z0-9_]+)', formula):
-                    var1, upper, var2 = m.group(1), m.group(2), m.group(3)
+                for m in re.finditer(r'([a-zA-Z0-9_]+)\s*/\s*([a-zA-Z0-9_]+)\s*<=\s*([\-\d\.]+)', formula):
+                    var1, var2, upper = m.group(1), m.group(2), m.group(3)
                     zh_var1 = en2zh.get(var1, var1)
                     zh_var2 = en2zh.get(var2, var2)
                     existing = next((c for c in comparison_configs if c['var1'] == zh_var1 and c['var2'] == zh_var2), None)
@@ -1465,148 +4193,529 @@ class ComponentAnalysisWidget(QWidget):
                     except:
                         pass
                 
+                # 恢复新增的控件值
+                # 开始日期值选择
+                start_option = analysis_data.get('start_option', '')
+                if start_option and hasattr(self.main_window, 'start_option_combo'):
+                    try:
+                        idx = self.main_window.start_option_combo.findText(start_option)
+                        if idx >= 0:
+                            self.main_window.start_option_combo.setCurrentIndex(idx)
+                            print(f"设置开始日期值选择: {start_option}")
+                    except:
+                        pass
+                
+                # 前移天数
+                shift_days = analysis_data.get('shift_days', '')
+                if shift_days != '' and shift_days is not None and hasattr(self.main_window, 'shift_spin'):
+                    try:
+                        shift_days_int = int(shift_days)
+                        self.main_window.shift_spin.setValue(shift_days_int)
+                        print(f"设置前移天数: {shift_days_int}")
+                    except:
+                        pass
+                
+                # 是否计算向前
+                is_forward = analysis_data.get('is_forward', False)
+                if hasattr(self.main_window, 'direction_checkbox'):
+                    try:
+                        self.main_window.direction_checkbox.setChecked(is_forward)
+                        print(f"设置是否计算向前: {is_forward}")
+                    except:
+                        pass
+                
+                # 交易方式
+                trade_mode = analysis_data.get('trade_mode', '')
+                if trade_mode and hasattr(self.main_window, 'trade_mode_combo'):
+                    try:
+                        idx = self.main_window.trade_mode_combo.findText(trade_mode)
+                        if idx >= 0:
+                            self.main_window.trade_mode_combo.setCurrentIndex(idx)
+                            print(f"设置交易方式: {trade_mode}")
+                    except:
+                        pass
+                
+                # 操作涨幅
+                ops_change = analysis_data.get('ops_change', '')
+                if ops_change and hasattr(self.main_window, 'ops_change_edit'):
+                    try:
+                        self.main_window.ops_change_edit.setText(str(ops_change))
+                        print(f"设置操作涨幅: {ops_change}")
+                    except:
+                        pass
+                
+                # 其他参数
+                n_days = analysis_data.get('n_days', '')
+                if n_days and hasattr(self.main_window, 'n_days_spin'):
+                    try:
+                        self.main_window.n_days_spin.setValue(int(n_days))
+                        print(f"设置n_days: {n_days}")
+                    except:
+                        pass
+                
+                n_days_max = analysis_data.get('n_days_max', '')
+                if n_days_max and hasattr(self.main_window, 'n_days_max_spin'):
+                    try:
+                        self.main_window.n_days_max_spin.setValue(int(n_days_max))
+                        print(f"设置n_days_max: {n_days_max}")
+                    except:
+                        pass
+                
+                range_value = analysis_data.get('range_value', '')
+                if range_value and hasattr(self.main_window, 'range_value_edit'):
+                    try:
+                        self.main_window.range_value_edit.setText(str(range_value))
+                        print(f"设置range_value: {range_value}")
+                    except:
+                        pass
+                
+                continuous_abs_threshold = analysis_data.get('continuous_abs_threshold', '')
+                if continuous_abs_threshold and hasattr(self.main_window, 'continuous_abs_threshold_edit'):
+                    try:
+                        self.main_window.continuous_abs_threshold_edit.setText(str(continuous_abs_threshold))
+                        print(f"设置continuous_abs_threshold: {continuous_abs_threshold}")
+                    except:
+                        pass
+
+                valid_abs_sum_threshold = analysis_data.get('valid_abs_sum_threshold', '')
+                if valid_abs_sum_threshold and hasattr(self.main_window, 'valid_abs_sum_threshold_edit'):
+                    try:
+                        self.main_window.valid_abs_sum_threshold_edit.setText(str(valid_abs_sum_threshold))
+                        print(f"设置valid_abs_sum_threshold: {valid_abs_sum_threshold}")
+                    except:
+                        pass
+                
+                # 创新高/创新低相关参数
+                new_before_high_start = analysis_data.get('new_before_high_start', '')
+                if new_before_high_start and hasattr(self.main_window, 'new_before_high_start_spin'):
+                    try:
+                        self.main_window.new_before_high_start_spin.setValue(int(new_before_high_start))
+                        print(f"设置new_before_high_start: {new_before_high_start}")
+                    except:
+                        pass
+                
+                new_before_high_range = analysis_data.get('new_before_high_range', '')
+                if new_before_high_range and hasattr(self.main_window, 'new_before_high_range_spin'):
+                    try:
+                        self.main_window.new_before_high_range_spin.setValue(int(new_before_high_range))
+                        print(f"设置new_before_high_range: {new_before_high_range}")
+                    except:
+                        pass
+                
+                new_before_high_span = analysis_data.get('new_before_high_span', '')
+                if new_before_high_span and hasattr(self.main_window, 'new_before_high_span_spin'):
+                    try:
+                        self.main_window.new_before_high_span_spin.setValue(int(new_before_high_span))
+                        print(f"设置new_before_high_span: {new_before_high_span}")
+                    except:
+                        pass
+                
+                new_before_high_logic = analysis_data.get('new_before_high_logic', '')
+                if new_before_high_logic and hasattr(self.main_window, 'new_before_high_logic_combo'):
+                    try:
+                        idx = self.main_window.new_before_high_logic_combo.findText(new_before_high_logic)
+                        if idx >= 0:
+                            self.main_window.new_before_high_logic_combo.setCurrentIndex(idx)
+                            print(f"设置new_before_high_logic: {new_before_high_logic}")
+                    except:
+                        pass
+                
+                # 创前新高2参数
+                new_before_high2_start = analysis_data.get('new_before_high2_start', '')
+                if new_before_high2_start and hasattr(self.main_window, 'new_before_high2_start_spin'):
+                    try:
+                        self.main_window.new_before_high2_start_spin.setValue(int(new_before_high2_start))
+                        print(f"设置new_before_high2_start: {new_before_high2_start}")
+                    except:
+                        pass
+                
+                new_before_high2_range = analysis_data.get('new_before_high2_range', '')
+                if new_before_high2_range and hasattr(self.main_window, 'new_before_high2_range_spin'):
+                    try:
+                        self.main_window.new_before_high2_range_spin.setValue(int(new_before_high2_range))
+                        print(f"设置new_before_high2_range: {new_before_high2_range}")
+                    except:
+                        pass
+                
+                new_before_high2_span = analysis_data.get('new_before_high2_span', '')
+                if new_before_high2_span and hasattr(self.main_window, 'new_before_high2_span_spin'):
+                    try:
+                        self.main_window.new_before_high2_span_spin.setValue(int(new_before_high2_span))
+                        print(f"设置new_before_high2_span: {new_before_high2_span}")
+                    except:
+                        pass
+                
+                new_before_high2_logic = analysis_data.get('new_before_high2_logic', '')
+                if new_before_high2_logic and hasattr(self.main_window, 'new_before_high2_logic_combo'):
+                    try:
+                        idx = self.main_window.new_before_high2_logic_combo.findText(new_before_high2_logic)
+                        if idx >= 0:
+                            self.main_window.new_before_high2_logic_combo.setCurrentIndex(idx)
+                            print(f"设置new_before_high2_logic: {new_before_high2_logic}")
+                    except:
+                        pass
+                
+                # 创后新高1参数
+                new_after_high_start = analysis_data.get('new_after_high_start', '')
+                if new_after_high_start and hasattr(self.main_window, 'new_after_high_start_spin'):
+                    try:
+                        self.main_window.new_after_high_start_spin.setValue(int(new_after_high_start))
+                        print(f"设置new_after_high_start: {new_after_high_start}")
+                    except:
+                        pass
+                
+                new_after_high_range = analysis_data.get('new_after_high_range', '')
+                if new_after_high_range and hasattr(self.main_window, 'new_after_high_range_spin'):
+                    try:
+                        self.main_window.new_after_high_range_spin.setValue(int(new_after_high_range))
+                        print(f"设置new_after_high_range: {new_after_high_range}")
+                    except:
+                        pass
+                
+                new_after_high_span = analysis_data.get('new_after_high_span', '')
+                if new_after_high_span and hasattr(self.main_window, 'new_after_high_span_spin'):
+                    try:
+                        self.main_window.new_after_high_span_spin.setValue(int(new_after_high_span))
+                        print(f"设置new_after_high_span: {new_after_high_span}")
+                    except:
+                        pass
+                
+                new_after_high_logic = analysis_data.get('new_after_high_logic', '')
+                if new_after_high_logic and hasattr(self.main_window, 'new_after_high_logic_combo'):
+                    try:
+                        idx = self.main_window.new_after_high_logic_combo.findText(new_after_high_logic)
+                        if idx >= 0:
+                            self.main_window.new_after_high_logic_combo.setCurrentIndex(idx)
+                            print(f"设置new_after_high_logic: {new_after_high_logic}")
+                    except:
+                        pass
+                
+                # 创后新高2参数
+                new_after_high2_start = analysis_data.get('new_after_high2_start', '')
+                if new_after_high2_start and hasattr(self.main_window, 'new_after_high2_start_spin'):
+                    try:
+                        self.main_window.new_after_high2_start_spin.setValue(int(new_after_high2_start))
+                        print(f"设置new_after_high2_start: {new_after_high2_start}")
+                    except:
+                        pass
+                
+                new_after_high2_range = analysis_data.get('new_after_high2_range', '')
+                if new_after_high2_range and hasattr(self.main_window, 'new_after_high2_range_spin'):
+                    try:
+                        self.main_window.new_after_high2_range_spin.setValue(int(new_after_high2_range))
+                        print(f"设置new_after_high2_range: {new_after_high2_range}")
+                    except:
+                        pass
+                
+                new_after_high2_span = analysis_data.get('new_after_high2_span', '')
+                if new_after_high2_span and hasattr(self.main_window, 'new_after_high2_span_spin'):
+                    try:
+                        self.main_window.new_after_high2_span_spin.setValue(int(new_after_high2_span))
+                        print(f"设置new_after_high2_span: {new_after_high2_span}")
+                    except:
+                        pass
+                
+                new_after_high2_logic = analysis_data.get('new_after_high2_logic', '')
+                if new_after_high2_logic and hasattr(self.main_window, 'new_after_high2_logic_combo'):
+                    try:
+                        idx = self.main_window.new_after_high2_logic_combo.findText(new_after_high2_logic)
+                        if idx >= 0:
+                            self.main_window.new_after_high2_logic_combo.setCurrentIndex(idx)
+                            print(f"设置new_after_high2_logic: {new_after_high2_logic}")
+                    except:
+                        pass
+                
+                # 创前新低1参数
+                new_before_low_start = analysis_data.get('new_before_low_start', '')
+                if new_before_low_start and hasattr(self.main_window, 'new_before_low_start_spin'):
+                    try:
+                        self.main_window.new_before_low_start_spin.setValue(int(new_before_low_start))
+                        print(f"设置new_before_low_start: {new_before_low_start}")
+                    except:
+                        pass
+                
+                new_before_low_range = analysis_data.get('new_before_low_range', '')
+                if new_before_low_range and hasattr(self.main_window, 'new_before_low_range_spin'):
+                    try:
+                        self.main_window.new_before_low_range_spin.setValue(int(new_before_low_range))
+                        print(f"设置new_before_low_range: {new_before_low_range}")
+                    except:
+                        pass
+                
+                new_before_low_span = analysis_data.get('new_before_low_span', '')
+                if new_before_low_span and hasattr(self.main_window, 'new_before_low_span_spin'):
+                    try:
+                        self.main_window.new_before_low_span_spin.setValue(int(new_before_low_span))
+                        print(f"设置new_before_low_span: {new_before_low_span}")
+                    except:
+                        pass
+                
+                new_before_low_logic = analysis_data.get('new_before_low_logic', '')
+                if new_before_low_logic and hasattr(self.main_window, 'new_before_low_logic_combo'):
+                    try:
+                        idx = self.main_window.new_before_low_logic_combo.findText(new_before_low_logic)
+                        if idx >= 0:
+                            self.main_window.new_before_low_logic_combo.setCurrentIndex(idx)
+                            print(f"设置new_before_low_logic: {new_before_low_logic}")
+                    except:
+                        pass
+                
+                # 创前新低2参数
+                new_before_low2_start = analysis_data.get('new_before_low2_start', '')
+                if new_before_low2_start and hasattr(self.main_window, 'new_before_low2_start_spin'):
+                    try:
+                        self.main_window.new_before_low2_start_spin.setValue(int(new_before_low2_start))
+                        print(f"设置new_before_low2_start: {new_before_low2_start}")
+                    except:
+                        pass
+                
+                new_before_low2_range = analysis_data.get('new_before_low2_range', '')
+                if new_before_low2_range and hasattr(self.main_window, 'new_before_low2_range_spin'):
+                    try:
+                        self.main_window.new_before_low2_range_spin.setValue(int(new_before_low2_range))
+                        print(f"设置new_before_low2_range: {new_before_low2_range}")
+                    except:
+                        pass
+                
+                new_before_low2_span = analysis_data.get('new_before_low2_span', '')
+                if new_before_low2_span and hasattr(self.main_window, 'new_before_low2_span_spin'):
+                    try:
+                        self.main_window.new_before_low2_span_spin.setValue(int(new_before_low2_span))
+                        print(f"设置new_before_low2_span: {new_before_low2_span}")
+                    except:
+                        pass
+                
+                new_before_low2_logic = analysis_data.get('new_before_low2_logic', '')
+                if new_before_low2_logic and hasattr(self.main_window, 'new_before_low2_logic_combo'):
+                    try:
+                        idx = self.main_window.new_before_low2_logic_combo.findText(new_before_low2_logic)
+                        if idx >= 0:
+                            self.main_window.new_before_low2_logic_combo.setCurrentIndex(idx)
+                            print(f"设置new_before_low2_logic: {new_before_low2_logic}")
+                    except:
+                        pass
+                
+                # 创后新低1参数
+                new_after_low_start = analysis_data.get('new_after_low_start', '')
+                if new_after_low_start and hasattr(self.main_window, 'new_after_low_start_spin'):
+                    try:
+                        self.main_window.new_after_low_start_spin.setValue(int(new_after_low_start))
+                        print(f"设置new_after_low_start: {new_after_low_start}")
+                    except:
+                        pass
+                
+                new_after_low_range = analysis_data.get('new_after_low_range', '')
+                if new_after_low_range and hasattr(self.main_window, 'new_after_low_range_spin'):
+                    try:
+                        self.main_window.new_after_low_range_spin.setValue(int(new_after_low_range))
+                        print(f"设置new_after_low_range: {new_after_low_range}")
+                    except:
+                        pass
+                
+                new_after_low_span = analysis_data.get('new_after_low_span', '')
+                if new_after_low_span and hasattr(self.main_window, 'new_after_low_span_spin'):
+                    try:
+                        self.main_window.new_after_low_span_spin.setValue(int(new_after_low_span))
+                        print(f"设置new_after_low_span: {new_after_low_span}")
+                    except:
+                        pass
+                
+                new_after_low_logic = analysis_data.get('new_after_low_logic', '')
+                if new_after_low_logic and hasattr(self.main_window, 'new_after_low_logic_combo'):
+                    try:
+                        idx = self.main_window.new_after_low_logic_combo.findText(new_after_low_logic)
+                        if idx >= 0:
+                            self.main_window.new_after_low_logic_combo.setCurrentIndex(idx)
+                            print(f"设置new_after_low_logic: {new_after_low_logic}")
+                    except:
+                        pass
+                
+                # 创后新低2参数
+                new_after_low2_start = analysis_data.get('new_after_low2_start', '')
+                if new_after_low2_start and hasattr(self.main_window, 'new_after_low2_start_spin'):
+                    try:
+                        self.main_window.new_after_low2_start_spin.setValue(int(new_after_low2_start))
+                        print(f"设置new_after_low2_start: {new_after_low2_start}")
+                    except:
+                        pass
+                
+                new_after_low2_range = analysis_data.get('new_after_low2_range', '')
+                if new_after_low2_range and hasattr(self.main_window, 'new_after_low2_range_spin'):
+                    try:
+                        self.main_window.new_after_low2_range_spin.setValue(int(new_after_low2_range))
+                        print(f"设置new_after_low2_range: {new_after_low2_range}")
+                    except:
+                        pass
+                
+                new_after_low2_span = analysis_data.get('new_after_low2_span', '')
+                if new_after_low2_span and hasattr(self.main_window, 'new_after_low2_span_spin'):
+                    try:
+                        self.main_window.new_after_low2_span_spin.setValue(int(new_after_low2_span))
+                        print(f"设置new_after_low2_span: {new_after_low2_span}")
+                    except:
+                        pass
+                
+                new_after_low2_logic = analysis_data.get('new_after_low2_logic', '')
+                if new_after_low2_logic and hasattr(self.main_window, 'new_after_low2_logic_combo'):
+                    try:
+                        idx = self.main_window.new_after_low2_logic_combo.findText(new_after_low2_logic)
+                        if idx >= 0:
+                            self.main_window.new_after_low2_logic_combo.setCurrentIndex(idx)
+                            print(f"设置new_after_low2_logic: {new_after_low2_logic}")
+                    except:
+                        pass
+                
+                # 恢复创新高/创新低勾选状态
+                new_before_high_flag = analysis_data.get('new_before_high_flag', False)
+                if hasattr(self.main_window, 'new_before_high_flag_checkbox'):
+                    try:
+                        self.main_window.new_before_high_flag_checkbox.setChecked(new_before_high_flag)
+                        print(f"设置new_before_high_flag: {new_before_high_flag}")
+                    except:
+                        pass
+                
+                new_before_high2_flag = analysis_data.get('new_before_high2_flag', False)
+                if hasattr(self.main_window, 'new_before_high2_flag_checkbox'):
+                    try:
+                        self.main_window.new_before_high2_flag_checkbox.setChecked(new_before_high2_flag)
+                        print(f"设置new_before_high2_flag: {new_before_high2_flag}")
+                    except:
+                        pass
+                
+                new_after_high_flag = analysis_data.get('new_after_high_flag', False)
+                if hasattr(self.main_window, 'new_after_high_flag_checkbox'):
+                    try:
+                        self.main_window.new_after_high_flag_checkbox.setChecked(new_after_high_flag)
+                        print(f"设置new_after_high_flag: {new_after_high_flag}")
+                    except:
+                        pass
+                
+                new_after_high2_flag = analysis_data.get('new_after_high2_flag', False)
+                if hasattr(self.main_window, 'new_after_high2_flag_checkbox'):
+                    try:
+                        self.main_window.new_after_high2_flag_checkbox.setChecked(new_after_high2_flag)
+                        print(f"设置new_after_high2_flag: {new_after_high2_flag}")
+                    except:
+                        pass
+                
+                new_before_low_flag = analysis_data.get('new_before_low_flag', False)
+                if hasattr(self.main_window, 'new_before_low_flag_checkbox'):
+                    try:
+                        self.main_window.new_before_low_flag_checkbox.setChecked(new_before_low_flag)
+                        print(f"设置new_before_low_flag: {new_before_low_flag}")
+                    except:
+                        pass
+                
+                new_before_low2_flag = analysis_data.get('new_before_low2_flag', False)
+                if hasattr(self.main_window, 'new_before_low2_flag_checkbox'):
+                    try:
+                        self.main_window.new_before_low2_flag_checkbox.setChecked(new_before_low2_flag)
+                        print(f"设置new_before_low2_flag: {new_before_low2_flag}")
+                    except:
+                        pass
+                
+                new_after_low_flag = analysis_data.get('new_after_low_flag', False)
+                if hasattr(self.main_window, 'new_after_low_flag_checkbox'):
+                    try:
+                        self.main_window.new_after_low_flag_checkbox.setChecked(new_after_low_flag)
+                        print(f"设置new_after_low_flag: {new_after_low_flag}")
+                    except:
+                        pass
+                
+                new_after_low2_flag = analysis_data.get('new_after_low2_flag', False)
+                if hasattr(self.main_window, 'new_after_low2_flag_checkbox'):
+                    try:
+                        self.main_window.new_after_low2_flag_checkbox.setChecked(new_after_low2_flag)
+                        print(f"设置new_after_low2_flag: {new_after_low2_flag}")
+                    except:
+                        pass
+
+                # 恢复组合分析次数
+                component_analysis_count = analysis_data.get('component_analysis_count', '')
+                if component_analysis_count:
+                    try:
+                        count_val = int(float(component_analysis_count))
+                        self.analysis_count_spin.setValue(count_val)
+                        print(f"恢复组合分析次数: {count_val}")
+                    except Exception as e:
+                        print(f"恢复组合分析次数失败: {e}")
+                
+                # 恢复结束日期
+                end_date = analysis_data.get('end_date', '')
+                if end_date and hasattr(self.main_window, 'date_picker'):
+                    try:
+                        from PyQt5.QtCore import QDate
+                        qdate = QDate.fromString(end_date, "yyyy-MM-dd")
+                        if qdate.isValid():
+                            self.main_window.date_picker.setDate(qdate)
+                            print(f"恢复结束日期: {end_date}")
+                    except Exception as e:
+                        print(f"恢复结束日期失败: {e}")
+                
+                # 恢复操作值表达式
+                expr = analysis_data.get('expr', '')
+                if expr:
+                    try:
+                        self.main_window.last_expr = expr
+                        print(f"设置操作值表达式: {expr}")
+                    except:
+                        pass
+                
+                # 设置组合输出锁定勾选框为勾选状态
+                try:
+                    self.main_window.last_lock_output = True
+                    print("设置组合输出锁定状态为: True")
+                    
+                    # 直接设置组合输出锁定勾选框控件状态
+                    if hasattr(self.main_window, 'formula_widget') and self.main_window.formula_widget is not None:
+                        if hasattr(self.main_window.formula_widget, 'lock_output_checkbox'):
+                            self.main_window.formula_widget.lock_output_checkbox.setChecked(True)
+                            print("设置组合输出锁定勾选框为: True")
+                except:
+                    pass
+
+                # 恢复get_abbr_round_only_map的圆框勾选状态
+                selected_vars_with_values = analysis_data.get('selected_vars_with_values', [])
+                if selected_vars_with_values:
+                    from function.stock_functions import get_abbr_round_only_map
+                    abbr_round_only_map = get_abbr_round_only_map()
+                    # 只处理英文名
+                    selected_en_vars = set(var_name for var_name, _ in selected_vars_with_values)
+                    for (zh, en), en_val in abbr_round_only_map.items():
+                        if en_val in temp_formula_widget.var_widgets:
+                            widgets = temp_formula_widget.var_widgets[en_val]
+                            if 'round_checkbox' in widgets:
+                                widgets['round_checkbox'].setChecked(en_val in selected_en_vars)
+                                print(f"恢复圆框变量 {en_val} 勾选状态: {en_val in selected_en_vars}")
+                
+                # 恢复n_values输入值（只恢复被勾选的变量）
+                n_values = analysis_data.get('n_values', {})
+                if n_values and selected_vars_with_values:
+                    print(f"恢复n_values: {n_values}")
+                    selected_var_names = set(var_name for var_name, _ in selected_vars_with_values)
+                    for var_name, n_value in n_values.items():
+                        # 只恢复在selected_vars_with_values中被勾选的变量
+                        if var_name in selected_var_names and var_name in temp_formula_widget.var_widgets:
+                            widgets = temp_formula_widget.var_widgets[var_name]
+                            if 'n_input' in widgets:
+                                widgets['n_input'].setText(str(n_value))
+                                print(f"恢复n_input变量 {var_name} 输入值: {n_value}")
+                
                 # 清理临时控件
                 temp_formula_widget.deleteLater()
+                # 构建盈损操作值显示
+                profit_type = analysis_data.get('profit_type', 'INC')
+                loss_type = analysis_data.get('loss_type', 'INC')
+                operation_value = f"盈（{profit_type}），损（{loss_type}）"
                 
-                QMessageBox.information(self, "恢复成功", f"已成功恢复选股参数！\n公式: {formula}\n排序方式: {sort_mode}\n 选股数量: {select_count}\n日期宽度: {width}\n操作天数: {op_days}\n止盈递增率: {increment_rate}\n止盈后值大于结束值比例: {after_gt_end_ratio}\n止盈后值大于前值比例: {after_gt_start_ratio}\n止损递增率: {stop_loss_inc_rate}\n止损后值大于结束值比例: {stop_loss_after_gt_end_ratio}\n止损后值大于前值比例: {stop_loss_after_gt_start_ratio}")
+                QMessageBox.information(self, "恢复成功", f"已成功恢复选股参数！\n公式: {formula}\n排序方式: {sort_mode}\n选股数量: {select_count}\n开始日期值选择: {analysis_data.get('start_option', '')}\n前移天数: {analysis_data.get('shift_days', '')}\n是否计算向前: {analysis_data.get('is_forward', False)}\n交易方式: {analysis_data.get('trade_mode', '')}\n操作值: {operation_value}\n开始日到结束日之间最高价/最低价小于: {analysis_data.get('range_value', '')}\n开始日到结束日之间连续累加值绝对值小于: {analysis_data.get('continuous_abs_threshold', '')}\n开始日到结束日之间有效累加值绝对值小于: {analysis_data.get('valid_abs_sum_threshold', '')}\n第1组后N最大值逻辑: {analysis_data.get('n_days', '')}\n前1组结束地址后N日的最大值: {analysis_data.get('n_days_max', '')}\n操作涨幅: {analysis_data.get('ops_change', '')}\n日期宽度: {width}\n操作天数: {op_days}\n止盈递增率: {increment_rate}\n止盈后值大于结束值比例: {after_gt_end_ratio}\n止盈后值大于前值比例: {after_gt_start_ratio}\n止损递增率: {stop_loss_inc_rate}\n止损后值大于结束值比例: {stop_loss_after_gt_end_ratio}\n止损后值大于前值比例: {stop_loss_after_gt_start_ratio}")
+                
                 
             except Exception as e:
                 QMessageBox.critical(self, "恢复失败", f"恢复选股参数失败：{e}")
                 print(f"恢复失败详细错误: {e}")
                 import traceback
                 traceback.print_exc()
-        
-        for row, item in enumerate(top_three):
-            analysis = item['analysis']
-            table.setItem(row, 0, QTableWidgetItem(f"{item['adjusted_value']:.2f}"))
-            # 输出参数：显示勾选的get_abbr_round_only_map控件名称
-            selected_vars_with_values = analysis.get('selected_vars_with_values', [])
-            if selected_vars_with_values:
-                from function.stock_functions import get_abbr_round_only_map
-                abbr_map = get_abbr_round_only_map()
-                # 获取n_values用于替换第N位
-                n_values = analysis.get('n_values', {})
-                print(f"n_values: {n_values}")
-                # 直接使用selected_vars_with_values中的变量名和值
-                output_params = []
-                output_params_sum = 0
-                for var_name, value in selected_vars_with_values:
-                    for (zh, en) in abbr_map.keys():
-                        if en == var_name:
-                            # 处理第N位变量
-                            if "第N位" in zh:
-                                n_value = n_values.get(var_name, "N")
-                                zh_display = zh.replace("第N位", f"第{n_value}位")
-                            else:
-                                zh_display = zh
-                            
-                            # 直接使用预计算的值
-                            output_params_sum += value
-                            # 显示参数名称和数值
-                            output_params.append(f"{zh_display}: {value:.2f}")
-                            break
-                # 输出参数文本
-                output_params_text = "\n".join(output_params)
-                # 在最后一行加上总和
-                if output_params:
-                    output_params_text += f"\n总和: {output_params_sum:.2f}"
-                else:
-                    output_params_text = "无勾选参数"
-                output_params_item = QTableWidgetItem(output_params_text)
-                output_params_item.setTextAlignment(Qt.AlignLeft | Qt.AlignTop)
-                output_params_item.setToolTip(output_params_text)
-                table.setItem(row, 1, output_params_item)
-            else:
-                output_params_text = "无勾选参数"
-            
-            output_params_item = QTableWidgetItem(output_params_text)
-            output_params_item.setTextAlignment(Qt.AlignLeft | Qt.AlignTop)
-            output_params_item.setToolTip(output_params_text)
-            table.setItem(row, 1, output_params_item)
-            
-            # 第3列：选股公式
-            formula = analysis.get('formula', '')
-            formula_item = QTableWidgetItem(formula)
-            formula_item.setTextAlignment(Qt.AlignLeft | Qt.AlignTop)
-            formula_item.setToolTip(formula)
-            table.setItem(row, 2, formula_item)
-            
-            # 第4列：选股参数（按指定顺序分行输出）
-            params_text = []
-            params_text.append(f"选股数量: {analysis.get('select_count', 10)}")
-            params_text.append(f"排序方式: {analysis.get('sort_mode', '')}")
-            params_text.append(f"日期宽度: {analysis.get('width', '')}")
-            params_text.append(f"操作天数: {analysis.get('op_days', '')}")
-            params_text.append(f"止盈递增率: {analysis.get('increment_rate', '')}")
-            params_text.append(f"止盈后值大于结束值比例: {analysis.get('after_gt_end_ratio', '')}")
-            params_text.append(f"止盈后值大于前值比例: {analysis.get('after_gt_start_ratio', '')}")
-            params_text.append(f"止损递增率: {analysis.get('stop_loss_inc_rate', '')}")
-            params_text.append(f"止损后值大于结束值比例: {analysis.get('stop_loss_after_gt_end_ratio', '')}")
-            params_text.append(f"止损后值大于前值比例: {analysis.get('stop_loss_after_gt_start_ratio', '')}")
-            
-            params_item = QTableWidgetItem("\n".join(params_text))
-            params_item.setTextAlignment(Qt.AlignLeft | Qt.AlignTop)
-            params_item.setToolTip("\n".join(params_text))
-            table.setItem(row, 3, params_item)
-            
-            # 添加查看分析结果按钮（第5列，列名为空）
-            view_btn = QPushButton("查看详情")
-            view_btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #4CAF50;
-                    color: white;
-                    border: none;
-                    padding: 5px 10px;
-                    border-radius: 3px;
-                    font-size: 12px;
-                }
-                QPushButton:hover {
-                    background-color: #45a049;
-                }
-                QPushButton:pressed {
-                    background-color: #3d8b40;
-                }
-            """)
-            view_btn.clicked.connect(lambda checked, data=analysis, idx=row: show_analysis_detail(data, idx))
-            table.setCellWidget(row, 4, view_btn)
-            
-            # 添加恢复参数按钮（第6列）
-            restore_btn = QPushButton("恢复参数")
-            restore_btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #2196F3;
-                    color: white;
-                    border: none;
-                    padding: 5px 10px;
-                    border-radius: 3px;
-                    font-size: 12px;
-                }
-                QPushButton:hover {
-                    background-color: #1976D2;
-                }
-                QPushButton:pressed {
-                    background-color: #0D47A1;
-                }
-            """)
-            restore_btn.clicked.connect(lambda checked, data=analysis: restore_formula_params(data))
-            table.setCellWidget(row, 5, restore_btn)
-            
-        table.resizeColumnsToContents()
-        # 设置列宽
-        table.setColumnWidth(0, 150)  # 输出值列宽度
-        table.setColumnWidth(1, 200)  # 输出参数列宽度
-        table.setColumnWidth(2, 300)  # 选股公式列宽度
-        table.setColumnWidth(3, 250)  # 选股参数列宽度
-        table.setColumnWidth(4, 100)  # 查看详情按钮列宽度
-        table.setColumnWidth(5, 100)  # 恢复参数按钮列宽度
-        # 自动调整行高以适配多行公式
-        for row in range(table.rowCount()):
-            table.resizeRowToContents(row)
-        self.result_layout.addWidget(table)
-        print(f"组合分析完成！输出前三名排序结果。")
-        # 新增：保存最优top1到主窗口缓存
-        if top_three:
-            self.main_window.last_component_analysis_top1 = top_three[0]
 
     def create_component_result_table(self, analysis):
         """为单个组合分析结果创建类似主界面的表格"""
@@ -1638,11 +4747,13 @@ class ComponentAnalysisWidget(QWidget):
         formula = analysis.get('formula', '')
         row_count = len(items)
         
-        table = CopyableTableWidget(row_count + 2, 15, self.result_area)
+        table = CopyableTableWidget(row_count + 2, 23, self.result_area)  # 修正为23列
         table.setHorizontalHeaderLabels([
-            "结束日期", "操作天数", "持有涨跌幅", 
-            "调天日均涨跌幅", "调天从下往上非空均值", "调天从下往上含空均值", "调天含空值均值", "调天最大值", "调天最小值",
-            "调幅日均涨跌幅", "调幅从下往上非空均值", "调幅从下往上含空均值", "调幅含空值均值", "调幅最大值", "调幅最小值", "调幅含空值均值"
+            "结束日期", 
+            "持有天数", "止盈止损涨幅", "综合止盈止损日均涨幅", "止盈止损日均涨跌幅", "止盈止损从下往上含空均值", "止盈止损含空均值",
+            "止盈停损涨幅", "综合止盈停损日均涨幅", "止盈停损日均涨跌幅", "止盈停损从下往上含空均值", "止盈停损含空均值",
+            "调整天数", "停盈停损涨幅", "综合停盈停损日均涨幅", "停盈停损日均涨跌幅", "停盈停损从下往上含空均值", "停盈停损含空均值",
+            "停盈止损涨幅", "综合停盈止损日均涨幅", "停盈止损日均涨跌幅", "停盈止损从下往上含空均值", "停盈止损含空均值"
         ])
         table.setSelectionBehavior(QTableWidget.SelectItems)
         table.setSelectionMode(QTableWidget.ExtendedSelection)
@@ -1651,41 +4762,73 @@ class ComponentAnalysisWidget(QWidget):
         # 设置第一行的均值数据
         if summary:
             table.setItem(0, 1, QTableWidgetItem(str(summary.get('mean_hold_days', ''))))
-            table.setItem(0, 2, QTableWidgetItem(f"{summary.get('mean_ops_change', '')}%" if summary.get('mean_ops_change', '') != '' else ''))
-            table.setItem(0, 3, QTableWidgetItem(f"{summary.get('mean_daily_change', '')}%" if summary.get('mean_daily_change', '') != '' else ''))
-            table.setItem(0, 4, QTableWidgetItem(f"{summary.get('mean_non_nan', '')}%" if summary.get('mean_non_nan', '') != '' else ''))
-            table.setItem(0, 5, QTableWidgetItem(f"{summary.get('mean_with_nan', '')}%" if summary.get('mean_with_nan', '') != '' else ''))
-            table.setItem(0, 6, QTableWidgetItem(f"{summary.get('mean_daily_with_nan', '')}%" if summary.get('mean_daily_with_nan', '') != '' else ''))
-            table.setItem(0, 7, QTableWidgetItem(f"{summary.get('max_change', '')}%" if summary.get('max_change', '') != '' else ''))
-            table.setItem(0, 8, QTableWidgetItem(f"{summary.get('min_change', '')}%" if summary.get('min_change', '') != '' else ''))
-            table.setItem(0, 9, QTableWidgetItem(f"{summary.get('mean_adjust_ops_incre_rate', '')}%" if summary.get('mean_adjust_ops_incre_rate', '') != '' else ''))
-            table.setItem(0, 10, QTableWidgetItem(f"{summary.get('mean_adjust_non_nan', '')}%" if summary.get('mean_adjust_non_nan', '') != '' else ''))
-            table.setItem(0, 11, QTableWidgetItem(f"{summary.get('mean_adjust_with_nan', '')}%" if summary.get('mean_adjust_with_nan', '') != '' else ''))
-            table.setItem(0, 12, QTableWidgetItem(f"{summary.get('mean_adjust_daily_with_nan', '')}%" if summary.get('mean_adjust_daily_with_nan', '') != '' else ''))
-            table.setItem(0, 13, QTableWidgetItem(f"{summary.get('max_adjust_ops_incre_rate', '')}%" if summary.get('max_adjust_ops_incre_rate', '') != '' else ''))
-            table.setItem(0, 14, QTableWidgetItem(f"{summary.get('min_adjust_ops_incre_rate', '')}%" if summary.get('min_adjust_ops_incre_rate', '') != '' else ''))
+            # 止盈止损
+            table.setItem(0, 2, QTableWidgetItem(f"{summary.get('mean_adjust_ops_change', '')}%" if summary.get('mean_adjust_ops_change', '') != '' else ''))
+            table.setItem(0, 3, QTableWidgetItem(f"{summary.get('comprehensive_daily_change', '')}%" if summary.get('comprehensive_daily_change', '') != '' else ''))
+            table.setItem(0, 4, QTableWidgetItem(f"{summary.get('mean_adjust_daily_change', '')}%" if summary.get('mean_adjust_daily_change', '') != '' else ''))
+            table.setItem(0, 5, QTableWidgetItem(f"{summary.get('mean_adjust_with_nan', '')}%" if summary.get('mean_adjust_with_nan', '') != '' else ''))
+            table.setItem(0, 6, QTableWidgetItem(f"{summary.get('mean_adjust_daily_with_nan', '')}%" if summary.get('mean_adjust_daily_with_nan', '') != '' else ''))
+
+            # 止盈停损
+            table.setItem(0, 7, QTableWidgetItem(f"{summary.get('mean_take_and_stop_change', '')}%" if summary.get('mean_take_and_stop_change', '') != '' else ''))
+            table.setItem(0, 8, QTableWidgetItem(f"{summary.get('comprehensive_take_and_stop_change', '')}%" if summary.get('comprehensive_take_and_stop_change', '') != '' else ''))
+            table.setItem(0, 9, QTableWidgetItem(f"{summary.get('mean_take_and_stop_daily_change', '')}%" if summary.get('mean_take_and_stop_daily_change', '') != '' else ''))
+            table.setItem(0, 10, QTableWidgetItem(f"{summary.get('mean_take_and_stop_with_nan', '')}%" if summary.get('mean_take_and_stop_with_nan', '') != '' else ''))
+            table.setItem(0, 11, QTableWidgetItem(f"{summary.get('mean_take_and_stop_daily_with_nan', '')}%" if summary.get('mean_take_and_stop_daily_with_nan', '') != '' else ''))
+
+            table.setItem(0, 12, QTableWidgetItem(str(summary.get('mean_adjust_days', ''))))
+
+            # 停盈停损
+            table.setItem(0, 13, QTableWidgetItem(f"{summary.get('mean_ops_change', '')}%" if summary.get('mean_ops_change', '') != '' else ''))
+            table.setItem(0, 14, QTableWidgetItem(f"{summary.get('comprehensive_stop_daily_change', '')}%" if summary.get('comprehensive_stop_daily_change', '') != '' else ''))
+            table.setItem(0, 15, QTableWidgetItem(f"{summary.get('mean_daily_change', '')}%" if summary.get('mean_daily_change', '') != '' else ''))
+            table.setItem(0, 16, QTableWidgetItem(f"{summary.get('mean_with_nan', '')}%" if summary.get('mean_with_nan', '') != '' else ''))
+            table.setItem(0, 17, QTableWidgetItem(f"{summary.get('mean_daily_with_nan', '')}%" if summary.get('mean_daily_with_nan', '') != '' else ''))
+
+            # 停盈止损
+            table.setItem(0, 18, QTableWidgetItem(f"{summary.get('mean_stop_and_take_change', '')}%" if summary.get('mean_stop_and_take_change', '') != '' else ''))
+            table.setItem(0, 19, QTableWidgetItem(f"{summary.get('comprehensive_stop_and_take_change', '')}%" if summary.get('comprehensive_stop_and_take_change', '') != '' else ''))
+            table.setItem(0, 20, QTableWidgetItem(f"{summary.get('mean_stop_and_take_daily_change', '')}%" if summary.get('mean_stop_and_take_daily_change', '') != '' else ''))
+            table.setItem(0, 21, QTableWidgetItem(f"{summary.get('mean_stop_and_take_with_nan', '')}%" if summary.get('mean_stop_and_take_with_nan', '') != '' else ''))
+            table.setItem(0, 22, QTableWidgetItem(f"{summary.get('mean_stop_and_take_daily_with_nan', '')}%" if summary.get('mean_stop_and_take_daily_with_nan', '') != '' else ''))
 
         # 设置每行的数据
         for row_idx, item in enumerate(items):
             table.setItem(row_idx + 2, 0, QTableWidgetItem(str(item.get('date', ''))))
             table.setItem(row_idx + 2, 1, QTableWidgetItem(str(item.get('hold_days', ''))))
-            table.setItem(row_idx + 2, 2, QTableWidgetItem(f"{item.get('ops_change', '')}%" if item.get('ops_change', '') != '' else ''))
-            table.setItem(row_idx + 2, 3, QTableWidgetItem(f"{item.get('daily_change', '')}%" if item.get('daily_change', '') != '' else ''))
-            non_nan_mean = item.get('non_nan_mean', '')
-            table.setItem(row_idx + 2, 4, QTableWidgetItem(f"{round(non_nan_mean, 2)}%" if non_nan_mean != '' and not (isinstance(non_nan_mean, float) and math.isnan(non_nan_mean)) else ''))
-            with_nan_mean = item.get('with_nan_mean', '')
-            table.setItem(row_idx + 2, 5, QTableWidgetItem(f"{round(with_nan_mean, 2)}%" if with_nan_mean != '' and not (isinstance(with_nan_mean, float) and math.isnan(with_nan_mean)) else ''))
-            table.setItem(row_idx + 2, 6, QTableWidgetItem(""))
-            table.setItem(row_idx + 2, 7, QTableWidgetItem(""))
-            table.setItem(row_idx + 2, 8, QTableWidgetItem(""))
-            table.setItem(row_idx + 2, 9, QTableWidgetItem(f"{item.get('adjust_daily_change', '')}%" if item.get('adjust_daily_change', '') != '' else ''))
-            adjust_non_nan_mean = item.get('adjust_non_nan_mean', '')
-            table.setItem(row_idx + 2, 10, QTableWidgetItem(f"{round(adjust_non_nan_mean, 2)}%" if adjust_non_nan_mean != '' and not (isinstance(adjust_non_nan_mean, float) and math.isnan(adjust_non_nan_mean)) else ''))
+            # 止盈止损
+            table.setItem(row_idx + 2, 2, QTableWidgetItem(f"{item.get('adjust_ops_change', '')}%" if item.get('adjust_ops_change', '') != '' else ''))
+            table.setItem(row_idx + 2, 3, QTableWidgetItem(""))
+            table.setItem(row_idx + 2, 4, QTableWidgetItem(f"{item.get('adjust_daily_change', '')}%" if item.get('adjust_daily_change', '') != '' else ''))
             adjust_with_nan_mean = item.get('adjust_with_nan_mean', '')
-            table.setItem(row_idx + 2, 11, QTableWidgetItem(f"{round(adjust_with_nan_mean, 2)}%" if adjust_with_nan_mean != '' and not (isinstance(adjust_with_nan_mean, float) and math.isnan(adjust_with_nan_mean)) else ''))
-            table.setItem(row_idx + 2, 12, QTableWidgetItem(""))
-            table.setItem(row_idx + 2, 13, QTableWidgetItem(""))
+            table.setItem(row_idx + 2, 5, QTableWidgetItem(f"{round(adjust_with_nan_mean, 2)}%" if adjust_with_nan_mean != '' and not (isinstance(adjust_with_nan_mean, float) and math.isnan(adjust_with_nan_mean)) else ''))
+            table.setItem(row_idx + 2, 6, QTableWidgetItem(""))  # 调幅含空值均值只在均值行
+
+            # 止盈停损
+            table.setItem(row_idx + 2, 7, QTableWidgetItem(f"{item.get('take_and_stop_change', '')}%" if item.get('take_and_stop_change', '') != '' else ''))
+            table.setItem(row_idx + 2, 8, QTableWidgetItem(""))
+            table.setItem(row_idx + 2, 9, QTableWidgetItem(f"{item.get('take_and_stop_daily_change', '')}%" if item.get('take_and_stop_daily_change', '') != '' else ''))
+            take_and_stop_with_nan_mean = item.get('take_and_stop_with_nan_mean', '')
+            table.setItem(row_idx + 2, 10, QTableWidgetItem(f"{round(take_and_stop_with_nan_mean, 2)}%" if take_and_stop_with_nan_mean != '' and not (isinstance(take_and_stop_with_nan_mean, float) and math.isnan(take_and_stop_with_nan_mean)) else ''))
+            table.setItem(row_idx + 2, 11, QTableWidgetItem(""))
+
+            table.setItem(row_idx + 2, 12, QTableWidgetItem(str(item.get('adjust_days', ''))))
+
+            # 停盈停损
+            table.setItem(row_idx + 2, 13, QTableWidgetItem(f"{item.get('ops_change', '')}%" if item.get('ops_change', '') != '' else ''))
             table.setItem(row_idx + 2, 14, QTableWidgetItem(""))
+            table.setItem(row_idx + 2, 15, QTableWidgetItem(f"{item.get('daily_change', '')}%" if item.get('daily_change', '') != '' else ''))
+            with_nan_mean = item.get('with_nan_mean', '')
+            table.setItem(row_idx + 2, 16, QTableWidgetItem(f"{round(with_nan_mean, 2)}%" if with_nan_mean != '' and not (isinstance(with_nan_mean, float) and math.isnan(with_nan_mean)) else ''))
+            table.setItem(row_idx + 2, 17, QTableWidgetItem(""))  # 含空值均值在summary中，这里暂时留空
+
+            # 停盈止损
+            table.setItem(row_idx + 2, 18, QTableWidgetItem(f"{item.get('stop_and_take_change', '')}%" if item.get('stop_and_take_change', '') != '' else ''))
+            table.setItem(row_idx + 2, 19, QTableWidgetItem(""))
+            table.setItem(row_idx + 2, 20, QTableWidgetItem(f"{item.get('stop_and_take_daily_change', '')}%" if item.get('stop_and_take_daily_change', '') != '' else ''))
+            stop_and_take_with_nan_mean = item.get('stop_and_take_with_nan_mean', '')
+            table.setItem(row_idx + 2, 21, QTableWidgetItem(f"{round(stop_and_take_with_nan_mean, 2)}%" if stop_and_take_with_nan_mean != '' and not (isinstance(stop_and_take_with_nan_mean, float) and math.isnan(stop_and_take_with_nan_mean)) else ''))
+            table.setItem(row_idx + 2, 22, QTableWidgetItem(""))
 
         table.horizontalHeader().setFixedHeight(40)
         table.horizontalHeader().setStyleSheet("font-size: 12px;")
@@ -1694,11 +4837,20 @@ class ComponentAnalysisWidget(QWidget):
         row = table.rowCount()
         table.insertRow(row)
         
-        # 构建止盈止损率统计文本
-        stats_text = f"总股票数: {summary.get('total_stocks', 0)} | "
-        stats_text += f"持有率: {summary.get('hold_rate', 0)}% | "
-        stats_text += f"止盈率: {summary.get('profit_rate', 0)}% | "
-        stats_text += f"止损率: {summary.get('loss_rate', 0)}%"
+        # 获取动态文本
+        profit_text, loss_text, profit_median_text, loss_median_text = self.get_profit_loss_text_by_category()
+        print(f"profit_text = {profit_text}, loss_text = {loss_text}, profit_median_text = {profit_median_text}, loss_median_text = {loss_median_text}")
+        
+        # 检查是否返回了None（表示选择了不同类别）
+        if profit_text is None or loss_text is None:
+            # 如果选择了不同类别，不显示统计信息
+            stats_text = f"总股票数: {summary.get('total_stocks', 0)} | 持有率: {summary.get('hold_rate', 0)}%"
+        else:
+            # 构建止盈止损率统计文本
+            stats_text = f"总股票数: {summary.get('total_stocks', 0)} | "
+            stats_text += f"持有率: {summary.get('hold_rate', 0)}% | "
+            stats_text += f"{profit_text}: {summary.get('profit_rate', 0)}% | "
+            stats_text += f"{loss_text}: {summary.get('loss_rate', 0)}%"
         
         item = QTableWidgetItem(stats_text)
         item.setFlags(item.flags() & ~Qt.ItemIsEditable)
@@ -1718,9 +4870,13 @@ class ComponentAnalysisWidget(QWidget):
         profit_median = summary.get('profit_median')
         loss_median = summary.get('loss_median')
         
-        median_text = f"持有中位数: {hold_median}%" if hold_median is not None else "持有中位数: 无"
-        median_text += f" | 止盈中位数: {profit_median}%" if profit_median is not None else " | 止盈中位数: 无"
-        median_text += f" | 止损中位数: {loss_median}%" if loss_median is not None else " | 止损中位数: 无"
+        if profit_median_text is None or loss_median_text is None:
+            # 如果选择了不同类别，只显示持有中位数
+            median_text = f"持有中位数: {hold_median}%" if hold_median is not None else "持有中位数: 无"
+        else:
+            median_text = f"持有中位数: {hold_median}%" if hold_median is not None else "持有中位数: 无"
+            median_text += f" | {profit_median_text}: {profit_median}%" if profit_median is not None else f" | {profit_median_text}: 无"
+            median_text += f" | {loss_median_text}: {loss_median}%" if loss_median is not None else f" | {loss_median_text}: 无"
         
         item = QTableWidgetItem(median_text)
         item.setFlags(item.flags() & ~Qt.ItemIsEditable)
@@ -1743,18 +4899,25 @@ class ComponentAnalysisWidget(QWidget):
             table.setWordWrap(True)
             table.resizeRowToContents(row)
 
-        # 不再插入参数输出行
-        # row = table.rowCount()
-        # params = [
-        #     ("日期宽度", str(analysis.get('width', ''))),
-        #     ("操作天数", str(analysis.get('op_days', ''))),
-        #     ("止盈递增率", f"{analysis.get('increment_rate', '')}%"),
-        #     ("排序方式", analysis.get('sort_mode', ''))
-        # ]
-        # for i, (label, value) in enumerate(params):
-        #     table.insertRow(row + i)
-        #     table.setItem(row + i, 0, QTableWidgetItem(label))
-        #     table.setItem(row + i, 1, QTableWidgetItem(value))
+        # 插入参数输出
+        row = table.rowCount()
+        params = [
+            ("日期宽度", str(analysis.get('width', ''))),
+            ("开始日期值选择", analysis.get('start_option', '')),
+            ("前移天数", str(analysis.get('shift', ''))),
+            ("操作天数", str(analysis.get('op_days', ''))),
+            ("止盈递增率", f"{analysis.get('increment_rate', '')}%"),
+            ("止盈后值大于结束值比例", f"{analysis.get('after_gt_end_ratio', '')}%"),
+            ("止盈后值大于前值比例", f"{analysis.get('after_gt_start_ratio', '')}%"),
+            ("止损递增率", f"{analysis.get('stop_loss_inc_rate', '')}%"),
+            ("止损后值大于结束值比例", f"{analysis.get('stop_loss_after_gt_end_ratio', '')}%"),
+            ("止损大于前值比例", f"{analysis.get('stop_loss_after_gt_start_ratio', '')}%"),
+            ("操作涨幅", f"{analysis.get('ops_change', '')}%")
+        ]
+        for i, (label, value) in enumerate(params):
+            table.insertRow(row + i)
+            table.setItem(row + i, 0, QTableWidgetItem(label))
+            table.setItem(row + i, 1, QTableWidgetItem(value))
 
         header = table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.Fixed)
@@ -1806,15 +4969,541 @@ class ComponentAnalysisWidget(QWidget):
         if not top1:
             QMessageBox.warning(self, "提示", "没有可导出的最优方案数据！")
             return
-        file_path, _ = QFileDialog.getSaveFileName(self, "导出最优方案", "", "JSON Files (*.json);;Text Files (*.txt)")
+        
+        # 使用与操盘方案相同的命名逻辑生成默认文件名
+        analysis = top1.get('analysis', {})
+        params = self._collect_all_control_params()
+        # 将特定参数添加到params中
+        params.update({
+            'width': analysis.get('width', ''),
+            'sort_mode': analysis.get('sort_mode', ''),
+            'op_days': analysis.get('op_days', ''),
+            'increment_rate': analysis.get('increment_rate', ''),
+            'after_gt_end_ratio': analysis.get('after_gt_end_ratio', ''),
+            'after_gt_start_ratio': analysis.get('after_gt_start_ratio', ''),
+            'stop_loss_inc_rate': analysis.get('stop_loss_inc_rate', ''),
+            'stop_loss_after_gt_end_ratio': analysis.get('stop_loss_after_gt_end_ratio', ''),
+            'stop_loss_after_gt_start_ratio': analysis.get('stop_loss_after_gt_start_ratio', ''),
+            'expr': analysis.get('expr', ''),
+            'selected_vars_with_values': analysis.get('selected_vars_with_values', []),
+            'n_values': analysis.get('n_values', [])
+        })
+        
+        # 生成默认文件名
+        default_filename = self._generate_default_plan_name(analysis, params, top1)
+        
+        # 确保文件名有正确的扩展名
+        if not default_filename.endswith('.json'):
+            default_filename += '.json'
+        
+        # 创建文件对话框并设置默认文件名
+        from PyQt5.QtWidgets import QFileDialog
+        from PyQt5.QtCore import Qt
+        dialog = QFileDialog(self, "导出最优方案")
+        dialog.setDefaultSuffix("json")
+        dialog.setNameFilter("JSON Files (*.json);;Text Files (*.txt)")
+        dialog.selectFile(default_filename)
+        
+        # 尝试设置对话框的最小宽度以更好地显示长文件名
+        dialog.setMinimumWidth(600)
+        
+        # 设置对话框模式以优化文件名显示
+        dialog.setFileMode(QFileDialog.AnyFile)
+        dialog.setAcceptMode(QFileDialog.AcceptSave)
+        
+        # 尝试设置对话框选项以改善文件名显示
+        dialog.setOption(QFileDialog.DontConfirmOverwrite, False)
+        
+        if dialog.exec_() == QFileDialog.Accepted:
+            file_path = dialog.selectedFiles()[0]
+        else:
+            return
         if not file_path:
             return
         if not (file_path.endswith('.json') or file_path.endswith('.txt')):
             file_path += '.json'
         try:
             import json
+            
+            # 如果是三次分析，添加最优参数条件信息到导出数据中
+            export_data = top1.copy()
+            if hasattr(self, 'best_param_condition_list') and self.best_param_condition_list:
+                export_data['best_param_conditions'] = self.best_param_condition_list
+                print(f"导出时添加三次分析的最优参数条件：{len(self.best_param_condition_list)}个参数")
+            
             with open(file_path, 'w', encoding='utf-8') as f:
-                json.dump(top1, f, ensure_ascii=False, indent=2)
+                json.dump(export_data, f, ensure_ascii=False, indent=2)
+            QMessageBox.information(self, "导出成功", f"已成功导出最优方案到 {file_path}")
+        except Exception as e:
+            QMessageBox.critical(self, "导出失败", f"导出最优方案失败：{e}")
+
+    def on_export_csv(self):
+        """导出最优方案为CSV文件（KV形式），包含三次分析结果"""
+        top1 = getattr(self.main_window, 'last_component_analysis_top1', None)
+        if not top1:
+            QMessageBox.warning(self, "提示", "没有可导出的最优方案数据！")
+            return
+        
+        # 使用与操盘方案相同的命名逻辑生成默认文件名
+        analysis = top1.get('analysis', {})
+        params = self._collect_all_control_params()
+        # 将特定参数添加到params中
+        params.update({
+            'width': analysis.get('width', ''),
+            'sort_mode': analysis.get('sort_mode', ''),
+            'op_days': analysis.get('op_days', ''),
+            'increment_rate': analysis.get('increment_rate', ''),
+            'after_gt_end_ratio': analysis.get('after_gt_end_ratio', ''),
+            'after_gt_start_ratio': analysis.get('after_gt_start_ratio', ''),
+            'stop_loss_inc_rate': analysis.get('stop_loss_inc_rate', ''),
+            'stop_loss_after_gt_end_ratio': analysis.get('stop_loss_after_gt_end_ratio', ''),
+            'stop_loss_after_gt_start_ratio': analysis.get('stop_loss_after_gt_start_ratio', ''),
+            'expr': analysis.get('expr', ''),
+            'selected_vars_with_values': analysis.get('selected_vars_with_values', []),
+            'n_values': analysis.get('n_values', [])
+        })
+
+        # 添加结束日期和分析次数到analysis中
+        # 结束日期从主控件获取
+        if hasattr(self.main_window, 'date_picker'):
+            end_date = self.main_window.date_picker.date().toString("yyyy-MM-dd")
+            analysis['end_date'] = end_date
+            print(f"从主控件获取结束日期: {end_date}")
+
+        # 组合分析次数从控件获取
+        component_executions = self.analysis_count_spin.value()
+        analysis['component_analysis_count'] = component_executions
+        print(f"从控件获取组合分析次数: {component_executions}")
+        
+        
+        # 生成默认文件名
+        default_filename = self._generate_default_plan_name(analysis, params, top1)
+        
+        # 确保文件名有正确的扩展名
+        if not default_filename.endswith('.csv'):
+            default_filename += '.csv'
+        
+        # 创建文件对话框并设置默认文件名
+        from PyQt5.QtWidgets import QFileDialog
+        from PyQt5.QtCore import Qt
+        dialog = QFileDialog(self, "导出最优方案")
+        dialog.setDefaultSuffix("csv")
+        dialog.setNameFilter("CSV Files (*.csv);;Text Files (*.txt)")
+        dialog.selectFile(default_filename)
+        
+        # 尝试设置对话框的最小宽度以更好地显示长文件名
+        dialog.setMinimumWidth(600)
+        
+        # 设置对话框模式以优化文件名显示
+        dialog.setFileMode(QFileDialog.AnyFile)
+        dialog.setAcceptMode(QFileDialog.AcceptSave)
+        
+        # 尝试设置对话框选项以改善文件名显示
+        dialog.setOption(QFileDialog.DontConfirmOverwrite, False)
+        
+        if dialog.exec_() == QFileDialog.Accepted:
+            file_path = dialog.selectedFiles()[0]
+        else:
+            return
+        if not file_path:
+            return
+        if not (file_path.endswith('.csv') or file_path.endswith('.txt')):
+            file_path += '.csv'
+        try:
+            import csv
+            
+            with open(file_path, 'w', newline='', encoding='utf-8-sig') as f:
+                writer = csv.writer(f)
+                
+                # 写入键值对格式的数据
+                writer.writerow(['参数名', '参数值'])
+                
+                # 基础分析结果
+                writer.writerow(['adjusted_value', top1.get('adjusted_value', '')])
+                writer.writerow(['formula', analysis.get('formula', '')])
+                
+                # 恢复参数所需的核心参数
+                if analysis:
+                    writer.writerow(['width', analysis.get('width', '')])
+                    writer.writerow(['op_days', analysis.get('op_days', '')])
+                    writer.writerow(['increment_rate', analysis.get('increment_rate', '')])
+                    writer.writerow(['after_gt_end_ratio', analysis.get('after_gt_end_ratio', '')])
+                    writer.writerow(['after_gt_start_ratio', analysis.get('after_gt_start_ratio', '')])
+                    writer.writerow(['stop_loss_inc_rate', analysis.get('stop_loss_inc_rate', '')])
+                    writer.writerow(['stop_loss_after_gt_end_ratio', analysis.get('stop_loss_after_gt_end_ratio', '')])
+                    writer.writerow(['stop_loss_after_gt_start_ratio', analysis.get('stop_loss_after_gt_start_ratio', '')])
+                    writer.writerow(['sort_mode', analysis.get('sort_mode', '')])
+                    writer.writerow(['select_count', analysis.get('select_count', 10)])
+                    writer.writerow(['expr', analysis.get('expr', '')])
+                    
+                    # 创新高/创新低相关参数
+                    writer.writerow(['start_option', analysis.get('start_option', '')])
+                    writer.writerow(['shift_days', analysis.get('shift_days', '')])
+                    writer.writerow(['is_forward', analysis.get('is_forward', False)])
+                    writer.writerow(['trade_mode', analysis.get('trade_mode', '')])
+                    writer.writerow(['ops_change', analysis.get('ops_change', '')])
+                    writer.writerow(['n_days', analysis.get('n_days', '')])
+                    writer.writerow(['n_days_max', analysis.get('n_days_max', '')])
+                    writer.writerow(['range_value', analysis.get('range_value', '')])
+                    writer.writerow(['continuous_abs_threshold', analysis.get('continuous_abs_threshold', '')])
+                    writer.writerow(['valid_abs_sum_threshold', analysis.get('valid_abs_sum_threshold', '')])
+                    
+                    # 创新高/创新低参数
+                    writer.writerow(['new_before_high_start', analysis.get('new_before_high_start', '')])
+                    writer.writerow(['new_before_high_range', analysis.get('new_before_high_range', '')])
+                    writer.writerow(['new_before_high_span', analysis.get('new_before_high_span', '')])
+                    writer.writerow(['new_before_high_logic', analysis.get('new_before_high_logic', '')])
+                    writer.writerow(['new_before_high_flag', analysis.get('new_before_high_flag', False)])
+                    
+                    writer.writerow(['new_before_high2_start', analysis.get('new_before_high2_start', '')])
+                    writer.writerow(['new_before_high2_range', analysis.get('new_before_high2_range', '')])
+                    writer.writerow(['new_before_high2_span', analysis.get('new_before_high2_span', '')])
+                    writer.writerow(['new_before_high2_logic', analysis.get('new_before_high2_logic', '')])
+                    writer.writerow(['new_before_high2_flag', analysis.get('new_before_high2_flag', False)])
+                    
+                    writer.writerow(['new_after_high_start', analysis.get('new_after_high_start', '')])
+                    writer.writerow(['new_after_high_range', analysis.get('new_after_high_range', '')])
+                    writer.writerow(['new_after_high_span', analysis.get('new_after_high_span', '')])
+                    writer.writerow(['new_after_high_logic', analysis.get('new_after_high_logic', '')])
+                    writer.writerow(['new_after_high_flag', analysis.get('new_after_high_flag', False)])
+                    
+                    writer.writerow(['new_after_high2_start', analysis.get('new_after_high2_start', '')])
+                    writer.writerow(['new_after_high2_range', analysis.get('new_after_high2_range', '')])
+                    writer.writerow(['new_after_high2_span', analysis.get('new_after_high2_span', '')])
+                    writer.writerow(['new_after_high2_logic', analysis.get('new_after_high2_logic', '')])
+                    writer.writerow(['new_after_high2_flag', analysis.get('new_after_high2_flag', False)])
+                    
+                    writer.writerow(['new_before_low_start', analysis.get('new_before_low_start', '')])
+                    writer.writerow(['new_before_low_range', analysis.get('new_before_low_range', '')])
+                    writer.writerow(['new_before_low_span', analysis.get('new_before_low_span', '')])
+                    writer.writerow(['new_before_low_logic', analysis.get('new_before_low_logic', '')])
+                    writer.writerow(['new_before_low_flag', analysis.get('new_before_low_flag', False)])
+                    
+                    writer.writerow(['new_before_low2_start', analysis.get('new_before_low2_start', '')])
+                    writer.writerow(['new_before_low2_range', analysis.get('new_before_low2_range', '')])
+                    writer.writerow(['new_before_low2_span', analysis.get('new_before_low2_span', '')])
+                    writer.writerow(['new_before_low2_logic', analysis.get('new_before_low2_logic', '')])
+                    writer.writerow(['new_before_low2_flag', analysis.get('new_before_low2_flag', False)])
+                    
+                    writer.writerow(['new_after_low_start', analysis.get('new_after_low_start', '')])
+                    writer.writerow(['new_after_low_range', analysis.get('new_after_low_range', '')])
+                    writer.writerow(['new_after_low_span', analysis.get('new_after_low_span', '')])
+                    writer.writerow(['new_after_low_logic', analysis.get('new_after_low_logic', '')])
+                    writer.writerow(['new_after_low_flag', analysis.get('new_after_low_flag', False)])
+                    
+                    writer.writerow(['new_after_low2_start', analysis.get('new_after_low2_start', '')])
+                    writer.writerow(['new_after_low2_range', analysis.get('new_after_low2_range', '')])
+                    writer.writerow(['new_after_low2_span', analysis.get('new_after_low2_span', '')])
+                    writer.writerow(['new_after_low2_logic', analysis.get('new_after_low2_logic', '')])
+                    writer.writerow(['new_after_low2_flag', analysis.get('new_after_low2_flag', False)])
+                    
+                    # 组合分析次数
+                    writer.writerow(['component_analysis_count', analysis.get('component_analysis_count', '')])
+                    
+                    # 结束日期
+                    if analysis.get('end_date'):
+                        writer.writerow(['end_date', analysis.get('end_date')])
+                    
+                    # 变量选择和n值
+                    if analysis.get('selected_vars_with_values'):
+                        writer.writerow(['selected_vars_with_values', str(analysis.get('selected_vars_with_values'))])
+                    if analysis.get('n_values'):
+                        writer.writerow(['n_values', str(analysis.get('n_values'))])
+                    
+                    # 盈损选择框选项
+                    profit_type = getattr(self.main_window, 'last_profit_type', 'INC')
+                    loss_type = getattr(self.main_window, 'last_loss_type', 'INC')
+                    writer.writerow(['profit_type', profit_type])
+                    writer.writerow(['loss_type', loss_type])
+                    
+                    # 倍增系数参数
+                    negative_multiplier = analysis.get('negative_multiplier', 1.0)
+                    positive_multiplier = analysis.get('positive_multiplier', 1.0)
+                    writer.writerow(['negative_multiplier', negative_multiplier])
+                    writer.writerow(['positive_multiplier', positive_multiplier])
+                
+                # 只添加三次分析最优值
+                best_value_formatted = None
+                
+                if hasattr(self, 'three_stage_global_top_three') and self.three_stage_global_top_three:
+                # 获取三次分析最优值（从全局top_three中获取第一个元素，更准确）
+                    # 从全局top_three中获取第一个元素（最优值）
+                    best_value = self.three_stage_global_top_three[0].get('adjusted_value', '未知')
+                    if best_value != '未知':
+                        try:
+                            best_value_float = float(best_value)
+                            best_value_formatted = f"{best_value_float:.2f}"
+                        except (ValueError, TypeError):
+                            best_value_formatted = str(best_value)
+                    else:
+                        best_value_formatted = str(best_value)
+                elif hasattr(self, 'three_stage_best_top_one') and self.three_stage_best_top_one:
+                    # 如果没有全局top_three，则使用best_top_one作为备选
+                    best_value = self.three_stage_best_top_one.get('adjusted_value', '未知')
+                    if best_value != '未知':
+                        try:
+                            best_value_float = float(best_value)
+                            best_value_formatted = f"{best_value_float:.2f}"
+                        except (ValueError, TypeError):
+                            best_value_formatted = str(best_value)
+                    else:
+                        best_value_formatted = str(best_value)
+                
+                # 如果有组合分析最优值，先输出组合分析最优值
+                if hasattr(self, 'three_stage_initial_last_value') and self.three_stage_initial_last_value is not None:
+                    writer.writerow([])  # 空行分隔
+                    writer.writerow(['组合分析最优值', f"{self.three_stage_initial_last_value:.2f}"])
+                
+                # 写入三次分析最优值
+                if best_value_formatted:
+                    writer.writerow(['三次分析最优值', best_value_formatted])
+                
+                # 写入三次分析的最优方案数据（KV形式）
+                print(f"三次分析的最优方案数据: {self.best_param_condition_list}")
+                
+                # 获取无最优结果的条件
+                no_better_results = getattr(self.main_window, 'no_better_result_list', [])
+                print(f"无最优结果的条件: {no_better_results}")
+                
+                # 将所有条件集合起来，统一按输出参数、辅助参数顺序输出
+                all_conditions = []
+                
+                # 获取参数类型映射
+                def is_output_param(param_name):
+                    """判断参数是否为输出参数"""
+                    try:
+                        # 硬编码输出参数列表（基于get_abbr_round_map函数）
+                        output_params = {
+                            'valid_pos_sum', 'valid_neg_sum', 'cont_sum_pos_sum', 'cont_sum_neg_sum',
+                            'forward_max_cont_sum_pos_sum', 'forward_max_cont_sum_neg_sum',
+                            'forward_min_cont_sum_pos_sum', 'forward_min_cont_sum_neg_sum',
+                            'forward_max_valid_pos_sum', 'forward_max_valid_neg_sum',
+                            'forward_min_valid_pos_sum', 'forward_min_valid_neg_sum'
+                        }
+                        
+                        # 检查是否在输出参数列表中
+                        if param_name in output_params:
+                            return True
+                        
+                        # 检查是否在主窗口的abbr_round_map中
+                        if hasattr(self.main_window, 'abbr_round_map'):
+                            if param_name in self.main_window.abbr_round_map.values():
+                                print(f"参数 {param_name} 是输出参数")
+                                return True
+                        
+                        # 检查是否在向前参数状态中且为输出参数
+                        if hasattr(self.main_window, 'forward_param_state') and self.main_window.forward_param_state:
+                            if param_name in self.main_window.forward_param_state:
+                                # 这里需要检查是否为输出参数，暂时简化处理
+                                # 可以根据实际需要进一步完善
+                                return True
+                        
+                        return False
+                    except Exception as e:
+                        print(f"判断参数类型时出错: {e}")
+                        return False
+                
+                # 添加有最优结果的条件
+                if hasattr(self, 'best_param_condition_list') and self.best_param_condition_list:
+                    for condition in self.best_param_condition_list:
+                        for param_name, condition_text in condition.items():
+                            sort_value = self._get_param_sort_value(param_name)
+                            if sort_value is None:
+                                sort_value = 999  # 如果没有序号，使用999作为默认值
+                            
+                            # 根据参数名称判断类型
+                            param_type = 'output' if is_output_param(param_name) else 'auxiliary'
+                            all_conditions.append((param_type, sort_value, param_name, condition_text, 'optimal'))
+                
+                # 添加无最优结果的条件
+                if no_better_results:
+                    for condition in no_better_results:
+                        for param_name, condition_text in condition.items():
+                            sort_value = self._get_param_sort_value(param_name)
+                            if sort_value is None:
+                                sort_value = 999  # 如果没有序号，使用999作为默认值
+                            
+                            # 根据参数名称判断类型
+                            param_type = 'output' if is_output_param(param_name) else 'auxiliary'
+                            all_conditions.append((param_type, sort_value, param_name, condition_text, 'no_optimal'))
+                
+                # 剔除重复参数：以最优条件参数为准，剔除无最优条件的相同参数
+                # 收集所有有最优条件的参数名称
+                optimal_param_names = set()
+                for cond in all_conditions:
+                    if cond[4] == 'optimal':  # condition_type == 'optimal'
+                        optimal_param_names.add(cond[2])  # param_name
+                
+                # 剔除无最优条件中已经存在最优条件的参数
+                filtered_conditions = []
+                for cond in all_conditions:
+                    param_name = cond[2]  # param_name
+                    condition_type = cond[4]  # condition_type
+                    
+                    # 如果是有最优条件，直接保留
+                    if condition_type == 'optimal':
+                        filtered_conditions.append(cond)
+                    # 如果是无最优条件，检查是否已经有最优条件
+                    elif condition_type == 'no_optimal':
+                        if param_name not in optimal_param_names:
+                            # 没有最优条件，保留
+                            filtered_conditions.append(cond)
+                        else:
+                            # 已经有最优条件，剔除
+                            print(f"剔除重复参数 {param_name} 的无最优条件，因为已有最优条件")
+                
+                # 按类型和序号排序：先输出参数，再辅助参数
+                # 先按类型分组，再在每组内按序号排序
+                output_conditions = [cond for cond in filtered_conditions if cond[0] == 'output']
+                auxiliary_conditions = [cond for cond in filtered_conditions if cond[0] == 'auxiliary']
+                
+                # 在每组内按序号排序
+                output_conditions.sort(key=lambda x: x[1])
+                auxiliary_conditions.sort(key=lambda x: x[1])
+                # print(f"输出参数: {output_conditions}")
+                # print(f"辅助参数: {auxiliary_conditions}")
+                
+                # 分别输出输出参数和辅助参数
+                if output_conditions or auxiliary_conditions:
+                    writer.writerow([])  # 空行分隔
+                    writer.writerow(['三次分析序号', '参数名称', '最优值', '最优上限', '最优下限', '最优正中值', '最优负中值', '是否生成最优'])
+                    
+                    # 先输出输出参数
+                    for i, (param_type, sort_value, param_name, condition_text, condition_type) in enumerate(output_conditions, 1):
+                        # 从main_window.overall_stats获取最新结果统计
+                        optimal_value = ''
+                        has_upper = ''
+                        has_lower = ''
+                        positive_median = ''
+                        negative_median = ''
+                        
+                        # 获取最优值（从条件文本中提取）
+                        output_value_match = re.search(r'组合排序输出值为：([\d\.]+)', condition_text)
+                        if output_value_match:
+                            try:
+                                optimal_value = f"{float(output_value_match.group(1)):.2f}"
+                            except (ValueError, TypeError):
+                                optimal_value = output_value_match.group(1)
+                                print(f"输出参数最优值转换失败，使用原始值：{optimal_value}")
+                        
+                        # 判断是否生成最优
+                        is_optimal = '是' if condition_type == 'optimal' else '否'
+                        
+                        # 根据是否生成最优选择数据源
+                        if condition_type == 'optimal':
+                            # 有最优结果：从当前overall_stats获取最新统计值
+                            if hasattr(self, 'main_window') and hasattr(self.main_window, 'overall_stats') and self.main_window.overall_stats:
+                                overall_stats = self.main_window.overall_stats
+                                # 获取参数相关的统计值
+                                max_key = f'{param_name}_max'
+                                min_key = f'{param_name}_min'
+                                median_key = f'{param_name}_median'
+                                positive_median_key = f'{param_name}_positive_median'
+                                negative_median_key = f'{param_name}_negative_median'
+                                
+                                # 从overall_stats获取统计值
+                                has_upper = str(overall_stats.get(max_key, '')) if overall_stats.get(max_key) is not None else ''
+                                has_lower = str(overall_stats.get(min_key, '')) if overall_stats.get(min_key) is not None else ''
+                                positive_median = str(overall_stats.get(positive_median_key, '')) if overall_stats.get(positive_median_key) is not None else ''
+                                negative_median = str(overall_stats.get(negative_median_key, '')) if overall_stats.get(negative_median_key) is not None else ''
+                        else:
+                            # 无最优结果：使用三次分析开始前的初始overall_stats值
+                            if hasattr(self, 'three_stage_initial_overall_stats') and self.three_stage_initial_overall_stats:
+                                initial_stats = self.three_stage_initial_overall_stats
+                                # 获取参数相关的统计值
+                                max_key = f'{param_name}_max'
+                                min_key = f'{param_name}_min'
+                                median_key = f'{param_name}_median'
+                                positive_median_key = f'{param_name}_positive_median'
+                                negative_median_key = f'{param_name}_negative_median'
+                                
+                                # 从初始overall_stats获取统计值
+                                has_upper = str(initial_stats.get(max_key, '')) if initial_stats.get(max_key) is not None else ''
+                                has_lower = str(initial_stats.get(min_key, '')) if initial_stats.get(min_key) is not None else ''
+                                positive_median = str(initial_stats.get(median_key, '')) if initial_stats.get(median_key) is not None else ''
+                                negative_median = str(initial_stats.get(negative_median_key, '')) if initial_stats.get(negative_median_key) is not None else ''
+                                print(f"无最优参数 {param_name} 使用初始统计值：上限={has_upper}, 下限={has_lower}, 中值={positive_median}, 负中值={negative_median}")
+                        
+                        # 写入数据行
+                        writer.writerow([
+                            sort_value,  # 使用原始序号
+                            param_name,
+                            optimal_value,
+                            has_upper,
+                            has_lower,
+                            positive_median,
+                            negative_median,
+                            is_optimal
+                        ])
+                    
+                    # 再输出辅助参数
+                    for i, (param_type, sort_value, param_name, condition_text, condition_type) in enumerate(auxiliary_conditions, 1):
+                        # 从main_window.overall_stats获取最新结果统计
+                        optimal_value = ''
+                        has_upper = ''
+                        has_lower = ''
+                        positive_median = ''
+                        negative_median = ''
+                        
+                        # 获取最优值（从条件文本中提取）
+                        output_value_match = re.search(r'组合排序输出值为：([\d\.]+)', condition_text)
+                        if output_value_match:
+                            try:
+                                optimal_value = f"{float(output_value_match.group(1)):.2f}"
+                            except (ValueError, TypeError):
+                                optimal_value = output_value_match.group(1)
+                                print(f"辅助参数最优值转换失败，使用原始值：{optimal_value}")
+                        
+                        # 判断是否生成最优
+                        is_optimal = '是' if condition_type == 'optimal' else '否'
+                        
+                        # 根据是否生成最优选择数据源
+                        if condition_type == 'optimal':
+                            # 有最优结果：从当前overall_stats获取最新统计值
+                            if hasattr(self, 'main_window') and hasattr(self.main_window, 'overall_stats') and self.main_window.overall_stats:
+                                overall_stats = self.main_window.overall_stats
+                                # 获取参数相关的统计值
+                                max_key = f'{param_name}_max'
+                                min_key = f'{param_name}_min'
+                                median_key = f'{param_name}_median'
+                                positive_median_key = f'{param_name}_positive_median'
+                                negative_median_key = f'{param_name}_negative_median'
+                                
+                                # 从overall_stats获取统计值
+                                has_upper = str(overall_stats.get(max_key, '')) if overall_stats.get(max_key) is not None else ''
+                                has_lower = str(overall_stats.get(min_key, '')) if overall_stats.get(min_key) is not None else ''
+                                positive_median = str(overall_stats.get(positive_median_key, '')) if overall_stats.get(positive_median_key) is not None else ''
+                                negative_median = str(overall_stats.get(negative_median_key, '')) if overall_stats.get(negative_median_key) is not None else ''
+                        else:
+                            # 无最优结果：使用三次分析开始前的初始overall_stats值
+                            if hasattr(self, 'three_stage_initial_overall_stats') and self.three_stage_initial_overall_stats:
+                                initial_stats = self.three_stage_initial_overall_stats
+                                # 获取参数相关的统计值
+                                max_key = f'{param_name}_max'
+                                min_key = f'{param_name}_min'
+                                median_key = f'{param_name}_median'
+                                positive_median_key = f'{param_name}_positive_median'
+                                negative_median_key = f'{param_name}_negative_median'
+                                
+                                # 从初始overall_stats获取统计值
+                                has_upper = str(initial_stats.get(max_key, '')) if initial_stats.get(max_key) is not None else ''
+                                has_lower = str(initial_stats.get(min_key, '')) if initial_stats.get(min_key) is not None else ''
+                                positive_median = str(initial_stats.get(median_key, '')) if initial_stats.get(median_key) is not None else ''
+                                negative_median = str(initial_stats.get(negative_median_key, '')) if initial_stats.get(negative_median_key) is not None else ''
+                                print(f"无最优辅助参数 {param_name} 使用初始统计值：上限={has_upper}, 下限={has_lower}, 中值={positive_median}, 负中值={negative_median}")
+                        
+                        # 写入数据行
+                        writer.writerow([
+                            sort_value,  # 使用原始序号
+                            param_name,
+                            optimal_value,
+                            has_upper,
+                            has_lower,
+                            positive_median,
+                            negative_median,
+                            is_optimal
+                        ])
+
             QMessageBox.information(self, "导出成功", f"已成功导出最优方案到 {file_path}")
         except Exception as e:
             QMessageBox.critical(self, "导出失败", f"导出最优方案失败：{e}")
@@ -1828,9 +5517,17 @@ class ComponentAnalysisWidget(QWidget):
             import json
             with open(file_path, 'r', encoding='utf-8') as f:
                 top1 = json.load(f)
+            
+            # 如果导入的数据包含最优参数条件，恢复它们
+            if 'best_param_condition_list' in top1:
+                self.best_param_condition_list = top1['best_param_condition_list']
+                print(f"导入时恢复三次分析的最优参数条件：{len(self.best_param_condition_list)}个参数")
+            
             all_analysis_results = [top1]
             self.show_analysis_results(all_analysis_results)
-            QMessageBox.information(self, "导入成功", "已成功导入最优方案！")
+            # 自动恢复参数
+            analysis = top1.get('analysis', {})
+            self.restore_formula_params(analysis)
         except Exception as e:
             QMessageBox.critical(self, "导入失败", f"导入最优方案失败：{e}")
 
@@ -1841,46 +5538,121 @@ class ComponentAnalysisWidget(QWidget):
             return
         try:
             import csv
-            headers = []
-            data_rows = []
-            param_map = {}
+            import ast
+            
+            # 存储导入的数据
+            analysis_data = {}
+            best_param_conditions = []
             
             # 添加文件读取的容错处理
             try:
                 with open(file_path, 'r', encoding='utf-8-sig') as f:
                     reader = csv.reader(f)
                     for idx, row in enumerate(reader):
-                        if idx == 0:
-                            headers = row
-                            # 立即检查头部格式
-                            if len(headers) < 6:
-                                QMessageBox.warning(self, "文件格式错误", 
-                                    "导入失败，请检查文件是否是组合分析导出文件！")
-                                return
+                        if idx == 0:  # 跳过标题行
                             continue
-                        if row and row[0].startswith('#') and ':' in row[0]:
-                            k, v = row[0][1:].split(':', 1)
-                            param_map[k.strip()] = v.strip()
-                        else:
-                            data_rows.append(row)
+                        
+                        if len(row) >= 2:
+                            param_name = row[0].strip()
+                            param_value = row[1].strip()
+                            
+                            # 处理不同类型的参数
+                            if param_name.startswith('param_') and '_' in param_name:
+                                # 三次分析的最优参数条件
+                                parts = param_name.split('_')
+                                if len(parts) >= 3:
+                                    param_index = int(parts[1]) - 1
+                                    if param_index >= len(best_param_conditions):
+                                        best_param_conditions.append({})
+                                    
+                                    if 'best_conditions' not in best_param_conditions[param_index]:
+                                        best_param_conditions[param_index]['best_conditions'] = {}
+                                    
+                                    if parts[2] in ['best_lower', 'best_upper', 'best_output']:
+                                        best_param_conditions[param_index]['best_conditions'][parts[2]] = param_value
+                                    else:
+                                        best_param_conditions[param_index][parts[2]] = param_value
+                            else:
+                                # 普通参数
+                                if param_name in ['selected_vars_with_values', 'n_values']:
+                                    # 处理复杂数据类型
+                                    try:
+                                        if param_value and param_value != '':
+                                            analysis_data[param_name] = ast.literal_eval(param_value)
+                                        else:
+                                            analysis_data[param_name] = [] if param_name == 'selected_vars_with_values' else {}
+                                    except:
+                                        # 如果解析失败，使用原始值
+                                        analysis_data[param_name] = param_value
+                                elif param_name in ['is_forward', 'new_before_high_flag', 'new_before_high2_flag', 
+                                                   'new_after_high_flag', 'new_after_high2_flag', 
+                                                   'new_before_low_flag', 'new_before_low2_flag', 
+                                                   'new_after_low_flag', 'new_after_low2_flag']:
+                                    # 布尔值参数
+                                    analysis_data[param_name] = param_value.lower() in ['true', '1', 'yes', '是']
+                                elif param_name in ['negative_multiplier', 'positive_multiplier']:
+                                    # 倍增系数参数
+                                    try:
+                                        analysis_data[param_name] = float(param_value)
+                                    except (ValueError, TypeError):
+                                        analysis_data[param_name] = 1.0
+                                else:
+                                    # 普通参数
+                                    analysis_data[param_name] = param_value
+                            
             except UnicodeDecodeError:
                 # 尝试其他编码
                 try:
                     with open(file_path, 'r', encoding='gbk') as f:
                         reader = csv.reader(f)
                         for idx, row in enumerate(reader):
-                            if idx == 0:
-                                headers = row
-                                if len(headers) < 6:
-                                    QMessageBox.warning(self, "文件格式错误", 
-                                        "导入失败，请检查文件是否是组合分析导出文件！")
-                                    return
+                            if idx == 0:  # 跳过标题行
                                 continue
-                            if row and row[0].startswith('#') and ':' in row[0]:
-                                k, v = row[0][1:].split(':', 1)
-                                param_map[k.strip()] = v.strip()
-                            else:
-                                data_rows.append(row)
+                            
+                            if len(row) >= 2:
+                                param_name = row[0].strip()
+                                param_value = row[1].strip()
+                                
+                                # 处理不同类型的参数（与上面相同的逻辑）
+                                if param_name.startswith('param_') and '_' in param_name:
+                                    # 三次分析的最优参数条件
+                                    parts = param_name.split('_')
+                                    if len(parts) >= 3:
+                                        param_index = int(parts[1]) - 1
+                                        if param_index >= len(best_param_conditions):
+                                            best_param_conditions.append({})
+                                        
+                                        if 'best_conditions' not in best_param_conditions[param_index]:
+                                            best_param_conditions[param_index]['best_conditions'] = {}
+                                        
+                                        if parts[2] in ['best_lower', 'best_upper', 'best_output']:
+                                            best_param_conditions[param_index]['best_conditions'][parts[2]] = param_value
+                                        else:
+                                            best_param_conditions[param_index][parts[2]] = param_value
+                                else:
+                                    # 普通参数
+                                    if param_name in ['selected_vars_with_values', 'n_values']:
+                                        try:
+                                            if param_value and param_value != '':
+                                                analysis_data[param_name] = ast.literal_eval(param_value)
+                                            else:
+                                                analysis_data[param_name] = [] if param_name == 'selected_vars_with_values' else {}
+                                        except:
+                                            analysis_data[param_name] = param_value
+                                    elif param_name in ['is_forward', 'new_before_high_flag', 'new_before_high2_flag', 
+                                                       'new_after_high_flag', 'new_after_high2_flag', 
+                                                       'new_before_low_flag', 'new_before_low2_flag', 
+                                                       'new_after_low_flag', 'new_after_low2_flag']:
+                                        analysis_data[param_name] = param_value.lower() in ['true', '1', 'yes', '是']
+                                    elif param_name in ['negative_multiplier', 'positive_multiplier']:
+                                        # 倍增系数参数
+                                        try:
+                                            analysis_data[param_name] = float(param_value)
+                                        except (ValueError, TypeError):
+                                            analysis_data[param_name] = 1.0
+                                    else:
+                                        analysis_data[param_name] = param_value
+                                        
                 except Exception as gbk_error:
                     QMessageBox.warning(self, "文件编码错误", 
                         f"无法读取CSV文件，请检查文件编码格式！\n错误信息：{gbk_error}")
@@ -1890,20 +5662,172 @@ class ComponentAnalysisWidget(QWidget):
                     f"无法读取CSV文件，请检查文件是否损坏！\n错误信息：{read_error}")
                 return
             
-            # 检查文件格式是否符合组合分析导出文件特征
-            if not self._validate_import_file_format_csv(headers):
-                QMessageBox.warning(self, "文件格式错误", 
-                    "导入失败，请检查文件是否是组合分析导出文件！")
+            # 检查是否有足够的参数数据
+            if not analysis_data:
+                QMessageBox.warning(self, "提示", "导入失败，文件中没有找到有效的参数数据！")
                 return
             
-            # 恢复控件
-            self._restore_main_window_params(param_map)
-            # 更新组合分析界面控件 - 传递param_map参数
-            self._update_main_window_controls(param_map)
-            # 展示表格
-            self._show_imported_analysis_from_data(headers, data_rows)
+            # 恢复三次分析的最优参数条件（仅用于展示）
+            if best_param_conditions:
+                self.best_param_condition_list = best_param_conditions
+                print(f"导入时恢复三次分析的最优参数条件：{len(best_param_conditions)}个参数")
+            
+            # 调用恢复参数的方法
+            self.restore_formula_params(analysis_data)
+            
+            # 构建组合分析结果数据，用于恢复展示
+            # 从CSV中提取组合分析结果信息
+            top1_data = {}
+            analysis_info = {}
+            
+            # 提取基础分析结果
+            if 'adjusted_value' in analysis_data:
+                # 确保 adjusted_value 是数值类型
+                try:
+                    adjusted_value = analysis_data['adjusted_value']
+                    if isinstance(adjusted_value, (int, float)):
+                        top1_data['adjusted_value'] = adjusted_value
+                    else:
+                        # 如果是字符串，尝试转换为数值
+                        numeric_value = float(adjusted_value)
+                        top1_data['adjusted_value'] = numeric_value
+                        print(f"将 adjusted_value 从字符串 '{adjusted_value}' 转换为数值 {numeric_value}")
+                except (ValueError, TypeError) as e:
+                    print(f"无法转换 adjusted_value '{adjusted_value}' 为数值，使用原始值: {e}")
+                    top1_data['adjusted_value'] = adjusted_value
+            
+            if 'formula' in analysis_data:
+                analysis_info['formula'] = analysis_data['formula']
+            
+            # 提取其他分析参数
+            # 定义哪些字段应该是数值类型
+            numeric_fields = ['width', 'op_days', 'increment_rate', 'after_gt_end_ratio', 
+                            'after_gt_start_ratio', 'stop_loss_inc_rate', 'stop_loss_after_gt_end_ratio', 
+                            'stop_loss_after_gt_start_ratio', 'select_count', 'shift_days', 'n_days', 
+                            'n_days_max', 'range_value', 'continuous_abs_threshold', 'valid_abs_sum_threshold']
+            
+            string_fields = ['sort_mode', 'expr', 'start_option', 'trade_mode', 'ops_change', 'component_analysis_count']
+            
+            # 处理数值类型字段
+            for key in numeric_fields:
+                if key in analysis_data:
+                    try:
+                        value = analysis_data[key]
+                        if isinstance(value, (int, float)):
+                            analysis_info[key] = value
+                        elif value and value != '':
+                            numeric_value = float(value)
+                            analysis_info[key] = numeric_value
+                            print(f"将 {key} 从字符串 '{value}' 转换为数值 {numeric_value}")
+                        else:
+                            analysis_info[key] = value
+                    except (ValueError, TypeError) as e:
+                        print(f"无法转换 {key} '{value}' 为数值，使用原始值: {e}")
+                        analysis_info[key] = value
+            
+            # 处理字符串类型字段
+            for key in string_fields:
+                if key in analysis_data:
+                    analysis_info[key] = analysis_data[key]
+            
+            # 提取创新高/创新低相关参数
+            # 定义哪些字段应该是数值类型
+            new_high_low_numeric_fields = ['new_before_high_start', 'new_before_high_range', 'new_before_high_span',
+                                         'new_before_high2_start', 'new_before_high2_range', 'new_before_high2_span',
+                                         'new_after_high_start', 'new_after_high_range', 'new_after_high_span',
+                                         'new_after_high2_start', 'new_after_high2_range', 'new_after_high2_span',
+                                         'new_before_low_start', 'new_before_low_range', 'new_before_low_span',
+                                         'new_before_low2_start', 'new_before_low2_range', 'new_before_low2_span',
+                                         'new_after_low_start', 'new_after_low_range', 'new_after_low_span',
+                                         'new_after_low2_start', 'new_after_low2_range', 'new_after_low2_span']
+            
+            new_high_low_string_fields = ['new_before_high_logic', 'new_before_high_flag', 'new_before_high2_logic',
+                                        'new_before_high2_flag', 'new_after_high_logic', 'new_after_high_flag',
+                                        'new_after_high2_logic', 'new_after_high2_flag', 'new_before_low_logic',
+                                        'new_before_low_flag', 'new_before_low2_logic', 'new_before_low2_flag',
+                                        'new_after_low_logic', 'new_after_low_flag', 'new_after_low2_logic',
+                                        'new_after_low2_flag']
+            
+            # 处理数值类型字段
+            for key in new_high_low_numeric_fields:
+                if key in analysis_data:
+                    try:
+                        value = analysis_data[key]
+                        if isinstance(value, (int, float)):
+                            analysis_info[key] = value
+                        elif value and value != '':
+                            numeric_value = float(value)
+                            analysis_info[key] = numeric_value
+                            print(f"将 {key} 从字符串 '{value}' 转换为数值 {numeric_value}")
+                        else:
+                            analysis_info[key] = value
+                    except (ValueError, TypeError) as e:
+                        print(f"无法转换 {key} '{value}' 为数值，使用原始值: {e}")
+                        analysis_info[key] = value
+            
+            # 处理字符串类型字段
+            for key in new_high_low_string_fields:
+                if key in analysis_data:
+                    analysis_info[key] = analysis_data[key]
+            
+            # 提取变量选择和n值
+            if 'selected_vars_with_values' in analysis_data:
+                analysis_info['selected_vars_with_values'] = analysis_data['selected_vars_with_values']
+            if 'n_values' in analysis_data:
+                analysis_info['n_values'] = analysis_data['n_values']
+            
+            # 提取盈损选择框选项
+            if 'profit_type' in analysis_data:
+                profit_type = analysis_data['profit_type']
+                if hasattr(self.main_window, 'last_profit_type'):
+                    self.main_window.last_profit_type = profit_type
+                    print(f"恢复盈类型选择：{profit_type}")
+            
+            if 'loss_type' in analysis_data:
+                loss_type = analysis_data['loss_type']
+                if hasattr(self.main_window, 'last_loss_type'):
+                    self.main_window.last_loss_type = loss_type
+                    print(f"恢复损类型选择：{loss_type}")
+            
+            # 提取查看详情所需的关键数据
+            # 只提取analysis_stats数据，这是查看详情功能的核心
+            # 注意：valid_items数据量太大，CSV有字段大小限制，不导入
+            if 'analysis_stats' in analysis_data:
+                try:
+                    analysis_stats = ast.literal_eval(analysis_data['analysis_stats'])
+                    top1_data['analysis_stats'] = analysis_stats
+                    print(f"恢复analysis_stats数据，用于查看详情功能")
+                except (ValueError, SyntaxError) as e:
+                    print(f"无法解析analysis_stats数据: {e}")
+                    top1_data['analysis_stats'] = analysis_data['analysis_stats']
+            
+            # 构建完整的top1数据结构
+            if analysis_info:
+                top1_data['analysis'] = analysis_info
+            
+            # 如果有组合分析结果数据，恢复展示
+            if top1_data:
+                # 更新主窗口的组合分析结果
+                self.main_window.last_component_analysis_top1 = top1_data
+                
+                # 如果有最优参数条件，添加到top1数据中
+                if best_param_conditions:
+                    top1_data['best_param_condition_list'] = best_param_conditions
+                
+                # 调用show_analysis_results恢复组合分析结果展示
+                all_analysis_results = [top1_data]
+                self.show_analysis_results(all_analysis_results)
+                
+                print(f"已恢复组合分析结果展示，包含 {len(analysis_info)} 个分析参数")
+            
+            # 显示成功消息
+            QMessageBox.information(self, "导入成功", f"已成功导入参数配置和组合分析结果！\n共导入 {len(analysis_data)} 个参数")
+            
         except Exception as e:
             QMessageBox.critical(self, "导入失败", f"导入CSV失败：{e}")
+            print(f"导入失败详细错误: {e}")
+            import traceback
+            traceback.print_exc()
             
     def _validate_import_file_format(self, df):
         """验证Excel文件格式是否符合组合分析导出文件特征"""
@@ -2161,6 +6085,77 @@ class ComponentAnalysisWidget(QWidget):
                         print(f"更新组合分析次数: {count_val}")
                     except Exception as e:
                         print(f"更新组合分析次数失败: {e}")
+                
+                # 恢复持有率、止盈率、止损率区间
+                hold_rate_min_val = param_map.get('component_hold_rate_min', '')
+                if hold_rate_min_val:
+                    try:
+                        hold_rate_val = int(float(hold_rate_min_val))
+                        self.hold_rate_min_edit.setText(str(hold_rate_val))
+                        print(f"更新持有率最小值: {hold_rate_val}")
+                    except Exception as e:
+                        print(f"更新持有率最小值失败: {e}")
+                
+                hold_rate_max_val = param_map.get('component_hold_rate_max', '')
+                if hold_rate_max_val:
+                    try:
+                        hold_rate_val = int(float(hold_rate_max_val))
+                        self.hold_rate_max_edit.setText(str(hold_rate_val))
+                        print(f"更新持有率最大值: {hold_rate_val}")
+                    except Exception as e:
+                        print(f"更新持有率最大值失败: {e}")
+                
+                profit_rate_min_val = param_map.get('component_profit_rate_min', '')
+                if profit_rate_min_val:
+                    try:
+                        profit_rate_val = int(float(profit_rate_min_val))
+                        self.profit_rate_min_edit.setText(str(profit_rate_val))
+                        print(f"更新止盈率最小值: {profit_rate_val}")
+                    except Exception as e:
+                        print(f"更新止盈率最小值失败: {e}")
+                
+                profit_rate_max_val = param_map.get('component_profit_rate_max', '')
+                if profit_rate_max_val:
+                    try:
+                        profit_rate_val = int(float(profit_rate_max_val))
+                        self.profit_rate_max_edit.setText(str(profit_rate_val))
+                        print(f"更新止盈率最大值: {profit_rate_val}")
+                    except Exception as e:
+                        print(f"更新止盈率最大值失败: {e}")
+                
+                loss_rate_min_val = param_map.get('component_loss_rate_min', '')
+                if loss_rate_min_val:
+                    try:
+                        loss_rate_val = int(float(loss_rate_min_val))
+                        self.loss_rate_min_edit.setText(str(loss_rate_val))
+                        print(f"更新止损率最小值: {loss_rate_val}")
+                    except Exception as e:
+                        print(f"更新止损率最小值失败: {e}")
+                
+                loss_rate_max_val = param_map.get('component_loss_rate_max', '')
+                if loss_rate_max_val:
+                    try:
+                        loss_rate_val = int(float(loss_rate_max_val))
+                        self.loss_rate_max_edit.setText(str(loss_rate_val))
+                        print(f"更新止损率最大值: {loss_rate_val}")
+                    except Exception as e:
+                        print(f"更新止损率最大值失败: {e}")
+                
+                # 恢复大于上次最优值百分比
+                better_percent_val = param_map.get('component_only_better_trading_plan_percent', '')
+                if better_percent_val:
+                    try:
+                        better_percent_val_float = float(better_percent_val)
+                        # 确保值大于0，否则使用默认值100
+                        if better_percent_val_float > 0:
+                            self.only_better_trading_plan_edit.setText(str(better_percent_val_float))
+                            print(f"更新大于上次最优值百分比: {better_percent_val_float}")
+                        else:
+                            self.only_better_trading_plan_edit.setText("100")
+                            print(f"大于上次最优值百分比小于等于0，使用默认值100")
+                    except Exception as e:
+                        print(f"更新大于上次最优值百分比失败: {e}")
+                        self.only_better_trading_plan_edit.setText("100")
             else:
                 # 兼容旧方式：从主窗口属性获取（用于其他场景）
                 if hasattr(self.main_window, 'last_component_analysis_start_date'):
@@ -2284,7 +6279,112 @@ class ComponentAnalysisWidget(QWidget):
             self.show_analysis_results(results)
         # 更新上次最优值显示
         self._update_last_best_value_display()
-            
+        
+    def get_profit_loss_text_by_category(self):
+        """
+        根据当前选中的变量类别动态生成止盈止损相关的文本
+        返回: (profit_text, loss_text, profit_median_text, loss_median_text)
+        """
+        # 默认文本
+        default_profit_text = "止盈率"
+        default_loss_text = "止损率"
+        default_profit_median_text = "止盈中位数"
+        default_loss_median_text = "止损中位数"
+        
+        # 如果没有公式选择状态，返回默认文本
+        if not hasattr(self.main_window, 'last_formula_select_state') or not self.main_window.last_formula_select_state:
+            return default_profit_text, default_loss_text, default_profit_median_text, default_loss_median_text
+        
+        # 获取当前选中的变量
+        from function.stock_functions import get_abbr_round_only_map
+        abbr_round_only_map = get_abbr_round_only_map()
+        
+        # 检查选中的变量属于哪个类别
+        selected_vars = []
+        for (zh, en), en_val in abbr_round_only_map.items():
+            if en_val in self.main_window.last_formula_select_state:
+                var_state = self.main_window.last_formula_select_state[en_val]
+                if var_state.get('round_checked', False):  # 检查圆框是否勾选
+                    selected_vars.append((zh, en_val))
+        
+        if not selected_vars:
+            return default_profit_text, default_loss_text, default_profit_median_text, default_loss_median_text
+        
+        # 根据选中的变量确定类别
+        categories = set()
+        for zh, en_val in selected_vars:
+            if "停盈停损" in zh:
+                categories.add("停盈停损")
+            elif "停盈止损" in zh:
+                categories.add("停盈止损")
+            elif "止盈止损" in zh:
+                categories.add("止盈止损")
+            elif "止盈停损" in zh:
+                categories.add("止盈停损")
+        
+        # 检查是否选择了多种不同类别
+        if len(categories) > 1:
+            return None, None, None, None
+        
+        if not categories:
+            return default_profit_text, default_loss_text, default_profit_median_text, default_loss_median_text
+        
+        category = list(categories)[0]
+        
+        # 根据类别返回相应的文本
+        if category == "停盈停损":
+            return "停盈率", "停损率", "停盈中位数", "停损中位数"
+        elif category == "停盈止损":
+            return "停盈率", "止损率", "停盈中位数", "止损中位数"
+        elif category == "止盈止损":
+            return "止盈率", "止损率", "止盈中位数", "止损中位数"
+        elif category == "止盈停损":
+            return "止盈率", "停损率", "止盈中位数", "停损中位数"
+        else:
+            return default_profit_text, default_loss_text, default_profit_median_text, default_loss_median_text
+    
+    def _validate_category_selection(self):
+        """
+        验证组合分析输出值类别选择
+        返回: (is_valid, error_message)
+        """
+        # 如果没有公式选择状态，返回有效
+        if not hasattr(self.main_window, 'last_formula_select_state') or not self.main_window.last_formula_select_state:
+            return True, None
+        
+        # 获取当前选中的变量
+        from function.stock_functions import get_abbr_round_only_map
+        abbr_round_only_map = get_abbr_round_only_map()
+        
+        # 检查选中的变量属于哪个类别
+        selected_vars = []
+        for (zh, en), en_val in abbr_round_only_map.items():
+            if en_val in self.main_window.last_formula_select_state:
+                var_state = self.main_window.last_formula_select_state[en_val]
+                if var_state.get('round_checked', False):  # 检查圆框是否勾选
+                    selected_vars.append((zh, en_val))
+        
+        if not selected_vars:
+            return False, "请选择组合分析输出值"
+        
+        # 根据选中的变量确定类别
+        categories = set()
+        for zh, en_val in selected_vars:
+            if "停盈停损" in zh:
+                categories.add("停盈停损")
+            elif "停盈止损" in zh:
+                categories.add("停盈止损")
+            elif "止盈止损" in zh:
+                categories.add("止盈止损")
+            elif "止盈停损" in zh:
+                categories.add("止盈停损")
+        
+        # 检查是否选择了多种不同类别
+        if len(categories) > 1:
+            return False, "多重组合分析输出选择，请检查"
+        
+        return True, None
+
     def on_generate_trading_plan(self):
         """生成操盘方案"""
         if not self.cached_analysis_results:
@@ -2306,6 +6406,90 @@ class ComponentAnalysisWidget(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "错误", f"生成操盘方案失败：{e}")
             
+    def _generate_default_plan_name(self, analysis, params, result):
+        """生成默认的操盘方案名称"""
+        from datetime import datetime
+        
+        # 1. 开始值选择方式
+        start_option = analysis.get('start_option', '')
+        
+        # 1.1. 日期宽度
+        width = analysis.get('width', '')
+        width_str = f"{width}" if width else ""
+        
+        # 2. 交易方式
+        trade_mode = analysis.get('trade_mode', '')
+        
+        # 3. 创新低新高的一种（只会勾选其中一个）
+        new_high_low_type = ""
+        if params.get('new_before_high_flag', False):
+            new_high_low_type = "创前新高1"
+        elif params.get('new_before_high2_flag', False):
+            new_high_low_type = "创前新高2"
+        elif params.get('new_after_high_flag', False):
+            new_high_low_type = "创后新高1"
+        elif params.get('new_after_high2_flag', False):
+            new_high_low_type = "创后新高2"
+        elif params.get('new_before_low_flag', False):
+            new_high_low_type = "创前新低1"
+        elif params.get('new_before_low2_flag', False):
+            new_high_low_type = "创前新低2"
+        elif params.get('new_after_low_flag', False):
+            new_high_low_type = "创后新低1"
+        elif params.get('new_after_low2_flag', False):
+            new_high_low_type = "创后新低2"
+        
+        # 4. 组合输出值
+        adjusted_value = result.get('adjusted_value', 0)
+        adjusted_value_str = f"{adjusted_value:.2f}" if adjusted_value else "0.00"
+        
+        # 5. 生成的日期（today 2025-7-7 这种格式，避免文件名中的非法字符）
+        today = datetime.now().strftime("%Y-%m-%d")
+        
+        # 6. 排序方式
+        sort_mode = analysis.get('sort_mode', '')
+        
+        # 7. 结束日期
+        end_date = analysis.get('end_date', '')
+        end_date_str = f"{end_date}" if end_date else ""
+        
+        # 8. 组合分析次数
+        component_executions = analysis.get('component_analysis_count', 0)
+        executions_str = f"{component_executions}" if component_executions else ""
+        
+        # 组合名称
+        plan_name_parts = []
+        if start_option:
+            plan_name_parts.append(start_option)
+        if width_str:
+            plan_name_parts.append(width_str)
+        if trade_mode:
+            plan_name_parts.append(trade_mode)
+        if new_high_low_type:
+            plan_name_parts.append(new_high_low_type)
+        if adjusted_value_str:
+            plan_name_parts.append(adjusted_value_str)
+        if today:
+            plan_name_parts.append(today)
+        if sort_mode:
+            plan_name_parts.append(sort_mode)
+        if end_date_str:
+            plan_name_parts.append(end_date_str)
+        if executions_str:
+            plan_name_parts.append(executions_str)
+        
+        filename = "-".join(plan_name_parts) if plan_name_parts else "操盘方案"
+        
+        # 清理文件名中的非法字符
+        import re
+        # 替换Windows文件名中的非法字符
+        filename = re.sub(r'[<>:"/\\|?*]', '-', filename)
+        # 移除多余的空格和连字符
+        filename = re.sub(r'\s+', ' ', filename).strip()
+        filename = re.sub(r'-+', '-', filename)
+        
+        return filename
+
     def _generate_trading_plan_list(self):
         """根据组合分析结果生成操盘方案列表"""
         trading_plan_list = []
@@ -2322,15 +6506,47 @@ class ComponentAnalysisWidget(QWidget):
                 'sort_mode': analysis.get('sort_mode', ''),
                 'op_days': analysis.get('op_days', ''),
                 'increment_rate': analysis.get('increment_rate', ''),
+                'after_gt_end_ratio': analysis.get('after_gt_end_ratio', ''),
+                'after_gt_start_ratio': analysis.get('after_gt_start_ratio', ''),
+                'stop_loss_inc_rate': analysis.get('stop_loss_inc_rate', ''),
+                'stop_loss_after_gt_end_ratio': analysis.get('stop_loss_after_gt_end_ratio', ''),
+                'stop_loss_after_gt_start_ratio': analysis.get('stop_loss_after_gt_start_ratio', ''),
+                'expr': analysis.get('expr', ''),
                 'selected_vars_with_values': analysis.get('selected_vars_with_values', []),
-                'n_values': analysis.get('n_values', [])
+                'n_values': analysis.get('n_values', []),
+                'negative_multiplier': analysis.get('negative_multiplier', 1.0),
+                'positive_multiplier': analysis.get('positive_multiplier', 1.0)
             })
 
             print(f"component_analysis_ui selected_vars_with_values: {params.get('selected_vars_with_values', [])}")
             
+            # 添加盈损类型参数
+            params['profit_type'] = analysis.get('profit_type', 'INC')
+            params['loss_type'] = analysis.get('loss_type', 'INC')
+            
+            # 添加结束日期和分析次数到analysis中
+            # 结束日期从主控件获取
+            if hasattr(self.main_window, 'date_picker'):
+                end_date = self.main_window.date_picker.date().toString("yyyy-MM-dd")
+                analysis['end_date'] = end_date
+                print(f"从主控件获取结束日期: {end_date}")
+            
+            # 组合分析次数从控件获取
+            component_executions = self.analysis_count_spin.value()
+            analysis['component_analysis_count'] = component_executions
+            print(f"从控件获取组合分析次数: {component_executions}")
+            
+            # 确保component_analysis_count被正确添加到params中
+            if 'component_analysis_count' not in params:
+                params['component_analysis_count'] = analysis.get('component_analysis_count', '')
+            
+            # 生成默认的操盘方案名称
+            plan_name = self._generate_default_plan_name(analysis, params, result)
+            
             # 创建操盘方案
             trading_plan = {
                 'plan_id': i + 1,
+                'plan_name': plan_name,
                 'formula': analysis.get('formula', ''),
                 'params': params,
                 'adjusted_value': result.get('adjusted_value', 0),
@@ -2343,13 +6559,10 @@ class ComponentAnalysisWidget(QWidget):
             
             trading_plan_list.append(trading_plan)
             
-        # 排序后设置plan_name，确保索引一致
-        sorted_plan_list = sorted(trading_plan_list, key=lambda x: float(x.get('adjusted_value', 0)), reverse=True)
-        for plan in sorted_plan_list:
-            if 'plan_name' not in plan:
-                plan['plan_name'] = "操盘方案"
+        # 直接按adjusted_value排序，保持排序状态
+        trading_plan_list.sort(key=lambda x: float(x.get('adjusted_value', 0)), reverse=True)
         
-        return sorted_plan_list
+        return trading_plan_list
         
     def _show_trading_plan(self, trading_plan_list):
         """显示操盘方案"""
@@ -2439,13 +6652,47 @@ class ComponentAnalysisWidget(QWidget):
                 'sort_mode': analysis.get('sort_mode', ''),
                 'op_days': analysis.get('op_days', ''),
                 'increment_rate': analysis.get('increment_rate', ''),
+                'after_gt_end_ratio': analysis.get('after_gt_end_ratio', ''),
+                'after_gt_start_ratio': analysis.get('after_gt_start_ratio', ''),
+                'stop_loss_inc_rate': analysis.get('stop_loss_inc_rate', ''),
+                'stop_loss_after_gt_end_ratio': analysis.get('stop_loss_after_gt_end_ratio', ''),
+                'stop_loss_after_gt_start_ratio': analysis.get('stop_loss_after_gt_start_ratio', ''),
+                'expr': analysis.get('expr', ''),
                 'selected_vars_with_values': analysis.get('selected_vars_with_values', []),
-                'n_values': analysis.get('n_values', [])
+                'n_values': analysis.get('n_values', []),
+                'negative_multiplier': analysis.get('negative_multiplier', 1.0),
+                'positive_multiplier': analysis.get('positive_multiplier', 1.0)
             })
+            
+            # 添加盈损类型参数
+            params['profit_type'] = analysis.get('profit_type', 'INC')
+            params['loss_type'] = analysis.get('loss_type', 'INC')
+
+            # 添加结束日期和分析次数到analysis中
+            # 结束日期从主控件获取
+            if hasattr(self.main_window, 'date_picker'):
+                end_date = self.main_window.date_picker.date().toString("yyyy-MM-dd")
+                analysis['end_date'] = end_date
+                print(f"从主控件获取结束日期: {end_date}")
+
+            params['end_date'] = analysis.get('end_date', '')
+            
+            # 组合分析次数从控件获取
+            component_executions = self.analysis_count_spin.value()
+            analysis['component_analysis_count'] = component_executions
+            print(f"从控件获取组合分析次数: {component_executions}")
+            
+            # 确保component_analysis_count被正确添加到params中
+            if 'component_analysis_count' not in params:
+                params['component_analysis_count'] = analysis.get('component_analysis_count', '')
+            
+            # 生成默认的操盘方案名称
+            plan_name = self._generate_default_plan_name(analysis, params, top_result)
             
             # 创建操盘方案
             trading_plan = {
                 'plan_id': len(self.main_window.trading_plan_list) + 1,
+                'plan_name': plan_name,
                 'formula': analysis.get('formula', ''),
                 'params': params,
                 'adjusted_value': top_result.get('adjusted_value', 0),
@@ -2459,11 +6706,8 @@ class ComponentAnalysisWidget(QWidget):
             # 添加到操盘方案列表
             self.main_window.trading_plan_list.append(trading_plan)
             
-            # 重新排序并更新所有plan_name
+            # 重新排序
             sorted_plan_list = sorted(self.main_window.trading_plan_list, key=lambda x: float(x.get('adjusted_value', 0)), reverse=True)
-            for plan in sorted_plan_list:
-                if 'plan_name' not in plan:
-                    plan['plan_name'] = "操盘方案"
             
             self.main_window.trading_plan_list = sorted_plan_list
             
@@ -2483,8 +6727,10 @@ class ComponentAnalysisWidget(QWidget):
             'after_gt_prev_edit', 'n_days', 'n_days_max', 'range_value', 'continuous_abs_threshold',
             'ops_change', 'expr', 'last_select_count', 'last_sort_mode', 'direction',
             'analysis_start_date', 'analysis_end_date', 'component_analysis_start_date',
-            'component_analysis_end_date', 'cpu_cores',
+            'component_analysis_end_date', 'component_analysis_count', 'component_hold_rate_min', 'component_hold_rate_max', 'component_profit_rate_min', 'component_profit_rate_max', 'component_loss_rate_min', 'component_loss_rate_max', 'component_only_better_trading_plan_percent',
+            'cpu_cores',
             'trade_mode',
+            'stop_loss_inc_rate', 'stop_loss_after_gt_end_edit', 'stop_loss_after_gt_start_edit',
             'new_before_high_start', 'new_before_high_range', 'new_before_high_span',
             'new_before_low_start', 'new_before_low_range', 'new_before_low_span',
             'valid_abs_sum_threshold', 'new_before_high_logic', 'new_before_high2_start',
@@ -2510,6 +6756,44 @@ class ComponentAnalysisWidget(QWidget):
                     v = getattr(self.main_window, 'last_component_analysis_start_date', '')
                 elif k == 'component_analysis_end_date' and hasattr(self.main_window, 'last_component_analysis_end_date'):
                     v = getattr(self.main_window, 'last_component_analysis_end_date', '')
+                # 特殊处理：组合分析率值区间参数
+                elif k == 'component_hold_rate_min':
+                    try:
+                        v = int(self.hold_rate_min_edit.text())
+                    except ValueError:
+                        v = 0
+                elif k == 'component_hold_rate_max':
+                    try:
+                        v = int(self.hold_rate_max_edit.text())
+                    except ValueError:
+                        v = 100
+                elif k == 'component_profit_rate_min':
+                    try:
+                        v = int(self.profit_rate_min_edit.text())
+                    except ValueError:
+                        v = 0
+                elif k == 'component_profit_rate_max':
+                    try:
+                        v = int(self.profit_rate_max_edit.text())
+                    except ValueError:
+                        v = 100
+                elif k == 'component_loss_rate_min':
+                    try:
+                        v = int(self.loss_rate_min_edit.text())
+                    except ValueError:
+                        v = 0
+                elif k == 'component_loss_rate_max':
+                    try:
+                        v = int(self.loss_rate_max_edit.text())
+                    except ValueError:
+                        v = 100
+                elif k == 'component_only_better_trading_plan_percent':
+                    try:
+                        v = float(self.only_better_trading_plan_edit.text())
+                    except ValueError:
+                        v = 0.0
+                elif k == 'component_analysis_count':
+                    v = self.analysis_count_spin.value()
                 # LineEdit - 优先处理，避免被当作直接控件名
                 elif hasattr(self.main_window, k + '_edit'):
                     edit_name = k + '_edit'
@@ -2553,19 +6837,17 @@ class ComponentAnalysisWidget(QWidget):
         # 添加forward_param_state
         if hasattr(self.main_window, 'forward_param_state'):
             params['forward_param_state'] = self.main_window.forward_param_state
-                
+        
         return params
 
     def _on_generate_trading_plan_changed(self, state):
         """生成操盘方案勾选框状态改变"""
         self.main_window.last_component_generate_trading_plan = (state == Qt.Checked)
         
-    def _on_only_better_trading_plan_changed(self, state):
-        """大于上次最优值才生成操盘方案勾选框状态改变"""
-        self.main_window.last_component_only_better_trading_plan = (state == Qt.Checked)
+
         
     def _update_last_best_value_display(self):
-        """更新上次最优值显示"""
+        """更新上次分析最优值显示"""
         last_value = getattr(self.main_window, 'last_adjusted_value', None)
         if last_value is not None:
             try:
@@ -2577,18 +6859,1160 @@ class ComponentAnalysisWidget(QWidget):
                 self.last_best_value_display.setText(str(last_value))
         else:
             self.last_best_value_display.setText("无")
+        
+        # 更新锁定最优值显示
+        locked_value = getattr(self.main_window, 'locked_adjusted_value', None)
+        if locked_value is not None:
+            try:
+                # 尝试转换为浮点数并格式化显示
+                locked_value_float = float(locked_value)
+                self.locked_best_value_display.setText(f"{locked_value_float:.2f}")
+            except (ValueError, TypeError):
+                # 如果转换失败，直接显示原值
+                self.locked_best_value_display.setText(str(locked_value))
+        else:
+            self.locked_best_value_display.setText("无")
 
-    def _on_clear_best_value(self):
-        """清空上次最优值"""
+    def _on_clear_last_best_value(self):
+        """清空上次分析最优值"""
         self.main_window.last_adjusted_value = None
         self._update_last_best_value_display()
+    
+    def _on_clear_locked_best_value(self):
+        """清空锁定最优值"""
+        self.main_window.locked_adjusted_value = None
+        self._update_last_best_value_display()
+    
+    def _get_new_high_low_types(self):
+        """
+        根据勾选情况获取创新高/创新低类型
+        返回: (new_high_low1_type, new_high_low2_type)
+        """
+        new_high_low1_type = "未勾选创前后新高低1"
+        new_high_low2_type = "未勾选创前后新高低2"
+        
+        # 检查哪个flag被勾选了
+        if self.main_window.new_before_high_flag_checkbox.isChecked():
+            new_high_low1_type = "创前新高1"
+        elif self.main_window.new_after_high_flag_checkbox.isChecked():
+            new_high_low1_type = "创后新高1"
+        elif self.main_window.new_before_low_flag_checkbox.isChecked():
+            new_high_low1_type = "创前新低1"
+        elif self.main_window.new_after_low_flag_checkbox.isChecked():
+            new_high_low1_type = "创后新低1"
+            
+        if self.main_window.new_before_high2_flag_checkbox.isChecked():
+            new_high_low2_type = "创前新高2"
+        elif self.main_window.new_after_high2_flag_checkbox.isChecked():
+            new_high_low2_type = "创后新高2"
+        elif self.main_window.new_before_low2_flag_checkbox.isChecked():
+            new_high_low2_type = "创前新低2"
+        elif self.main_window.new_after_low2_flag_checkbox.isChecked():
+            new_high_low2_type = "创后新低2"
+        
+        return new_high_low1_type, new_high_low2_type
+
+    def _validate_abbr_round_only_selection(self):
+        """验证组合输出参数选择"""
+        try:
+            # 创建临时的公式选股控件来获取当前选择状态
+            abbr_map = get_abbr_map()
+            logic_map = get_abbr_logic_map()
+            round_map = get_abbr_round_map()
+            
+            # 创建临时控件（不显示界面）
+            temp_formula_widget = FormulaSelectWidget(abbr_map, logic_map, round_map, self.main_window)
+            
+            # 恢复保存的状态（如果有的话）
+            if hasattr(self.main_window, 'last_formula_select_state'):
+                temp_formula_widget.set_state(self.main_window.last_formula_select_state)
+            
+            # 获取get_abbr_round_only_map的勾选状态
+            selected_vars = temp_formula_widget.get_round_only_map_selected_vars()
+            
+            # 清理临时控件
+            temp_formula_widget.deleteLater()
+            
+            # 如果没有任何变量被勾选，则提示错误
+            if not selected_vars:
+                QMessageBox.warning(self, "提示", "没有选择组合输出参数，请检查！")
+                return False
+            
+            # 检查选中的变量属于哪些类别
+            categories = self._categorize_selected_vars(selected_vars)
+            
+            # 如果有多于一个类别被选中，则提示错误
+            if len(categories) > 1:
+                QMessageBox.warning(self, "提示", "组合输出多重选择，请检查！")
+                return False
+            
+            return True
+            
+        except Exception as e:
+            print(f"验证组合输出参数选择时出错: {e}")
+            QMessageBox.warning(self, "错误", f"验证组合输出参数选择时出错: {e}")
+            return False
+    
+    def _categorize_selected_vars(self, selected_vars):
+        """将选中的变量按类别分组"""
+        categories = set()
+        
+        for var in selected_vars:
+            if any(keyword in var for keyword in ['mean_with_nan', 'mean_daily_change', 'comprehensive_stop_daily_change', 'bottom_first_with_nan', 'bottom_second_with_nan', 'bottom_third_with_nan', 'bottom_fourth_with_nan', 'bottom_nth_with_nan']):
+                categories.add('停盈停损')
+            elif any(keyword in var for keyword in ['mean_stop_and_take_with_nan', 'mean_stop_and_take_daily_change', 'comprehensive_stop_and_take_change', 'bottom_first_stop_and_take_with_nan', 'bottom_second_stop_and_take_with_nan', 'bottom_third_stop_and_take_with_nan', 'bottom_fourth_stop_and_take_with_nan', 'bottom_nth_stop_and_take_with_nan']):
+                categories.add('停盈止损')
+            elif any(keyword in var for keyword in ['mean_adjust_with_nan', 'mean_adjust_daily_change', 'comprehensive_daily_change', 'adjust_bottom_first_with_nan', 'adjust_bottom_second_with_nan', 'adjust_bottom_third_with_nan', 'adjust_bottom_fourth_with_nan', 'bottom_nth_adjust_with_nan']):
+                categories.add('止盈止损')
+            elif any(keyword in var for keyword in ['mean_take_and_stop_with_nan', 'mean_take_and_stop_daily_change', 'comprehensive_take_and_stop_change', 'bottom_first_take_and_stop_with_nan', 'bottom_second_take_and_stop_with_nan', 'bottom_third_take_and_stop_with_nan', 'bottom_fourth_take_and_stop_with_nan', 'bottom_nth_take_and_stop_with_nan']):
+                categories.add('止盈停损')
+        
+        return categories
+
+    def generate_first_stage_formulas(self, variable_name, step_divisor=10, base_formula=None):
+        """
+        生成三次分析第一轮的公式列表
+        参数:
+        - variable_name: 变量名称
+        - step_divisor: 步长除数
+        - base_formula: 基础公式，如果为None则使用默认公式
+        返回: 公式列表
+        """
+        # 优先使用参数特定的基准统计，如果没有则使用全局统计
+        overall_stats = None
+        if hasattr(self, 'three_stage_param_baseline_stats') and self.three_stage_param_baseline_stats:
+            overall_stats = self.three_stage_param_baseline_stats
+        else:
+            overall_stats = self.main_window.overall_stats
+            
+        if not overall_stats:
+            log_message = f"没有可用的统计结果，无法对变量 {variable_name} 进行三次分析"
+            print(log_message)
+            self.log_three_analysis(log_message)
+            return []
+
+        max_key = f"{variable_name}_max"
+        min_key = f"{variable_name}_min"
+        max_value = overall_stats.get(max_key)
+        min_value = overall_stats.get(min_key)
+        
+        # 调试信息：打印统计值获取情况
+        # log_message = f"变量 {variable_name} 统计值获取情况: max_key={max_key}, min_key={min_key}, max_value={max_value}, min_value={min_value}"
+        # print(log_message)
+        # self.log_three_analysis(log_message)
+        
+        if max_value is None or min_value is None:
+            log_message = f"变量 {variable_name} 缺少统计值，无法进行三次分析"
+            print(log_message)
+            self.log_three_analysis(log_message)
+            return []
+
+        abs_max = max(abs(max_value), abs(min_value))
+        try:
+            divisor = float(step_divisor) if step_divisor else 10.0
+        except Exception:
+            divisor = 10.0
+        initial_step = int(abs_max / divisor)
+        if initial_step <= 0:
+            initial_step = 1
+
+        print(f"=== 变量 {variable_name} 第一轮分析 ===")
+        print(f"统计值: min={min_value}, max={max_value}")
+        print(f"初始步长: {initial_step}")
+
+        # 如果没有提供基础公式，优先使用last_formula_expr，否则使用默认公式
+        if base_formula is None:
+            if hasattr(self.main_window, 'last_formula_expr') and self.main_window.last_formula_expr:
+                base_formula = self.main_window.last_formula_expr
+                print(f"使用last_formula_expr作为基础公式")
+            else:
+                base_formula = "if True:\n    result = 0\nelse:\n    result = 0"
+                print(f"使用默认公式作为基础公式")
+
+        print(f"基础公式: {base_formula}")
+
+        # 获取排序方式（与二次/组合分析保持一致）
+        # 三次分析：从保存的top1快照中获取排序方式，避免执行过程中被改变
+        top1 = getattr(self.main_window, 'last_component_analysis_top1', None)
+        if top1 and 'analysis' in top1 and 'sort_mode' in top1['analysis']:
+            user_sort_mode = top1['analysis']['sort_mode']
+            print(f"三次分析：使用保存的top1快照中的排序方式：{user_sort_mode}")
+        else:
+            # 如果没有保存的快照，回退到原来的方式
+            user_sort_mode = getattr(self.main_window, 'last_sort_mode', '最大值排序')
+            print(f"三次分析：未找到保存的排序方式快照，使用当前控件的排序方式：{user_sort_mode}")
+
+        # 获取二次分析次数限制，用于限制生成的公式数量
+        secondary_analysis_count = getattr(self, 'secondary_analysis_count_spin', None)
+        if secondary_analysis_count:
+            max_formulas = secondary_analysis_count.value()
+        else:
+            max_formulas = 1  # 默认值
+        
+        # 生成全方向组合 = 左单向 + 右单向，然后去重并处理下限=上限的情况
+        formulas = []
+        pairs = set()
+
+        # 参考二次分析的逻辑：生成笛卡尔积组合
+        # 左方向：上限逐渐减步长，生成max_formulas个值
+        left_upper_values = []
+        current_upper_val = max_value
+        for i in range(max_formulas):
+            if min_value is not None and current_upper_val < min_value:
+                break
+            left_upper_values.append(round(current_upper_val, 2))
+            current_upper_val -= initial_step
+        
+        # 右方向：下限逐渐加步长，生成max_formulas个值
+        right_lower_values = []
+        current_lower_val = min_value
+        for i in range(max_formulas):
+            if max_value is not None and current_lower_val > max_value:
+                break
+            right_lower_values.append(round(current_lower_val, 2))
+            current_lower_val += initial_step
+        
+        # 生成笛卡尔积组合
+        for left_upper in left_upper_values:
+            for right_lower in right_lower_values:
+                if right_lower <= left_upper:  # 确保下限不大于上限
+                    pairs.add((right_lower, left_upper))
+        
+        # 统计生成的公式数量
+        left_formula_count = len(left_upper_values)
+        right_formula_count = len(right_lower_values)
+
+        # 处理下限=上限的情况：生成一个公式 "参数 >= 下限 and 参数 <= 上限"
+        if min_value == max_value:
+            # 当上下限相等时，添加一个特殊的公式组合
+            equal_bound_value = round(min_value, 2)
+            pairs.add((equal_bound_value, equal_bound_value))
+
+        for lower, upper in sorted(pairs):
+            modified_formula = self._modify_formula_for_variable(base_formula, variable_name, lower, upper)
+            formulas.append({
+                'formula': modified_formula,
+                'sort_mode': user_sort_mode,
+                'variable': variable_name,
+                'lower': lower,
+                'upper': upper,
+                'step': initial_step
+            })
+
+        print(f"生成了 {len(formulas)} 个公式组合")
+        
+        # 重新排序公式：大范围的公式优先执行
+        formulas = self._sort_formulas_by_range(formulas)
+        
+        print("公式列表（按范围大小排序）:")
+        for i, formula_info in enumerate(formulas):
+            range_size = formula_info['upper'] - formula_info['lower']
+            print(f"  {i+1}. {variable_name} >= {formula_info['lower']} and {variable_name} <= {formula_info['upper']} (范围: {range_size:.2f})")
+
+        return formulas
+
+    def _sort_formulas_by_range(self, formulas):
+        """
+        对公式按范围大小进行排序，大范围的公式优先执行
+        范围 = upper - lower
+        """
+        if not formulas:
+            return formulas
+            
+        # 按范围大小降序排序（大范围优先）
+        sorted_formulas = sorted(formulas, key=lambda x: x['upper'] - x['lower'], reverse=True)
+        
+        print(f"公式排序完成，共 {len(sorted_formulas)} 个公式，按范围大小从大到小排列")
+        
+        return sorted_formulas
+
+    def _sort_component_formulas_by_range(self, formula_list):
+        """
+        对组合分析公式按范围大小进行排序，大范围的公式优先执行
+        这里需要分析整个公式中所有变量的总范围
+        """
+        if not formula_list:
+            return formula_list
+            
+        def calculate_formula_total_range(formula_dict):
+            """计算公式的总范围"""
+            total_range = 0
+            formula_str = formula_dict.get('formula', '')
+            
+            # 从公式中提取所有变量的范围条件
+            import re
+            # 匹配 var >= lower and var <= upper 的模式
+            range_matches = re.findall(r'(\w+)\s*>=\s*([\-\d\.]+)\s*and\s*\1\s*<=\s*([\-\d\.]+)', formula_str)
+            
+            for var_name, lower_str, upper_str in range_matches:
+                try:
+                    lower_val = float(lower_str)
+                    upper_val = float(upper_str)
+                    var_range = upper_val - lower_val
+                    total_range += var_range
+                except (ValueError, TypeError):
+                    continue
+                    
+            return total_range
+        
+        # 按总范围大小降序排序（大范围优先）
+        sorted_formulas = sorted(formula_list, key=calculate_formula_total_range, reverse=True)
+        
+        print(f"组合分析公式排序完成，共 {len(sorted_formulas)} 个公式，按总范围大小从大到小排列")
+        
+        # 打印前几个公式的范围信息
+        for i, formula_dict in enumerate(sorted_formulas[:5]):  # 只打印前5个
+            total_range = calculate_formula_total_range(formula_dict)
+            print(f"  公式 {i+1}: 总范围 = {total_range:.2f}")
+        
+        return sorted_formulas
+
+    def _calculate_adjusted_value_for_analysis(self, analysis):
+        """
+        为单个分析计算adjusted_value
+        从原有的批量处理逻辑中抽取出来，供快速中断时使用
+        """
+        import math
+        
+        # 获取选中的变量
+        selected_vars = getattr(self.main_window, 'component_analysis_selected_round_only_vars', [])
+        if not selected_vars:
+            log_message = "没有选中的变量，无法计算adjusted_value"
+            print(log_message)
+            self.log_three_analysis(log_message)
+            return None
+            
+        analysis_stats = analysis.get('analysis_stats')
+        if not analysis_stats:
+            log_message = "analysis_stats为空，无法计算adjusted_value"
+            print(log_message)
+            self.log_three_analysis(log_message)
+            return None
+            
+        summary = analysis_stats.get('summary', {})
+        if not summary:
+            log_message = "summary为空，无法计算adjusted_value"
+            print(log_message)
+            self.log_three_analysis(log_message)
+            return None
+            
+        total_sum = 0
+        valid_count = 0
+        selected_vars_with_values = []
+        
+        # 计算选中变量的总和
+        for var_name in selected_vars:
+            if var_name in summary:
+                value = summary[var_name]
+                if value != '' and not (isinstance(value, float) and math.isnan(value)):
+                    try:
+                        value_float = float(value)
+                        total_sum += value_float
+                        valid_count += 1
+                        selected_vars_with_values.append((var_name, value_float))
+                    except (ValueError, TypeError):
+                        continue
+                        
+        if valid_count <= 0:
+            log_message = f"没有有效的变量值，无法计算adjusted_value。selected_vars: {selected_vars}"
+            print(log_message)
+            self.log_three_analysis(log_message)
+            return None
+            
+        # 获取操作天数
+        op_days = analysis.get('op_days', 1)
+        try:
+            op_days = int(op_days)
+        except (ValueError, TypeError):
+            op_days = 1
+            
+        # 计算adjusted_value
+        adjusted_value = total_sum / (1 + (op_days - 1) / 100)
+        
+        log_message = f"计算得到adjusted_value: {adjusted_value:.2f}"
+        print(log_message)
+        self.log_three_analysis(log_message)
+        return adjusted_value
+
+    def _build_current_param_best_formula(self, current_param, lower_val, upper_val):
+        """
+        构建当前参数的最优公式（累积公式）
+        格式：if prev_param_conditions and current_param >= lower_val and current_param <= upper_val:
+        """
+        # 获取当前保存的最优公式（包含之前参数的条件）
+        current_best_formula = getattr(self, 'three_stage_current_best_overall_formula', None)
+        
+        if current_best_formula and current_best_formula != "未知公式":
+            # 如果有之前的最优公式，在其基础上添加当前参数的条件
+            # 提取之前公式中的条件部分，并清理重复条件
+            import re
+            if_match = re.search(r'if\s*(.*?):', current_best_formula, re.DOTALL)
+            if if_match:
+                prev_conditions = if_match.group(1).strip()
+                
+                # 添加当前参数的条件
+                current_condition = f"{current_param} >= {lower_val} and {current_param} <= {upper_val}"
+                combined_conditions = f"{prev_conditions} and {current_condition}"
+                
+                # 构建累积公式
+                cumulative_formula = f"if {combined_conditions}:\n    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum\nelse:\n    result = 0"
+                
+                self.log_three_analysis(f"构建参数{current_param}的累积最优公式：{cumulative_formula}")
+                return cumulative_formula
+            else:
+                # 如果无法解析之前公式，使用默认方式
+                pass
+        
+        # 如果没有之前的最优公式，或者解析失败，构建只包含当前参数的公式
+        condition = f"{current_param} >= {lower_val} and {current_param} <= {upper_val}"
+        current_param_formula = f"if {condition}:\n    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum\nelse:\n    result = 0"
+        
+        self.log_three_analysis(f"构建参数{current_param}的最优公式：{current_param_formula}")
+        return current_param_formula
+
+    def _build_cumulative_formula(self, current_param, lower_val, upper_val):
+        """
+        构建累积公式：在之前公式基础上添加当前参数的条件
+        格式：if prev_param_conditions and current_param >= lower_val and current_param <= upper_val:
+        """
+        # 获取当前保存的最优公式（包含之前参数的条件）
+        current_best_formula = getattr(self, 'three_stage_current_best_overall_formula', None)
+        
+        if current_best_formula and current_best_formula != "未知公式":
+            # 如果有之前的最优公式，在其基础上添加当前参数的条件
+            # 提取之前公式中的条件部分
+            import re
+            if_match = re.search(r'if\s*(.*?):', current_best_formula, re.DOTALL)
+            if if_match:
+                prev_conditions = if_match.group(1).strip()
+                
+                # 添加当前参数的条件
+                current_condition = f"{current_param} >= {lower_val} and {current_param} <= {upper_val}"
+                combined_conditions = f"{prev_conditions} and {current_condition}"
+                
+                # 构建累积公式
+                cumulative_formula = f"if {combined_conditions}:\n    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum\nelse:\n    result = 0"
+                
+                self.log_three_analysis(f"构建累积公式：{cumulative_formula}")
+                return cumulative_formula
+            else:
+                # 如果无法解析之前公式，使用默认方式
+                pass
+        
+        # 如果没有之前的最优公式，或者解析失败，构建只包含当前参数的公式
+        condition = f"{current_param} >= {lower_val} and {current_param} <= {upper_val}"
+        current_param_formula = f"if {condition}:\n    result = cont_sum_pos_sum + cont_sum_neg_sum + valid_pos_sum + valid_neg_sum\nelse:\n    result = 0"
+        
+        self.log_three_analysis(f"构建参数{current_param}的最优公式（无累积）：{current_param_formula}")
+        return current_param_formula
+
+
+
+    def _add_parameter_to_formula(self, base_formula, new_param, lower_val, upper_val):
+        """
+        在基础公式中添加新参数的条件
+        用于构建累积的公式：param1 >= a and param1 <= b and param2 >= c and param2 <= d
+        """
+        if not base_formula or base_formula == "未知公式":
+            # 如果没有基础公式，直接返回新参数的条件
+            return f"{new_param} >= {lower_val} and {new_param} <= {upper_val}"
+        
+        # 在基础公式后添加新参数的条件
+        new_condition = f"{new_param} >= {lower_val} and {new_param} <= {upper_val}"
+        combined_formula = f"{base_formula} and {new_condition}"
+        
+        self.log_three_analysis(f"组合公式：{base_formula} + {new_condition} = {combined_formula}")
+        return combined_formula
+
+    def _check_fast_interrupt_condition(self, current_result):
+        """
+        检查快速中断条件
+        返回True表示应该继续，False表示应该中断后续分析
+        """
+        self.log_three_analysis(f"\n=== 快速中断条件检查开始 ===")
+        
+        # 只在三次分析模式下启用快速中断
+        is_three_stage = hasattr(self, 'is_three_stage_mode') and self.is_three_stage_mode
+        self.log_three_analysis(f"is_three_stage_mode: {is_three_stage}")
+        if not is_three_stage:
+            self.log_three_analysis("返回True：不是三次分析模式")
+            return True
+            
+        if not current_result:
+            self.log_three_analysis("返回True：current_result为空")
+            return True
+            
+        # 获取当前分析的输出值
+        # 使用新的计算方法来获取adjusted_value
+        current_value = self._calculate_adjusted_value_for_analysis(current_result)
+        self.log_three_analysis(f"current_value: {current_value}")
+        if current_value is None:
+            self.log_three_analysis("返回True：current_value为None")
+            return True
+            
+        try:
+            current_value_float = float(current_value)
+            self.log_three_analysis(f"current_value_float: {current_value_float}")
+        except (ValueError, TypeError) as e:
+            self.log_three_analysis(f"返回True：current_value转换失败: {e}")
+            return True
+            
+        # 获取上次最优值（三次分析的基准值）
+        prev_best_value = getattr(self.main_window, 'three_stage_prev_best_value', None)
+        self.log_three_analysis(f"prev_best_value: {prev_best_value}")
+        if prev_best_value is None:
+            # 如果没有上次最优值，继续执行
+            self.log_three_analysis("返回True：没有上次最优值")
+            return True
+            
+        try:
+            prev_best_float = float(prev_best_value)
+            self.log_three_analysis(f"prev_best_float: {prev_best_float}")
+        except (ValueError, TypeError) as e:
+            self.log_three_analysis(f"返回True：prev_best_value转换失败: {e}")
+            return True
+            
+        # 检查当前值是否小于上次最优值
+        is_worse = current_value_float < prev_best_float
+        self.log_three_analysis(f"is_worse: {is_worse} (current_value_float: {current_value_float}, prev_best_float: {prev_best_float})")
+        
+        # 获取当前执行的公式信息
+        formula_idx = self.current_analysis_index // len(self.special_params_combinations)
+        param_idx = self.current_analysis_index % len(self.special_params_combinations)
+        self.log_three_analysis(f"formula_idx: {formula_idx}, param_idx: {param_idx}")
+        self.log_three_analysis(f"len(self.formula_list): {len(self.formula_list)}")
+        self.log_three_analysis(f"len(self.special_params_combinations): {len(self.special_params_combinations)}")
+        
+        formula_obj = self.formula_list[formula_idx] if formula_idx < len(self.formula_list) else {}
+        self.log_three_analysis(f"formula_obj: {formula_obj}")
+        current_formula = formula_obj.get('formula', '未知公式')
+        
+        # 获取当前参数信息
+        current_param = getattr(self, 'current_three_stage_variable', '未知参数')
+        current_round = getattr(self, 'three_stage_round_index', 1)
+        self.log_three_analysis(f"current_param: {current_param}, current_round: {current_round}")
+        
+        # 获取上次最优公式（用于日志记录）
+        prev_best_formula = getattr(self, 'three_stage_current_best_overall_formula', '未知公式')
+        self.log_three_analysis(f"prev_best_formula: {prev_best_formula}")
+        
+        # 获取当前公式的上下限
+        lower_val = formula_obj.get('lower', '未知')
+        upper_val = formula_obj.get('upper', '未知')
+        self.log_three_analysis(f"lower_val: {lower_val}, upper_val: {upper_val}")
+        
+        # 构建当前公式的简化描述
+        current_formula_desc = f"{current_param} >= {lower_val} and {current_param} <= {upper_val}"
+        self.log_three_analysis(f"current_formula_desc: {current_formula_desc}")
+        
+        if is_worse:
+            # 输出值小于上次最优值，记录并中断
+            self.log_three_analysis("=== 快速中断：输出值小于上次最优值 ===")
+            self.log_three_analysis(f"本次输出值：{current_value_float:.2f}")
+            self.log_three_analysis("本次公式：")
+            self.log_three_analysis(f"  {current_formula_desc}")
+            self.log_three_analysis(f"上次最优值：{prev_best_float:.2f}")
+            self.log_three_analysis("上次公式：")
+            self.log_three_analysis(f"  {prev_best_formula}")
+            self.log_three_analysis("=== 快速中断结束 ===")
+            
+            # 控制台输出简化版本
+            print(f"快速中断：本次输出值 {current_value_float:.2f} < 上次最优值 {prev_best_float:.2f}")
+            
+            self.log_three_analysis("返回False：输出值小于上次最优值，快速中断")
+            # 记录当前参数的快速中断情况（但不在这里处理参数切换，由上层处理）
+            self._record_fast_interrupt_for_parameter()
+            return False
+        else:
+            # 输出值不小于上次最优值，记录当前上下限为最优
+            self.log_three_analysis("=== 继续分析：输出值不小于上次最优值 ===")
+            self.log_three_analysis(f"本次输出值：{current_value_float:.2f}")
+            self.log_three_analysis("本次公式：")
+            self.log_three_analysis(f"  {current_formula_desc}")
+            self.log_three_analysis(f"上次最优值：{prev_best_float:.2f}")
+            self.log_three_analysis("上次公式：")
+            self.log_three_analysis(f"  {prev_best_formula}")
+            self.log_three_analysis(f"记录参数上下限为：下限{lower_val}，上限{upper_val}")
+            self.log_three_analysis("=== 继续分析结束 ===")
+            
+            # 控制台输出简化版本
+            print(f"继续分析：本次输出值 {current_value_float:.2f} >= 上次最优值 {prev_best_float:.2f}")
+            
+            # 更新当前参数的最优条件
+            # 直接在current_result中添加adjusted_value字段
+            current_result['adjusted_value'] = current_value
+            self._update_current_best_condition(current_result, formula_obj)
+            
+            # 更新当前最优公式记录（保存当前分析的公式，用于下一个参数）
+            # 从current_result中获取当前使用的公式
+            current_best_formula = current_result.get('formula', '未知公式')
+            self.three_stage_current_best_overall_formula = current_best_formula
+            
+            self.log_three_analysis(f"保存当前分析的最优公式：{current_best_formula}")
+            
+            self.log_three_analysis("返回True：输出值不小于上次最优值，继续分析")
+            self.log_three_analysis("=== 快速中断条件检查结束 ===\n")
+            return True
+
+    def _record_fast_interrupt_for_parameter(self):
+        """
+        记录参数的快速中断：判断该参数是否已经找到最优结果
+        """
+        current_param = getattr(self, 'current_three_stage_variable', '未知参数')
+        
+        try:
+            # 检查该参数是否已经找到最优结果
+            has_best_result = False
+            best_conditions = None
+            
+            if hasattr(self, 'three_stage_param_best_conditions') and current_param in self.three_stage_param_best_conditions:
+                best_conditions = self.three_stage_param_best_conditions[current_param]
+                has_best_result = True
+                self.log_three_analysis(f"参数{current_param}已经找到最优结果：{best_conditions}")
+            
+            # 获取当前参数的median值（从初始overall_stats快照中获取）
+            median_value = ''
+            positive_median_value = ''
+            negative_median_value = ''
+            if hasattr(self, 'three_stage_param_baseline_stats') and self.three_stage_param_baseline_stats:
+                median_key = f'{current_param}_median'
+                positive_median_key = f'{current_param}_positive_median'
+                negative_median_key = f'{current_param}_negative_median'
+                if median_key in self.three_stage_param_baseline_stats:
+                    median_value = str(self.three_stage_param_baseline_stats[median_key])
+                if positive_median_key in self.three_stage_param_baseline_stats:
+                    positive_median_value = str(self.three_stage_param_baseline_stats[positive_median_key])
+                if negative_median_key in self.three_stage_param_baseline_stats:
+                    negative_median_value = str(self.three_stage_param_baseline_stats[negative_median_key])
+            
+            if has_best_result:
+                # 该参数已经找到最优结果，记录最优条件
+                best_output_value = best_conditions.get('output_value', '未知')
+                best_lower = best_conditions.get('lower', '未知')
+                best_upper = best_conditions.get('upper', '未知')
+                best_round = best_conditions.get('round', '未知')
+                
+                best_text = f"最优条件为：下限{best_lower}，上限{best_upper}，组合排序输出值为：{best_output_value}，{current_param}_median：{median_value}，{current_param}_positive_median：{positive_median_value}，{current_param}_negative_median：{negative_median_value}"
+                self.best_param_condition_list.append({current_param: best_text})
+                
+                # 注意：快速中断时不需要在这里保存到全局top_three
+                # 让analysis_info正常进入后续流程，通过process_analysis_results处理
+                # 这样可以确保数据结构完整
+                
+                log_message = f"快速中断：参数{current_param}已找到最优结果（第{best_round}次），后续分析被跳过。最优条件：下限{best_lower}，上限{best_upper}，输出值{best_output_value}"
+                print(log_message)
+                self.log_three_analysis(log_message)
+            else:
+                # 该参数没有找到最优结果
+                no_better_text = f"无最优条件为：快速中断，{current_param}_median：{median_value}，{current_param}_positive_median：{positive_median_value}，{current_param}_negative_median：{negative_median_value}"
+                self.no_better_result_list.append({current_param: no_better_text})
+                
+                log_message = f"快速中断：参数{current_param}没有找到最优结果，所有后续分析被跳过"
+                print(log_message)
+                self.log_three_analysis(log_message)
+            
+        except Exception as e:
+            error_log = f"记录快速中断情况时出错: {e}"
+            print(error_log)
+            self.log_three_analysis(error_log)
+
+    def _skip_to_next_parameter_after_fast_interrupt(self):
+        """
+        快速中断后，跳过当前参数的所有剩余分析，直接切换到下一个参数
+        """
+        try:
+            # 检查是否还有更多参数
+            queue = getattr(self, 'three_stage_param_queue', [])
+            idx = getattr(self, 'three_stage_current_param_idx', 0)
+            
+            if idx + 1 < len(queue):
+                # 还有更多参数，切换到下一个参数
+                self.three_stage_current_param_idx = idx + 1
+                next_var = queue[self.three_stage_current_param_idx]
+                self.current_three_stage_variable = next_var
+                self.three_stage_target_variable = next_var
+                self.three_stage_round_index = 1
+                
+                # 重置分析状态
+                self.three_stage_round_better = None
+                
+                # 清空日志去重集合
+                if hasattr(self, '_logged_no_better_solutions'):
+                    self._logged_no_better_solutions.clear()
+                
+                # 新参数使用当前的overall_stats作为基准
+                if hasattr(self.main_window, 'overall_stats') and self.main_window.overall_stats:
+                    self.three_stage_param_baseline_stats = self.main_window.overall_stats.copy()
+                
+                # 记录当前的最优公式状态
+                current_formula = getattr(self, 'three_stage_current_best_overall_formula', '未知公式')
+                self.log_three_analysis(f"快速中断后：切换到下一个参数 {next_var}")
+                self.log_three_analysis(f"当前最优公式：{current_formula}")
+                self.log_three_analysis("开始第1次分析")
+                
+                # 开始新参数的第一轮分析，使用当前最优公式作为基础
+                self._start_three_stage_round(step_divisor=10)
+            else:
+                # 没有更多参数，完成三次分析
+                log_message = "快速中断后：所有参数分析完成，结束三次分析"
+                print(log_message)
+                self.log_three_analysis(log_message)
+                
+                self._complete_three_stage_analysis()
+                
+        except Exception as e:
+            error_log = f"快速中断后切换到下一个参数时出错: {e}"
+            print(error_log)
+            self.log_three_analysis(error_log)
+
+    def _update_current_best_condition(self, current_result, formula_obj):
+        """
+        更新当前参数的最优条件
+        """
+        current_param = getattr(self, 'current_three_stage_variable', '未知参数')
+        current_round = getattr(self, 'three_stage_round_index', 1)
+        
+        # 获取当前公式的上下限
+        lower_val = formula_obj.get('lower', '未知')
+        upper_val = formula_obj.get('upper', '未知')
+        
+        # 获取当前输出值
+        current_output_value = current_result.get('adjusted_value', '未知')
+        
+        # 保存当前参数的最优公式和条件
+        if current_param:
+            best_conditions = {
+                'lower': lower_val,
+                'upper': upper_val,
+                'round': current_round,
+                'output_value': str(current_output_value)
+            }
+            self.three_stage_param_best_formulas[current_param] = current_result
+            self.three_stage_param_best_conditions[current_param] = best_conditions
+            
+            # 简单地把结果放进全局top3
+            if not hasattr(self, 'three_stage_global_top_three'):
+                self.three_stage_global_top_three = []
+            
+            # 添加当前结果到全局top3
+            self.three_stage_global_top_three.append(current_result)
+            
+            # 重新排序并保持top3
+            self.three_stage_global_top_three.sort(key=lambda x: x.get('adjusted_value', 0), reverse=True)
+            self.three_stage_global_top_three = self.three_stage_global_top_three[:3]
+            
+            # 同时确保结果也进入all_analysis_results，这样process_analysis_results才能正确处理
+            if not hasattr(self, 'all_analysis_results'):
+                self.all_analysis_results = []
+            self.all_analysis_results.append(current_result)
+            
+            self.log_three_analysis(f"更优结果：添加参数{current_param}到全局top_three和all_analysis_results（值：{current_output_value}）")
+            
+            # 更新全局最优值
+            try:
+                current_value_float = float(current_output_value)
+                self.main_window.three_stage_prev_best_value = current_value_float
+                
+                # 更新overall_stats
+                if current_result.get('overall_stats'):
+                    self.main_window.overall_stats = current_result.get('overall_stats')
+                    # 同步更新参数特定的基准统计
+                    if hasattr(self, 'three_stage_param_baseline_stats'):
+                        self.three_stage_param_baseline_stats = current_result.get('overall_stats')
+                        
+            except (ValueError, TypeError):
+                pass
+
+    def _skip_to_next_parameter(self):
+        """
+        跳过当前参数的后续分析，直接切换到下一个参数
+        """
+        try:
+            # 检查是否还有更多参数
+            queue = getattr(self, 'three_stage_param_queue', [])
+            idx = getattr(self, 'three_stage_current_param_idx', 0)
+            
+            if idx + 1 < len(queue):
+                # 还有更多参数，切换到下一个参数
+                self.three_stage_current_param_idx = idx + 1
+                next_var = queue[self.three_stage_current_param_idx]
+                self.current_three_stage_variable = next_var
+                self.three_stage_target_variable = next_var
+                self.three_stage_round_index = 1
+                
+                # 重置分析状态
+                self.three_stage_round_better = None
+                
+                # 清空日志去重集合
+                if hasattr(self, '_logged_no_better_solutions'):
+                    self._logged_no_better_solutions.clear()
+                
+                # 新参数使用当前的overall_stats作为基准
+                if hasattr(self.main_window, 'overall_stats') and self.main_window.overall_stats:
+                    self.three_stage_param_baseline_stats = self.main_window.overall_stats.copy()
+                
+                log_message = f"快速中断：切换到下一个参数 {next_var}，开始第1次分析"
+                print(log_message)
+                self.log_three_analysis(log_message)
+                
+                # 开始新参数的第一轮分析
+                self._start_three_stage_round(step_divisor=10)
+            else:
+                # 没有更多参数，完成三次分析
+                log_message = "快速中断：所有参数分析完成，结束三次分析"
+                print(log_message)
+                self.log_three_analysis(log_message)
+                
+                self._complete_three_stage_analysis()
+                
+        except Exception as e:
+            error_log = f"跳过到下一个参数时出错: {e}"
+            print(error_log)
+            self.log_three_analysis(error_log)
+
+    def _modify_formula_for_variable(self, base_formula, variable_name, lower, upper):
+        """修改基础公式，替换指定变量的条件"""
+        import re
+        
+        if_match = re.search(r'if\s*(.*?):', base_formula, re.DOTALL)
+        else_match = re.search(r'else:\s*(.*)', base_formula, re.DOTALL)
+        result_match = re.search(r'result\s*=\s*(.*?)(?:\n|$)', base_formula)
+
+        base_conditions_str = if_match.group(1).strip() if if_match else "True"
+        base_result_expr = result_match.group(1).strip() if result_match else "0"
+        base_else_block = else_match.group(1).strip() if else_match else "result = 0"
+
+        if base_conditions_str.startswith('(') and base_conditions_str.endswith(')'):
+            base_conditions_str = base_conditions_str[1:-1].strip()
+
+        # 修正正则转义，确保能正确匹配并移除目标变量已有的区间/单项条件
+        # 使用更精确的边界匹配，避免误匹配
+        pattern_single_cond = r'(?<!\w)' + re.escape(variable_name) + r'(?!\w)\s*(?:>=|<=|==|!=|>|<)\s*[\-\d\.]+'
+        pattern_range_cond1 = r'(?<!\w)' + re.escape(variable_name) + r'(?!\w)\s*>=\s*[\-\d\.]+\s*and\s*(?<!\w)' + re.escape(variable_name) + r'(?!\w)\s*<=\s*[\-\d\.]+'
+        pattern_range_cond2 = r'(?<!\w)' + re.escape(variable_name) + r'(?!\w)\s*<=\s*[\-\d\.]+\s*and\s*(?<!\w)' + re.escape(variable_name) + r'(?!\w)\s*>=\s*[\-\d\.]+'
+        # 移除这个可能导致误匹配的逻辑变量模式
+        # pattern_logic_var = r'\b' + re.escape(variable_name) + r'\b(?!\s*(?:>=|<=|==|!=|>|<))'
+
+        temp_conditions_str = base_conditions_str
+        
+        temp_conditions_str = re.sub(pattern_range_cond1, '', temp_conditions_str)
+        temp_conditions_str = re.sub(pattern_range_cond2, '', temp_conditions_str)
+        temp_conditions_str = re.sub(pattern_single_cond, '', temp_conditions_str)
+        
+        # temp_conditions_str = re.sub(pattern_logic_var, '', temp_conditions_str)
+
+        temp_conditions_str = re.sub(r'\s*and\s*and\s*', ' and ', temp_conditions_str).strip()
+        # 修复：使用更安全的字符串清理方法，避免误删字符
+        temp_conditions_str = re.sub(r'^\s*and\s*', '', temp_conditions_str)  # 删除开头的and
+        temp_conditions_str = re.sub(r'\s*and\s*$', '', temp_conditions_str)  # 删除结尾的and
+        temp_conditions_str = temp_conditions_str.strip()
+
+        if not temp_conditions_str:
+            current_conditions = ["True"]
+        else:
+            split_conditions = re.split(r'\s+and\s+', temp_conditions_str)
+            current_conditions = [c.strip() for c in split_conditions if c.strip()]
+
+        # 如果 lower 和 upper 为 None，表示要移除该变量的条件
+        if lower is None and upper is None:
+            # 移除该变量的所有条件，不添加新条件
+            pass
+        else:
+            # 添加新的变量条件
+            new_var_condition = f"{variable_name} >= {lower} and {variable_name} <= {upper}"
+            if new_var_condition not in current_conditions:
+                current_conditions.append(new_var_condition)
+
+        # 如果存在其它条件，移除冗余的 True
+        if "True" in current_conditions and len(current_conditions) > 1:
+            current_conditions = [c for c in current_conditions if c != "True"]
+
+        final_conditions_str = " and ".join(current_conditions)
+        
+        if final_conditions_str == "True":
+            final_formula = f"if True:\n    result = {base_result_expr}\nelse:\n    {base_else_block}"
+        else:
+            final_formula = f"if {final_conditions_str}:\n    result = {base_result_expr}\nelse:\n    {base_else_block}"
+        
+        return final_formula
+
+    def on_export_three_stage_clicked(self):
+        """导出三次分析结果为Excel文件"""
+        try:
+            # 检查是否有最优参数条件
+            if not hasattr(self.main_window, 'best_param_condition_list') or not self.main_window.best_param_condition_list:
+                QMessageBox.warning(self, "提示", "没有可导出的最优参数条件数据！")
+                return
+            
+            # 选择保存文件路径
+            dialog = QFileDialog(self, "导出三次分析结果")
+            dialog.setAcceptMode(QFileDialog.AcceptSave)
+            dialog.setNameFilter("Excel文件 (*.xlsx)")
+            dialog.setDefaultSuffix("xlsx")
+            
+            if dialog.exec_() != QFileDialog.Accepted:
+                return
+            
+            file_path = dialog.selectedFiles()[0]
+            if not file_path:
+                return
+            
+            # 准备导出数据
+            best_param_conditions = self.main_window.best_param_condition_list
+            no_better_results = getattr(self.main_window, 'no_better_result_list', [])
+            median_values = getattr(self, 'three_stage_param_baseline_stats', {})
+            
+            # 创建Excel文件
+            with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
+                # 导出最优参数条件（包含sort_value、参数名称、最优值、上下限、中值）
+                if best_param_conditions:
+                    export_conditions = []
+                    for i, condition in enumerate(best_param_conditions):
+                        for param_name, condition_text in condition.items():
+                            # 从条件文本中提取信息
+                            lower_match = re.search(r'下限(-?[\d\.]+)', condition_text)
+                            upper_match = re.search(r'上限(-?[\d\.]+)', condition_text)
+                            output_value_match = re.search(r'组合排序输出值为：([\d\.]+)', condition_text)
+                            # 修正median值的提取，匹配格式：参数名_median：数值
+                            median_match = re.search(rf'{re.escape(param_name)}_median：(-?[\d\.]+)', condition_text)
+                            # 提取正值中值和负值中值
+                            positive_median_match = re.search(rf'{re.escape(param_name)}_positive_median：(-?[\d\.]+)', condition_text)
+                            negative_median_match = re.search(rf'{re.escape(param_name)}_negative_median：(-?[\d\.]+)', condition_text)
+                            
+                            # 获取sort_value（参数对应的序号）
+                            sort_value = self._get_param_sort_value(param_name)
+                            
+                            # 格式化最优值为两位小数
+                            optimal_value = ''
+                            if output_value_match:
+                                try:
+                                    optimal_value = f"{float(output_value_match.group(1)):.2f}"
+                                except (ValueError, TypeError):
+                                    optimal_value = output_value_match.group(1)
+                            else:
+                                optimal_value = ''
+                            
+                            # 添加调试信息
+                            print(f"导出参数 {param_name} 的条件文本：{condition_text}")
+                            print(f"  下限匹配：{lower_match.group(1) if lower_match else '未匹配'}")
+                            print(f"  上限匹配：{upper_match.group(1) if upper_match else '未匹配'}")
+                            print(f"  输出值匹配：{output_value_match.group(1) if output_value_match else '未匹配'}")
+                            print(f"  中值匹配：{median_match.group(1) if median_match else '未匹配'}")
+                            print(f"  正值中值匹配：{positive_median_match.group(1) if positive_median_match else '未匹配'}")
+                            print(f"  负值中值匹配：{negative_median_match.group(1) if negative_median_match else '未匹配'}")
+                            print(f"  格式化后的最优值：{optimal_value}")
+                            
+                            row_data = {
+                                '三次分析序号': sort_value if sort_value is not None else i + 1,
+                                '参数名称': param_name,
+                                '最优值': optimal_value,
+                                '最优上限': upper_match.group(1) if upper_match else '',
+                                '最优下限': lower_match.group(1) if lower_match else '',
+                                '最优中值': median_match.group(1) if median_match else '',
+                                '正值中值': positive_median_match.group(1) if positive_median_match else '',
+                                '负值中值': negative_median_match.group(1) if negative_median_match else ''
+                            }
+                            export_conditions.append(row_data)
+                    
+                    # 如果有无最优结果的条件，添加空行分隔，然后添加无最优结果的条件
+                    if no_better_results:
+                        # 添加空行分隔
+                        empty_row = {
+                            '三次分析序号': '',
+                            '参数名称': '',
+                            '最优值': '',
+                            '最优上限': '',
+                            '最优下限': '',
+                            '最优中值': '',
+                            '正值中值': '',
+                            '负值中值': ''
+                        }
+                        export_conditions.append(empty_row)
+                        
+                        # 处理无最优结果的条件
+                        for condition in no_better_results:
+                            for param_name, condition_text in condition.items():
+                                # 从条件文本中提取轮次信息
+                                round_match = re.search(r'第([一二三])次分析无最优', condition_text)
+                                round_num = round_match.group(1) if round_match else ''
+                                round_map = {'一': '1', '二': '2', '三': '3'}
+                                round_value = round_map.get(round_num, round_num)
+                                
+                                row_data = {
+                                    '三次分析序号': round_value,
+                                    '参数名称': param_name,
+                                    '最优值': '无最优',
+                                    '最优上限': '',
+                                    '最优下限': '',
+                                    '最优中值': '',
+                                    '正值中值': '',
+                                    '负值中值': ''
+                                }
+                                export_conditions.append(row_data)
+                    
+                    df_conditions = pd.DataFrame(export_conditions)
+                    df_conditions.to_excel(writer, sheet_name='最优参数条件', index=False)
+            
+            QMessageBox.information(self, "导出成功", f"已成功导出三次分析结果到 {file_path}")
+            
+        except Exception as e:
+            print(f"导出三次分析结果失败：{e}")
+            QMessageBox.critical(self, "导出失败", f"导出三次分析结果失败：{e}")
+    
+    def _get_param_sort_value(self, param_name):
+        """获取参数对应的sort_value（序号）"""
+        try:
+            # 先检查last_formula_select_state（普通参数）
+            if hasattr(self.main_window, 'last_formula_select_state') and self.main_window.last_formula_select_state:
+                if param_name in self.main_window.last_formula_select_state:
+                    var_state = self.main_window.last_formula_select_state[param_name]
+                    if 'sort' in var_state and var_state['sort'].strip():
+                        try:
+                            return int(var_state['sort'].strip())
+                        except ValueError:
+                            pass
+            
+            # 再检查forward_param_state（向前参数）
+            if hasattr(self.main_window, 'forward_param_state') and self.main_window.forward_param_state:
+                if param_name in self.main_window.forward_param_state:
+                    var_state = self.main_window.forward_param_state[param_name]
+                    if 'sort' in var_state and var_state['sort'].strip():
+                        try:
+                            return int(var_state['sort'].strip())
+                        except ValueError:
+                            pass
+            
+            # 如果都没有找到，返回None
+            return None
+            
+        except Exception as e:
+            print(f"获取参数 {param_name} 的sort_value时出错：{e}")
+            return None
+    
+    def on_import_three_stage_clicked(self):
+        """导入三次分析结果Excel文件"""
+        try:
+            # 选择要导入的文件
+            dialog = QFileDialog(self, "导入三次分析结果")
+            dialog.setAcceptMode(QFileDialog.AcceptOpen)
+            dialog.setNameFilter("Excel文件 (*.xlsx)")
+            
+            if dialog.exec_() != QFileDialog.Accepted:
+                return
+            
+            file_path = dialog.selectedFiles()[0]
+            if not file_path:
+                return
+            
+            # 读取Excel文件
+            excel_file = pd.ExcelFile(file_path)
+            
+            # 读取最优参数条件
+            if '最优参数条件' in excel_file.sheet_names:
+                df_conditions = pd.read_excel(file_path, sheet_name='最优参数条件')
+                best_param_conditions = []
+                
+                best_param_conditions = []
+                no_better_results = []
+                
+                for _, row in df_conditions.iterrows():
+                    param_name = row.get('参数名称', '')
+                    sort_value = row.get('三次分析序号', '')
+                    lower_value = row.get('最优下限', '')
+                    upper_value = row.get('最优上限', '')
+                    output_value = row.get('最优值', '')
+                    median_value = row.get('最优中值', '')
+                    positive_median_value = row.get('正值中值', '')
+                    negative_median_value = row.get('负值中值', '')
+                    
+                    if param_name:
+                        # 检查是否为无最优结果
+                        if output_value == '无最优':
+                            # 无最优结果的情况
+                            condition_text = f"{param_name}：第{sort_value}次分析无最优"
+                            no_better_results.append({param_name: condition_text})
+                        else:
+                            # 有最优结果的情况
+                            # 重建条件文本，包含正值中值和负值中值
+                            condition_text = f"最优条件为：下限{lower_value}，上限{upper_value}， 组合排序输出值为：{output_value}，{param_name}_median：{median_value}，{param_name}_positive_median：{positive_median_value}，{param_name}_negative_median：{negative_median_value}"
+                            best_param_conditions.append({param_name: condition_text})
+                            
+                            # 恢复sort_value
+                            if sort_value != '':
+                                self._restore_param_sort_value(param_name, sort_value)
+                
+                # 保存到主窗口
+                self.main_window.best_param_condition_list = best_param_conditions
+                self.main_window.no_better_result_list = no_better_results
+                print(f"导入最优参数条件：{len(best_param_conditions)}条，无最优结果：{len(no_better_results)}条")
+            
+            QMessageBox.information(self, "导入成功", f"已成功导入三次分析结果从 {file_path}")
+            
+        except Exception as e:
+            print(f"导入三次分析结果失败：{e}")
+            QMessageBox.critical(self, "导入失败", f"导入三次分析结果失败：{e}")
+    
+
+    
+
+
+    def _restore_param_sort_value(self, param_name, sort_value):
+        """恢复指定参数的sort_value"""
+        try:
+            # 创建临时的FormulaSelectWidget来访问参数控件
+            from function.stock_functions import get_abbr_map, get_abbr_logic_map, get_abbr_round_map, FormulaSelectWidget
+            
+            abbr_map = get_abbr_map()
+            logic_map = get_abbr_logic_map()
+            round_map = get_abbr_round_map()
+            
+            # 创建临时控件（不显示界面）
+            temp_formula_widget = FormulaSelectWidget(abbr_map, logic_map, round_map, self.main_window)
+            
+            # 恢复保存的状态（如果有的话）
+            if hasattr(self.main_window, 'last_formula_select_state'):
+                temp_formula_widget.set_state(self.main_window.last_formula_select_state)
+            
+            # 通过var_widgets访问参数控件
+            if param_name in temp_formula_widget.var_widgets:
+                widgets = temp_formula_widget.var_widgets[param_name]
+                
+                # 设置sort控件的值
+                if 'sort' in widgets:
+                    # 将sort_value转换为字符串并设置
+                    widgets['sort'].setCurrentText(str(sort_value))
+                    print(f"已恢复参数 {param_name} 的sort_value：{sort_value}")
+                    
+                    # 同步到主窗口状态
+                    if hasattr(self.main_window, 'last_formula_select_state'):
+                        if param_name not in self.main_window.last_formula_select_state:
+                            self.main_window.last_formula_select_state[param_name] = {}
+                        self.main_window.last_formula_select_state[param_name]['sort'] = str(sort_value)
+                    
+                    # 清理临时控件
+                    temp_formula_widget.deleteLater()
+                    return True
+                else:
+                    print(f"参数 {param_name} 没有sort控件")
+                    temp_formula_widget.deleteLater()
+                    return False
+            else:
+                print(f"未找到参数 {param_name} 对应的控件")
+                temp_formula_widget.deleteLater()
+                return False
+                
+        except Exception as e:
+            print(f"恢复参数 {param_name} 的sort_value时出错：{e}")
+            return False
+
+
 
 
 class AnalysisDetailWindow(QMainWindow):
     def __init__(self, analysis_data, create_table_func, idx):
         super().__init__(None)
         self.setWindowTitle(f"组合分析结果详情 - 第{idx+1}行")
-        self.setMinimumSize(1600, 800)
+        self.setMinimumSize(2350, 800)
         flags = self.windowFlags()
         flags &= ~Qt.WindowStaysOnTopHint
         flags |= Qt.WindowMinimizeButtonHint

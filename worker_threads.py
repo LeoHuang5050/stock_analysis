@@ -3,10 +3,247 @@ from PyQt5.QtCore import QThread, pyqtSignal
 from function.stock_functions import unify_date_columns
 import numpy as np
 import time
+import math
 from multiprocessing import Pool, cpu_count
 import concurrent.futures
 import worker_threads_cy  # 这是你用Cython编译出来的模块
 import re
+import threading
+import atexit
+import psutil
+import os
+
+# Windows系统特定的进程调度优化 (Windows 11兼容)
+try:
+    import ctypes
+    from ctypes import wintypes
+    
+    # Windows API常量
+    THREAD_PRIORITY_HIGHEST = 2
+    THREAD_PRIORITY_ABOVE_NORMAL = 1
+    THREAD_PRIORITY_NORMAL = 0
+    THREAD_PRIORITY_BELOW_NORMAL = -1
+    THREAD_PRIORITY_LOWEST = -2
+    
+    # Windows 11特定的进程调度优化
+    # 使用更现代的调度策略，避免过度抢占CPU时间
+    
+    # 获取当前线程句柄
+    GetCurrentThread = ctypes.windll.kernel32.GetCurrentThread
+    GetCurrentThread.restype = wintypes.HANDLE
+    
+    # 设置线程优先级
+    SetThreadPriority = ctypes.windll.kernel32.SetThreadPriority
+    SetThreadPriority.argtypes = [wintypes.HANDLE, ctypes.c_int]
+    SetThreadPriority.restype = ctypes.c_bool
+    
+    # Windows 11中，尝试使用更平衡的调度策略
+    def set_current_thread_priority(priority):
+        """设置当前线程优先级 - Windows 11兼容版本"""
+        try:
+            thread_handle = GetCurrentThread()
+            if SetThreadPriority(thread_handle, priority):
+                return True
+            return False
+        except Exception:
+            return False
+    
+    # 检查Windows版本，为Windows 11提供特殊优化
+    def is_windows_11_or_later():
+        """检查是否为Windows 11或更高版本"""
+        try:
+            import platform
+            version = platform.version()
+            # Windows 11的版本号通常大于等于10.0.22000
+            if platform.system() == "Windows":
+                major, minor, build = map(int, version.split('.'))
+                return major >= 10 and build >= 22000
+            return False
+        except:
+            return False
+            
+    WINDOWS_OPTIMIZATION_AVAILABLE = True
+    IS_WINDOWS_11 = is_windows_11_or_later()
+    
+except ImportError:
+    WINDOWS_OPTIMIZATION_AVAILABLE = False
+    IS_WINDOWS_11 = False
+    def set_current_thread_priority(priority):
+        return False
+
+class ProcessPoolManager:
+    """全局进程池管理器，使用单例模式"""
+    _instance = None
+    _lock = threading.Lock()
+    
+    def __new__(cls):
+        if cls._instance is None:
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = super().__new__(cls)
+        return cls._instance
+    
+    def __init__(self):
+        if not hasattr(self, '_initialized'):
+            self._process_pool = None
+            self._max_workers = None
+            self._pool_lock = threading.Lock()
+            self._initialized = True
+            # 注册程序退出时的清理函数
+            atexit.register(self.shutdown)
+    
+    def get_process_pool(self, max_workers):
+        """获取或创建进程池，只有在进程数不同时才重新创建"""
+        with self._pool_lock:
+            if self._process_pool is None or self._max_workers != max_workers:
+                # 关闭旧的进程池
+                if self._process_pool is not None:
+                    try:
+                        self._process_pool.shutdown(wait=True)
+                        self._log_to_file(f"关闭旧的进程池，max_workers={self._max_workers}")
+                    except Exception as e:
+                        self._log_to_file(f"关闭旧进程池时出错: {e}", "ERROR")
+                
+                # 创建新的进程池
+                self._process_pool = concurrent.futures.ProcessPoolExecutor(max_workers=max_workers)
+                self._max_workers = max_workers
+                self._log_to_file(f"【打开程序】创建新的进程池，max_workers={max_workers}")
+            else:
+                # 检查当前进程池的活跃进程数量
+                self._ensure_sufficient_processes(max_workers)
+                self._log_to_file(f"复用现有进程池，max_workers={max_workers}")
+            
+            return self._process_pool
+    
+    def _ensure_sufficient_processes(self, max_workers):
+        """确保进程池中有足够的活跃进程"""
+        if self._process_pool is None:
+            return
+        
+        try:
+            # 检查当前活跃进程数量
+            active_processes = 0
+            if hasattr(self._process_pool, '_processes'):
+                active_processes = len(self._process_pool._processes)
+            
+            # 如果活跃进程数量不足，记录日志
+            if active_processes < max_workers:
+                self._log_to_file(f"检测到进程数量不足 - 当前: {active_processes}, 需要: {max_workers}", "WARNING")
+                # 注意：ProcessPoolExecutor会自动管理进程数量，这里只是记录状态
+                # 当提交新任务时，如果进程不足会自动创建新进程
+            else:
+                self._log_to_file(f"进程池状态正常 - 活跃进程: {active_processes}, 配置: {max_workers}")
+                
+        except Exception as e:
+            self._log_to_file(f"检查进程数量时出错: {e}", "ERROR")
+    
+    def get_pool_status(self):
+        """获取进程池状态信息"""
+        if self._process_pool is None:
+            return {
+                'status': 'not_initialized',
+                'max_workers': None,
+                'active_processes': 0
+            }
+        
+        try:
+            active_processes = 0
+            if hasattr(self._process_pool, '_processes'):
+                active_processes = len(self._process_pool._processes)
+            
+            return {
+                'status': 'running',
+                'max_workers': self._max_workers,
+                'active_processes': active_processes,
+                'processes_sufficient': active_processes >= self._max_workers if self._max_workers else False
+            }
+        except Exception as e:
+            return {
+                'status': 'error',
+                'error': str(e),
+                'max_workers': self._max_workers,
+                'active_processes': 0
+            }
+    
+    def shutdown(self):
+        """关闭进程池"""
+        with self._pool_lock:
+            if self._process_pool is not None:
+                try:
+                    self._process_pool.shutdown(wait=True)
+                    self._process_pool = None
+                    self._max_workers = None
+                    self._log_to_file("全局进程池已关闭")
+                except Exception as e:
+                    self._log_to_file(f"关闭全局进程池时出错: {e}", "ERROR")
+    
+    def _log_to_file(self, message, log_type="INFO"):
+        """记录进程池相关日志到process_pool.log文件"""
+        try:
+            timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
+            log_message = f"[{timestamp}] [{log_type}] [ProcessPoolManager] {message}\n"
+            
+            with open('process_pool.log', 'a', encoding='utf-8') as f:
+                f.write(log_message)
+        except Exception as e:
+            # 如果日志写入失败，至少尝试输出到控制台
+            try:
+                print(f"日志写入失败: {e}")
+            except:
+                pass
+
+    def _update_main_process_priority(self):
+        """更新主进程的调度优先级 - Windows 11兼容版本"""
+        try:
+            current_pid = os.getpid()
+            current_process = psutil.Process(current_pid)
+            
+            # 根据Windows版本预先选择最佳优先级
+            if IS_WINDOWS_11:
+                # Windows 11中，使用ABOVE_NORMAL_PRIORITY_CLASS更稳定
+                # 这样可以避免主进程过度抢占CPU时间，让子进程能够连贯运行
+                current_process.nice(psutil.ABOVE_NORMAL_PRIORITY_CLASS)
+                self._log_to_file(f"主进程优先级已更新为ABOVE_NORMAL_PRIORITY_CLASS (Windows 11兼容) (PID: {current_pid})")
+            else:
+                # Windows 10及以下版本，可以使用HIGH_PRIORITY_CLASS
+                current_process.nice(psutil.HIGH_PRIORITY_CLASS)
+                self._log_to_file(f"主进程优先级已更新为HIGH_PRIORITY_CLASS (PID: {current_pid})")
+                
+        except Exception as e:
+            self._log_to_file(f"更新主进程优先级时出错: {e}", "ERROR")
+
+# 全局进程池管理器实例
+process_pool_manager = ProcessPoolManager()
+
+# 全局时间戳管理器
+class GlobalTimeManager:
+    _instance = None
+    _lock = threading.Lock()
+    
+    def __new__(cls):
+        if cls._instance is None:
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = super().__new__(cls)
+        return cls._instance
+    
+    def __init__(self):
+        if not hasattr(self, '_initialized'):
+            self._last_calculation_time = time.time()
+            self._initialized = True
+    
+    def get_last_calculation_time(self):
+        return self._last_calculation_time
+    
+    def update_calculation_time(self):
+        self._last_calculation_time = time.time()
+    
+    def get_time_elapsed(self):
+        current_time = time.time()
+        return current_time - self._last_calculation_time
+
+# 全局时间管理器实例
+global_time_manager = GlobalTimeManager()
 
 # 全局缩写映射表
 abbr_map = {
@@ -148,9 +385,10 @@ class FileLoaderThread(QThread):
                 return
             price_data = df.iloc[:, 0:separator_idx]
             price_data = unify_date_columns(price_data)
-            # 只对price_data做0.0转为NaN
+            # 只对price_data做0.0转为NaN，并对数值进行传统四舍五入保留两位小数
             for col in price_data.columns:
                 price_data.loc[price_data[col] == 0.0, col] = np.nan
+            
             diff_data = df.iloc[:, separator_idx+1:]
             diff_data = unify_date_columns(diff_data)
             
@@ -185,6 +423,30 @@ class CalculateThread(QThread):
         self.prev_end_idx = {}
         self.preprocessed_data = None  # 存储预处理数据
 
+    def _log_to_file(self, message, log_type="INFO"):
+        """记录进程池相关日志到process_pool.log文件
+        
+        日志分类规则：
+        - process_pool.log: 进程池生命周期、内存监控、计算状态等
+        - error_log.txt: 子进程异常、错误详情等（在calculate_batch_16_cores中处理）
+        """
+        try:
+            timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
+            log_message = f"[{timestamp}] [{log_type}] {message}\n"
+            
+            with open('process_pool.log', 'a', encoding='utf-8') as f:
+                f.write(log_message)
+        except Exception as e:
+            # 如果日志写入失败，至少尝试输出到控制台
+            try:
+                print(f"日志写入失败: {e}")
+            except:
+                pass
+    
+    def _get_process_pool(self, max_workers):
+        """从全局管理器获取进程池"""
+        return process_pool_manager.get_process_pool(max_workers)
+
     def safe_float(self, val, default=float('nan')):
         try:
             if val is None or (isinstance(val, str) and val.strip() == ''):
@@ -192,6 +454,108 @@ class CalculateThread(QThread):
             return float(val)
         except Exception:
             return default
+
+    def _round_numeric_values(self, stock_data):
+        """
+        统一的数值四舍五入处理
+        对数值字段进行四舍五入保留两位小数
+        对使用 round_to_2_nan 的字段进行特殊处理（如果为0则设为None）
+        """
+        import math
+        
+        # 使用 round_to_2_nan 的字段列表（如果为0则设为None）
+        round_to_2_nan_fields = [
+            'cont_sum_pos_sum',
+            'cont_sum_neg_sum', 
+            'cont_sum_pos_sum_first_half',
+            'cont_sum_pos_sum_second_half',
+            'cont_sum_neg_sum_first_half',
+            'cont_sum_neg_sum_second_half',
+            'forward_max_cont_sum_pos_sum',
+            'forward_max_cont_sum_neg_sum',
+            'forward_min_cont_sum_pos_sum',
+            'forward_min_cont_sum_neg_sum',
+            'forward_max_valid_pos_sum',
+            'forward_max_valid_neg_sum',
+            'forward_min_valid_pos_sum',
+            'forward_min_valid_neg_sum'
+        ]
+        
+        # 需要四舍五入的数值字段列表（包含所有字段，包括 round_to_2_nan_fields）
+        numeric_fields = [
+            'score', 'hold_days', 'ops_change', 'ops_incre_rate', 
+            'adjust_days', 'adjust_ops_change', 'adjust_ops_incre_rate',
+            'max_value', 'min_value', 'end_value', 'start_value', 
+            'actual_value', 'closest_value', 'increment_value',
+            'after_gt_end_value', 'after_gt_start_value', 'ops_value',
+            'continuous_len', 'continuous_start_value', 'continuous_start_next_value', 
+            'continuous_start_next_next_value', 'continuous_end_value', 
+            'continuous_end_prev_value', 'continuous_end_prev_prev_value',
+            'continuous_abs_sum_first_half', 'continuous_abs_sum_second_half',
+            'continuous_abs_sum_block1', 'continuous_abs_sum_block2', 
+            'continuous_abs_sum_block3', 'continuous_abs_sum_block4',
+            'forward_max_result', 'forward_max_continuous_start_value',
+            'forward_max_continuous_start_next_value', 'forward_max_continuous_start_next_next_value',
+            'forward_max_continuous_end_value', 'forward_max_continuous_end_prev_value',
+            'forward_max_continuous_end_prev_prev_value', 'forward_max_abs_sum_first_half',
+            'forward_max_abs_sum_second_half', 'forward_max_abs_sum_block1',
+            'forward_max_abs_sum_block2', 'forward_max_abs_sum_block3', 'forward_max_abs_sum_block4',
+            'forward_min_result', 'forward_min_continuous_start_value',
+            'forward_min_continuous_start_next_value', 'forward_min_continuous_start_next_next_value',
+            'forward_min_continuous_end_value', 'forward_min_continuous_end_prev_value',
+            'forward_min_continuous_end_prev_prev_value', 'forward_min_abs_sum_first_half',
+            'forward_min_abs_sum_second_half', 'forward_min_abs_sum_block1',
+            'forward_min_abs_sum_block2', 'forward_min_abs_sum_block3', 'forward_min_abs_sum_block4',
+            'valid_sum_len', 'valid_pos_sum', 'valid_neg_sum',
+            'forward_max_valid_sum_len', 'forward_max_valid_pos_sum', 'forward_max_valid_neg_sum',
+            'forward_min_valid_sum_len', 'forward_min_valid_pos_sum', 'forward_min_valid_neg_sum',
+            'valid_abs_sum_first_half', 'valid_abs_sum_second_half',
+            'valid_abs_sum_block1', 'valid_abs_sum_block2', 'valid_abs_sum_block3', 'valid_abs_sum_block4',
+            'forward_max_valid_abs_sum_first_half', 'forward_max_valid_abs_sum_second_half',
+            'forward_max_valid_abs_sum_block1', 'forward_max_valid_abs_sum_block2',
+            'forward_max_valid_abs_sum_block3', 'forward_max_valid_abs_sum_block4',
+            'forward_min_valid_abs_sum_first_half', 'forward_min_valid_abs_sum_second_half',
+            'forward_min_valid_abs_sum_block1', 'forward_min_valid_abs_sum_block2',
+            'forward_min_valid_abs_sum_block3', 'forward_min_valid_abs_sum_block4',
+            'n_days_max_value', 'prev_day_change', 'end_day_change', 'diff_end_value',
+            'increment_change', 'after_gt_end_change', 'after_gt_start_change',
+            'forward_max_result_len', 'forward_min_result_len',
+            'n_max_is_max', 'range_ratio_is_less', 'continuous_abs_is_less', 'valid_abs_is_less',
+            'forward_min_continuous_abs_is_less', 'forward_min_valid_abs_is_less',
+            'forward_max_continuous_abs_is_less', 'forward_max_valid_abs_is_less',
+            'stop_loss', 'take_profit', 'op_day_change', 'has_three_consecutive_zeros',
+            'take_and_stop_increment_change', 'take_and_stop_after_gt_end_change', 'take_and_stop_after_gt_start_change',
+            'take_and_stop_change', 'take_and_stop_incre_rate',
+            'stop_and_take_increment_change', 'stop_and_take_after_gt_end_change', 'stop_and_take_after_gt_start_change',
+            'stop_and_take_change', 'stop_and_take_incre_rate',
+            # 添加 round_to_2_nan_fields 中的所有字段
+            'cont_sum_pos_sum', 'cont_sum_neg_sum', 
+            'cont_sum_pos_sum_first_half', 'cont_sum_pos_sum_second_half',
+            'cont_sum_neg_sum_first_half', 'cont_sum_neg_sum_second_half',
+            'forward_max_cont_sum_pos_sum', 'forward_max_cont_sum_neg_sum',
+            'forward_min_cont_sum_pos_sum', 'forward_min_cont_sum_neg_sum',
+            'forward_max_valid_pos_sum', 'forward_max_valid_neg_sum',
+            'forward_min_valid_pos_sum', 'forward_min_valid_neg_sum'
+        ]
+        
+        # 处理所有数值字段
+        for field in numeric_fields:
+            if field in stock_data:
+                val = stock_data[field]
+                if val is not None and val != '' and not (isinstance(val, float) and math.isnan(val)):
+                    try:
+                        float_val = float(val)
+                        # 对使用 round_to_2_nan 的字段进行特殊处理
+                        if field in round_to_2_nan_fields:
+                            if abs(float_val) == 0.0:  # 如果四舍五入后为0，设为None
+                                stock_data[field] = None
+                            else:
+                                stock_data[field] = round(float_val, 2)
+                        else:
+                            # 普通字段直接四舍五入
+                            stock_data[field] = round(float_val, 2)
+                    except (ValueError, TypeError):
+                        continue
 
     def expr_to_tuple(self, expr, abbr_map):
         # 1. 缩写转全名
@@ -207,6 +571,29 @@ class CalculateThread(QThread):
         return expr
 
     def calculate_batch_16_cores(self, params):
+        # 检查是否需要重新调度主进程
+        current_time = time.time()
+        time_elapsed = global_time_manager.get_time_elapsed()
+        one_minute = 30 * 60  # 1分钟 = 60秒
+        
+        # 记录时间信息到日志
+        self._log_to_file(f"时间检查 - 当前时间: {time.strftime('%H:%M:%S', time.localtime(current_time))}, 上次计算时间: {time.strftime('%H:%M:%S', time.localtime(global_time_manager.get_last_calculation_time()))}, 间隔: {time_elapsed/60:.1f}分钟")
+        
+        if time_elapsed > one_minute:
+            self._log_to_file(f"距离上次计算已超过{time_elapsed/60:.1f}分钟，触发主进程重新调度（30分钟阈值）")
+            try:
+                # 直接调用进程池管理器的维护方法
+                process_pool_manager._update_main_process_priority()
+                self._log_to_file("主进程优先级已更新")
+            except Exception as e:
+                self._log_to_file(f"更新主进程优先级时出错: {e}")
+            
+            # 更新时间戳
+            global_time_manager.update_calculation_time()
+            self._log_to_file(f"已更新时间戳，下次检查基准时间: {time.strftime('%H:%M:%S', time.localtime(global_time_manager.get_last_calculation_time()))}")
+        else:
+            self._log_to_file(f"距离上次计算仅{time_elapsed/60:.1f}分钟，未达到30分钟阈值，跳过重新调度")
+        
         columns = list(self.diff_data.columns)
         date_columns = list(self.price_data.columns[2:])
         width = params.get("width")
@@ -224,12 +611,30 @@ class CalculateThread(QThread):
         end_date_end_idx = date_columns.index(end_date_end)
         price_data_np = self.price_data.iloc[:, 2:].values.astype(np.float64)
         diff_data_np = self.diff_data.values.astype(np.float64)
+
+        # 倍增系数参数
+        negative_multiplier = float(params.get('negative_multiplier', 1.0))
+        positive_multiplier = float(params.get('positive_multiplier', 1.0))
+        
+        # 应用倍增系数到diff_data
+        if negative_multiplier != 1.0 or positive_multiplier != 1.0:
+            # 创建掩码：负数位置为True，正数位置为False
+            negative_mask = diff_data_np < 0
+            positive_mask = diff_data_np > 0
+            
+            # 对负数应用负值倍增系数
+            if negative_multiplier != 1.0:
+                diff_data_np[negative_mask] *= negative_multiplier
+            
+            # 对正数应用正值倍增系数
+            if positive_multiplier != 1.0:
+                diff_data_np[positive_mask] *= positive_multiplier
         num_stocks = price_data_np.shape[0]
         trade_t1_mode = params.get('trade_mode', 'T+1') == 'T+1'
 
         stock_idx_arr = np.arange(num_stocks, dtype=np.int32)
         n_days_max = params.get("n_days_max", 0)
-        op_days = int(params.get('op_days', 0))
+        op_days = int(float(params.get('op_days', 0)))
         inc_rate = float(params.get('inc_rate', 0)) * 0.01
         after_gt_end_ratio = float(params.get('after_gt_end_ratio', 0)) * 0.01
         after_gt_start_ratio = float(params.get('after_gt_start_ratio', 0)) * 0.01
@@ -241,6 +646,10 @@ class CalculateThread(QThread):
         formula_expr = params.get('formula_expr', '') or ''
         # formula_expr = replace_abbr(formula_expr, abbr_map)
         ops_change_input = params.get("ops_change", 0)
+        
+        # 盈损参数，默认为INC
+        profit_type = params.get('profit_type', 'INC')  # 盈的类型：INC, AGE, AGS
+        loss_type = params.get('loss_type', 'INC')      # 损的类型：INC, AGE, AGS
         select_count = int(params.get('select_count', 10))
         sort_mode = params.get('sort_mode', '最大值排序')
         only_show_selected = params.get('only_show_selected', False)
@@ -338,11 +747,13 @@ class CalculateThread(QThread):
                 stop_loss_inc_rate,
                 stop_loss_after_gt_end_ratio,
                 stop_loss_after_gt_start_ratio,
-                expr,
-                ops_change_input,
-                formula_expr,
-                select_count,
-                sort_mode,
+                expr, 
+                ops_change_input, 
+                formula_expr, 
+                profit_type,  # 盈的类型
+                loss_type,    # 损的类型
+                select_count, 
+                sort_mode, 
                 trade_t1_mode,
                 only_show_selected,
                 new_before_high_start,
@@ -390,6 +801,7 @@ class CalculateThread(QThread):
             for (start, end) in stock_idx_ranges if end > start
         ]
         t0 = time.time()
+        self._log_to_file(f"开始计算，进程数: {n_proc}, 股票数: {num_stocks}")
         
         # 添加内存监控
         try:
@@ -397,54 +809,332 @@ class CalculateThread(QThread):
             process = psutil.Process()
             initial_memory = process.memory_info().rss / 1024 / 1024  # MB
             print(f"初始内存使用: {initial_memory:.2f} MB")
+            # 内存监控信息记录到process_pool.log
+            self._log_to_file(f"初始内存使用: {initial_memory:.2f} MB")
         except ImportError:
             print("psutil未安装，无法监控内存使用")
+            # 内存监控信息记录到process_pool.log
+            self._log_to_file("psutil未安装，无法监控内存使用")
         
         merged_results = {}
         for idx in range(end_date_start_idx, end_date_end_idx-1, -1):
             end_date = date_columns[idx]
             merged_results[end_date] = []
+        # 每次计算都创建新的进程池，避免进程被系统清理的问题
         with concurrent.futures.ProcessPoolExecutor(max_workers=n_proc) as executor:
+            self._log_to_file(f"创建新的进程池，max_workers={n_proc}")
+            
+            # 为子进程设置高优先级，确保立即获得CPU时间片
+            try:
+                if hasattr(executor, '_processes'):
+                    for process in executor._processes:
+                        if process and process.is_alive():
+                            try:
+                                # 使用已导入的psutil设置进程优先级
+                                child_process = psutil.Process(process.pid)
+                                
+                                # 方法1: 使用psutil设置进程优先级 (Windows 11兼容)
+                                try:
+                                    if IS_WINDOWS_11:
+                                        # Windows 11中，使用ABOVE_NORMAL_PRIORITY_CLASS更稳定
+                                        child_process.nice(psutil.ABOVE_NORMAL_PRIORITY_CLASS)
+                                        self._log_to_file(f"子进程优先级已设置为ABOVE_NORMAL_PRIORITY_CLASS (Windows 11兼容) (PID: {process.pid})")
+                                    else:
+                                        # Windows 10及以下版本，可以使用HIGH_PRIORITY_CLASS
+                                        child_process.nice(psutil.HIGH_PRIORITY_CLASS)
+                                        self._log_to_file(f"子进程优先级已设置为HIGH_PRIORITY_CLASS (PID: {process.pid})")
+                                except Exception:
+                                    # 如果高优先级失败，回退到NORMAL_PRIORITY_CLASS
+                                    try:
+                                        child_process.nice(psutil.NORMAL_PRIORITY_CLASS)
+                                        self._log_to_file(f"子进程优先级已回退到NORMAL_PRIORITY_CLASS (PID: {process.pid})")
+                                    except Exception as e:
+                                        self._log_to_file(f"设置进程优先级失败: {e}", "WARNING")
+                                
+                                # 方法2: 如果Windows优化可用，尝试设置线程优先级
+                                if WINDOWS_OPTIMIZATION_AVAILABLE:
+                                    try:
+                                        # 获取进程的所有线程
+                                        threads = child_process.threads()
+                                        for thread in threads:
+                                            if thread.id:
+                                                # 使用Windows API设置线程优先级
+                                                thread_handle = ctypes.windll.kernel32.OpenThread(
+                                                    0x0020,  # THREAD_SET_INFORMATION
+                                                    False,   # bInheritHandle
+                                                    thread.id
+                                                )
+                                                if thread_handle:
+                                                    # 根据Windows版本选择最佳线程优先级
+                                                    if IS_WINDOWS_11:
+                                                        # Windows 11中，THREAD_PRIORITY_ABOVE_NORMAL更稳定
+                                                        ctypes.windll.kernel32.SetThreadPriority(
+                                                            thread_handle, 
+                                                            THREAD_PRIORITY_ABOVE_NORMAL
+                                                        )
+                                                    else:
+                                                        # Windows 10及以下版本，可以使用THREAD_PRIORITY_HIGHEST
+                                                        ctypes.windll.kernel32.SetThreadPriority(
+                                                            thread_handle, 
+                                                            THREAD_PRIORITY_HIGHEST
+                                                        )
+                                                    ctypes.windll.kernel32.CloseHandle(thread_handle)
+                                        self._log_to_file(f"子进程线程优先级已优化 (PID: {process.pid})")
+                                    except Exception as e:
+                                        self._log_to_file(f"设置线程优先级时出错: {e}", "WARNING")
+                                        
+                            except Exception as e:
+                                self._log_to_file(f"设置子进程优先级时出错: {e}", "WARNING")
+            except Exception as e:
+                self._log_to_file(f"访问进程池进程时出错: {e}", "WARNING")
+            
+            # 提交所有任务
             futures = [executor.submit(cy_batch_worker, args) for args in args_list]
-            for fut in concurrent.futures.as_completed(futures):
-                # 添加超时处理
+            
+        for fut in concurrent.futures.as_completed(futures):
+            try:
+                process_results = fut.result()
+                for end_date, stocks in process_results.items():
+                    if end_date in merged_results:
+                        merged_results[end_date].extend(stocks)
+            except Exception as e:
+                import traceback
+                print(f"子进程异常: {e}")
+                print(f"异常详情: {traceback.format_exc()}")
+                # 子进程异常记录到error_log.txt，与进程池日志分开
                 try:
-                    process_results = fut.result()
-                    for end_date, stocks in process_results.items():
-                        if end_date in merged_results:
-                            merged_results[end_date].extend(stocks)
-                except Exception as e:
-                    import traceback
-                    print(f"子进程异常: {e}")
-                    print(f"异常详情: {traceback.format_exc()}")
-                    # 记录到日志文件
-                    try:
-                        with open('error_log.txt', 'a', encoding='utf-8') as f:
-                            f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} - 子进程异常: {e}\n")
-                            f.write(f"异常详情: {traceback.format_exc()}\n")
-                            f.write("-" * 50 + "\n")
-                    except:
-                        pass
+                    with open('error_log.txt', 'a', encoding='utf-8') as f:
+                        f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} - 子进程异常: {e}\n")
+                        f.write(f"异常详情: {traceback.format_exc()}\n")
+                        f.write("-" * 50 + "\n")
+                except:
+                    pass
         t1 = time.time()
-        print(f"calculate_batch_{n_proc}_cores 总耗时: {t1 - t0:.4f}秒")
+        total_time = t1 - t0
+        print(f"calculate_batch_{n_proc}_cores 总耗时: {total_time:.4f}秒")
+        self._log_to_file(f"计算完成，总耗时: {total_time:.4f}秒")
+        # 统一处理股票代码和名称
+        for end_date in merged_results:
+            for stock in merged_results[end_date]:
+                stock_idx = stock.get('stock_idx', None)
+                if stock_idx is not None:
+                    # 获取股票代码和名称
+                    code = self.price_data.iloc[stock_idx, 0]
+                    name = self.price_data.iloc[stock_idx, 1]
+                    
+                    # 格式化股票代码为6位数字格式
+                    if code is not None and code != '':
+                        try:
+                            code_str = str(code).strip()
+                            if code_str.isdigit() and len(code_str) < 6:
+                                code = code_str.zfill(6)
+                        except Exception:
+                            pass
+                    
+                    stock['code'] = code
+                    stock['name'] = name if name is not None else ''
+                
+                # 统一的数值四舍五入处理
+                self._round_numeric_values(stock)
         
         if only_show_selected:
             for end_date in merged_results:
-                # if merged_results[end_date]:
-                #     first_date = list(merged_results.keys())[0]
-                #     print(f"merged_results第一个日期 {first_date} 的list长度: {len(merged_results[first_date])}")
                 merged_results[end_date] = sorted(
                     merged_results[end_date],
                     key=lambda x: x['score'],
                     reverse=(sort_mode == "最大值排序")
                 )[:select_count]
-            # if merged_results:
-            #     first_date = list(merged_results.keys())[0]
-            #     first_stocks = merged_results[first_date]
-            #     stock_indices = [stock.get('stock_idx') for stock in first_stocks if 'stock_idx' in stock]
-            #     print(f"自动分析第一个日期 {first_date} 的stock_idx: {stock_indices}")
-            #     scores = [stock.get('score') for stock in first_stocks if 'score' in stock]
-            #     print(f"自动分析第一个日期 {first_date} 的score: {scores}")
+        
+        # 定义数值字段和非数值字段
+        numeric_fields = [
+            'score', 'hold_days', 'ops_change', 'ops_incre_rate', 
+            'adjust_days', 'adjust_ops_change', 'adjust_ops_incre_rate',
+            'max_value', 'min_value', 'end_value', 'start_value', 
+            'actual_value', 'closest_value', 'increment_value',
+            'after_gt_end_value', 'after_gt_start_value', 'ops_value',
+            'continuous_len', 'continuous_start_value', 'continuous_start_next_value', 
+            'continuous_start_next_next_value', 'continuous_end_value', 
+            'continuous_end_prev_value', 'continuous_end_prev_prev_value',
+            'continuous_abs_sum_first_half', 'continuous_abs_sum_second_half',
+            'continuous_abs_sum_block1', 'continuous_abs_sum_block2', 
+            'continuous_abs_sum_block3', 'continuous_abs_sum_block4',
+            'forward_max_result', 'forward_max_continuous_start_value',
+            'forward_max_continuous_start_next_value', 'forward_max_continuous_start_next_next_value',
+            'forward_max_continuous_end_value', 'forward_max_continuous_end_prev_value',
+            'forward_max_continuous_end_prev_prev_value', 'forward_max_abs_sum_first_half',
+            'forward_max_abs_sum_second_half', 'forward_max_abs_sum_block1',
+            'forward_max_abs_sum_block2', 'forward_max_abs_sum_block3', 'forward_max_abs_sum_block4',
+            'forward_min_result', 'forward_min_continuous_start_value',
+            'forward_min_continuous_start_next_value', 'forward_min_continuous_start_next_next_value',
+            'forward_min_continuous_end_value', 'forward_min_continuous_end_prev_value',
+            'forward_min_continuous_end_prev_prev_value', 'forward_min_abs_sum_first_half',
+            'forward_min_abs_sum_second_half', 'forward_min_abs_sum_block1',
+            'forward_min_abs_sum_block2', 'forward_min_abs_sum_block3', 'forward_min_abs_sum_block4',
+            'valid_sum_len', 'valid_pos_sum', 'valid_neg_sum',
+            'forward_max_valid_sum_len', 'forward_max_valid_pos_sum', 'forward_max_valid_neg_sum',
+            'forward_min_valid_sum_len', 'forward_min_valid_pos_sum', 'forward_min_valid_neg_sum',
+            'valid_abs_sum_first_half', 'valid_abs_sum_second_half',
+            'valid_abs_sum_block1', 'valid_abs_sum_block2', 'valid_abs_sum_block3', 'valid_abs_sum_block4',
+            'forward_max_valid_abs_sum_first_half', 'forward_max_valid_abs_sum_second_half',
+            'forward_max_valid_abs_sum_block1', 'forward_max_valid_abs_sum_block2',
+            'forward_max_valid_abs_sum_block3', 'forward_max_valid_abs_sum_block4',
+            'forward_min_valid_abs_sum_first_half', 'forward_min_valid_abs_sum_second_half',
+            'forward_min_valid_abs_sum_block1', 'forward_min_valid_abs_sum_block2',
+            'forward_min_valid_abs_sum_block3', 'forward_min_valid_abs_sum_block4',
+            'n_max_is_max', 'range_ratio_is_less', 'continuous_abs_is_less', 'valid_abs_is_less',
+            'forward_min_continuous_abs_is_less', 'forward_min_valid_abs_is_less',
+            'forward_max_continuous_abs_is_less', 'forward_max_valid_abs_is_less',
+            'n_days_max_value', 'prev_day_change', 'end_day_change', 'diff_end_value',
+            'increment_change', 'after_gt_end_change', 'after_gt_start_change',
+            'forward_max_result_len', 'forward_min_result_len',
+            'cont_sum_pos_sum', 'cont_sum_neg_sum',
+            'cont_sum_pos_sum_first_half', 'cont_sum_pos_sum_second_half',
+            'cont_sum_neg_sum_first_half', 'cont_sum_neg_sum_second_half',
+            'forward_max_cont_sum_pos_sum', 'forward_max_cont_sum_neg_sum',
+            'forward_min_cont_sum_pos_sum', 'forward_min_cont_sum_neg_sum',
+            'start_with_new_before_high', 'start_with_new_before_high2',
+            'start_with_new_after_high', 'start_with_new_after_high2',
+            'start_with_new_before_low', 'start_with_new_before_low2',
+            'start_with_new_after_low', 'start_with_new_after_low2',
+            'stop_loss', 'take_profit', 'op_day_change', 'has_three_consecutive_zeros',
+            'take_and_stop_increment_change', 'take_and_stop_after_gt_end_change', 'take_and_stop_after_gt_start_change',
+            'take_and_stop_change', 'take_and_stop_incre_rate',
+            'stop_and_take_increment_change', 'stop_and_take_after_gt_end_change', 'stop_and_take_after_gt_start_change',
+            'stop_and_take_change', 'stop_and_take_incre_rate',
+        ]
+        
+        # 定义非数值类型字段（数组对象和布尔对象）
+        non_numeric_fields = {
+            'forward_max_result', 'forward_min_result',  # 数组对象
+            'n_max_is_max', 'range_ratio_is_less', 'continuous_abs_is_less', 'valid_abs_is_less',
+            'forward_min_continuous_abs_is_less', 'forward_min_valid_abs_is_less',
+            'forward_max_continuous_abs_is_less', 'forward_max_valid_abs_is_less',
+            'start_with_new_before_high', 'start_with_new_before_high2',
+            'start_with_new_after_high', 'start_with_new_after_high2',
+            'start_with_new_before_low', 'start_with_new_before_low2',
+            'start_with_new_after_low', 'start_with_new_after_low2',
+            'has_three_consecutive_zeros'  # 布尔对象
+        }
+        
+        # 初始化总体统计收集器
+        overall_values = {field: [] for field in numeric_fields if field not in non_numeric_fields}
+        
+        # 添加统计行：最大值、最小值、中值
+        for end_date in merged_results:
+            stocks = merged_results[end_date]
+            if not stocks:
+                continue
+                
+            # 收集所有数值字段用于统计
+            stats = {}
+            for field in numeric_fields:
+                # 跳过非数值类型字段
+                if field in non_numeric_fields:
+                    continue
+                    
+                values = []
+                for stock in stocks:
+                    val = stock.get(field)
+                    if val is not None and val != '' and not (isinstance(val, float) and math.isnan(val)):
+                        try:
+                            float_val = float(val)
+                            values.append(float_val)
+                            # 同时收集总体统计值
+                            overall_values[field].append(float_val)
+                        except (ValueError, TypeError):
+                            continue
+                
+                if values:
+                    stats[f'{field}_max'] = max(values)
+                    stats[f'{field}_min'] = min(values)
+                    # 计算中值：如果是奇数个，取中间值；如果是偶数个，取中间两个值的平均值
+                    sorted_values = sorted(values)
+                    n = len(sorted_values)
+                    if n % 2 == 1:  # 奇数个
+                        stats[f'{field}_median'] = round(sorted_values[n // 2], 2)
+                    else:  # 偶数个
+                        stats[f'{field}_median'] = round((sorted_values[n // 2 - 1] + sorted_values[n // 2]) / 2, 2)
+                else:
+                    stats[f'{field}_max'] = None
+                    stats[f'{field}_min'] = None
+                    stats[f'{field}_median'] = None
+            
+            # 创建统计行
+            max_row = {'code': '', 'name': '统计最大值', 'stock_idx': -3}
+            min_row = {'code': '', 'name': '统计最小值', 'stock_idx': -2}
+            median_row = {'code': '', 'name': '统计中值', 'stock_idx': -1}
+            
+            # 填充统计值
+            for field in numeric_fields:
+                if field in non_numeric_fields:
+                    # 非数值类型字段在统计行中留空
+                    max_row[field] = ''
+                    min_row[field] = ''
+                    median_row[field] = ''
+                else:
+                    max_row[field] = stats.get(f'{field}_max')
+                    min_row[field] = stats.get(f'{field}_min')
+                    median_row[field] = stats.get(f'{field}_median')
+            
+            # 将统计行添加到结果中
+            merged_results[end_date].extend([max_row, min_row, median_row])
+        
+        # 计算总体统计值
+        overall_stats = {}
+        for field, values in overall_values.items():
+            if values:
+                overall_stats[f'{field}_max'] = round(max(values), 2)
+                overall_stats[f'{field}_min'] = round(min(values), 2)
+                # 计算中值：如果是奇数个，取中间值；如果是偶数个，取中间两个值的平均值
+                sorted_values = sorted(values)
+                n = len(sorted_values)
+                if n % 2 == 1:  # 奇数个
+                    overall_stats[f'{field}_median'] = round(sorted_values[n // 2], 2)
+                else:  # 偶数个
+                    overall_stats[f'{field}_median'] = round((sorted_values[n // 2 - 1] + sorted_values[n // 2]) / 2, 2)
+                # 计算正值中值
+                positive_values = [v for v in sorted_values if v > 0]
+                n_pos = len(positive_values)
+                if n_pos > 0:
+                    if n_pos % 2 == 1:
+                        overall_stats[f'{field}_positive_median'] = round(positive_values[n_pos // 2], 2)
+                    else:
+                        overall_stats[f'{field}_positive_median'] = round((positive_values[n_pos // 2 - 1] + positive_values[n_pos // 2]) / 2, 2)
+                else:
+                    overall_stats[f'{field}_positive_median'] = None
+                # 计算负值中值
+                negative_values = [v for v in sorted_values if v < 0]
+                n_neg = len(negative_values)
+                if n_neg > 0:
+                    if n_neg % 2 == 1:
+                        overall_stats[f'{field}_negative_median'] = round(negative_values[n_neg // 2], 2)
+                    else:
+                        overall_stats[f'{field}_negative_median'] = round((negative_values[n_neg // 2 - 1] + negative_values[n_neg // 2]) / 2, 2)
+                else:
+                    overall_stats[f'{field}_negative_median'] = None
+                
+                # 专门打印 diff_end_value 的统计信息
+                # if field == 'diff_end_value':
+                #     print(f"[worker_threads] diff_end_value 统计数组长度: {len(values)}")
+                #     print(f"[worker_threads] diff_end_value 统计数组前10个值: {values[:10]}")
+                #     print(f"[worker_threads] diff_end_value 统计数组后10个值: {values[-10:]}")
+                #     print(f"[worker_threads] diff_end_value 最终统计值:")
+                #     print(f"  最大值: {overall_stats[f'{field}_max']}")
+                #     print(f"  最小值: {overall_stats[f'{field}_min']}")
+                #     print(f"  中值: {overall_stats[f'{field}_median']}")
+                #     print(f"  正值中值: {overall_stats[f'{field}_positive_median']}")
+                #     print(f"  负值中值: {overall_stats[f'{field}_negative_median']}")
+                #     print(f"  正值数量: {len(positive_values)}")
+                #     print(f"  负值数量: {len(negative_values)}")
+                #     print(f"  零值数量: {len([v for v in values if v == 0])}")
+            else:
+                overall_stats[f'{field}_max'] = None
+                overall_stats[f'{field}_min'] = None
+                overall_stats[f'{field}_median'] = None
+                overall_stats[f'{field}_positive_median'] = None
+                overall_stats[f'{field}_negative_median'] = None
+
+        #print(f"[SelectStockThread] overall_stats: {overall_stats}")
         
         result = {
             "dates": merged_results,
@@ -453,6 +1143,7 @@ class CalculateThread(QThread):
             "start_date": date_columns[0],
             "end_date": date_columns[-1],
             "base_idx": None,
+            "overall_stats": overall_stats,  # 添加总体统计值
         }
         return result
 
@@ -579,13 +1270,15 @@ def cy_batch_worker(args):
         expr, 
         ops_change_input, 
         formula_expr, 
+        profit_type,  # 盈的类型
+        loss_type,    # 损的类型
         select_count, 
         sort_mode, 
         trade_t1_mode,
         only_show_selected, 
         new_before_high_start, 
         new_before_high_range, 
-        new_before_high_span, 
+        new_before_high_span,  
         new_before_high_logic, 
         new_before_high2_start, 
         new_before_high2_range, 
@@ -652,6 +1345,8 @@ def cy_batch_worker(args):
         expr, 
         ops_change_input, 
         formula_expr, 
+        profit_type,  # profit_type: 盈的类型，默认为INC
+        loss_type,  # loss_type: 损的类型，默认为INC
         select_count, 
         sort_mode, 
         trade_t1_mode,

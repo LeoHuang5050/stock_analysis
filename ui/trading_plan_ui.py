@@ -283,21 +283,17 @@ class TradingPlanWidget(QWidget):
         # 创建标签按钮
         self.create_tab_buttons()
         
-        # 获取方案列表
+        # 获取方案列表（已经在创建时按adjusted_value排序）
         plan_list = getattr(self.main_window, 'trading_plan_list', [])
-        
-        # 保存排序后的列表到主窗口，确保索引一致
-        sorted_plan_list = sorted(plan_list, key=lambda x: float(x.get('adjusted_value', 0)), reverse=True)
-        self.main_window.sorted_trading_plan_list = sorted_plan_list
         
         # 计算当前页面显示的方案
         start_idx = self.current_page * self.cards_per_page
-        end_idx = min(start_idx + self.cards_per_page, len(sorted_plan_list))
-        current_page_plans = sorted_plan_list[start_idx:end_idx]
+        end_idx = min(start_idx + self.cards_per_page, len(plan_list))
+        current_page_plans = plan_list[start_idx:end_idx]
         
         # 固定每行3个卡片，宽度600
         cards_per_row = 3
-        card_width = 600
+        card_width = 780
         
         # 按行分组显示卡片
         for row_start in range(0, len(current_page_plans), cards_per_row):
@@ -310,7 +306,7 @@ class TradingPlanWidget(QWidget):
                 idx = row_start + col
                 if idx < len(current_page_plans):
                     plan = current_page_plans[idx]
-                    # 计算在原始列表中的索引
+                    # 计算在完整列表中的索引
                     original_idx = start_idx + idx
                     # 只根据用户操作记录的card_states决定最大/最小化，默认最大化
                     is_min = plan.get('card_minimized', False)
@@ -378,7 +374,7 @@ class TradingPlanWidget(QWidget):
             hbox.addWidget(del_btn)
             return card
         # 最大化内容（原有内容）
-        card.setFixedHeight(640)
+        card.setFixedHeight(840)
         card.setStyleSheet("background:#fff;")
         vbox = QVBoxLayout(card)
         vbox.setContentsMargins(6, 6, 6, 6)
@@ -417,6 +413,36 @@ class TradingPlanWidget(QWidget):
             label_formula.setAlignment(Qt.AlignLeft)
             vbox.addWidget(label_formula)
         
+        # 显示选股参数（按指定顺序分行输出）
+        params = plan.get('params', {})
+        params_text = []
+        params_text.append(f"选股数量: {params.get('last_select_count', 10)}")
+        params_text.append(f"排序方式: {params.get('last_sort_mode', '')}")
+        params_text.append(f"开始日期值选择: {params.get('start_option', '')}")
+        params_text.append(f"交易方式: {params.get('trade_mode', '')}")
+        
+        # 构建盈损操作值显示
+        profit_type = params.get('profit_type', 'INC')
+        loss_type = params.get('loss_type', 'INC')
+        operation_value = f"盈（{profit_type}），损（{loss_type}）"
+        params_text.append(f"操作值: {operation_value}")
+        params_text.append(f"正值倍增系数: {params.get('positive_multiplier', '')}")
+        params_text.append(f"负值倍增系数: {params.get('negative_multiplier', '')}")
+        params_text.append(f"日期宽度: {params.get('width', '')}")
+        params_text.append(f"操作天数: {params.get('op_days', '')}")
+        params_text.append(f"止盈递增率: {self._get_increment_rate_value(params)}")
+        params_text.append(f"止盈后值大于结束值比例: {params.get('after_gt_end_ratio', '')}")
+        params_text.append(f"止盈后值大于前值比例: {params.get('after_gt_start_ratio', '')}")
+        params_text.append(f"止损递增率: {params.get('stop_loss_inc_rate', '')}")
+        params_text.append(f"止损后值大于结束值比例: {params.get('stop_loss_after_gt_end_ratio', '')}")
+        params_text.append(f"止损后值大于前值比例: {params.get('stop_loss_after_gt_start_ratio', '')}")
+        
+        if params_text:
+            label_params = QLabel("选股参数：\n" + "\n".join(params_text))
+            label_params.setStyleSheet("font-size:12px;")
+            label_params.setAlignment(Qt.AlignLeft)
+            vbox.addWidget(label_params)
+        
         # 添加空行
         empty_label = QLabel("")
         empty_label.setFixedHeight(10)
@@ -429,8 +455,32 @@ class TradingPlanWidget(QWidget):
             # 构建参数显示文本
             param_lines = ["参加组合排序参数："]
             
+            # 获取中文名称映射
+            from function.stock_functions import get_abbr_round_only_map
+            abbr_map = get_abbr_round_only_map()
+            # 获取n_values用于替换第N位
+            n_values = params.get('n_values', {})
+            
+            param_sum = 0
             for var_name, value in selected_vars:  # 解包元组
-                param_lines.append(f"{var_name}: {value:.2f}")  # 直接使用中文名称
+                # 查找对应的中文名称
+                zh_display = var_name  # 默认使用英文名
+                for (zh, en) in abbr_map.keys():
+                    if en == var_name:
+                        # 处理第N位变量
+                        if "第N位" in zh:
+                            n_value = n_values.get(var_name, "N")
+                            zh_display = zh.replace("第N位", f"第{n_value}位")
+                        else:
+                            zh_display = zh
+                        break
+                
+                param_sum += value
+                param_lines.append(f"{zh_display}: {value:.2f}")
+            
+            # 添加总和
+            if param_sum != 0:
+                param_lines.append(f"总和: {param_sum:.2f}")
             
             # 添加组合排序输出值
             adjusted_value = plan.get('adjusted_value', 0)
@@ -445,6 +495,85 @@ class TradingPlanWidget(QWidget):
             label_vars.setStyleSheet("font-size:12px;")
             label_vars.setAlignment(Qt.AlignLeft)
             vbox.addWidget(label_vars)
+            
+            # 添加空行
+            empty_label2 = QLabel("")
+            empty_label2.setFixedHeight(10)
+            vbox.addWidget(empty_label2)
+            
+            # 添加备注功能
+            remark_layout = QVBoxLayout()  # 改为垂直布局，确保备注文本能够换行
+            remark_layout.setSpacing(3)
+            remark_layout.setContentsMargins(0, 0, 0, 0)  # 减少边距，确保布局紧凑
+            
+            # 第一行：备注标签和编辑按钮
+            remark_header_layout = QHBoxLayout()
+            remark_header_layout.setSpacing(5)
+            
+            # 备注标签
+            remark_label = QLabel("备注:")
+            remark_label.setStyleSheet("font-size:12px;font-weight:bold;")
+            remark_header_layout.addWidget(remark_label)
+            
+            # 编辑图标按钮
+            edit_remark_btn = QPushButton("✎")
+            edit_remark_btn.setFixedSize(20, 20)
+            edit_remark_btn.setStyleSheet("font-weight:bold;border:none;background:transparent;color:blue;")
+            edit_remark_btn.setToolTip("编辑备注")
+            edit_remark_btn.clicked.connect(lambda _, i=idx: self.edit_plan_remark(i))
+            remark_header_layout.addWidget(edit_remark_btn)
+            
+            remark_header_layout.addStretch()
+            remark_layout.addLayout(remark_header_layout)
+            
+            # 备注布局不需要设置大小策略，这是QWidget的方法
+            
+            # 第二行：备注显示文本（独占一行，支持换行）
+            remark_text = plan.get('remark', '')
+            if remark_text:
+                # 使用QTextEdit来确保文本换行，但设置为只读模式
+                from PyQt5.QtWidgets import QTextEdit
+                remark_display = QTextEdit()
+                remark_display.setPlainText(remark_text)
+                remark_display.setReadOnly(True)  # 设置为只读
+                remark_display.setStyleSheet("""
+                    QTextEdit {
+                        font-size: 12px;
+                        color: #333;
+                        border: none;
+                        background: transparent;
+                        padding: 0px;
+                        margin: 0px;
+                    }
+                """)
+                
+                # 计算文本需要的实际高度
+                font_metrics = remark_display.fontMetrics()
+                text_width = card_width - 20  # 减去左右边距
+                
+                # 使用QTextEdit的document来精确计算换行后的高度
+                document = remark_display.document()
+                document.setTextWidth(text_width)
+                
+                # 获取文档的实际高度
+                required_height = max(20, int(document.size().height()) + 10)
+                
+                # 设置固定宽度和动态高度
+                remark_display.setFixedWidth(text_width)
+                remark_display.setFixedHeight(required_height)
+                
+                # 设置大小策略
+                remark_display.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+                remark_layout.addWidget(remark_display)
+            else:
+                remark_display = QLabel("暂无备注")
+                remark_display.setStyleSheet("font-size:12px;color:#999;font-style:italic;")
+                remark_display.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+                remark_display.setFixedWidth(card_width - 20)  # 同样设置固定宽度
+                remark_display.setFixedHeight(20)  # 设置固定高度
+                remark_layout.addWidget(remark_display)
+            
+            vbox.addLayout(remark_layout)
         
         # 分割线
         line1 = QFrame()
@@ -452,7 +581,7 @@ class TradingPlanWidget(QWidget):
         line1.setStyleSheet("color:#ccc;")
         vbox.addWidget(line1)
         
-        # 第四行：是否参与实操（勾选框）
+        # 第四行：是否参与实操（勾选框）、锁定方案（勾选框）和恢复参数按钮
         real_trade_widget = QWidget()
         real_trade_layout = QHBoxLayout(real_trade_widget)
         real_trade_layout.setContentsMargins(0, 0, 0, 0)
@@ -464,6 +593,40 @@ class TradingPlanWidget(QWidget):
             plan['real_trade'] = (state == Qt.Checked)
         real_trade_checkbox.stateChanged.connect(on_real_trade_changed)
         real_trade_layout.addWidget(real_trade_checkbox)
+        
+        # 添加锁定方案勾选框
+        lock_plan_checkbox = QCheckBox("锁定方案")
+        lock_plan_checkbox.setChecked(plan.get('locked', False))
+        # 绑定锁定方案勾选框状态变化事件
+        def on_lock_plan_changed(state):
+            plan['locked'] = (state == Qt.Checked)
+        lock_plan_checkbox.stateChanged.connect(on_lock_plan_changed)
+        real_trade_layout.addWidget(lock_plan_checkbox)
+        
+        # 添加恢复参数按钮
+        restore_btn = QPushButton("恢复参数")
+        restore_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #2196F3;
+                color: white;
+                border: none;
+                padding: 5px 10px;
+                border-radius: 3px;
+                font-size: 12px;
+            }
+            QPushButton:hover {
+                background-color: #1976D2;
+            }
+            QPushButton:pressed {
+                background-color: #0D47A1;
+            }
+        """)
+        # 绑定恢复参数事件
+        def on_restore_params_clicked():
+            self.restore_plan_params(plan)
+        restore_btn.clicked.connect(on_restore_params_clicked)
+        real_trade_layout.addWidget(restore_btn)
+        
         real_trade_layout.addStretch()
         vbox.addWidget(real_trade_widget)
         
@@ -479,12 +642,20 @@ class TradingPlanWidget(QWidget):
         result_title.setAlignment(Qt.AlignCenter)
         vbox.addWidget(result_title)
         
-        # 选股结果表格区域
+        # 选股结果表格区域 - 使用QScrollArea来支持水平滚动
+        result_scroll_area = QScrollArea()
+        result_scroll_area.setWidgetResizable(True)
+        result_scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        result_scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        result_scroll_area.setStyleSheet("border:1px solid #ddd;background:#f9f9f9;")
+        result_scroll_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        
+        # 创建内容容器
         result_area = QWidget()
-        result_area.setStyleSheet("border:1px solid #ddd;background:#f9f9f9;")
-        result_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        result_area.setStyleSheet("background:#f9f9f9;")
+        result_scroll_area.setWidget(result_area)
         # 设置选股结果区域占用更多空间
-        vbox.addWidget(result_area, 1)  # 添加拉伸因子1，让它占用更多空间
+        vbox.addWidget(result_scroll_area, 1)  # 添加拉伸因子1，让它占用更多空间
         
         # 如果有选股结果，显示表格
         result = plan.get('result', None)
@@ -499,7 +670,7 @@ class TradingPlanWidget(QWidget):
                 if result_table:
                     # 设置表格完全展示，不限制高度
                     result_table.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-                    result_table.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+                    result_table.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)  # 启用水平滚动条
                     # 恢复正常字体大小
                     result_table.setStyleSheet("font-size:12px;")
                     # 列宽自适应内容
@@ -512,6 +683,11 @@ class TradingPlanWidget(QWidget):
                     # 设置合适的行高
                     result_table.verticalHeader().setDefaultSectionSize(25)
                     result_table.verticalHeader().setSectionResizeMode(QHeaderView.Fixed)
+                    # 设置表格大小策略，允许水平滚动
+                    result_table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+                    # 设置表格的最小宽度，确保所有列都能显示
+                    total_width = sum([result_table.columnWidth(i) for i in range(result_table.columnCount())])
+                    result_table.setMinimumWidth(total_width + 50)  # 添加一些额外空间
                     
                     # 将表格添加到结果区域
                     result_layout = QVBoxLayout(result_area)
@@ -519,6 +695,8 @@ class TradingPlanWidget(QWidget):
                     result_layout.addWidget(result_table)
                     # 设置表格大小策略，让它能够根据内容自动调整
                     result_table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+                    # 确保表格能够正确地在滚动区域中显示
+                    result_area.setMinimumWidth(result_table.minimumWidth())
             except Exception as e:
                 error_label = QLabel(f"选股结果加载失败: {e}")
                 error_label.setStyleSheet("color:red;font-size:10px;")
@@ -535,30 +713,26 @@ class TradingPlanWidget(QWidget):
         return card
 
     def set_card_minimized(self, idx, minimized):
-        # 使用排序后的列表来获取正确的plan
-        sorted_plan_list = getattr(self.main_window, 'sorted_trading_plan_list', [])
-        if 0 <= idx < len(sorted_plan_list):
-            plan_to_update = sorted_plan_list[idx]
-            plan_id = plan_to_update.get('plan_id')
-            
-            # 在原始列表中找到对应的plan并更新
-            plan_list = getattr(self.main_window, 'trading_plan_list', [])
-            for plan in plan_list:
-                if plan.get('plan_id') == plan_id:
-                    plan['card_minimized'] = minimized
-                    break
+        # 直接使用已排序的trading_plan_list
+        plan_list = getattr(self.main_window, 'trading_plan_list', [])
+        if 0 <= idx < len(plan_list):
+            plan_to_update = plan_list[idx]
+            plan_to_update['card_minimized'] = minimized
         self.refresh_cards()
 
     def delete_plan(self, idx):
-        # 使用排序后的列表来获取正确的plan
-        sorted_plan_list = getattr(self.main_window, 'sorted_trading_plan_list', [])
-        if 0 <= idx < len(sorted_plan_list):
-            plan_to_delete = sorted_plan_list[idx]
-            plan_id = plan_to_delete.get('plan_id')
+        # 直接使用已排序的trading_plan_list
+        plan_list = getattr(self.main_window, 'trading_plan_list', [])
+        if 0 <= idx < len(plan_list):
+            plan_to_delete = plan_list[idx]
             
-            # 从原始列表中删除对应的plan
-            plan_list = getattr(self.main_window, 'trading_plan_list', [])
-            plan_list = [plan for plan in plan_list if plan.get('plan_id') != plan_id]
+            # 检查方案是否被锁定
+            if plan_to_delete.get('locked', False):
+                QMessageBox.warning(self, "方案已锁定", "该方案已锁定，不能删除！")
+                return
+            
+            # 直接从列表中删除对应的plan
+            plan_list.pop(idx)
             
             self.clean_plan_for_save(plan_list)
             self.main_window.trading_plan_list = plan_list
@@ -567,6 +741,42 @@ class TradingPlanWidget(QWidget):
     def on_select_btn_clicked(self):
         self.calculate_all_trading_plans()
         self.refresh_cards()
+        
+        # 统计参与实操的方案数量
+        plan_list = getattr(self.main_window, 'trading_plan_list', [])
+        real_trade_count = sum(1 for plan in plan_list if plan.get('real_trade', False))
+        if real_trade_count > 0:
+            QMessageBox.warning(self, "选股完成", "操盘方案选股已完成！")
+            
+
+    def _get_increment_rate_value(self, params):
+        """
+        兼容性函数：优先使用increment_rate，如果没有则使用inc_rate
+        返回止盈递增率的值
+        """
+        if 'increment_rate' in params:
+            return params['increment_rate']
+        elif 'inc_rate' in params:
+            return params['inc_rate']
+        else:
+            return ''
+
+    def _normalize_params_for_calculation(self, params):
+        """
+        标准化参数，确保兼容新旧版本的参数名称
+        """
+        # 处理止盈递增率：优先使用increment_rate，兼容inc_rate
+        if 'increment_rate' in params:
+            # 新版本，直接使用
+            params['inc_rate'] = float(params['increment_rate'])
+        elif 'inc_rate' in params:
+            # 旧版本，转换为新版本格式
+            params['increment_rate'] = float(params['inc_rate'])
+            params['inc_rate'] = float(params['inc_rate'])
+        else:
+            # 默认值
+            params['increment_rate'] = ''
+            params['inc_rate'] = ''
 
     def calculate_all_trading_plans(self):
         """
@@ -575,14 +785,23 @@ class TradingPlanWidget(QWidget):
         # 检查是否有数据文件
         price_data = getattr(self.main_window.init, 'price_data', None)
         if price_data is None:
-            from PyQt5.QtWidgets import QMessageBox
             QMessageBox.warning(self, "提示", "请先上传数据文件！")
             return
             
         plan_list = getattr(self.main_window, 'trading_plan_list', [])
+        expired_plans = []  # 收集过期的交易计划
+        
         for plan in plan_list:
             # 检查是否参与实操，如果为False则跳过
             if not plan.get('real_trade', False):
+                continue
+            
+            # 检查交易计划是否过期
+            is_expired, expiry_time = self._is_trading_plan_expired(plan)
+            if is_expired:
+                # 将过期时间存储到plan对象中，用于弹窗显示
+                plan['expiry_time'] = expiry_time
+                expired_plans.append(plan)
                 continue
                 
             params = plan.get('params', {})
@@ -596,11 +815,9 @@ class TradingPlanWidget(QWidget):
             # 检查结束日期是否为交易日
             if hasattr(self.main_window.init, 'workdays_str'):
                 if not self.main_window.init.workdays_str:
-                    from PyQt5.QtWidgets import QMessageBox
                     QMessageBox.warning(self, "提示", "请先上传数据文件！")
                     return
                 if end_date not in self.main_window.init.workdays_str:
-                    from PyQt5.QtWidgets import QMessageBox
                     QMessageBox.warning(self, "提示", "只能选择交易日！")
                     return
             
@@ -608,13 +825,14 @@ class TradingPlanWidget(QWidget):
             params['end_date_end'] = end_date
             params['max_cores'] = 1
             
+            # 标准化参数，确保兼容新旧版本
+            self._normalize_params_for_calculation(params)
+            
             # 参数名称映射和类型转换，确保与stock_analysis_ui_v2.py一致
             if 'after_gt_end_edit' in params:
                 params['after_gt_end_ratio'] = float(params.pop('after_gt_end_edit'))
             if 'after_gt_prev_edit' in params:
                 params['after_gt_start_ratio'] = float(params.pop('after_gt_prev_edit'))
-            if 'increment_rate' in params:
-                params['inc_rate'] = float(params.pop('increment_rate'))
             if 'shift' in params:
                 params['shift_days'] = params.pop('shift')
             if 'direction' in params:
@@ -648,16 +866,19 @@ class TradingPlanWidget(QWidget):
                 params
             )
             result = calc.calculate_batch_16_cores(params)
-            # 新增：将股票名称写入result
-            price_data = getattr(self.main_window.init, 'price_data', None)
-            if result and isinstance(result, dict) and price_data is not None:
-                merged_results = result.get('dates', {})
-                for stocks in merged_results.values():
-                    for stock in stocks:
-                        stock_idx = stock.get('stock_idx', None)
-                        if stock_idx is not None and 'name' not in stock:
-                            stock['name'] = price_data.iloc[stock_idx, 1]
+
             plan['result'] = result
+        
+        # 如果有过期的交易计划，统一弹窗提示
+        if expired_plans:
+            expired_message = "以下交易方案已过期，请重新分析：\n\n"
+            for i, plan in enumerate(expired_plans, 1):
+                plan_name = plan.get('plan_name', '未知方案')
+                expiry_time = plan.get('expiry_time', '未知')
+                expired_message += f"第{i}个方案：{plan_name}，已过期（过期时间：{expiry_time}），请重新分析\n"
+            
+            QMessageBox.information(self, "过期方案提示", expired_message)
+        
         self.clean_plan_for_save(plan_list)
 
     @staticmethod
@@ -756,12 +977,792 @@ class TradingPlanWidget(QWidget):
         if hasattr(self, 'end_date_picker'):
             self.main_window.last_trading_plan_end_date = self.end_date_picker.date().toString("yyyy-MM-dd")
 
+    def restore_plan_params(self, plan):
+        """恢复操盘方案参数到主窗口控件"""
+        try:
+            # 获取操盘方案的参数
+            params = plan.get('params', {})
+            formula = plan.get('formula', '')
+            
+            # 恢复基本参数
+            if 'width' in params and hasattr(self.main_window, 'width_spin'):
+                try:
+                    width_val = int(float(params['width']))
+                    self.main_window.width_spin.setValue(width_val)
+                    print(f"恢复日期宽度: {width_val}")
+                except:
+                    pass
+            
+            if 'start_option' in params and hasattr(self.main_window, 'start_option_combo'):
+                try:
+                    start_option = params['start_option']
+                    idx = self.main_window.start_option_combo.findText(start_option)
+                    if idx >= 0:
+                        self.main_window.start_option_combo.setCurrentIndex(idx)
+                        print(f"恢复开始日期值选择: {start_option}")
+                except:
+                    pass
+            
+            if 'shift' in params and hasattr(self.main_window, 'shift_spin'):
+                try:
+                    shift_val = int(float(params['shift']))
+                    self.main_window.shift_spin.setValue(shift_val)
+                    print(f"恢复前移天数: {shift_val}")
+                except:
+                    pass
+            
+            if 'direction' in params and hasattr(self.main_window, 'direction_checkbox'):
+                try:
+                    is_forward = bool(params['direction'])
+                    self.main_window.direction_checkbox.setChecked(is_forward)
+                    print(f"恢复是否计算向前: {is_forward}")
+                except:
+                    pass
+            
+            if 'trade_mode' in params and hasattr(self.main_window, 'trade_mode_combo'):
+                try:
+                    trade_mode = params['trade_mode']
+                    idx = self.main_window.trade_mode_combo.findText(trade_mode)
+                    if idx >= 0:
+                        self.main_window.trade_mode_combo.setCurrentIndex(idx)
+                        print(f"恢复交易方式: {trade_mode}")
+                except:
+                    pass
+            
+            # 恢复组合分析次数
+            if 'component_analysis_count' in params:
+                try:
+                    component_analysis_count = params['component_analysis_count']
+                    if component_analysis_count:
+                        count_val = int(float(component_analysis_count))
+                        self.main_window.last_component_analysis_count = count_val
+                        print(f"恢复组合分析次数: {count_val}")
+                except Exception as e:
+                    print(f"恢复组合分析次数失败: {e}")
+            
+            # 恢复结束日期
+            if 'end_date' in params and hasattr(self.main_window, 'date_picker'):
+                try:
+                    end_date = params['end_date']
+                    if end_date:
+                        from PyQt5.QtCore import QDate
+                        qdate = QDate.fromString(end_date, "yyyy-MM-dd")
+                        if qdate.isValid():
+                            self.main_window.date_picker.setDate(qdate)
+                            print(f"恢复结束日期: {end_date}")
+                        else:
+                            print(f"结束日期格式无效: {end_date}")
+                except Exception as e:
+                    print(f"恢复结束日期失败: {e}")
+            
+            # 恢复操作相关参数
+            if 'op_days' in params and hasattr(self.main_window, 'op_days_edit'):
+                try:
+                    self.main_window.op_days_edit.setText(str(params['op_days']))
+                    print(f"恢复操作天数: {params['op_days']}")
+                except:
+                    pass
+            
+            # 恢复止盈递增率（兼容新旧版本）
+            increment_rate_value = self._get_increment_rate_value(params)
+            if increment_rate_value and hasattr(self.main_window, 'inc_rate_edit'):
+                try:
+                    self.main_window.inc_rate_edit.setText(str(increment_rate_value))
+                    print(f"恢复止盈递增率: {increment_rate_value}")
+                except:
+                    pass
+            
+            if 'after_gt_end_ratio' in params and hasattr(self.main_window, 'after_gt_end_edit'):
+                try:
+                    self.main_window.after_gt_end_edit.setText(str(params['after_gt_end_ratio']))
+                    print(f"恢复止盈后值大于结束值比例: {params['after_gt_end_ratio']}")
+                except:
+                    pass
+            
+            if 'after_gt_start_ratio' in params and hasattr(self.main_window, 'after_gt_prev_edit'):
+                try:
+                    self.main_window.after_gt_prev_edit.setText(str(params['after_gt_start_ratio']))
+                    print(f"恢复止盈后值大于前值比例: {params['after_gt_start_ratio']}")
+                except:
+                    pass
+            
+            # 恢复止损参数
+            if 'stop_loss_inc_rate' in params and hasattr(self.main_window, 'stop_loss_inc_rate_edit'):
+                try:
+                    self.main_window.stop_loss_inc_rate_edit.setText(str(params['stop_loss_inc_rate']))
+                    print(f"恢复止损递增率: {params['stop_loss_inc_rate']}")
+                except:
+                    pass
+            
+            if 'stop_loss_after_gt_end_ratio' in params and hasattr(self.main_window, 'stop_loss_after_gt_end_edit'):
+                try:
+                    self.main_window.stop_loss_after_gt_end_edit.setText(str(params['stop_loss_after_gt_end_ratio']))
+                    print(f"恢复止损后值大于结束值比例: {params['stop_loss_after_gt_end_ratio']}")
+                except:
+                    pass
+            
+            if 'stop_loss_after_gt_start_ratio' in params and hasattr(self.main_window, 'stop_loss_after_gt_start_edit'):
+                try:
+                    self.main_window.stop_loss_after_gt_start_edit.setText(str(params['stop_loss_after_gt_start_ratio']))
+                    print(f"恢复止损后值大于前值比例: {params['stop_loss_after_gt_start_ratio']}")
+                except:
+                    pass
+            
+            # 恢复其他参数
+            if 'n_days' in params and hasattr(self.main_window, 'n_days_spin'):
+                try:
+                    n_days_val = int(float(params['n_days']))
+                    self.main_window.n_days_spin.setValue(n_days_val)
+                    print(f"恢复第1组后N最大值逻辑: {n_days_val}")
+                except:
+                    pass
+            
+            if 'n_days_max' in params and hasattr(self.main_window, 'n_days_max_spin'):
+                try:
+                    n_days_max_val = int(float(params['n_days_max']))
+                    self.main_window.n_days_max_spin.setValue(n_days_max_val)
+                    print(f"恢复前1组结束地址后N日的最大值: {n_days_max_val}")
+                except:
+                    pass
+            
+            if 'range_value' in params and hasattr(self.main_window, 'range_value_edit'):
+                try:
+                    self.main_window.range_value_edit.setText(str(params['range_value']))
+                    print(f"恢复开始日到结束日之间最高价/最低价小于: {params['range_value']}")
+                except:
+                    pass
+            
+            if 'continuous_abs_threshold' in params and hasattr(self.main_window, 'continuous_abs_threshold_edit'):
+                try:
+                    self.main_window.continuous_abs_threshold_edit.setText(str(params['continuous_abs_threshold']))
+                    print(f"恢复开始日到结束日之间连续累加值绝对值小于: {params['continuous_abs_threshold']}")
+                except:
+                    pass
+            
+            if 'valid_abs_sum_threshold' in params and hasattr(self.main_window, 'valid_abs_sum_threshold_edit'):
+                try:
+                    self.main_window.valid_abs_sum_threshold_edit.setText(str(params['valid_abs_sum_threshold']))
+                    print(f"恢复开始日到结束日之间有效累加值绝对值小于: {params['valid_abs_sum_threshold']}")
+                except:
+                    pass
+            
+            if 'ops_change' in params and hasattr(self.main_window, 'ops_change_edit'):
+                try:
+                    self.main_window.ops_change_edit.setText(str(params['ops_change']))
+                    print(f"恢复操作涨幅: {params['ops_change']}")
+                except:
+                    pass
+            
+            # 恢复盈损选择框选项
+            if 'profit_type' in params:
+                try:
+                    self.main_window.last_profit_type = params['profit_type']
+                    print(f"恢复盈类型选择: {params['profit_type']}")
+                except:
+                    pass
+            
+            if 'loss_type' in params:
+                try:
+                    self.main_window.last_loss_type = params['loss_type']
+                    print(f"恢复损类型选择: {params['loss_type']}")
+                except:
+                    pass
+            
+            
+            # 恢复选股数量和排序方式
+            if 'last_select_count' in params:
+                try:
+                    self.main_window.last_select_count = int(params['last_select_count'])
+                    print(f"恢复选股数量: {params['last_select_count']}")
+                except:
+                    pass
+            
+            if 'last_sort_mode' in params:
+                try:
+                    self.main_window.last_sort_mode = params['last_sort_mode']
+                    print(f"恢复排序方式: {params['last_sort_mode']}")
+                except:
+                    pass
+            
+            # 恢复创新高/创新低相关参数
+            new_high_low_params = [
+                'new_before_high_start', 'new_before_high_range', 'new_before_high_span',
+                'new_before_high2_start', 'new_before_high2_range', 'new_before_high2_span',
+                'new_after_high_start', 'new_after_high_range', 'new_after_high_span',
+                'new_after_high2_start', 'new_after_high2_range', 'new_after_high2_span',
+                'new_before_low_start', 'new_before_low_range', 'new_before_low_span',
+                'new_before_low2_start', 'new_before_low2_range', 'new_before_low2_span',
+                'new_after_low_start', 'new_after_low_range', 'new_after_low_span',
+                'new_after_low2_start', 'new_after_low2_range', 'new_after_low2_span'
+            ]
+            
+            for param_name in new_high_low_params:
+                if param_name in params and hasattr(self.main_window, param_name + '_spin'):
+                    try:
+                        spin_val = int(float(params[param_name]))
+                        getattr(self.main_window, param_name + '_spin').setValue(spin_val)
+                        print(f"恢复{param_name}: {spin_val}")
+                    except:
+                        pass
+            
+            # 恢复创新高/创新低逻辑参数
+            logic_params = [
+                'new_before_high_logic', 'new_before_high2_logic', 'new_after_high_logic', 'new_after_high2_logic',
+                'new_before_low_logic', 'new_before_low2_logic', 'new_after_low_logic', 'new_after_low2_logic'
+            ]
+            
+            for param_name in logic_params:
+                if param_name in params and hasattr(self.main_window, param_name + '_combo'):
+                    try:
+                        logic_val = params[param_name]
+                        combo = getattr(self.main_window, param_name + '_combo')
+                        idx = combo.findText(logic_val)
+                        if idx >= 0:
+                            combo.setCurrentIndex(idx)
+                            print(f"恢复{param_name}: {logic_val}")
+                    except:
+                        pass
+            
+            # 恢复创新高/创新低标志参数
+            flag_params = [
+                'new_before_high_flag', 'new_before_high2_flag', 'new_after_high_flag', 'new_after_high2_flag',
+                'new_before_low_flag', 'new_before_low2_flag', 'new_after_low_flag', 'new_after_low2_flag'
+            ]
+            
+            for param_name in flag_params:
+                if param_name in params and hasattr(self.main_window, param_name + '_checkbox'):
+                    try:
+                        flag_val = bool(params[param_name])
+                        getattr(self.main_window, param_name + '_checkbox').setChecked(flag_val)
+                        print(f"恢复{param_name}: {flag_val}")
+                    except:
+                        pass
+            
+            # 恢复公式相关状态
+            if 'last_formula_select_state' in params:
+                try:
+                    self.main_window.last_formula_select_state = params['last_formula_select_state']
+                    print(f"恢复公式选择状态")
+                except:
+                    pass
+            
+            if 'forward_param_state' in params:
+                try:
+                    self.main_window.forward_param_state = params['forward_param_state']
+                    print(f"恢复向前参数状态")
+                except:
+                    pass
+            
+            # 恢复公式表达式
+            if formula:
+                try:
+                    self.main_window.last_formula_expr = formula
+                    print(f"恢复公式表达式: {formula}")
+                except:
+                    pass
+            
+            # 设置组合输出锁定勾选框为勾选状态
+            try:
+                self.main_window.last_lock_output = True
+                print("设置组合输出锁定状态为: True")
+                
+                # 直接设置组合输出锁定勾选框控件状态
+                if hasattr(self.main_window, 'formula_widget') and self.main_window.formula_widget is not None:
+                    if hasattr(self.main_window.formula_widget, 'lock_output_checkbox'):
+                        self.main_window.formula_widget.lock_output_checkbox.setChecked(True)
+                        print("设置组合输出锁定勾选框为: True")
+            except:
+                pass
+            
+            # 恢复选股控件值上下限和勾选状态（参考组合分析的restore_formula_params方法）
+            try:
+                # 创建临时的公式选股控件来恢复选股参数
+                from function.stock_functions import get_abbr_map, get_abbr_logic_map, get_abbr_round_map, FormulaSelectWidget
+                import re
+                
+                abbr_map = get_abbr_map()
+                logic_map = get_abbr_logic_map()
+                round_map = get_abbr_round_map()
+                
+                temp_formula_widget = FormulaSelectWidget(abbr_map, logic_map, round_map, self.main_window)
+                
+                # 获取get_abbr_round_only_map中的变量名列表，用于排除重置
+                from function.stock_functions import get_abbr_round_only_map
+                round_only_vars = set()
+                for (zh, en), en_val in get_abbr_round_only_map().items():
+                    round_only_vars.add(en_val)
+                
+                # 重置所有控件状态（但不包括get_abbr_round_only_map的勾选状态）
+                for var_name, widgets in temp_formula_widget.var_widgets.items():
+                    print(f"重置变量控件: {var_name}")
+                    
+                    # 取消勾选所有复选框（但不包括round_checkbox，即get_abbr_round_only_map）
+                    if 'checkbox' in widgets:
+                        widgets['checkbox'].setChecked(False)
+                    
+                    # 对于get_abbr_round_only_map中的变量，不清空round_checkbox，保持勾选状态
+                    if var_name in round_only_vars:
+                        print(f"  跳过重置get_abbr_round_only_map变量: {var_name}")
+                        continue
+                    
+                    # 清空round_checkbox（非get_abbr_round_only_map变量）
+                    if 'round_checkbox' in widgets:
+                        widgets['round_checkbox'].setChecked(False)
+                        print(f"  重置round_checkbox: {var_name}")
+                    
+                    # 清空含逻辑选项
+                    if 'logic_check' in widgets:
+                        widgets['logic_check'].setChecked(False)
+                        print(f"  重置含逻辑选项: {var_name}")
+                    
+                    # 清空输入框
+                    if 'lower' in widgets:
+                        widgets['lower'].setText('')
+                    if 'upper' in widgets:
+                        widgets['upper'].setText('')
+                    if 'lower_input' in widgets:
+                        widgets['lower_input'].setText('')
+                    if 'upper_input' in widgets:
+                        widgets['upper_input'].setText('')
+                    
+                    # 清空其他输入框
+                    if 'step' in widgets:
+                        widgets['step'].setText('')
+                    if 'n_input' in widgets:
+                        widgets['n_input'].setText('')
+                    
+                    print(f"  已重置控件: {var_name}")
+                
+                # 重置比较控件状态
+                print("重置比较控件状态")
+                for comp in temp_formula_widget.comparison_widgets:
+                    print(f"重置比较控件")
+                    # 取消勾选复选框
+                    if 'checkbox' in comp:
+                        comp['checkbox'].setChecked(False)
+                    # 清空输入框
+                    if 'lower' in comp:
+                        comp['lower'].setText('')
+                    if 'upper' in comp:
+                        comp['upper'].setText('')
+                    if 'step' in comp:
+                        comp['step'].setText('')
+                    # 重置下拉框到默认值
+                    if 'var1' in comp and comp['var1'].count() > 0:
+                        comp['var1'].setCurrentIndex(0)
+                    if 'var2' in comp and comp['var2'].count() > 0:
+                        comp['var2'].setCurrentIndex(0)
+                    if 'direction' in comp and comp['direction'].count() > 0:
+                        comp['direction'].setCurrentIndex(0)
+                    # 取消勾选逻辑复选框
+                    if 'logic_check' in comp:
+                        comp['logic_check'].setChecked(False)
+                        print(f"  重置比较控件含逻辑选项")
+                    print(f"  已重置比较控件")
+                
+                # 重置forward_param_state中的向前参数控件状态
+                if hasattr(self.main_window, 'forward_param_state') and self.main_window.forward_param_state:
+                    for var_name, var_state in self.main_window.forward_param_state.items():
+                        if isinstance(var_state, dict):
+                            # 重置enable复选框状态
+                            var_state['enable'] = False
+                            # 重置round圆框状态
+                            var_state['round'] = False
+                            # 重置含逻辑选项
+                            if 'logic' in var_state:
+                                var_state['logic'] = False
+                            # 清空上下限值和步长
+                            var_state['lower'] = ''
+                            var_state['upper'] = ''
+                            if 'step' in var_state:
+                                var_state['step'] = ''
+                            print(f"重置向前参数: {var_name}")
+                        elif isinstance(var_state, bool):
+                            # 如果只是布尔值，重置为False
+                            self.main_window.forward_param_state[var_name] = False
+                            print(f"重置向前参数布尔值: {var_name} = False")
+                
+                # 解析公式并设置控件状态
+                if formula:
+                    print(f"开始解析公式: {formula}")
+                    
+                    # 先找出所有比较控件的变量，避免被当作普通上下限处理
+                    comparison_vars = set()
+                    for m in re.finditer(r'([a-zA-Z0-9_]+)\s*/\s*([a-zA-Z0-9_]+)\s*>=\s*([\-\d\.]+)', formula):
+                        var1, var2, lower = m.group(1), m.group(2), m.group(3)
+                        comparison_vars.add(var1)
+                        comparison_vars.add(var2)
+                        print(f"找到比较控件: {var1} / {var2} >= {lower}")
+                    
+                    for m in re.finditer(r'([a-zA-Z0-9_]+)\s*/\s*([a-zA-Z0-9_]+)\s*<=\s*([\-\d\.]+)', formula):
+                        var1, var2, upper = m.group(1), m.group(2), m.group(3)
+                        comparison_vars.add(var1)
+                        comparison_vars.add(var2)
+                        print(f"找到比较控件: {var1} / {var2} <= {upper}")
+                    
+                    # 记录已处理的变量，避免重复处理
+                    processed_vars = set()
+                    
+                    # 获取forward_param_state中的控件列表
+                    forward_widgets = {}
+                    if hasattr(self.main_window, 'forward_param_state') and self.main_window.forward_param_state:
+                        forward_widgets = self.main_window.forward_param_state
+                        print(f"forward_param_state中的控件: {list(forward_widgets.keys())}")
+                    
+                    # 1. 匹配 xxx >= a（排除比较控件的变量）
+                    for m in re.finditer(r'([a-zA-Z0-9_]+)\s*>=\s*([\-\d\.]+)', formula):
+                        var, lower = m.group(1), m.group(2)
+                        # 检查是否是比较控件的变量
+                        if var not in comparison_vars:
+                            print(f"找到下限条件: {var} >= {lower}")
+                            # 先检查是否在普通控件列表中
+                            if var in temp_formula_widget.var_widgets:
+                                widgets = temp_formula_widget.var_widgets[var]
+                                # 直接设置控件状态，但需要检查键是否存在
+                                if 'checkbox' in widgets:
+                                    widgets['checkbox'].setChecked(True)
+                                    print(f"勾选变量控件: {var}")
+                                if 'lower' in widgets:
+                                    widgets['lower'].setText(str(lower))
+                                    print(f"设置下限值: {var} = {lower}")
+                                processed_vars.add(var)  # 标记为已处理
+                            # 再检查是否在forward_param_state中
+                            elif var in forward_widgets:
+                                print(f"找到forward_param_state中的下限条件: {var} >= {lower}")
+                                var_state = forward_widgets[var]
+                                if isinstance(var_state, dict):
+                                    # 对于条件变量，enable直接设为true
+                                    print(f"设置forward_param_state下限复选框为true: {var}")
+                                    # 实际设置需要在主窗口的forward_param_state中更新
+                                    if hasattr(self.main_window, 'forward_param_state') and var in self.main_window.forward_param_state:
+                                        if isinstance(self.main_window.forward_param_state[var], dict):
+                                            self.main_window.forward_param_state[var]['enable'] = True
+                                            self.main_window.forward_param_state[var]['lower'] = lower
+                                            print(f"已更新forward_param_state下限: {var} enable=True, lower={lower}")
+                                processed_vars.add(var)  # 标记为已处理
+                            else:
+                                print(f"变量 {var} 不在控件列表中")
+                        else:
+                            print(f"跳过比较控件变量的下限条件: {var} >= {lower}")
+                    
+                    # 2. 匹配 xxx <= b（排除比较控件的变量）
+                    for m in re.finditer(r'([a-zA-Z0-9_]+)\s*<=\s*([\-\d\.]+)', formula):
+                        var, upper = m.group(1), m.group(2)
+                        # 检查是否是比较控件的变量
+                        if var not in comparison_vars:
+                            print(f"找到上限条件: {var} <= {upper}")
+                            # 先检查是否在普通控件列表中
+                            if var in temp_formula_widget.var_widgets:
+                                widgets = temp_formula_widget.var_widgets[var]
+                                # 直接设置控件状态，但需要检查键是否存在
+                                if 'checkbox' in widgets:
+                                    widgets['checkbox'].setChecked(True)
+                                    print(f"勾选变量控件: {var}")
+                                if 'upper' in widgets:
+                                    widgets['upper'].setText(str(upper))
+                                    print(f"设置上限值: {var} = {upper}")
+                                processed_vars.add(var)  # 标记为已处理
+                            # 再检查是否在forward_param_state中
+                            elif var in forward_widgets:
+                                print(f"找到forward_param_state中的上限条件: {var} <= {upper}")
+                                var_state = forward_widgets[var]
+                                if isinstance(var_state, dict):
+                                    # 对于条件变量，enable直接设为true
+                                    print(f"设置forward_param_state上限复选框为true: {var}")
+                                    # 实际设置需要在主窗口的forward_param_state中更新
+                                    if hasattr(self.main_window, 'forward_param_state') and var in self.main_window.forward_param_state:
+                                        if isinstance(self.main_window.forward_param_state[var], dict):
+                                            self.main_window.forward_param_state[var]['enable'] = True
+                                            self.main_window.forward_param_state[var]['upper'] = upper
+                                            print(f"已更新forward_param_state上限: {var} enable=True, upper={upper}")
+                                processed_vars.add(var)  # 标记为已处理
+                            else:
+                                print(f"变量 {var} 不在控件列表中")
+                        else:
+                            print(f"跳过比较控件变量的上限条件: {var} <= {upper}")
+                    
+                    # 3. 匹配逻辑变量（if ... and VAR ...）
+                    if_match = re.search(r'if\s*(.*?):', formula)
+                    if if_match:
+                        condition_text = if_match.group(1)
+                        print(f"if条件文本: {condition_text}")
+                        logic_vars = re.findall(r'\b([a-zA-Z_][a-zA-Z0-9_]*)\b', condition_text)
+                        print(f"从if条件中提取的变量: {logic_vars}")
+                        
+                        for var in logic_vars:
+                            print(f"处理if条件中的变量: {var}")
+                            
+                            # 先检查是否是比较控件变量
+                            if var in comparison_vars:
+                                print(f"跳过比较控件变量作为逻辑变量: {var}")
+                                continue
+                            
+                            # 再检查是否是关键字
+                            if var in {'if', 'else', 'result', 'and', 'or', 'not'}:
+                                print(f"跳过关键字: {var}")
+                                continue
+                            
+                            # 检查是否已经通过上下限处理过
+                            if var in processed_vars:
+                                print(f"跳过已处理的变量控件: {var}")
+                                continue
+                            
+                            # 最后检查是否是有效的控件变量
+                            if var in temp_formula_widget.var_widgets:
+                                print(f"找到逻辑变量: {var}")
+                                widgets = temp_formula_widget.var_widgets[var]
+                                # 直接设置控件状态，但需要检查键是否存在
+                                if 'checkbox' in widgets:
+                                    widgets['checkbox'].setChecked(True)
+                                    print(f"勾选逻辑变量控件: {var}")
+                            # 检查是否在forward_param_state中
+                            elif var in forward_widgets:
+                                print(f"找到forward_param_state中的逻辑变量: {var}")
+                                var_state = forward_widgets[var]
+                                if isinstance(var_state, dict):
+                                    # 对于条件变量，enable直接设为true
+                                    print(f"设置forward_param_state逻辑变量复选框为true: {var}")
+                                    # 实际设置需要在主窗口的forward_param_state中更新
+                                    if hasattr(self.main_window, 'forward_param_state') and var in self.main_window.forward_param_state:
+                                        if isinstance(self.main_window.forward_param_state[var], dict):
+                                            self.main_window.forward_param_state[var]['enable'] = True
+                                            print(f"已更新forward_param_state逻辑变量: {var} enable=True")
+                            else:
+                                print(f"跳过非控件变量: {var}")
+                    
+                    # 4. 匹配 result = xxx + yyy
+                    m = re.search(r'result\s*=\s*([a-zA-Z0-9_]+(?:\s*\+\s*[a-zA-Z0-9_]+)*)', formula)
+                    if m:
+                        result_text = m.group(1)
+                        print(f"result表达式: {result_text}")
+                        result_vars = re.findall(r'[a-zA-Z0-9_]+', result_text)
+                        print(f"从result中提取的变量: {result_vars}")
+                        
+                        for var in result_vars:
+                            print(f"处理result变量: {var}")
+                            # 先检查是否在普通控件列表中
+                            if var in temp_formula_widget.var_widgets:
+                                widgets = temp_formula_widget.var_widgets[var]
+                                # 直接设置圆框控件状态，但需要检查键是否存在
+                                if 'round_checkbox' in widgets:
+                                    widgets['round_checkbox'].setChecked(True)
+                                    print(f"勾选圆框控件: {var}")
+                            # 再检查是否在forward_param_state中
+                            elif var in forward_widgets:
+                                print(f"找到forward_param_state中的变量: {var}")
+                                var_state = forward_widgets[var]
+                                if isinstance(var_state, dict):
+                                    # 对于result变量，round直接设为true
+                                    print(f"设置forward_param_state圆框为true: {var}")
+                                    # 实际设置需要在主窗口的forward_param_state中更新
+                                    if hasattr(self.main_window, 'forward_param_state') and var in self.main_window.forward_param_state:
+                                        if isinstance(self.main_window.forward_param_state[var], dict):
+                                            self.main_window.forward_param_state[var]['round'] = True
+                                            print(f"已更新forward_param_state圆框: {var} = True")
+                            else:
+                                print(f"result变量 {var} 不在控件列表中")
+                    
+                    # 5. 处理比较控件
+                    from function.stock_functions import get_abbr_map
+                    abbr_map = get_abbr_map()  # {中文: 英文}
+                    en2zh = {en: zh for zh, en in abbr_map.items()}
+                    comparison_configs = []
+                    # >=
+                    for m in re.finditer(r'([a-zA-Z0-9_]+)\s*/\s*([a-zA-Z0-9_]+)\s*>=\s*([\-\d\.]+)', formula):
+                        var1, var2, lower = m.group(1), m.group(2), m.group(3)
+                        zh_var1 = en2zh.get(var1, var1)
+                        zh_var2 = en2zh.get(var2, var2)
+                        existing = next((c for c in comparison_configs if c['var1'] == zh_var1 and c['var2'] == zh_var2), None)
+                        if existing:
+                            existing['lower'] = lower
+                        else:
+                            comparison_configs.append({'var1': zh_var1, 'lower': lower, 'upper': '', 'var2': zh_var2})
+                    # <=
+                    for m in re.finditer(r'([a-zA-Z0-9_]+)\s*/\s*([a-zA-Z0-9_]+)\s*<=\s*([\-\d\.]+)', formula):
+                        var1, var2, upper = m.group(1), m.group(2), m.group(3)
+                        zh_var1 = en2zh.get(var1, var1)
+                        zh_var2 = en2zh.get(var2, var2)
+                        existing = next((c for c in comparison_configs if c['var1'] == zh_var1 and c['var2'] == zh_var2), None)
+                        if existing:
+                            existing['upper'] = upper
+                        else:
+                            comparison_configs.append({'var1': zh_var1, 'lower': '', 'upper': upper, 'var2': zh_var2})
+                    
+                    # 将比较控件配置应用到实际的比较控件上
+                    if comparison_configs:
+                        print(f"开始应用比较控件配置: {comparison_configs}")
+                        
+                        # 遍历所有比较控件配置
+                        for i, config in enumerate(comparison_configs):
+                            var1 = config['var1']
+                            var2 = config['var2']
+                            lower = config['lower']
+                            upper = config['upper']
+                            
+                            print(f"处理比较控件配置 {i+1}: {var1} vs {var2}, 下限: {lower}, 上限: {upper}")
+                            
+                            # 检查是否有足够的比较控件
+                            if i < len(temp_formula_widget.comparison_widgets):
+                                comp = temp_formula_widget.comparison_widgets[i]
+                                print(f"找到比较控件 {i+1}")
+                                
+                                # 勾选复选框
+                                if 'checkbox' in comp:
+                                    comp['checkbox'].setChecked(True)
+                                    print(f"  勾选比较控件复选框")
+                                
+                                # 设置下限
+                                if lower and 'lower' in comp:
+                                    comp['lower'].setText(str(lower))
+                                    print(f"  设置下限: {lower}")
+                                
+                                # 设置上限
+                                if upper and 'upper' in comp:
+                                    comp['upper'].setText(str(upper))
+                                    print(f"  设置上限: {upper}")
+                                
+                                # 设置var1下拉框
+                                if 'var1' in comp:
+                                    var1_combo = comp['var1']
+                                    var1_zh = None
+                                    for zh, en in abbr_map.items():
+                                        if en == var1:
+                                            var1_zh = zh
+                                            break
+                                    if var1_zh:
+                                        var1_combo.setCurrentText(var1_zh)
+                                        print(f"  设置var1: {var1_zh}")
+                                    else:
+                                        print(f"  未找到var1的中文名称: {var1}")
+                                
+                                # 设置var2下拉框
+                                if 'var2' in comp:
+                                    var2_combo = comp['var2']
+                                    var2_zh = None
+                                    for zh, en in abbr_map.items():
+                                        if en == var2:
+                                            var2_zh = zh
+                                            break
+                                    if var2_zh:
+                                        var2_combo.setCurrentText(var2_zh)
+                                        print(f"  设置var2: {var2_zh}")
+                                    else:
+                                        print(f"  未找到var2的中文名称: {var2}")
+                            else:
+                                print(f"比较控件 {i+1} 不存在，跳过")
+                        
+                        # 保存比较控件配置到状态中
+                        comparison_state = {
+                            'comparison_widgets': comparison_configs
+                        }
+                        print(f"保存比较控件配置到状态: {comparison_state}")
+                        
+                        # 获取当前状态并添加比较控件配置
+                        current_state = temp_formula_widget.get_state()
+                        if comparison_configs:
+                            current_state['comparison_widgets'] = comparison_configs
+                            print(f"添加比较控件配置到状态中")
+                        
+                        # 更新主窗口的last_formula_select_state
+                        self.main_window.last_formula_select_state = current_state
+                        print(f"已保存状态到主窗口: {len(current_state)} 个变量")
+                
+                # 恢复get_abbr_round_only_map的圆框勾选状态
+                selected_vars_with_values = plan.get('params', {}).get('selected_vars_with_values', [])
+                print(f"selected_vars_with_values: {selected_vars_with_values}")
+                if selected_vars_with_values:
+                    from function.stock_functions import get_abbr_round_only_map
+                    abbr_round_only_map = get_abbr_round_only_map()
+                    # 只处理英文名
+                    selected_en_vars = set(var_name for var_name, _ in selected_vars_with_values)
+                    for (zh, en), en_val in abbr_round_only_map.items():
+                        if en_val in temp_formula_widget.var_widgets:
+                            widgets = temp_formula_widget.var_widgets[en_val]
+                            if 'round_checkbox' in widgets:
+                                widgets['round_checkbox'].setChecked(en_val in selected_en_vars)
+                                print(f"恢复圆框变量 {en_val} 勾选状态: {en_val in selected_en_vars}")
+                
+                # 恢复n_values输入值（只恢复被勾选的变量）
+                n_values = plan.get('params', {}).get('n_values', {})
+                if n_values and selected_vars_with_values:
+                    print(f"恢复n_values: {n_values}")
+                    selected_var_names = set(var_name for var_name, _ in selected_vars_with_values)
+                    for var_name, n_value in n_values.items():
+                        # 只恢复在selected_vars_with_values中被勾选的变量
+                        if var_name in selected_var_names and var_name in temp_formula_widget.var_widgets:
+                            widgets = temp_formula_widget.var_widgets[var_name]
+                            if 'n_input' in widgets:
+                                widgets['n_input'].setText(str(n_value))
+                                print(f"恢复n_input变量 {var_name} 输入值: {n_value}")
+                
+                # 恢复倍增系数参数（恢复勾选框、下限和上限）
+                if 'negative_multiplier' in params:
+                    try:
+                        negative_multiplier = params['negative_multiplier']
+                        print(f"恢复负值倍增系数: {negative_multiplier}")
+                        if 'negative_multiplier' in temp_formula_widget.var_widgets:
+                            widgets = temp_formula_widget.var_widgets['negative_multiplier']
+                            if 'checkbox' in widgets:
+                                widgets['checkbox'].setChecked(True)
+                                print(f"勾选负值倍增系数复选框")
+                            if 'lower' in widgets:
+                                widgets['lower'].setText(str(negative_multiplier))
+                                print(f"设置负值倍增系数下限: {negative_multiplier}")
+                            if 'upper' in widgets:
+                                widgets['upper'].setText(str(negative_multiplier))
+                                print(f"设置负值倍增系数上限: {negative_multiplier}")
+                        else:
+                            print(f"负值倍增系数不在var_widgets中")
+                    except Exception as e:
+                        print(f"恢复负值倍增系数失败: {e}")
+                
+                if 'positive_multiplier' in params:
+                    try:
+                        positive_multiplier = params['positive_multiplier']
+                        print(f"恢复正值倍增系数: {positive_multiplier}")
+                        if 'positive_multiplier' in temp_formula_widget.var_widgets:
+                            widgets = temp_formula_widget.var_widgets['positive_multiplier']
+                            if 'checkbox' in widgets:
+                                widgets['checkbox'].setChecked(True)
+                                print(f"勾选正值倍增系数复选框")
+                            if 'lower' in widgets:
+                                widgets['lower'].setText(str(positive_multiplier))
+                                print(f"设置正值倍增系数下限: {positive_multiplier}")
+                            if 'upper' in widgets:
+                                widgets['upper'].setText(str(positive_multiplier))
+                                print(f"设置正值倍增系数上限: {positive_multiplier}")
+                        else:
+                            print(f"正值倍增系数不在var_widgets中")
+                    except Exception as e:
+                        print(f"恢复正值倍增系数失败: {e}")
+                
+                print("选股控件状态恢复完成")
+                
+            except Exception as e:
+                print(f"恢复选股控件状态失败: {e}")
+                import traceback
+                traceback.print_exc()
+            
+            # 构建盈损操作值显示
+            profit_type = params.get('profit_type', 'INC')
+            loss_type = params.get('loss_type', 'INC')
+            operation_value = f"盈（{profit_type}），损（{loss_type}）"
+            
+            # 显示成功消息
+            QMessageBox.information(self, "恢复成功", f"已成功恢复操盘方案参数！\n公式: {formula}\n排序方式: {params.get('last_sort_mode', '')}\n选股数量: {params.get('last_select_count', '')}\n开始日期值选择: {params.get('start_option', '')}\n前移天数: {params.get('shift', '')}\n是否计算向前: {params.get('direction', False)}\n交易方式: {params.get('trade_mode', '')}\n操作值: {operation_value}\n开始日到结束日之间最高价/最低价小于: {params.get('range_value', '')}\n开始日到结束日之间连续累加值绝对值小于: {params.get('continuous_abs_threshold', '')}\n开始日到结束日之间有效累加值绝对值小于: {params.get('valid_abs_sum_threshold', '')}\n第1组后N最大值逻辑: {params.get('n_days', '')}\n前1组结束地址后N日的最大值: {params.get('n_days_max', '')}\n操作涨幅: {params.get('ops_change', '')}\n日期宽度: {params.get('width', '')}\n操作天数: {params.get('op_days', '')}\n止盈递增率: {self._get_increment_rate_value(params)}\n止盈后值大于结束值比例: {params.get('after_gt_end_edit', '')}\n止盈后值大于前值比例: {params.get('after_gt_prev_edit', '')}\n止损递增率: {params.get('stop_loss_inc_rate', '')}\n止损后值大于结束值比例: {params.get('stop_loss_after_gt_end_edit', '')}\n止损后值大于前值比例: {params.get('stop_loss_after_gt_start_edit', '')}")
+            
+        except Exception as e:
+            QMessageBox.critical(self, "恢复失败", f"恢复操盘方案参数失败：{e}")
+            print(f"恢复失败详细错误: {e}")
+            import traceback
+            traceback.print_exc()
+
     def edit_plan_name(self, idx):
         """编辑操盘方案名称"""
-        # 使用排序后的列表来获取正确的plan
-        sorted_plan_list = getattr(self.main_window, 'sorted_trading_plan_list', [])
-        if 0 <= idx < len(sorted_plan_list):
-            plan = sorted_plan_list[idx]
+        # 直接使用已排序的trading_plan_list
+        plan_list = getattr(self.main_window, 'trading_plan_list', [])
+        if 0 <= idx < len(plan_list):
+            plan = plan_list[idx]
             dialog = PlanNameEditDialog(plan, self)
             if dialog.exec_() == QDialog.Accepted:
                 # 更新方案名称
@@ -772,17 +1773,169 @@ class TradingPlanWidget(QWidget):
                 if 'result_window' in plan and plan['result_window'] is not None:
                     plan['result_window'].setWindowTitle(f"{new_name} 选股结果")
                 
-                # 更新原始列表中的plan
-                plan_list = getattr(self.main_window, 'trading_plan_list', [])
-                # 找到对应的plan并更新
-                for original_plan in plan_list:
-                    if original_plan.get('plan_id') == plan.get('plan_id'):
-                        original_plan['plan_name'] = new_name
-                        break
-                
                 self.main_window.trading_plan_list = plan_list
                 self.refresh_cards()
                 QMessageBox.information(self, "成功", "方案名称已更新！")
+
+    def _is_trading_plan_expired(self, plan):
+        """
+        检查交易计划是否过期
+        过期条件：当前日期超过生成时间 + width个交易日
+        返回：(是否过期, 过期时间字符串) 或 (False, None)
+        """
+        try:
+            # 通过正则表达式从plan_name中提取参数
+            plan_name = plan.get('plan_name', '') or plan.get('name', '')
+            if not plan_name:
+                return False, None
+            
+            # 使用正则表达式提取width参数（通常是第二个部分，数字格式）
+            import re
+            width_match = re.search(r'^[^-]*?-(\d+)-', plan_name)
+            if not width_match:
+                # 如果没有找到标准格式，尝试其他格式
+                width_match = re.search(r'(\d+)', plan_name)
+            
+            if not width_match:
+                print(f"无法从方案名称中提取width参数: {plan_name}")
+                return False, None
+            
+            width = int(width_match.group(1))
+            
+            # 提取生成时间（通常是倒数第二个部分，日期格式）
+            date_match = re.search(r'(\d{4}-\d{2}-\d{2})', plan_name)
+            if not date_match:
+                print(f"无法从方案名称中提取生成时间: {plan_name}")
+                return False, None
+            
+            generate_time = date_match.group(1)
+            
+            # 将生成时间转换为QDate
+            generate_date = QDate.fromString(generate_time, "yyyy-MM-dd")
+            if not generate_date.isValid():
+                print(f"生成时间格式无效: {generate_time}")
+                return False, None
+            
+            # 获取当前选择的结束日期
+            current_end_date = self.end_date_picker.date()
+            if not current_end_date.isValid():
+                return False, None
+            
+            # 计算过期日期：生成时间 + width个交易日
+            expiry_date = generate_date
+            if hasattr(self.main_window.init, 'workdays_str') and self.main_window.init.workdays_str:
+                # 使用交易日计算
+                workdays_str = self.main_window.init.workdays_str
+                generate_date_str = generate_date.toString("yyyy-MM-dd")
+                
+                if generate_date_str in workdays_str:
+                    # 找到生成时间在交易日列表中的位置
+                    start_idx = workdays_str.index(generate_date_str)
+                    # 向后移动width个交易日
+                    end_idx = min(start_idx + width, len(workdays_str) - 1)
+                    expiry_date = QDate.fromString(workdays_str[end_idx], "yyyy-MM-dd")
+                else:
+                    # 如果生成时间不在交易日列表中，使用自然日计算
+                    expiry_date = generate_date.addDays(width)
+            else:
+                # 如果没有交易日数据，使用自然日计算
+                expiry_date = generate_date.addDays(width)
+            
+            # 检查是否过期
+            is_expired = current_end_date > expiry_date
+            
+            if is_expired:
+                expiry_time_str = expiry_date.toString("yyyy-MM-dd")
+                print(f"交易方案 '{plan_name}' 已过期：生成时间 {generate_time}，width={width}，过期时间 {expiry_time_str}")
+                return True, expiry_time_str
+            else:
+                return False, None
+            
+        except Exception as e:
+            print(f"检查交易计划过期状态时出错: {e}")
+            return False, None
+
+    def edit_plan_remark(self, plan_idx):
+        """编辑操盘方案备注"""
+        try:
+            # 获取操盘方案列表
+            if hasattr(self.main_window, 'trading_plan_list') and self.main_window.trading_plan_list:
+                # 确保索引在有效范围内
+                if 0 <= plan_idx < len(self.main_window.trading_plan_list):
+                    plan = self.main_window.trading_plan_list[plan_idx]
+                    current_remark = plan.get('remark', '')
+                    
+                    # 创建备注编辑对话框
+                    dialog = RemarkEditDialog(current_remark, self)
+                    if dialog.exec_() == QDialog.Accepted:
+                        new_remark = dialog.get_remark_text()
+                        # 更新操盘方案的备注
+                        plan['remark'] = new_remark
+                        print(f"已保存操盘方案 {plan_idx + 1} 的备注: {new_remark}")
+                        # 刷新卡片显示
+                        self.refresh_cards()
+                else:
+                    print(f"操盘方案索引超出范围: {plan_idx}")
+            else:
+                print("主窗口中没有找到操盘方案列表")
+        except Exception as e:
+            print(f"编辑备注时出错: {e}")
+            QMessageBox.critical(self, "错误", f"编辑备注失败：{e}")
+
+    def _on_remark_changed(self, plan_idx, remark_text):
+        """处理备注变更并保存到操盘方案中（保留兼容性）"""
+        try:
+            # 获取操盘方案列表
+            if hasattr(self.main_window, 'trading_plan_list') and self.main_window.trading_plan_list:
+                # 确保索引在有效范围内
+                if 0 <= plan_idx < len(self.main_window.trading_plan_list):
+                    # 更新操盘方案的备注
+                    self.main_window.trading_plan_list[plan_idx]['remark'] = remark_text
+                    print(f"已保存操盘方案 {plan_idx + 1} 的备注: {remark_text}")
+                else:
+                    print(f"操盘方案索引超出范围: {plan_idx}")
+            else:
+                print("主窗口中没有找到操盘方案列表")
+        except Exception as e:
+            print(f"保存备注时出错: {e}")
+
+class RemarkEditDialog(QDialog):
+    """备注编辑对话框"""
+    def __init__(self, current_remark, parent=None):
+        super().__init__(parent)
+        self.current_remark = current_remark
+        self.init_ui()
+        
+    def init_ui(self):
+        self.setWindowTitle("编辑备注")
+        self.setFixedSize(400, 200)
+        
+        layout = QVBoxLayout(self)
+        
+        # 备注输入标签
+        layout.addWidget(QLabel("请输入备注信息:"))
+        
+        # 备注输入框（使用QTextEdit支持多行输入）
+        from PyQt5.QtWidgets import QTextEdit
+        self.remark_edit = QTextEdit()
+        self.remark_edit.setPlainText(self.current_remark)
+        self.remark_edit.setPlaceholderText("请输入备注信息...")
+        self.remark_edit.setStyleSheet("font-size:12px;border:1px solid #ccc;padding:5px;")
+        layout.addWidget(self.remark_edit)
+        
+        # 按钮
+        button_layout = QHBoxLayout()
+        save_btn = QPushButton("保存")
+        save_btn.clicked.connect(self.accept)
+        cancel_btn = QPushButton("取消")
+        cancel_btn.clicked.connect(self.reject)
+        button_layout.addWidget(save_btn)
+        button_layout.addWidget(cancel_btn)
+        layout.addLayout(button_layout)
+        
+    def get_remark_text(self):
+        """获取编辑后的备注文本"""
+        return self.remark_edit.toPlainText().strip()
 
 class PlanNameEditDialog(QDialog):
     """操盘方案名称编辑对话框"""

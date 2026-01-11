@@ -4,9 +4,10 @@ import chinese_calendar
 from datetime import datetime, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTextEdit, QLineEdit, QSpinBox, QComboBox, QPushButton, QTableWidget, QTableWidgetItem, QSizePolicy, QDialog, QTabWidget, QMessageBox, QGridLayout, QDateEdit, QInputDialog, QAbstractItemView, QGroupBox, QCheckBox, QHeaderView, QScrollArea, QToolButton, QApplication, QMainWindow
-from PyQt5.QtCore import QDate, QObject, QEvent, Qt
-from PyQt5.QtGui import QDoubleValidator, QIntValidator
+from PyQt5.QtCore import QDate, QObject, QEvent, Qt, QTimer
+from PyQt5.QtGui import QDoubleValidator, QIntValidator, QColor, QCursor
 import time
+from function.common_widgets import TableSearchDialog
 
 import math
 import concurrent.futures
@@ -14,6 +15,27 @@ from multiprocessing import cpu_count
 import re
 import gc
 import statistics
+
+def format_overall_stat_value(value):
+    """
+    格式化总体统计值：
+    - 正数向上取整，负数向下取整
+    - 如1.2取整为2，-1.2取整为-2
+    """
+    if value is None:
+        return None
+    
+    try:
+        value = float(value)
+        if value == 0:
+            return 0
+        # 正数向上取整，负数向下取整
+        if value > 0:
+            return math.ceil(value)  # 向上取整
+        else:
+            return math.floor(value)  # 向下取整
+    except (ValueError, TypeError):
+        return value
 
 EXPR_PLACEHOLDER_TEXT = (
     "需要严格按照python表达式规则填入。\n"
@@ -89,10 +111,10 @@ forward_min_param_headers = [
 
 # 表格搜索事件过滤器
 class TableSearchFilter(QObject):
-
     def __init__(self, table):
         super().__init__()
         self.table = table
+        self.search_dialog = None
 
     def eventFilter(self, obj, event):
         if event.type() == QEvent.KeyPress and event.modifiers() == Qt.ControlModifier and event.key() == Qt.Key_F:
@@ -101,22 +123,12 @@ class TableSearchFilter(QObject):
         return super().eventFilter(obj, event)
 
     def show_search_dialog(self):
-        text, ok = QInputDialog.getText(self.table, "搜索", "请输入要查找的内容：")
-        if ok and text:
-            self.search_table(text)
-
-    def search_table(self, text):
-        found = False
-        for row in range(self.table.rowCount()):
-            for col in range(self.table.columnCount()):
-                item = self.table.item(row, col)
-                if item and text in item.text():
-                    self.table.setCurrentCell(row, col)
-                    self.table.scrollToItem(item, QAbstractItemView.PositionAtCenter)
-                    found = True
-                    return
-        if not found:
-            QMessageBox.information(self.table, "提示", "未找到相关内容。")
+        if self.search_dialog is None or not self.search_dialog.isVisible():
+            self.search_dialog = TableSearchDialog(self.table, self.table.parent())
+        self.search_dialog.show()
+        self.search_dialog.raise_()
+        self.search_dialog.activateWindow()
+        self.search_dialog.input.setFocus()
 
 def safe_val(val):
     import math
@@ -124,6 +136,9 @@ def safe_val(val):
         return ""
     if isinstance(val, float) and (math.isnan(val) or str(val).lower() == 'nan'):
         return ""
+    # 如果是数字类型，保留两位小数
+    if isinstance(val, (int, float)):
+        return f"{val:.2f}"
     return val
 
 def show_continuous_sum_table(parent, all_results, price_data, as_widget=False):
@@ -154,7 +169,7 @@ def show_continuous_sum_table(parent, all_results, price_data, as_widget=False):
 
         tab_widget = QTabWidget(parent)
         # 统计最大长度
-        max_len = max(row.get('continuous_len', 0) for row in stocks_data)
+        max_len = max(int(row.get('continuous_len', 0)) for row in stocks_data)
         max_valid_len = max(len(row.get('valid_sum_arr', [])) for row in stocks_data)
         max_forward_len = max(len(row.get('forward_max_result', [])) for row in stocks_data)
         max_forward_min_len = max(len(row.get('forward_min_result', [])) for row in stocks_data)
@@ -186,12 +201,25 @@ def show_continuous_sum_table(parent, all_results, price_data, as_widget=False):
             table1.setRowCount(len(stocks_data))
             for row_idx, row in enumerate(stocks_data):
                 stock_idx = row.get('stock_idx', 0)
-                code = price_data.iloc[stock_idx, 0]
-                name = price_data.iloc[stock_idx, 1]
+                code = row.get('code', '')
+                name = row.get('name', '')
                 # 实际开始日期值
                 actual_value_val = row.get('actual_value', '')
-                table1.setItem(row_idx, 0, QTableWidgetItem(str(code)))
-                table1.setItem(row_idx, 1, QTableWidgetItem(str(name)))
+                
+                # 检查是否有连续三个0
+                has_three_consecutive_zeros = row.get('has_three_consecutive_zeros', False)
+                
+                # 设置股票代码
+                code_item = QTableWidgetItem(str(code))
+                if has_three_consecutive_zeros:
+                    code_item.setForeground(QColor('red'))
+                table1.setItem(row_idx, 0, code_item)
+                
+                # 设置股票名称
+                name_item = QTableWidgetItem(str(name))
+                if has_three_consecutive_zeros:
+                    name_item.setForeground(QColor('red'))
+                table1.setItem(row_idx, 1, name_item)
                 table1.setItem(row_idx, 2, QTableWidgetItem(str(safe_val(actual_value_val))))
                 table1.setItem(row_idx, 3, QTableWidgetItem(str(safe_val(row.get('actual_value_date', '')))))
                 results = row.get('continuous_results', [])
@@ -199,7 +227,7 @@ def show_continuous_sum_table(parent, all_results, price_data, as_widget=False):
                     val = results[col_idx] if col_idx < len(results) else ""
                     table1.setItem(row_idx, 4 + col_idx, QTableWidgetItem(str(safe_val(val))))
                 param_values = [
-                    len(results),
+                    row.get('continuous_len', ''),
                     row.get('cont_sum_pos_sum', ''),
                     row.get('cont_sum_neg_sum', ''),
                     row.get('cont_sum_pos_sum_first_half', ''),
@@ -246,8 +274,8 @@ def show_continuous_sum_table(parent, all_results, price_data, as_widget=False):
             table3.setRowCount(len(stocks_data))
             for row_idx, row in enumerate(stocks_data):
                 stock_idx = row.get('stock_idx', 0)
-                code = price_data.iloc[stock_idx, 0]
-                name = price_data.iloc[stock_idx, 1]
+                code = row.get('code', '')
+                name = row.get('name', '')
                 table3.setItem(row_idx, 0, QTableWidgetItem(str(code)))
                 table3.setItem(row_idx, 1, QTableWidgetItem(str(name)))
                 table3.setItem(row_idx, 2, QTableWidgetItem(str(row.get('forward_max_date', ''))))
@@ -291,8 +319,8 @@ def show_continuous_sum_table(parent, all_results, price_data, as_widget=False):
             table4.setRowCount(len(stocks_data))
             for row_idx, row in enumerate(stocks_data):
                 stock_idx = row.get('stock_idx', 0)
-                code = price_data.iloc[stock_idx, 0]
-                name = price_data.iloc[stock_idx, 1]
+                code = row.get('code', '')
+                name = row.get('name', '')
                 table4.setItem(row_idx, 0, QTableWidgetItem(str(code)))
                 table4.setItem(row_idx, 1, QTableWidgetItem(str(name)))
                 table4.setItem(row_idx, 2, QTableWidgetItem(str(row.get('forward_min_date', ''))))
@@ -410,7 +438,7 @@ def show_formula_select_table_result_window(table, content_widget):
         layout_ = QVBoxLayout(central_widget)
         layout_.addWidget(table)
         result_window.setCentralWidget(central_widget)
-        result_window.resize(580, 450)
+        result_window.resize(1200, 450)
         result_window.show()
         content_widget.result_window = result_window
         content_widget.result_table = table
@@ -437,11 +465,420 @@ def show_formula_select_table_result_window(table, content_widget):
         central_widget = QWidget()
         layout_ = QVBoxLayout(central_widget)
         layout_.addWidget(table)
+        
+        # 添加导航按钮
+        if hasattr(parent, 'all_param_result') and parent.all_param_result:
+            # 创建按钮容器
+            button_container = QWidget()
+            button_layout = QHBoxLayout(button_container)
+            button_layout.setContentsMargins(10, 5, 10, 10)
+            button_layout.setSpacing(10)
+            
+            # 获取当前日期和可用日期列表
+            workdays_str = getattr(parent.init, 'workdays_str', [])
+            
+            # 使用缓存的日期索引，如果没有则使用第一个日期
+            if hasattr(parent, 'last_selected_date_idx_for_navigation') and parent.last_selected_date_idx_for_navigation is not None:
+                current_date_idx = parent.last_selected_date_idx_for_navigation
+                if 0 <= current_date_idx < len(workdays_str):
+                    current_date = workdays_str[current_date_idx]
+                else:
+                    current_date = workdays_str[0] if workdays_str else None
+                    current_date_idx = 0
+            else:
+                current_dates = list(parent.all_param_result.get('dates', {}).keys())
+                if current_dates and workdays_str:
+                    current_date = current_dates[0]  # 当前显示的日期
+                    current_date_idx = workdays_str.index(current_date) if current_date in workdays_str else -1
+                else:
+                    current_date = None
+                    current_date_idx = -1
+            
+            if current_date is not None and current_date_idx >= 0:
+                # 向左按钮
+                left_btn = QPushButton("向左")
+                left_btn.setFixedWidth(80)
+                left_btn.setEnabled(current_date_idx > 0)  # 如果不是第一个交易日，则启用
+                
+                # 向右按钮
+                right_btn = QPushButton("向右")
+                right_btn.setFixedWidth(80)
+                right_btn.setEnabled(current_date_idx < len(workdays_str) - 1)  # 如果不是最后一个交易日，则启用
+                
+                # 添加按钮到布局
+                button_layout.addStretch()  # 左侧弹性空间
+                button_layout.addWidget(left_btn)
+                button_layout.addWidget(right_btn)
+                button_layout.addStretch()  # 右侧弹性空间
+                
+                # 按钮点击事件
+                def on_left_clicked():
+                    if current_date_idx > 0:
+                        target_date = workdays_str[current_date_idx - 1]
+                        # 更新缓存的日期索引
+                        parent.last_selected_date_idx_for_navigation = current_date_idx - 1
+                        # 重新执行选股逻辑，使用新的日期
+                        perform_stock_selection_for_date(parent, target_date)
+                
+                def on_right_clicked():
+                    if current_date_idx < len(workdays_str) - 1:
+                        target_date = workdays_str[current_date_idx + 1]
+                        # 更新缓存的日期索引
+                        parent.last_selected_date_idx_for_navigation = current_date_idx + 1
+                        # 重新执行选股逻辑，使用新的日期
+                        perform_stock_selection_for_date(parent, target_date)
+                
+                left_btn.clicked.connect(on_left_clicked)
+                right_btn.clicked.connect(on_right_clicked)
+                
+                # 将按钮容器添加到主布局
+                layout_.addWidget(button_container)
+        
         result_window.setCentralWidget(central_widget)
-        result_window.resize(580, 450)
+        result_window.resize(1200, 450)
         result_window.show()
         parent.formula_select_result_window = result_window
         parent.formula_select_result_table = table
+
+def perform_stock_selection_for_date(parent, target_date):
+    """为指定日期重新执行选股逻辑"""
+    try:
+        # 获取当前的选股参数
+        formula_expr = getattr(parent, 'last_formula_expr', '')
+        select_count = getattr(parent, 'last_select_count', 10)
+        sort_mode = getattr(parent, 'last_sort_mode', '最大值排序')
+        profit_type = getattr(parent, 'last_profit_type', 'INC')
+        loss_type = getattr(parent, 'last_loss_type', 'INC')
+        
+        # 获取比较变量（如果有的话）
+        comparison_vars = []
+        if hasattr(parent, 'last_formula_select_state'):
+            # 这里需要根据实际情况获取比较变量
+            # 暂时使用空列表，可以根据需要扩展
+            pass
+        
+        # 重新执行选股
+        all_param_result = parent.get_or_calculate_result(
+            formula_expr=formula_expr,
+            select_count=select_count,
+            sort_mode=sort_mode,
+            show_main_output=False,
+            only_show_selected=False,
+            comparison_vars=comparison_vars,
+            profit_type=profit_type,
+            loss_type=loss_type,
+            end_date=target_date
+        )
+        
+        if all_param_result is None:
+            QMessageBox.information(parent, "提示", "无法获取选股结果")
+            return
+        
+        merged_results = all_param_result.get('dates', {})
+        
+        # 检查目标日期是否有数据
+        if target_date not in merged_results:
+            # 不弹窗结束窗口，而是显示空数据
+            # 创建空的表格数据
+            empty_table = show_formula_select_table_result(parent, {'dates': {target_date: []}}, 
+                                                         getattr(parent, 'init', None) and getattr(parent.init, 'price_data', None), 
+                                                         is_select_action=True)
+            
+            # 更新窗口内容显示空表格
+            if hasattr(parent, 'formula_select_result_window') and parent.formula_select_result_window is not None:
+                central_widget = parent.formula_select_result_window.centralWidget()
+                if central_widget:
+                    layout = central_widget.layout()
+                    if layout:
+                        # 移除旧的内容
+                        while layout.count() > 0:
+                            item = layout.takeAt(0)
+                            if item.widget():
+                                item.widget().deleteLater()
+                        
+                        # 添加空的表格
+                        layout.addWidget(empty_table)
+                        
+                        # 重新添加导航按钮
+                        if hasattr(parent, 'all_param_result') and parent.all_param_result:
+                            # 创建按钮容器
+                            button_container = QWidget()
+                            button_layout = QHBoxLayout(button_container)
+                            button_layout.setContentsMargins(10, 5, 10, 10)
+                            button_layout.setSpacing(10)
+                            
+                            # 获取当前日期和可用日期列表
+                            workdays_str = getattr(parent.init, 'workdays_str', [])
+                            
+                            # 使用缓存的日期索引
+                            if hasattr(parent, 'last_selected_date_idx_for_navigation') and parent.last_selected_date_idx_for_navigation is not None:
+                                current_date_idx = parent.last_selected_date_idx_for_navigation
+                                if 0 <= current_date_idx < len(workdays_str):
+                                    current_date = workdays_str[current_date_idx]
+                                else:
+                                    current_date = workdays_str[0] if workdays_str else None
+                                    current_date_idx = 0
+                            else:
+                                current_date = target_date
+                                current_date_idx = workdays_str.index(current_date) if current_date in workdays_str else -1
+                            
+                            if current_date is not None and current_date_idx >= 0:
+                                # 向左按钮
+                                left_btn = QPushButton("向左")
+                                left_btn.setFixedWidth(80)
+                                left_btn.setEnabled(current_date_idx > 0)
+                                
+                                # 向右按钮
+                                right_btn = QPushButton("向右")
+                                right_btn.setFixedWidth(80)
+                                right_btn.setEnabled(current_date_idx < len(workdays_str) - 1)
+                                
+                                # 添加按钮到布局
+                                button_layout.addStretch()
+                                button_layout.addWidget(left_btn)
+                                button_layout.addWidget(right_btn)
+                                button_layout.addStretch()
+                                
+                                # 按钮点击事件
+                                def on_left_clicked():
+                                    if current_date_idx > 0:
+                                        new_target_date = workdays_str[current_date_idx - 1]
+                                        parent.last_selected_date_idx_for_navigation = current_date_idx - 1
+                                        perform_stock_selection_for_date(parent, new_target_date)
+                                
+                                def on_right_clicked():
+                                    if current_date_idx < len(workdays_str) - 1:
+                                        new_target_date = workdays_str[current_date_idx + 1]
+                                        parent.last_selected_date_idx_for_navigation = current_date_idx + 1
+                                        perform_stock_selection_for_date(parent, new_target_date)
+                                
+                                left_btn.clicked.connect(on_left_clicked)
+                                right_btn.clicked.connect(on_right_clicked)
+                                
+                                # 将按钮容器添加到主布局
+                                layout.addWidget(button_container)
+            
+            # 更新结果数据为空
+            parent.last_formula_select_result_data = {'dates': {target_date: []}}
+            
+            # 更新缓存的日期索引
+            workdays_str = getattr(parent.init, 'workdays_str', [])
+            if target_date in workdays_str:
+                parent.last_selected_date_idx_for_navigation = workdays_str.index(target_date)
+            
+            return
+        
+        # 根据排序模式过滤结果
+        filtered_results = {}
+        for date, results in merged_results.items():
+            if date == target_date:
+                # 排除统计行（stock_idx为-3, -2, -1的行）
+                valid_results = [r for r in results if r.get('stock_idx', 0) >= 0]
+                
+                # 根据排序模式过滤score
+                if sort_mode == "最大值排序":
+                    filtered_results[date] = [r for r in valid_results if r.get('score') is not None and r.get('score', 0) > 0]
+                else:  # 最小值排序
+                    filtered_results[date] = [r for r in valid_results if r.get('score') is not None and r.get('score', 0) < 0]
+                
+                # 按score排序
+                if sort_mode == "最大值排序":
+                    filtered_results[date].sort(key=lambda x: x['score'], reverse=True)
+                else:  # 最小值排序
+                    filtered_results[date].sort(key=lambda x: x['score'])
+                
+                # 只保留指定数量的结果
+                filtered_results[date] = filtered_results[date][:select_count]
+        
+        # 使用过滤后的结果
+        if not filtered_results or not any(filtered_results.values()):
+            # 不弹窗结束窗口，而是显示空数据
+            # 创建空的表格数据
+            empty_table = show_formula_select_table_result(parent, {'dates': {target_date: []}}, 
+                                                         getattr(parent, 'init', None) and getattr(parent.init, 'price_data', None), 
+                                                         is_select_action=True)
+            
+            # 更新窗口内容显示空表格
+            if hasattr(parent, 'formula_select_result_window') and parent.formula_select_result_window is not None:
+                central_widget = parent.formula_select_result_window.centralWidget()
+                if central_widget:
+                    layout = central_widget.layout()
+                    if layout:
+                        # 移除旧的内容
+                        while layout.count() > 0:
+                            item = layout.takeAt(0)
+                            if item.widget():
+                                item.widget().deleteLater()
+                        
+                        # 添加空的表格
+                        layout.addWidget(empty_table)
+                        
+                        # 重新添加导航按钮
+                        if hasattr(parent, 'all_param_result') and parent.all_param_result:
+                            # 创建按钮容器
+                            button_container = QWidget()
+                            button_layout = QHBoxLayout(button_container)
+                            button_layout.setContentsMargins(10, 5, 10, 10)
+                            button_layout.setSpacing(10)
+                            
+                            # 获取当前日期和可用日期列表
+                            workdays_str = getattr(parent.init, 'workdays_str', [])
+                            
+                            # 使用缓存的日期索引
+                            if hasattr(parent, 'last_selected_date_idx_for_navigation') and parent.last_selected_date_idx_for_navigation is not None:
+                                current_date_idx = parent.last_selected_date_idx_for_navigation
+                                if 0 <= current_date_idx < len(workdays_str):
+                                    current_date = workdays_str[current_date_idx]
+                                else:
+                                    current_date = workdays_str[0] if workdays_str else None
+                                    current_date_idx = 0
+                            else:
+                                current_date = target_date
+                                current_date_idx = workdays_str.index(current_date) if current_date in workdays_str else -1
+                            
+                            if current_date is not None and current_date_idx >= 0:
+                                # 向左按钮
+                                left_btn = QPushButton("向左")
+                                left_btn.setFixedWidth(80)
+                                left_btn.setEnabled(current_date_idx > 0)
+                                
+                                # 向右按钮
+                                right_btn = QPushButton("向右")
+                                right_btn.setFixedWidth(80)
+                                right_btn.setEnabled(current_date_idx < len(workdays_str) - 1)
+                                
+                                # 添加按钮到布局
+                                button_layout.addStretch()
+                                button_layout.addWidget(left_btn)
+                                button_layout.addWidget(right_btn)
+                                button_layout.addStretch()
+                                
+                                # 按钮点击事件
+                                def on_left_clicked():
+                                    if current_date_idx > 0:
+                                        new_target_date = workdays_str[current_date_idx - 1]
+                                        parent.last_selected_date_idx_for_navigation = current_date_idx - 1
+                                        perform_stock_selection_for_date(parent, new_target_date)
+                                
+                                def on_right_clicked():
+                                    if current_date_idx < len(workdays_str) - 1:
+                                        new_target_date = workdays_str[current_date_idx + 1]
+                                        parent.last_selected_date_idx_for_navigation = current_date_idx + 1
+                                        perform_stock_selection_for_date(parent, new_target_date)
+                                
+                                left_btn.clicked.connect(on_left_clicked)
+                                right_btn.clicked.connect(on_right_clicked)
+                                
+                                # 将按钮容器添加到主布局
+                                layout.addWidget(button_container)
+            
+            # 更新结果数据为空
+            parent.last_formula_select_result_data = {'dates': {target_date: []}}
+            
+            # 更新缓存的日期索引
+            workdays_str = getattr(parent.init, 'workdays_str', [])
+            if target_date in workdays_str:
+                parent.last_selected_date_idx_for_navigation = workdays_str.index(target_date)
+            
+            return
+        
+        # 更新结果数据
+        parent.last_formula_select_result_data = {'dates': filtered_results}
+        
+        # 更新缓存的日期索引
+        workdays_str = getattr(parent.init, 'workdays_str', [])
+        if target_date in workdays_str:
+            parent.last_selected_date_idx_for_navigation = workdays_str.index(target_date)
+        
+        # 重新生成表格
+        table = show_formula_select_table_result(parent, parent.last_formula_select_result_data, 
+                                               getattr(parent, 'init', None) and getattr(parent.init, 'price_data', None), 
+                                               is_select_action=True)
+        
+        # 更新窗口内容
+        if hasattr(parent, 'formula_select_result_window') and parent.formula_select_result_window is not None:
+            # 获取当前窗口的中央部件
+            central_widget = parent.formula_select_result_window.centralWidget()
+            if central_widget:
+                # 清除旧的内容
+                layout = central_widget.layout()
+                if layout:
+                    # 移除旧的表格
+                    while layout.count() > 0:
+                        item = layout.takeAt(0)
+                        if item.widget():
+                            item.widget().deleteLater()
+                    
+                    # 添加新的表格
+                    layout.addWidget(table)
+                    
+                    # 重新添加导航按钮
+                    if hasattr(parent, 'all_param_result') and parent.all_param_result:
+                        # 创建按钮容器
+                        button_container = QWidget()
+                        button_layout = QHBoxLayout(button_container)
+                        button_layout.setContentsMargins(10, 5, 10, 10)
+                        button_layout.setSpacing(10)
+                        
+                        # 获取当前日期和可用日期列表
+                        workdays_str = getattr(parent.init, 'workdays_str', [])
+                        
+                        # 使用缓存的日期索引
+                        if hasattr(parent, 'last_selected_date_idx_for_navigation') and parent.last_selected_date_idx_for_navigation is not None:
+                            current_date_idx = parent.last_selected_date_idx_for_navigation
+                            if 0 <= current_date_idx < len(workdays_str):
+                                current_date = workdays_str[current_date_idx]
+                            else:
+                                current_date = workdays_str[0] if workdays_str else None
+                                current_date_idx = 0
+                        else:
+                            current_date = target_date  # 更新为新的目标日期
+                            current_date_idx = workdays_str.index(current_date) if current_date in workdays_str else -1
+                        
+                        if current_date is not None and current_date_idx >= 0:
+                            # 向左按钮
+                            left_btn = QPushButton("向左")
+                            left_btn.setFixedWidth(80)
+                            left_btn.setEnabled(current_date_idx > 0)
+                            
+                            # 向右按钮
+                            right_btn = QPushButton("向右")
+                            right_btn.setFixedWidth(80)
+                            right_btn.setEnabled(current_date_idx < len(workdays_str) - 1)
+                            
+                            # 添加按钮到布局
+                            button_layout.addStretch()
+                            button_layout.addWidget(left_btn)
+                            button_layout.addWidget(right_btn)
+                            button_layout.addStretch()
+                            
+                            # 按钮点击事件
+                            def on_left_clicked():
+                                if current_date_idx > 0:
+                                    new_target_date = workdays_str[current_date_idx - 1]
+                                    # 更新缓存的日期索引
+                                    parent.last_selected_date_idx_for_navigation = current_date_idx - 1
+                                    perform_stock_selection_for_date(parent, new_target_date)
+                            
+                            def on_right_clicked():
+                                if current_date_idx < len(workdays_str) - 1:
+                                    new_target_date = workdays_str[current_date_idx + 1]
+                                    # 更新缓存的日期索引
+                                    parent.last_selected_date_idx_for_navigation = current_date_idx + 1
+                                    perform_stock_selection_for_date(parent, new_target_date)
+                            
+                            left_btn.clicked.connect(on_left_clicked)
+                            right_btn.clicked.connect(on_right_clicked)
+                            
+                            # 将按钮容器添加到主布局
+                            layout.addWidget(button_container)
+                    
+                    # 更新表格引用
+                    parent.formula_select_result_table = table
+                    
+    except Exception as e:
+        QMessageBox.warning(parent, "错误", f"重新选股时出错: {str(e)}")
+        print(f"重新选股时出错: {e}")
 
 def unify_date_columns(df):
     new_columns = []
@@ -569,7 +1006,6 @@ def query_row_result(rows, keyword, n_days=0):
     if not results:
         return f"未找到与'{keyword}'相关的股票信息。"
     return '\n'.join(results)
-
 def show_params_table(parent, all_results, end_date=None, n_days=0, n_days_max=0, range_value=None, continuous_abs_threshold=None, as_widget=False, price_data=None):
     if not all_results or not all_results.get("dates"):
         QMessageBox.information(parent, "提示", "请先生成参数！")
@@ -609,8 +1045,10 @@ def show_params_table(parent, all_results, end_date=None, n_days=0, n_days_max=0
         f'开始日到结束日之间向前最大有效累加值绝对值小于M',
         '前1组结束日地址值',
         '前1组结束地址前1日涨跌幅', '前1组结束日涨跌幅', '后1组结束地址值',
-        '递增值', '后值大于结束地址值', '后值大于前值返回值', '操作值', '持有天数', '调天操作涨幅', '调整天数', '调天日均涨幅',
-        '调幅递增涨幅', '调幅后值大于结束地址值涨幅', '调幅后值大于前值返回值涨幅', '调幅操作涨幅', '调幅日均涨幅',
+        '递增值', '后值大于结束地址值', '后值大于前值返回值', '操作值', '持有天数', '停盈停损操作涨幅', '调整天数', '停盈停损日均涨幅',
+        '止盈止损递增涨幅', '止盈止损后值大于结束地址值涨幅', '止盈止损后值大于前值返回值涨幅', '止盈止损操作涨幅', '止盈止损日均涨幅',
+        '止盈停损递增涨幅', '止盈停损后值大于结束地址值涨幅', '止盈停损后值大于前值返回值涨幅', '止盈停损操作涨幅', '止盈停损日均涨幅',
+        '停盈止损递增涨幅', '停盈止损后值大于结束地址值涨幅', '停盈止损后值大于前值返回值涨幅', '停盈止损操作涨幅', '停盈止损日均涨幅',
         '创前新高1', '创前新高2', '创后新高1', '创后新高2', '创前新低1', '创前新低2', '创后新低1', '创后新低2'  # 新增两列
     ]
     table = QTableWidget(len(stocks_data), len(headers))
@@ -625,6 +1063,9 @@ def show_params_table(parent, all_results, end_date=None, n_days=0, n_days_max=0
             val = val[1]
         if val is None or val == '' or (isinstance(val, float) and (math.isnan(val) or str(val).lower() == 'nan')):
             return ''
+        # 如果是数值类型，保留两位小数
+        if isinstance(val, (int, float)):
+            return f"{val:.2f}"
         return val
 
     def get_percent(val):
@@ -634,10 +1075,35 @@ def show_params_table(parent, all_results, end_date=None, n_days=0, n_days_max=0
         return f"{v}%"
 
     def get_bool(val):
+        # 检查是否是统计行的特殊值（空字符串表示统计行中的布尔字段应该留空）
+        if val == '':
+            return ''
+            
+        # 直接处理布尔值，不经过get_val函数
+        if isinstance(val, bool):
+            return 'True' if val else 'False'
+        # 如果是数值类型（0/1），转换为布尔值
+        if isinstance(val, (int, float)):
+            return 'True' if val != 0 else 'False'
+        # 如果是字符串，尝试转换为布尔值
+        if isinstance(val, str):
+            v_lower = val.lower()
+            if v_lower in ['true', '1', 'yes', 'on']:
+                return 'True'
+            elif v_lower in ['false', '0', 'no', 'off', '']:
+                return 'False'
+        # 其他情况，使用get_val处理
         v = get_val(val)
         if v == '':
             return 'False'
-        return str(v)
+        # 如果get_val返回的是格式化后的数值字符串，转换回布尔值
+        if isinstance(v, str) and v.replace('.', '').replace('0', '').isdigit():
+            try:
+                num_val = float(v)
+                return 'True' if num_val != 0 else 'False'
+            except:
+                pass
+        return 'True' if v else 'False'
 
     def get_ops_value(val):
         # val 是 [值, 天数] 或 None
@@ -656,8 +1122,8 @@ def show_params_table(parent, all_results, end_date=None, n_days=0, n_days_max=0
         table.setRowCount(len(stocks_data))
         for row_idx, row in enumerate(stocks_data):
             stock_idx = row.get('stock_idx', 0)
-            code = price_data.iloc[stock_idx, 0]
-            name = price_data.iloc[stock_idx, 1]
+            code = row.get('code', '')
+            name = row.get('name', '')
             table.setItem(row_idx, 0, QTableWidgetItem(str(code)))
             table.setItem(row_idx, 1, QTableWidgetItem(str(name)))
             table.setItem(row_idx, 2, QTableWidgetItem(str(get_val(row.get('max_value', '')))))
@@ -667,7 +1133,7 @@ def show_params_table(parent, all_results, end_date=None, n_days=0, n_days_max=0
             table.setItem(row_idx, 6, QTableWidgetItem(str(get_val(row.get('actual_value', '')))))
             table.setItem(row_idx, 7, QTableWidgetItem(str(get_val(row.get('closest_value', '')))))
             table.setItem(row_idx, 8, QTableWidgetItem(str(get_val(row.get('n_days_max_value', '')))))
-            table.setItem(row_idx, 9, QTableWidgetItem(str(get_val(row.get('n_max_is_max', '')))))
+            table.setItem(row_idx, 9, QTableWidgetItem(get_bool(row.get('n_max_is_max', ''))))
             table.setItem(row_idx, 10, QTableWidgetItem(get_bool(row.get('range_ratio_is_less', ''))))
             table.setItem(row_idx, 11, QTableWidgetItem(get_bool(row.get('continuous_abs_is_less', ''))))
             table.setItem(row_idx, 12, QTableWidgetItem(get_bool(row.get('valid_abs_is_less', ''))))
@@ -690,17 +1156,28 @@ def show_params_table(parent, all_results, end_date=None, n_days=0, n_days_max=0
             table.setItem(row_idx, 29, QTableWidgetItem(get_percent(row.get('increment_change', ''))))
             table.setItem(row_idx, 30, QTableWidgetItem(get_percent(row.get('after_gt_end_change', ''))))
             table.setItem(row_idx, 31, QTableWidgetItem(get_percent(row.get('after_gt_start_change', ''))))
-            table.setItem(row_idx, 32, QTableWidgetItem(get_percent(row.get('adjust_ops_value', ''))))
+            table.setItem(row_idx, 32, QTableWidgetItem(get_percent(row.get('adjust_ops_change', ''))))
             table.setItem(row_idx, 33, QTableWidgetItem(get_percent(row.get('adjust_ops_incre_rate', ''))))
+            # 止盈停损相关
+            table.setItem(row_idx, 34, QTableWidgetItem(get_percent(row.get('take_and_stop_increment_change', ''))))
+            table.setItem(row_idx, 35, QTableWidgetItem(get_percent(row.get('take_and_stop_after_gt_end_change', ''))))
+            table.setItem(row_idx, 36, QTableWidgetItem(get_percent(row.get('take_and_stop_after_gt_start_change', ''))))
+            table.setItem(row_idx, 37, QTableWidgetItem(get_percent(row.get('take_and_stop_change', ''))))
+            table.setItem(row_idx, 38, QTableWidgetItem(get_percent(row.get('take_and_stop_incre_rate', ''))))
+            table.setItem(row_idx, 39, QTableWidgetItem(get_percent(row.get('stop_and_take_increment_change', ''))))
+            table.setItem(row_idx, 40, QTableWidgetItem(get_percent(row.get('stop_and_take_after_gt_end_change', ''))))
+            table.setItem(row_idx, 41, QTableWidgetItem(get_percent(row.get('stop_and_take_after_gt_start_change', ''))))
+            table.setItem(row_idx, 42, QTableWidgetItem(get_percent(row.get('stop_and_take_change', ''))))
+            table.setItem(row_idx, 43, QTableWidgetItem(get_percent(row.get('stop_and_take_incre_rate', ''))))
             # 新增：创新高、创新低
-            table.setItem(row_idx, 34, QTableWidgetItem(get_bool(row.get('start_with_new_before_high', ''))))
-            table.setItem(row_idx, 35, QTableWidgetItem(get_bool(row.get('start_with_new_before_high2', ''))))
-            table.setItem(row_idx, 36, QTableWidgetItem(get_bool(row.get('start_with_new_after_high', ''))))
-            table.setItem(row_idx, 37, QTableWidgetItem(get_bool(row.get('start_with_new_after_high2', ''))))
-            table.setItem(row_idx, 38, QTableWidgetItem(get_bool(row.get('start_with_new_before_low', ''))))
-            table.setItem(row_idx, 39, QTableWidgetItem(get_bool(row.get('start_with_new_before_low2', ''))))
-            table.setItem(row_idx, 40, QTableWidgetItem(get_bool(row.get('start_with_new_after_low', ''))))
-            table.setItem(row_idx, 41, QTableWidgetItem(get_bool(row.get('start_with_new_after_low2', ''))))
+            table.setItem(row_idx, 44, QTableWidgetItem(get_bool(row.get('start_with_new_before_high', ''))))
+            table.setItem(row_idx, 45, QTableWidgetItem(get_bool(row.get('start_with_new_before_high2', ''))))
+            table.setItem(row_idx, 46, QTableWidgetItem(get_bool(row.get('start_with_new_after_high', ''))))
+            table.setItem(row_idx, 47, QTableWidgetItem(get_bool(row.get('start_with_new_after_high2', ''))))
+            table.setItem(row_idx, 48, QTableWidgetItem(get_bool(row.get('start_with_new_before_low', ''))))
+            table.setItem(row_idx, 49, QTableWidgetItem(get_bool(row.get('start_with_new_before_low2', ''))))
+            table.setItem(row_idx, 50, QTableWidgetItem(get_bool(row.get('start_with_new_after_low', ''))))
+            table.setItem(row_idx, 51, QTableWidgetItem(get_bool(row.get('start_with_new_after_low2', ''))))
         table.resizeColumnsToContents()
         table.horizontalHeader().setFixedHeight(50)
         table.horizontalHeader().setStyleSheet("font-size: 12px;")
@@ -826,27 +1303,60 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
     select_count_spin.valueChanged.connect(sync_to_main)
     sort_combo.currentTextChanged.connect(sync_to_main)
 
-    # 新增：操作值控件
-    expr_label = QLabel("操作值")
+    # 新增：操作值控件 - 盈损选择
+    expr_label = QLabel("操作值：")
     expr_label.setFixedWidth(50)
     expr_label.setStyleSheet("border: none;")
-    expr_edit = parent.expr_edit if hasattr(parent, 'expr_edit') else None
-    if expr_edit is None:
-        from ui.stock_analysis_ui_v2 import ValidatedExprEdit
-        expr_edit = ValidatedExprEdit()
-        expr_edit.setPlainText("if INC != 0:\n    result = INC\nelse:\n    result = 0\n")
-    expr_edit.setFixedWidth(120)
-    expr_edit.setFixedHeight(20)
-    # 初始化内容
-    if hasattr(parent, 'last_expr') and parent.last_expr:
-        expr_edit.setPlainText(parent.last_expr)
-    def sync_expr_to_main():
-        if hasattr(parent, 'last_expr'):
-            parent.last_expr = expr_edit.toPlainText()
-    expr_edit.textChanged.connect(sync_expr_to_main)
+    
+    # 创建盈损选择容器
+    profit_loss_container = QWidget()
+    profit_loss_layout = QHBoxLayout(profit_loss_container)
+    profit_loss_layout.setContentsMargins(0, 0, 0, 0)
+    profit_loss_layout.setSpacing(5)
+    
+    # 盈选择框
+    profit_label = QLabel("盈")
+    profit_label.setFixedWidth(20)
+    profit_label.setStyleSheet("border: none;")
+    profit_combo = QComboBox()
+    profit_combo.addItems(["INC", "AGE", "AGS"])
+    profit_combo.setFixedWidth(50)
+    profit_combo.setFixedHeight(20)
+    
+    # 损选择框
+    loss_label = QLabel("损")
+    loss_label.setFixedWidth(20)
+    loss_label.setStyleSheet("border: none;")
+    loss_combo = QComboBox()
+    loss_combo.addItems(["INC", "AGE", "AGS"])
+    loss_combo.setFixedWidth(50)
+    loss_combo.setFixedHeight(20)
+    
+    # 添加到容器布局
+    profit_loss_layout.addWidget(profit_label)
+    profit_loss_layout.addWidget(profit_combo)
+    profit_loss_layout.addWidget(loss_label)
+    profit_loss_layout.addWidget(loss_combo)
+    
+    # 初始化选择值
+    if hasattr(parent, 'last_profit_type'):
+        profit_combo.setCurrentText(parent.last_profit_type)
+    if hasattr(parent, 'last_loss_type'):
+        loss_combo.setCurrentText(parent.last_loss_type)
+    
+    # 同步到主窗口
+    def sync_profit_loss_to_main():
+        if hasattr(parent, 'last_profit_type'):
+            parent.last_profit_type = profit_combo.currentText()
+        if hasattr(parent, 'last_loss_type'):
+            parent.last_loss_type = loss_combo.currentText()
+    
+    profit_combo.currentTextChanged.connect(sync_profit_loss_to_main)
+    loss_combo.currentTextChanged.connect(sync_profit_loss_to_main)
+    
     # 直接添加到top_layout
     top_layout.addWidget(expr_label)
-    top_layout.addWidget(expr_edit)
+    top_layout.addWidget(profit_loss_container)
 
     select_btn = QPushButton("进行选股")
     select_btn.setFixedSize(100, 20)
@@ -877,6 +1387,11 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
     set_forward_param_btn.setFixedSize(100, 20)
     set_forward_param_btn.setStyleSheet(select_btn.styleSheet())
 
+    # 新增：清除序号按钮
+    clear_sequence_btn = QPushButton("清除序号")
+    clear_sequence_btn.setFixedSize(100, 20)
+    clear_sequence_btn.setStyleSheet(select_btn.styleSheet())
+
     # 新增：组合输出锁定勾选框
     lock_output_checkbox = QCheckBox("组合输出锁定")
     lock_output_checkbox.setFixedWidth(120)
@@ -895,10 +1410,12 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
     def on_set_forward_param_btn_clicked():
         abbr_map = get_window_abbr_map()
         round_map = get_abbr_round_map()  # 获取需要圆框勾选的变量映射
-        class ForwardParamDialog(QDialog):
+        class ForwardParamDialog(QWidget):
             def __init__(self, abbr_map, state=None, parent=None):
                 super().__init__(parent)
                 self.setWindowTitle("设置向前参数")
+                # 设置窗口标志，使其行为类似对话框
+                self.setWindowFlags(Qt.Window | Qt.WindowCloseButtonHint | Qt.WindowMinimizeButtonHint)
                 grid = QGridLayout(self)
                 grid.setHorizontalSpacing(20)
                 grid.setVerticalSpacing(10)
@@ -916,7 +1433,7 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
                     enable_cb.setFixedWidth(15)
 
                     label = QLabel(zh_name)
-                    
+
                     # 添加圆框勾选框
                     round_check = None
                     if abbr_map[zh_name] in round_map.values():
@@ -971,17 +1488,30 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
                     logic_label = QLabel("含逻辑")
                     logic_label.setStyleSheet("border: none;")
                     
+                    # 添加排序下拉框
+                    sort_input = QComboBox()
+                    sort_input.setFixedWidth(45)
+                    sort_input.setToolTip("设置参数分析优先级，数字越小优先级越高")
+                    # 添加排序选项：0-99，每个数字一个选项
+                    sort_options = [str(i) for i in range(0, 100)]
+                    sort_input.addItems(sort_options)
+                    sort_input.setCurrentText("0")  # 默认选择最高优先级
+                    # 设置下拉框高度，显示10个选项，超出时可滚动
+                    sort_input.setMaxVisibleItems(10)
+                    
                     group_layout.addWidget(enable_cb)
                     if round_check:
                         group_layout.addWidget(round_check)
                     group_layout.addWidget(label)
+                    # 为向前参数对话框中的变量控件添加悬浮提示
+                    add_tooltip_to_variable(label, abbr_map[zh_name], self.parent())
                     group_layout.addWidget(lower_edit)
                     group_layout.addWidget(upper_edit)
                     group_layout.addWidget(step_edit)
                     group_layout.addWidget(direction_combo)
                     group_layout.addWidget(logic_check)
                     group_layout.addWidget(logic_label)
-                    
+                    group_layout.addWidget(sort_input)
                     group_widget.setLayout(group_layout)
                     grid.addWidget(group_widget, row, col)
                     
@@ -991,7 +1521,8 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
                         "upper": upper_edit,
                         "step": step_edit,
                         "direction": direction_combo,
-                        "logic": logic_check
+                        "logic": logic_check,
+                        "sort": sort_input
                     }
                     if round_check:
                         widget_dict["round"] = round_check
@@ -1003,7 +1534,13 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
                 btn_ok.setFixedHeight(32)
                 btn_ok.setStyleSheet("font-size: 14px;")
                 btn_ok.clicked.connect(self.accept)
-                grid.addWidget(btn_ok, row+1, 0, 1, 4)
+                
+                # 创建按钮布局
+                button_layout = QHBoxLayout()
+                button_layout.addStretch()
+                button_layout.addWidget(btn_ok)
+                
+                grid.addLayout(button_layout, row+1, 0, 1, 4)
                 # 设置拉伸策略：内容区不拉伸，只拉伸最右空白列和最下空白行
                 for i in range(4):
                     grid.setColumnStretch(i, 0)
@@ -1029,9 +1566,19 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
                             if idx >= 0:
                                 w["direction"].setCurrentIndex(idx)
                             w["logic"].setChecked(v.get("logic", False))
+                            if "sort" in w:
+                                w["sort"].setCurrentText(v.get("sort", ""))
                             if "round" in w:
                                 w["round"].setChecked(v.get("round", False))
                 self.setLayout(grid)
+                
+                # 添加结果属性
+                self.result = None
+                
+            def accept(self):
+                """确定按钮的处理"""
+                self.result = True
+                self.close()
                 
             def get_params(self):
                 params = {}
@@ -1042,23 +1589,54 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
                         "upper": w["upper"].text(),
                         "step": w["step"].text(),
                         "direction": w["direction"].currentText(),
-                        "logic": w["logic"].isChecked()
+                        "logic": w["logic"].isChecked(),
+                        "sort": w["sort"].currentText()
                     }
                     if "round" in w:
                         param_dict["round"] = w["round"].isChecked()
                     params[k] = param_dict
                 return params
+            
+            def get_sorted_forward_params(self):
+                """
+                获取排序后的向前参数列表
+                返回格式：[(变量名, 排序值), ...]，按排序值升序排列
+                """
+                forward_params = []
+                for k, w in self.widgets.items():
+                    if w["enable"].isChecked():
+                        sort_value = 999  # 默认最大值
+                        if w["sort"].currentText().strip():
+                            try:
+                                sort_value = int(w["sort"].currentText().strip())
+                            except ValueError:
+                                pass
+                        forward_params.append((k, sort_value))
+                
+                # 按排序值升序排列
+                forward_params.sort(key=lambda x: x[1])
+                return forward_params
                 
             def closeEvent(self, event):
+                # 关闭窗口时也保存参数，相当于确定
+                self.result = True
                 params = self.get_params()
                 if hasattr(self.parent(), 'forward_param_state'):
                     self.parent().forward_param_state = params
                     if hasattr(self.parent(), 'save_config'):
                         self.parent().save_config()
                 super().closeEvent(event)
+
         # parent为主窗口实例
         dlg = ForwardParamDialog(abbr_map, state=getattr(parent, 'forward_param_state', None), parent=parent)
-        if dlg.exec_():
+        # 固定窗口位置
+        dlg.move(100, 300)
+        dlg.show()
+        # 等待窗口关闭
+        while dlg.isVisible():
+            QApplication.instance().processEvents()
+        
+        if dlg.result:
             params = dlg.get_params()
             parent.forward_param_state = params
             if hasattr(parent, 'save_config'):
@@ -1066,8 +1644,39 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
 
     set_forward_param_btn.clicked.connect(on_set_forward_param_btn_clicked)
 
+    # 清除序号按钮点击事件
+    def on_clear_sequence_btn_clicked():
+        """清除变量控件和向前相关变量控件的sort_value值，重置为0"""
+        try:
+            # 清除变量控件的sort_value
+            if hasattr(parent, 'formula_widget') and parent.formula_widget:
+                for en, widgets in parent.formula_widget.var_widgets.items():
+                    if 'sort' in widgets:
+                        widgets['sort'].setCurrentText("0")
+                        print(f"已清除变量控件 {en} 的序号，重置为0")
+            
+            # 清除向前相关变量控件的sort_value
+            if hasattr(parent, 'forward_param_state') and parent.forward_param_state:
+                for k, v in parent.forward_param_state.items():
+                    if isinstance(v, dict) and 'sort' in v:
+                        v['sort'] = "0"
+                        print(f"已清除向前相关变量控件 {k} 的序号，重置为0")
+                
+                # 保存配置
+                if hasattr(parent, 'save_config'):
+                    parent.save_config()
+                    print("已保存清除序号后的配置")
+            
+            QMessageBox.information(parent, "提示", "序号已全部清除，重置为0")
+            
+        except Exception as e:
+            print(f"清除序号时出错: {e}")
+            QMessageBox.warning(parent, "警告", f"清除序号时出错: {e}")
+
+    clear_sequence_btn.clicked.connect(on_clear_sequence_btn_clicked)
+
     # 重新组织top_layout顺序
-    for w in [select_count_widget, sort_label, sort_combo, select_btn, view_result_btn, set_forward_param_btn, lock_output_checkbox]:
+    for w in [select_count_widget, sort_label, sort_combo, select_btn, view_result_btn, set_forward_param_btn, clear_sequence_btn, lock_output_checkbox]:
         top_layout.addWidget(w)
     layout.addLayout(top_layout)
 
@@ -1095,7 +1704,6 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
         parent.formula_select_result_window = None
     if not hasattr(parent, 'formula_select_result_table'):
         parent.formula_select_result_table = None
-
     # 选股逻辑
     def do_select():
         # 读取控件值
@@ -1121,13 +1729,47 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
         print(f"comparison_vars: {comparison_vars}")
         select_count = select_count_spin.value()
         sort_mode = sort_combo.currentText()
+        
+        # 获取盈损参数
+        profit_type = profit_combo.currentText()
+        loss_type = loss_combo.currentText()
+        
+        # 获取倍增系数参数（选股时使用下限值）
+        negative_multiplier = 1.0
+        positive_multiplier = 1.0
+        
+        # 从特殊变量控件中获取倍增系数
+        if 'negative_multiplier' in formula_widget.var_widgets:
+            widgets = formula_widget.var_widgets['negative_multiplier']
+            if 'checkbox' in widgets and widgets['checkbox'].isChecked():
+                lower_text = widgets.get('lower', '').text().strip()
+                if lower_text:
+                    try:
+                        negative_multiplier = round(float(lower_text), 2)
+                    except ValueError:
+                        negative_multiplier = 1.0
+        
+        if 'positive_multiplier' in formula_widget.var_widgets:
+            widgets = formula_widget.var_widgets['positive_multiplier']
+            if 'checkbox' in widgets and widgets['checkbox'].isChecked():
+                lower_text = widgets.get('lower', '').text().strip()
+                if lower_text:
+                    try:
+                        positive_multiplier = round(float(lower_text), 2)
+                    except ValueError:
+                        positive_multiplier = 1.0
+        
         all_param_result = parent.get_or_calculate_result(
             formula_expr=formula_expr,
             select_count=select_count,
             sort_mode=sort_mode,
             show_main_output=False,
             only_show_selected=False,  # 保持False以获取完整数据
-            comparison_vars=comparison_vars
+            comparison_vars=comparison_vars,
+            profit_type=profit_type,
+            loss_type=loss_type,
+            negative_multiplier=negative_multiplier,
+            positive_multiplier=positive_multiplier
         )
         if all_param_result is None:
             # QMessageBox.information(parent, "提示", "请先上传数据文件！")
@@ -1137,11 +1779,14 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
         # 根据排序模式过滤结果
         filtered_results = {}
         for date, results in merged_results.items():
+            # 排除统计行（stock_idx为-3, -2, -1的行）
+            valid_results = [r for r in results if r.get('stock_idx', 0) >= 0]
+            
             # 根据排序模式过滤score
             if sort_mode == "最大值排序":
-                filtered_results[date] = [r for r in results if r.get('score') is not None and r.get('score', 0) > 0]
+                filtered_results[date] = [r for r in valid_results if r.get('score') is not None and r.get('score', 0) > 0]
             else:  # 最小值排序
-                filtered_results[date] = [r for r in results if r.get('score') is not None and r.get('score', 0) < 0]
+                filtered_results[date] = [r for r in valid_results if r.get('score') is not None and r.get('score', 0) < 0]
             
             # 按score排序
             if sort_mode == "最大值排序":
@@ -1160,23 +1805,42 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
             stock_indices = [stock.get('stock_idx') for stock in first_stocks if 'stock_idx' in stock]
             print(f"选股第一个日期 {first_date} 的stock_idx: {stock_indices}")
         parent.all_param_result = all_param_result
-        if not merged_results or not any(merged_results.values()):
-            QMessageBox.information(parent, "提示", "没有选股结果。")
-            return
-        first_date = list(merged_results.keys())[0]
-        stocks = merged_results[first_date]
-        import math
-        filtered = []
-        for stock in stocks:
-            score = stock.get('score')
-            end_value = stock.get('end_value', [None, None])[1] if isinstance(stock.get('end_value'), (list, tuple)) else stock.get('end_value')
-            hold_days = stock.get('hold_days', None)
-            if score is not None and score != 0 and not (isinstance(end_value, float) and math.isnan(end_value)) and hold_days != -1:
-                filtered.append(stock)
-        reverse = sort_mode == "最大值排序"
-        filtered.sort(key=lambda x: x['score'], reverse=reverse)
-        selected_result = filtered[:select_count]
-        parent.last_formula_select_result_data = {'dates': {first_date: selected_result}}
+        # 获取第一个日期，无论是否有选股结果
+        if merged_results:
+            first_date = list(merged_results.keys())[0]
+            # 处理选股结果
+            if any(merged_results.values()):
+                # 有选股结果，进行过滤和排序
+                stocks = merged_results[first_date]
+                import math
+                filtered = []
+                for stock in stocks:
+                    score = stock.get('score')
+                    end_value = stock.get('end_value', [None, None])[1] if isinstance(stock.get('end_value'), (list, tuple)) else stock.get('end_value')
+                    hold_days = stock.get('hold_days', None)
+                    if score is not None and score != 0 and not (isinstance(end_value, float) and math.isnan(end_value)) and hold_days != -1:
+                        filtered.append(stock)
+                reverse = sort_mode == "最大值排序"
+                filtered.sort(key=lambda x: x['score'], reverse=reverse)
+                selected_result = filtered[:select_count]
+            else:
+                # 没有选股结果，使用空列表
+                selected_result = []
+            
+            # 创建选股结果数据
+            parent.last_formula_select_result_data = {'dates': {first_date: selected_result}}
+            
+            # 保存当前日期的索引到缓存中
+            workdays_str = getattr(parent.init, 'workdays_str', [])
+            if first_date in workdays_str:
+                parent.last_selected_date_idx_for_navigation = workdays_str.index(first_date)
+            else:
+                parent.last_selected_date_idx_for_navigation = 0
+        else:
+            # 完全没有merged_results，创建空数据
+            parent.last_formula_select_result_data = {'dates': {}}
+            parent.last_selected_date_idx_for_navigation = 0
+        
         table = show_formula_select_table_result(parent, parent.last_formula_select_result_data, getattr(parent, 'init', None) and getattr(parent.init, 'price_data', None), is_select_action=True)
         # 弹窗展示 - 使用主窗口级别的窗口管理
         if hasattr(parent, 'formula_select_result_window') and parent.formula_select_result_window is not None:
@@ -1190,8 +1854,77 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
         central_widget = QWidget()
         layout_ = QVBoxLayout(central_widget)
         layout_.addWidget(table)
+        
+        # 添加导航按钮
+        if hasattr(parent, 'all_param_result') and parent.all_param_result:
+            # 创建按钮容器
+            button_container = QWidget()
+            button_layout = QHBoxLayout(button_container)
+            button_layout.setContentsMargins(10, 5, 10, 10)
+            button_layout.setSpacing(10)
+            
+            # 获取当前日期和可用日期列表
+            workdays_str = getattr(parent.init, 'workdays_str', [])
+            
+            # 使用缓存的日期索引，如果没有则使用第一个日期
+            if hasattr(parent, 'last_selected_date_idx_for_navigation') and parent.last_selected_date_idx_for_navigation is not None:
+                current_date_idx = parent.last_selected_date_idx_for_navigation
+                if 0 <= current_date_idx < len(workdays_str):
+                    current_date = workdays_str[current_date_idx]
+                else:
+                    current_date = workdays_str[0] if workdays_str else None
+                    current_date_idx = 0
+            else:
+                current_dates = list(parent.all_param_result.get('dates', {}).keys())
+                if current_dates and workdays_str:
+                    current_date = current_dates[0]  # 当前显示的日期
+                    current_date_idx = workdays_str.index(current_date) if current_date in workdays_str else -1
+                else:
+                    current_date = None
+                    current_date_idx = -1
+            
+            if current_date is not None and current_date_idx >= 0:
+                # 向左按钮
+                left_btn = QPushButton("向左")
+                left_btn.setFixedWidth(80)
+                left_btn.setEnabled(current_date_idx > 0)  # 如果不是第一个交易日，则启用
+                
+                # 向右按钮
+                right_btn = QPushButton("向右")
+                right_btn.setFixedWidth(80)
+                right_btn.setEnabled(current_date_idx < len(workdays_str) - 1)  # 如果不是最后一个交易日，则启用
+                
+                # 添加按钮到布局
+                button_layout.addStretch()  # 左侧弹性空间
+                button_layout.addWidget(left_btn)
+                button_layout.addWidget(right_btn)
+                button_layout.addStretch()  # 右侧弹性空间
+                
+                # 按钮点击事件
+                def on_left_clicked():
+                    if current_date_idx > 0:
+                        target_date = workdays_str[current_date_idx - 1]
+                        # 更新缓存的日期索引
+                        parent.last_selected_date_idx_for_navigation = current_date_idx - 1
+                        # 重新执行选股逻辑，使用新的日期
+                        perform_stock_selection_for_date(parent, target_date)
+                
+                def on_right_clicked():
+                    if current_date_idx < len(workdays_str) - 1:
+                        target_date = workdays_str[current_date_idx + 1]
+                        # 更新缓存的日期索引
+                        parent.last_selected_date_idx_for_navigation = current_date_idx + 1
+                        # 重新执行选股逻辑，使用新的日期
+                        perform_stock_selection_for_date(parent, target_date)
+                
+                left_btn.clicked.connect(on_left_clicked)
+                right_btn.clicked.connect(on_right_clicked)
+                
+                # 将按钮容器添加到主布局
+                layout_.addWidget(button_container)
+        
         result_window.setCentralWidget(central_widget)
-        result_window.resize(580, 450)
+        result_window.resize(1200, 450)
         result_window.show()
         parent.formula_select_result_window = result_window
         parent.formula_select_result_table = table
@@ -1215,13 +1948,23 @@ def show_formula_select_table(parent, all_results=None, as_widget=True):
                 # 替换弹窗内容
                 win = parent.formula_select_result_window
                 if win:
-                    for i in reversed(range(win.layout().count())):
-                        widget = win.layout().itemAt(i).widget()
-                        if widget is not None:
-                            widget.setParent(None)
-                    win.layout().addWidget(table2)
-                    parent.formula_select_result_table = table2
-                    table2.horizontalHeader().sectionClicked.connect(on_header_clicked)
+                    central_widget = win.centralWidget()
+                    if central_widget:
+                        layout = central_widget.layout()
+                        if layout:
+                            # 移除旧的表格，但保留按钮
+                            for i in reversed(range(layout.count())):
+                                item = layout.itemAt(i)
+                                if item.widget():
+                                    widget = item.widget()
+                                    if widget == parent.formula_select_result_table:
+                                        widget.setParent(None)
+                                        break
+                            
+                            # 添加新的表格
+                            layout.insertWidget(0, table2)
+                            parent.formula_select_result_table = table2
+                            table2.horizontalHeader().sectionClicked.connect(on_header_clicked)
         table.horizontalHeader().sectionClicked.connect(on_header_clicked)
 
     # 查看结果按钮逻辑
@@ -1284,23 +2027,62 @@ def show_formula_select_table_result(parent, result, price_data=None, output_edi
         CopyableTableWidget = QTableWidget
     
     merged_results = result.get('dates', {})
-    headers = ["股票代码", "股票名称", "持有天数", "操作涨幅", "调天日均涨跌幅", "调幅日均涨跌幅", "选股公式输出值"]
+   
+    headers = ["股票代码", "股票名称", "持有天数", "止盈止损涨幅", "止盈止损日均涨幅", "止盈停损涨幅", "止盈停损日均涨幅", "调整天数", "停盈停损涨幅", "停盈停损日均涨幅", "停盈止损涨幅", "停盈止损日均涨幅", "选股公式输出值"]
     if not merged_results or not any(merged_results.values()):
-        # 返回一个只有表头的空表格
-        table = CopyableTableWidget(0, len(headers), parent)
+        # 返回一个包含结束日期行的空表格
+        table = CopyableTableWidget(1, len(headers), parent)  # 1行用于显示结束日期
         table.setHorizontalHeaderLabels(headers)
+        
+        # 获取目标日期（从result中提取，如果没有则使用当前日期）
+        target_date = None
+        if merged_results:
+            target_date = list(merged_results.keys())[0]
+        else:
+            # 如果没有日期信息，尝试从parent获取
+            if hasattr(parent, 'last_formula_select_result_data') and parent.last_formula_select_result_data:
+                target_date = list(parent.last_formula_select_result_data.get('dates', {}).keys())[0]
+            elif hasattr(parent, 'init') and hasattr(parent.init, 'workdays_str') and parent.init.workdays_str:
+                target_date = parent.init.workdays_str[-1]  # 使用最后一个工作日
+        
+        # 在表格中显示结束日期信息
+        if target_date:
+            # 第一列显示"结束日期"
+            table.setItem(0, 0, QTableWidgetItem("结束日期"))
+            # 第二列显示具体日期
+            table.setItem(0, 1, QTableWidgetItem(str(target_date)))
+            # 其他列留空
+            for col in range(2, len(headers)):
+                table.setItem(0, col, QTableWidgetItem(""))
+        else:
+            # 如果没有日期信息，显示提示信息
+            table.setItem(0, 0, QTableWidgetItem("无选股结果"))
+            table.setItem(0, 1, QTableWidgetItem("请检查选股条件"))
+            # 其他列留空
+            for col in range(2, len(headers)):
+                table.setItem(0, col, QTableWidgetItem(""))
+        
         table.resizeColumnsToContents()
         table.horizontalHeader().setFixedHeight(50)
         table.horizontalHeader().setStyleSheet("font-size: 12px;")
-        if is_select_action:
-            QMessageBox.information(parent, "提示", "无匹配结果")
         return table
     # 只展示第一个日期的数据
     first_date = list(merged_results.keys())[0]
     stocks = merged_results[first_date]
+    # 过滤掉统计行（stock_idx为-1到-3的数据）
+    stocks = [stock for stock in stocks if stock.get('stock_idx', 0) >= 0]
     if not stocks:
-        table = CopyableTableWidget(0, len(headers), parent)
+        # 返回一个包含结束日期行的空表格
+        table = CopyableTableWidget(1, len(headers), parent)  # 1行用于显示结束日期
         table.setHorizontalHeaderLabels(headers)
+        
+        # 显示结束日期信息
+        table.setItem(0, 0, QTableWidgetItem("结束日期"))
+        table.setItem(0, 1, QTableWidgetItem(str(first_date)))
+        # 其他列留空
+        for col in range(2, len(headers)):
+            table.setItem(0, col, QTableWidgetItem(""))
+        
         table.resizeColumnsToContents()
         table.horizontalHeader().setFixedHeight(50)
         table.horizontalHeader().setStyleSheet("font-size: 12px;")
@@ -1311,6 +2093,12 @@ def show_formula_select_table_result(parent, result, price_data=None, output_edi
     ops_change_list = []
     ops_incre_rate_list = []
     adjust_ops_incre_rate_list = []
+    adjust_days_list = []
+    adjust_ops_change_list = []
+    take_and_stop_change_list = []
+    take_and_stop_incre_rate_list = []
+    stop_and_take_change_list = []
+    stop_and_take_incre_rate_list = []
     def safe_val(val):
         if val is None:
             return ''
@@ -1322,29 +2110,42 @@ def show_formula_select_table_result(parent, result, price_data=None, output_edi
     for row_idx, stock in enumerate(stocks):
         stock_idx = stock.get('stock_idx', None)
         # 优先从stock获取name，没有再查price_data
-        code = stock.get('code', stock.get('stock_idx', ''))
+        code = stock.get('code', None)
         name = stock.get('name', None)
-        if (not name) and price_data is not None and stock_idx is not None:
-            code = price_data.iloc[stock_idx, 0]
-            name = price_data.iloc[stock_idx, 1]
-        if name is None:
-            name = ''
         hold_days = safe_val(stock.get('hold_days', ''))
         ops_change = safe_val(stock.get('ops_change', ''))
         ops_incre_rate = safe_val(stock.get('ops_incre_rate', ''))
         score = safe_val(stock.get('score', ''))
         adjust_ops_incre_rate = safe_val(stock.get('adjust_ops_incre_rate', ''))
+        adjust_days = safe_val(stock.get('adjust_days', ''))
+        adjust_ops_change = safe_val(stock.get('adjust_ops_change', ''))
+        take_and_stop_change = safe_val(stock.get('take_and_stop_change', ''))
+        take_and_stop_incre_rate = safe_val(stock.get('take_and_stop_incre_rate', ''))
+        stop_and_take_change = safe_val(stock.get('stop_and_take_change', ''))
+        stop_and_take_incre_rate = safe_val(stock.get('stop_and_take_incre_rate', ''))
         # 加%号显示
         ops_change_str = f"{ops_change}%" if ops_change != '' else ''
         ops_incre_rate_str = f"{ops_incre_rate}%" if ops_incre_rate != '' else ''
         adjust_ops_incre_rate_str = f"{adjust_ops_incre_rate}%" if adjust_ops_incre_rate != '' else ''
+        adjust_ops_change_str = f"{adjust_ops_change}%" if adjust_ops_change != '' else ''
+        take_and_stop_change_str = f"{take_and_stop_change}%" if take_and_stop_change != '' else ''
+        take_and_stop_incre_rate_str = f"{take_and_stop_incre_rate}%" if take_and_stop_incre_rate != '' else ''
+        stop_and_take_change_str = f"{stop_and_take_change}%" if stop_and_take_change != '' else ''
+        stop_and_take_incre_rate_str = f"{stop_and_take_incre_rate}%" if stop_and_take_incre_rate != '' else ''
+
         table.setItem(row_idx, 0, QTableWidgetItem(str(code)))
         table.setItem(row_idx, 1, QTableWidgetItem(str(name)))
         table.setItem(row_idx, 2, QTableWidgetItem(str(hold_days)))
-        table.setItem(row_idx, 3, QTableWidgetItem(ops_change_str))
-        table.setItem(row_idx, 4, QTableWidgetItem(ops_incre_rate_str))
-        table.setItem(row_idx, 5, QTableWidgetItem(adjust_ops_incre_rate_str))
-        table.setItem(row_idx, 6, QTableWidgetItem(str(score)))
+        table.setItem(row_idx, 3, QTableWidgetItem(adjust_ops_change_str))  # 止盈止损涨幅
+        table.setItem(row_idx, 4, QTableWidgetItem(adjust_ops_incre_rate_str))  # 止盈止损日均涨幅
+        table.setItem(row_idx, 5, QTableWidgetItem(take_and_stop_change_str))  # 止盈停损涨幅
+        table.setItem(row_idx, 6, QTableWidgetItem(take_and_stop_incre_rate_str))  # 止盈停损日均涨幅
+        table.setItem(row_idx, 7, QTableWidgetItem(str(adjust_days)))
+        table.setItem(row_idx, 8, QTableWidgetItem(ops_change_str))  # 停盈停损涨幅
+        table.setItem(row_idx, 9, QTableWidgetItem(ops_incre_rate_str))  # 停盈停损日均涨幅
+        table.setItem(row_idx, 10, QTableWidgetItem(stop_and_take_change_str))  # 停盈止损涨幅
+        table.setItem(row_idx, 11, QTableWidgetItem(stop_and_take_incre_rate_str))  # 停盈止损日均涨幅
+        table.setItem(row_idx, 12, QTableWidgetItem(str(score)))
         # 收集用于均值计算的数据（只收集有效数值）
         try:
             if hold_days != '':
@@ -1374,6 +2175,34 @@ def show_formula_select_table_result(parent, result, price_data=None, output_edi
                     adjust_ops_incre_rate_list.append(v)
         except Exception:
             pass
+        try:
+            if adjust_days != '':
+                v = float(adjust_days)
+                if not math.isnan(v):
+                    adjust_days_list.append(v)
+        except Exception:
+            pass
+        try:
+            if adjust_ops_change != '':
+                v = float(adjust_ops_change)
+                if not math.isnan(v):
+                    adjust_ops_change_list.append(v)
+        except Exception:
+            pass
+        try:
+            if take_and_stop_change != '':
+                v = float(take_and_stop_change)
+                if not math.isnan(v):
+                    take_and_stop_change_list.append(v)
+        except Exception:
+            pass   
+        try:
+            if stop_and_take_change != '':
+                v = float(stop_and_take_change)
+                if not math.isnan(v):
+                    stop_and_take_change_list.append(v)
+        except Exception:
+            pass
     # 插入空行
     empty_row_idx = len(stocks)
     for col in range(len(headers)):
@@ -1385,14 +2214,79 @@ def show_formula_select_table_result(parent, result, price_data=None, output_edi
     mean_ops_change = safe_mean(ops_change_list)
     mean_ops_incre_rate = safe_mean(ops_incre_rate_list)
     mean_adjust_ops_incre_rate = safe_mean(adjust_ops_incre_rate_list)
+    mean_adjust_days = safe_mean(adjust_days_list)
+    mean_adjust_ops_change = safe_mean(adjust_ops_change_list)
+    mean_take_and_stop_change = safe_mean(take_and_stop_change_list)
+    mean_take_and_stop_incre_rate = safe_mean(take_and_stop_incre_rate_list)
+    mean_stop_and_take_change = safe_mean(stop_and_take_change_list)
+    mean_stop_and_take_incre_rate = safe_mean(stop_and_take_incre_rate_list)
+    #print(f"mean_hold_days={mean_hold_days}, mean_adjust_ops_change={mean_adjust_ops_change}")
+    #print(f"mean_hold_days={mean_adjust_days}, mean_adjust_ops_change={mean_ops_incre_rate}")
+    
+    # 从父窗口控件获取综合均值系数和均值按两者最小值计算参数
+    mean_coefficient = 0.0
+    mean_min_calc = False
+    if hasattr(parent, 'mean_coefficient_edit') and parent.mean_coefficient_edit:
+        try:
+            mean_coefficient = float(parent.mean_coefficient_edit.text()) if parent.mean_coefficient_edit.text() else 0.0
+        except (ValueError, AttributeError):
+            mean_coefficient = 0.0
+    
+    if hasattr(parent, 'mean_min_calc_checkbox') and parent.mean_min_calc_checkbox:
+        try:
+            mean_min_calc = parent.mean_min_calc_checkbox.isChecked()
+        except AttributeError:
+            mean_min_calc = False
+    
+    # 计算日均涨幅均值（单值均值法）
+    mean_adjust_ops_incre_rate_daily_single = mean_adjust_ops_change / mean_hold_days if mean_adjust_ops_change != '' and mean_hold_days != '' and mean_hold_days != 0 else ''
+    mean_ops_incre_rate_daily_single = mean_ops_change / mean_adjust_days if mean_ops_change != '' and mean_adjust_days != '' and mean_adjust_days != 0 else ''
+    mean_take_and_stop_incre_rate_daily_single = mean_take_and_stop_change / mean_hold_days if mean_take_and_stop_change != '' and mean_hold_days != '' and mean_hold_days != 0 else ''
+    mean_stop_and_take_incre_rate_daily_single = mean_stop_and_take_change / mean_adjust_days if mean_stop_and_take_change != '' and mean_adjust_days != '' and mean_adjust_days != 0 else ''
+    
+    # 计算综合均值法（涨幅和值/平均天数）
+    # 获取涨幅和值
+    total_adjust_ops_change = sum(adjust_ops_change_list) if adjust_ops_change_list else 0
+    total_ops_change = sum(ops_change_list) if ops_change_list else 0
+    total_take_and_stop_change = sum(take_and_stop_change_list) if take_and_stop_change_list else 0
+    total_stop_and_take_change = sum(stop_and_take_change_list) if stop_and_take_change_list else 0
+    
+    # 计算综合均值法的日均涨幅
+    mean_adjust_ops_incre_rate_daily_comprehensive = total_adjust_ops_change / mean_hold_days if total_adjust_ops_change != 0 and mean_hold_days != '' and mean_hold_days != 0 else ''
+    mean_ops_incre_rate_daily_comprehensive = total_ops_change / mean_adjust_days if total_ops_change != 0 and mean_adjust_days != '' and mean_adjust_days != 0 else ''
+    mean_take_and_stop_incre_rate_daily_comprehensive = total_take_and_stop_change / mean_hold_days if total_take_and_stop_change != 0 and mean_hold_days != '' and mean_hold_days != 0 else ''
+    mean_stop_and_take_incre_rate_daily_comprehensive = total_stop_and_take_change / mean_adjust_days if total_stop_and_take_change != 0 and mean_adjust_days != '' and mean_adjust_days != 0 else ''
+    
+    # 根据综合均值系数混合两种方法
+    single_weight = 1 - mean_coefficient
+    comprehensive_weight = mean_coefficient
+    
+    # 如果启用均值按两者最小值计算，则使用最小值
+    if mean_min_calc:
+        mean_adjust_ops_incre_rate_daily = min(mean_adjust_ops_incre_rate_daily_single, mean_adjust_ops_incre_rate_daily_comprehensive) if mean_adjust_ops_incre_rate_daily_single != '' and mean_adjust_ops_incre_rate_daily_comprehensive != '' else (mean_adjust_ops_incre_rate_daily_single if mean_adjust_ops_incre_rate_daily_single != '' else mean_adjust_ops_incre_rate_daily_comprehensive)
+        mean_ops_incre_rate_daily = min(mean_ops_incre_rate_daily_single, mean_ops_incre_rate_daily_comprehensive) if mean_ops_incre_rate_daily_single != '' and mean_ops_incre_rate_daily_comprehensive != '' else (mean_ops_incre_rate_daily_single if mean_ops_incre_rate_daily_single != '' else mean_ops_incre_rate_daily_comprehensive)
+        mean_take_and_stop_incre_rate_daily = min(mean_take_and_stop_incre_rate_daily_single, mean_take_and_stop_incre_rate_daily_comprehensive) if mean_take_and_stop_incre_rate_daily_single != '' and mean_take_and_stop_incre_rate_daily_comprehensive != '' else (mean_take_and_stop_incre_rate_daily_single if mean_take_and_stop_incre_rate_daily_single != '' else mean_take_and_stop_incre_rate_daily_comprehensive)
+        mean_stop_and_take_incre_rate_daily = min(mean_stop_and_take_incre_rate_daily_single, mean_stop_and_take_incre_rate_daily_comprehensive) if mean_stop_and_take_incre_rate_daily_single != '' and mean_stop_and_take_incre_rate_daily_comprehensive != '' else (mean_stop_and_take_incre_rate_daily_single if mean_stop_and_take_incre_rate_daily_single != '' else mean_stop_and_take_incre_rate_daily_comprehensive)
+    else:
+        # 按权重混合两种方法
+        mean_adjust_ops_incre_rate_daily = (single_weight * mean_adjust_ops_incre_rate_daily_single + comprehensive_weight * mean_adjust_ops_incre_rate_daily_comprehensive) if mean_adjust_ops_incre_rate_daily_single != '' and mean_adjust_ops_incre_rate_daily_comprehensive != '' else (mean_adjust_ops_incre_rate_daily_single if mean_adjust_ops_incre_rate_daily_single != '' else mean_adjust_ops_incre_rate_daily_comprehensive)
+        mean_ops_incre_rate_daily = (single_weight * mean_ops_incre_rate_daily_single + comprehensive_weight * mean_ops_incre_rate_daily_comprehensive) if mean_ops_incre_rate_daily_single != '' and mean_ops_incre_rate_daily_comprehensive != '' else (mean_ops_incre_rate_daily_single if mean_ops_incre_rate_daily_single != '' else mean_ops_incre_rate_daily_comprehensive)
+        mean_take_and_stop_incre_rate_daily = (single_weight * mean_take_and_stop_incre_rate_daily_single + comprehensive_weight * mean_take_and_stop_incre_rate_daily_comprehensive) if mean_take_and_stop_incre_rate_daily_single != '' and mean_take_and_stop_incre_rate_daily_comprehensive != '' else (mean_take_and_stop_incre_rate_daily_single if mean_take_and_stop_incre_rate_daily_single != '' else mean_take_and_stop_incre_rate_daily_comprehensive)
+        mean_stop_and_take_incre_rate_daily = (single_weight * mean_stop_and_take_incre_rate_daily_single + comprehensive_weight * mean_stop_and_take_incre_rate_daily_comprehensive) if mean_stop_and_take_incre_rate_daily_single != '' and mean_stop_and_take_incre_rate_daily_comprehensive != '' else (mean_stop_and_take_incre_rate_daily_single if mean_stop_and_take_incre_rate_daily_single != '' else mean_stop_and_take_incre_rate_daily_comprehensive)
     # 插入均值行
     mean_row_idx = len(stocks) + 1
     table.setItem(mean_row_idx, 0, QTableWidgetItem(""))
     table.setItem(mean_row_idx, 1, QTableWidgetItem(str(first_date)))
     table.setItem(mean_row_idx, 2, QTableWidgetItem(str(mean_hold_days)))
-    table.setItem(mean_row_idx, 3, QTableWidgetItem(f"{mean_ops_change / mean_hold_days:.2f}%" if mean_ops_change != '' and mean_hold_days != '' and mean_hold_days != 0 else ''))
-    table.setItem(mean_row_idx, 4, QTableWidgetItem(f"{mean_ops_incre_rate}%" if mean_ops_incre_rate != '' else ''))
-    table.setItem(mean_row_idx, 5, QTableWidgetItem(f"{mean_adjust_ops_incre_rate}%" if mean_adjust_ops_incre_rate != '' else ''))
+    table.setItem(mean_row_idx, 3, QTableWidgetItem(f"{mean_adjust_ops_change}%" if mean_adjust_ops_change != '' else ''))  # 止盈止损涨幅均值
+    table.setItem(mean_row_idx, 4, QTableWidgetItem(f"{mean_adjust_ops_incre_rate_daily:.2f}%" if mean_adjust_ops_incre_rate_daily != '' else ''))  # 止盈止损日均涨幅均值
+    table.setItem(mean_row_idx, 5, QTableWidgetItem(f"{mean_take_and_stop_change}%" if mean_take_and_stop_change != '' else ''))  # 止盈停损涨幅均值
+    table.setItem(mean_row_idx, 6, QTableWidgetItem(f"{mean_take_and_stop_incre_rate_daily:.2f}%" if mean_take_and_stop_incre_rate_daily != '' else ''))  # 止盈停损日均涨幅均值
+    table.setItem(mean_row_idx, 7, QTableWidgetItem(str(mean_adjust_days)))
+    table.setItem(mean_row_idx, 8, QTableWidgetItem(f"{mean_ops_change}%" if mean_ops_change != '' else ''))  # 停盈停损涨幅均值
+    table.setItem(mean_row_idx, 9, QTableWidgetItem(f"{mean_ops_incre_rate_daily:.2f}%" if mean_ops_incre_rate_daily != '' else ''))  # 停盈停损日均涨幅均值
+    table.setItem(mean_row_idx, 10, QTableWidgetItem(f"{mean_stop_and_take_change}%" if mean_stop_and_take_change != '' else ''))  # 停盈止损涨幅均值
+    table.setItem(mean_row_idx, 11, QTableWidgetItem(f"{mean_stop_and_take_incre_rate_daily:.2f}%" if mean_stop_and_take_incre_rate_daily != '' else ''))  # 停盈止损日均涨幅均值
     table.resizeColumnsToContents()
     table.horizontalHeader().setFixedHeight(50)
     table.horizontalHeader().setStyleSheet("font-size: 12px;")
@@ -1401,42 +2295,59 @@ def show_formula_select_table_result(parent, result, price_data=None, output_edi
 def get_abbr_round_only_map():
     """获取只有圆框的变量映射"""
     abbrs = [
-        ("非空调天涨跌幅均值", "mean_non_nan"),
-        ("含空调天涨跌幅均值", "mean_with_nan"),
-        ("非空调幅涨跌幅均值", "mean_adjust_non_nan"),
-        ("含空调幅涨跌幅均值", "mean_adjust_with_nan"),
+        #("非空停盈停损从下往上涨跌幅均值", "mean_non_nan"),
+        ("含空停盈停损从下往上涨跌幅均值", "mean_with_nan"),
+        ("停盈停损日均涨跌幅均值", "mean_daily_change"),
+        ("停盈停损含空均值", "mean_daily_with_nan"),
+        ("综合停盈停损日均涨幅", "comprehensive_stop_daily_change"),
 
-        ("从下往上的第1个调天涨跌幅含空均值", "bottom_first_with_nan"),
-        ("从下往上的第2个调天涨跌幅含空均值", "bottom_second_with_nan"),
-        ("从下往上的第3个调天涨跌幅含空均值", "bottom_third_with_nan"),
-        ("从下往上的第4个调天涨跌幅含空均值", "bottom_fourth_with_nan"),
-        ("从下往上的第1个调天涨跌幅非空均值", "bottom_first_non_nan"),
-        ("从下往上的第2个调天涨跌幅非空均值", "bottom_second_non_nan"),
-        ("从下往上的第3个调天涨跌幅非空均值", "bottom_third_non_nan"),
-        ("从下往上的第4个调天涨跌幅非空均值", "bottom_fourth_non_nan"),
+        ("含空停盈止损从下往上涨跌幅均值", "mean_stop_and_take_with_nan"),
+        ("停盈止损日均涨跌幅均值", "mean_stop_and_take_daily_change"),
+        ("停盈止损含空均值", "mean_stop_and_take_daily_with_nan"),
+        ("综合停盈止损日均涨幅", "comprehensive_stop_and_take_change"),
 
-        ("从下往上的第1个调幅涨跌幅含空均值", "adjust_bottom_first_with_nan"),
-        ("从下往上的第2个调幅涨跌幅含空均值", "adjust_bottom_second_with_nan"),
-        ("从下往上的第3个调幅涨跌幅含空均值", "adjust_bottom_third_with_nan"),
-        ("从下往上的第4个调幅涨跌幅含空均值", "adjust_bottom_fourth_with_nan"),
-        ("从下往上的第1个调幅涨跌幅非空均值", "adjust_bottom_first_non_nan"),
-        ("从下往上的第2个调幅涨跌幅非空均值", "adjust_bottom_second_non_nan"),
-        ("从下往上的第3个调幅涨跌幅非空均值", "adjust_bottom_third_non_nan"),
-        ("从下往上的第4个调幅涨跌幅非空均值", "adjust_bottom_fourth_non_nan"),
+        #("非空止盈止损从下往上涨跌幅均值", "mean_adjust_non_nan"),
+        ("含空止盈止损从下往上涨跌幅均值", "mean_adjust_with_nan"),
+        ("止盈止损日均涨跌幅均值", "mean_adjust_daily_change"),
+        ("止盈止损含空均值", "mean_adjust_daily_with_nan"),
+        ("综合止盈止损日均涨幅", "comprehensive_daily_change"),
 
-        ("从下往上第N位调天非空均值", "bottom_nth_non_nan1"),
-        ("从下往上第N位调天非空均值", "bottom_nth_non_nan2"),
-        ("从下往上第N位调天非空均值", "bottom_nth_non_nan3"),
-        ("从下往上第N位调天含空均值", "bottom_nth_with_nan1"),
-        ("从下往上第N位调天含空均值", "bottom_nth_with_nan2"),
-        ("从下往上第N位调天含空均值", "bottom_nth_with_nan3"),
+        ("含空止盈停损从下往上涨跌幅均值", "mean_take_and_stop_with_nan"),
+        ("止盈停损日均涨跌幅均值", "mean_take_and_stop_daily_change"),
+        ("止盈停损含空均值", "mean_take_and_stop_daily_with_nan"),
+        ("综合止盈停损日均涨幅", "comprehensive_take_and_stop_change"),
+        
+        ("从下往上的第1个停盈停损涨跌幅含空均值", "bottom_first_with_nan"),
+        ("从下往上的第2个停盈停损涨跌幅含空均值", "bottom_second_with_nan"),
+        ("从下往上的第3个停盈停损涨跌幅含空均值", "bottom_third_with_nan"),
+        ("从下往上的第4个停盈停损涨跌幅含空均值", "bottom_fourth_with_nan"),
+        ("从下往上的第1个停盈止损涨跌幅含空均值", "bottom_first_stop_and_take_with_nan"),
+        ("从下往上的第2个停盈止损涨跌幅含空均值", "bottom_second_stop_and_take_with_nan"),
+        ("从下往上的第3个停盈止损涨跌幅含空均值", "bottom_third_stop_and_take_with_nan"),
+        ("从下往上的第4个停盈止损涨跌幅含空均值", "bottom_fourth_stop_and_take_with_nan"),
 
-        ("从下往上第N位调幅非空均值", "bottom_nth_adjust_non_nan1"),
-        ("从下往上第N位调幅非空均值", "bottom_nth_adjust_non_nan2"),
-        ("从下往上第N位调幅非空均值", "bottom_nth_adjust_non_nan3"),
-        ("从下往上第N位调幅含空均值", "bottom_nth_adjust_with_nan1"),
-        ("从下往上第N位调幅含空均值", "bottom_nth_adjust_with_nan2"),
-        ("从下往上第N位调幅含空均值", "bottom_nth_adjust_with_nan3"),
+        ("从下往上的第1个止盈止损涨跌幅含空均值", "adjust_bottom_first_with_nan"),
+        ("从下往上的第2个止盈止损涨跌幅含空均值", "adjust_bottom_second_with_nan"),
+        ("从下往上的第3个止盈止损涨跌幅含空均值", "adjust_bottom_third_with_nan"),
+        ("从下往上的第4个止盈止损涨跌幅含空均值", "adjust_bottom_fourth_with_nan"),
+        ("从下往上的第1个止盈停损涨跌幅含空均值", "bottom_first_take_and_stop_with_nan"),
+        ("从下往上的第2个止盈停损涨跌幅含空均值", "bottom_second_take_and_stop_with_nan"),
+        ("从下往上的第3个止盈停损涨跌幅含空均值", "bottom_third_take_and_stop_with_nan"),
+        ("从下往上的第4个止盈停损涨跌幅含空均值", "bottom_fourth_take_and_stop_with_nan"),
+        
+        ("从下往上第N位止盈停损含空均值", "bottom_nth_take_and_stop_with_nan1"),
+        ("从下往上第N位止盈停损含空均值", "bottom_nth_take_and_stop_with_nan2"),
+        ("从下往上第N位止盈停损含空均值", "bottom_nth_take_and_stop_with_nan3"),
+        ("从下往上第N位停盈停损含空均值", "bottom_nth_with_nan1"),
+        ("从下往上第N位停盈停损含空均值", "bottom_nth_with_nan2"),
+        ("从下往上第N位停盈停损含空均值", "bottom_nth_with_nan3"),
+
+        ("从下往上第N位停盈止损含空均值", "bottom_nth_stop_and_take_with_nan1"),
+        ("从下往上第N位停盈止损含空均值", "bottom_nth_stop_and_take_with_nan2"),
+        ("从下往上第N位停盈止损含空均值", "bottom_nth_stop_and_take_with_nan3"),
+        ("从下往上第N位止盈止损含空均值", "bottom_nth_adjust_with_nan1"),
+        ("从下往上第N位止盈止损含空均值", "bottom_nth_adjust_with_nan2"),
+        ("从下往上第N位止盈止损含空均值", "bottom_nth_adjust_with_nan3"),
         
     ]
     # 允许label重复，英文名唯一
@@ -1455,10 +2366,19 @@ def get_special_abbr_map():
         ("止盈后值大于前值比例", "after_gt_start_ratio"),
         ("止损递增率", "stop_loss_inc_rate"),
         ("止损后值大于结束值比例", "stop_loss_after_gt_end_ratio"),
-        ("止损后值大于前值比例", "stop_loss_after_gt_start_ratio")
+        ("止损后值大于前值比例", "stop_loss_after_gt_start_ratio"),
+        # 创新高/创新低相关参数 - 两组通用参数
+        ("创前后新高低1开始日期距结束日期天数", "new_high_low1_start"),
+        ("创前后新高低1日期范围", "new_high_low1_range"),
+        ("创前后新高低1展宽期天数", "new_high_low1_span"),
+        ("创前后新高低2开始日期距结束日期天数", "new_high_low2_start"),
+        ("创前后新高低2日期范围", "new_high_low2_range"),
+        ("创前后新高低2展宽期天数", "new_high_low2_span"),
+        # 新增：负值倍增系数和正值倍增系数
+        ("负值倍增系数", "negative_multiplier"),
+        ("正值倍增系数", "positive_multiplier")
     ]
     return {zh: en for zh, en in abbrs}
-
 class FormulaSelectWidget(QWidget):
     def __init__(self, abbr_map, abbr_logic_map, abbr_round_map, main_window, sort_combo=None):
         super().__init__()
@@ -1493,6 +2413,8 @@ class FormulaSelectWidget(QWidget):
                 item['lower'] = widgets['lower'].text()
             if 'upper' in widgets:
                 item['upper'] = widgets['upper'].text()
+            if 'sort' in widgets:
+                item['sort'] = widgets['sort'].currentText()
             if 'step' in widgets:
                 item['step'] = widgets['step'].text()
             if 'direction' in widgets:
@@ -1555,6 +2477,8 @@ class FormulaSelectWidget(QWidget):
                     widgets['round_checkbox'].setChecked(data['round_checked'])
                 if 'lower' in widgets and 'lower' in data:
                     widgets['lower'].setText(data['lower'])
+                if 'sort' in widgets and 'sort' in data:
+                    widgets['sort'].setCurrentText(data['sort'])
                 if 'upper' in widgets and 'upper' in data:
                     widgets['upper'].setText(data['upper'])
                 if 'step' in widgets and 'step' in data:
@@ -1888,8 +2812,7 @@ class FormulaSelectWidget(QWidget):
                     print("没有发现向前参数变量")
         
         return combinations
-
-    def generate_formula_list(self):
+    def  generate_formula_list(self):
         """
         生成公式列表，用于组合分析，类似笛卡尔积
         根据步长和方向选项生成所有可能的组合
@@ -1928,9 +2851,6 @@ class FormulaSelectWidget(QWidget):
         # 收集需要组合的变量控件
         combination_vars = []
         for en, widgets in self.var_widgets.items():
-            # 特殊处理：组合公式排除 "前1组结束地址前N最高值"
-            if en == 'n_days_max_value':
-                continue
                 
             if 'lower' in widgets and 'upper' in widgets and 'step' in widgets and 'direction' in widgets:
                 # 对于同时有圆框和方框的变量，需要方框勾选才参与组合
@@ -1960,7 +2880,8 @@ class FormulaSelectWidget(QWidget):
                                 'upper': upper_val,
                                 'step': step_val,
                                 'direction': direction,
-                                'has_logic': has_logic
+                                'has_logic': has_logic,
+                                'is_comparison': False  # 标记为普通变量
                             })
                         except ValueError:
                             # 如果数值转换失败，跳过这个变量
@@ -1996,7 +2917,8 @@ class FormulaSelectWidget(QWidget):
                                 'upper': upper_val,
                                 'step': step_val,
                                 'direction': direction,
-                                'has_logic': has_logic
+                                'has_logic': has_logic,
+                                'is_comparison': False  # 标记为普通变量
                             })
                         except ValueError as e:
                             print(f"  数值转换失败: {e}")
@@ -2062,31 +2984,10 @@ class FormulaSelectWidget(QWidget):
         # 将其他向前参数的圆框变量添加到other_result_vars
         other_result_vars.extend(other_forward_result_vars)
         
-        # 收集比较控件（这些在所有组合中都一样）
+        # 收集比较控件条件
         comparison_conditions = []
-        for comp in self.comparison_widgets:
-            if comp['checkbox'].isChecked():
-                # 检查是否有步长设置，如果有步长则跳过固定条件处理
-                step = comp['step'].text().strip()
-                if step:  # 如果有步长，说明要参与组合，不加入固定条件
-                    continue
-                    
-                var1 = comp['var1'].currentText()
-                lower = comp['lower'].text().strip()
-                upper = comp['upper'].text().strip()
-                var2 = comp['var2'].currentText()
-                var1_en = next((en for zh, en in self.abbr_map.items() if zh == var1), None)
-                var2_en = next((en for zh, en in self.abbr_map.items() if zh == var2), None)
-                comp_conds = []
-                if lower and var1_en and var2_en:
-                    comp_conds.append(f"{var1_en} >= {lower} * {var2_en}")
-                if upper and var1_en and var2_en:
-                    comp_conds.append(f"{var1_en} <= {upper} * {var2_en}")
-                if comp_conds:
-                    comparison_conditions.append(' and '.join(comp_conds))
-        
-        # 收集需要组合的比较控件
-        comparison_combination_vars = []
+        has_logic_comparison = False
+        # 收集比较控件到combination_vars中，参与笛卡尔积
         for comp in self.comparison_widgets:
             if comp['checkbox'].isChecked():
                 var1 = comp['var1'].currentText()
@@ -2100,27 +3001,31 @@ class FormulaSelectWidget(QWidget):
                 var1_en = next((en for zh, en in self.abbr_map.items() if zh == var1), None)
                 var2_en = next((en for zh, en in self.abbr_map.items() if zh == var2), None)
                 
-                if lower and upper and var1_en and var2_en:  # 只检查下限和上限，步长可以为空
+                if lower and upper and var1_en and var2_en:
                     try:
-                        lower_val = float(lower)
-                        upper_val = float(upper)
                         # 如果步长为空，设为0
                         if step:
                             step_val = float(step)
                         else:
                             step_val = 0
+                        lower_val = float(lower)
+                        upper_val = float(upper)
                         
-                        comparison_combination_vars.append({
+                        # 将比较控件也加入到combination_vars中，参与笛卡尔积
+                        combination_vars.append({
                             'var1': var1_en,
                             'var2': var2_en,
                             'lower': lower_val,
                             'upper': upper_val,
                             'step': step_val,
                             'direction': direction,
-                            'has_logic': has_logic
+                            'has_logic': has_logic,
+                            'is_comparison': True  # 标记为比较控件
                         })
+                        
+                        if has_logic:
+                            has_logic_comparison = True
                     except ValueError:
-                        # 如果数值转换失败，跳过这个比较控件
                         continue
         
         # 生成所有可能的组合
@@ -2142,10 +3047,10 @@ class FormulaSelectWidget(QWidget):
             # 排序方式：取主界面当前排序
             user_sort_mode = self.sort_combo.currentText() if self.sort_combo else (self.main_window.last_sort_mode if hasattr(self.main_window, 'last_sort_mode') else '最大值排序')
             
-            if not combination_vars and not comparison_combination_vars:
+            if not combination_vars:
                 # 如果没有需要组合的变量，只生成一个公式
                 # 注意：逻辑控件条件在最后统一处理，这里不处理
-                all_conditions = comparison_conditions
+                all_conditions = []
                 if all_conditions:
                     cond_str = "if " + " and ".join(all_conditions) + ":"
                 else:
@@ -2157,17 +3062,43 @@ class FormulaSelectWidget(QWidget):
                     'sort_mode': user_sort_mode,
                     'result_vars': all_result_vars
                 })
+                
+                # 如果有含逻辑的比较控件，额外生成一个if True的公式
+                if has_logic_comparison:
+                    true_formula = f"if True:\n    {result_expr}\nelse:\n    result = 0"
+                    formula_list.append({
+                        'formula': true_formula,
+                        'sort_mode': user_sort_mode,
+                        'result_vars': all_result_vars
+                    })
             else:
                 # 如果有需要组合的变量，条件部分仍然进行笛卡尔积
                 var_combinations = []
                 
                 for var_info in combination_vars:
-                    var_name = var_info['var_name']
-                    lower_val = var_info['lower']
-                    upper_val = var_info['upper']
-                    step_val = var_info['step']
-                    direction = var_info['direction']
-                    has_logic = var_info['has_logic']
+                    is_comparison = var_info.get('is_comparison', False)
+                    
+                    if is_comparison:
+                        # 比较控件
+                        var1 = var_info['var1']
+                        var2 = var_info['var2']
+                        lower_val = var_info['lower']
+                        upper_val = var_info['upper']
+                        step_val = var_info['step']
+                        direction = var_info['direction']
+                        has_logic = var_info['has_logic']
+                        
+                        print(f"比较控件组合 - {var1} vs {var2}:")
+                        print(f"  下限: {lower_val}, 上限: {upper_val}, 步长: {step_val}")
+                        print(f"  方向: {direction}, 含逻辑: {has_logic}")
+                    else:
+                        # 普通变量
+                        var_name = var_info['var_name']
+                        lower_val = var_info['lower']
+                        upper_val = var_info['upper']
+                        step_val = var_info['step']
+                        direction = var_info['direction']
+                        has_logic = var_info['has_logic']
                     
                     combinations = []
                     
@@ -2230,103 +3161,21 @@ class FormulaSelectWidget(QWidget):
                     
                     # 处理含逻辑：如果勾选了含逻辑，添加一个True条件
                     if has_logic:
-                        print(f"    变量 {var_name} 勾选了含逻辑，添加True条件")
                         combinations.append(('True', 'True'))
                     
-                    var_combinations.append({
-                        'var_name': var_name,
-                        'combinations': combinations,
-                        'is_comparison': False  # 标记为普通变量
-                    })
-                
-                # 为每个比较控件生成组合
-                for comp_info in comparison_combination_vars:
-                    var1 = comp_info['var1']
-                    var2 = comp_info['var2']
-                    lower_val = comp_info['lower']
-                    upper_val = comp_info['upper']
-                    step_val = comp_info['step']
-                    direction = comp_info['direction']
-                    has_logic = comp_info['has_logic']
-                    
-                    print(f"比较控件组合 - {var1} vs {var2}:")
-                    print(f"  下限: {lower_val}, 上限: {upper_val}, 步长: {step_val}")
-                    print(f"  方向: {direction}, 含逻辑: {has_logic}")
-                    
-                    combinations = []
-                    
-                    # 如果步长为0或空，生成单一组合
-                    if step_val == 0 or step_val == '' or step_val is None:
-                        combinations.append((round(lower_val, 2), round(upper_val, 2)))
-                        print(f"  步长为0或空，生成单一组合: ({round(lower_val, 2)}, {round(upper_val, 2)})")
+                    if is_comparison:
+                        var_combinations.append({
+                            'var1': var1,
+                            'var2': var2,
+                            'combinations': combinations,
+                            'is_comparison': True  # 标记为比较控件
+                        })
                     else:
-                        if direction == "右单向":
-                            # 最大值不变，最小值按步长变化
-                            current_lower = lower_val
-                            # 根据步长正负调整循环条件
-                            if step_val > 0:
-                                while current_lower < upper_val:
-                                    combinations.append((round(current_lower, 2), round(upper_val, 2)))
-                                    current_lower += step_val
-                            else:  # step_val < 0
-                                while current_lower > upper_val:
-                                    combinations.append((round(current_lower, 2), round(upper_val, 2)))
-                                    current_lower += step_val
-                        
-                        elif direction == "左单向":
-                            # 最小值不变，最大值按步长变化
-                            current_upper = upper_val
-                            # 根据步长正负调整循环条件
-                            if step_val > 0:
-                                while current_upper > lower_val:
-                                    combinations.append((round(lower_val, 2), round(current_upper, 2)))
-                                    current_upper -= step_val
-                            else:  # step_val < 0
-                                while current_upper < lower_val:
-                                    combinations.append((round(lower_val, 2), round(current_upper, 2)))
-                                    current_upper -= step_val
-                        
-                        elif direction == "全方向":
-                            combinations = []
-                            # 右单向：上限不变，下限不断加步长
-                            current_lower = lower_val
-                            if step_val > 0:
-                                while current_lower < upper_val:
-                                    combinations.append((round(current_lower, 2), round(upper_val, 2)))
-                                    current_lower += step_val
-                            else:
-                                while current_lower > upper_val:
-                                    combinations.append((round(current_lower, 2), round(upper_val, 2)))
-                                    current_lower += step_val
-                            # 左单向：下限不变，上限不断减步长
-                            current_upper = upper_val
-                            if step_val > 0:
-                                while current_upper > lower_val:
-                                    combinations.append((round(lower_val, 2), round(current_upper, 2)))
-                                    current_upper -= step_val
-                            else:
-                                while current_upper < lower_val:
-                                    combinations.append((round(lower_val, 2), round(current_upper, 2)))
-                                    current_upper -= step_val
-                            # 剔除重复项和下限=上限的情况
-                            combinations = list({(a, b) for a, b in combinations if a != b})
-                            combinations.sort()
-                    
-                    # 处理含逻辑：如果勾选了含逻辑，添加一个True条件
-                    if has_logic:
-                        print(f"    比较控件 {var1} vs {var2} 勾选了含逻辑，添加True条件")
-                        combinations.append(('True', 'True'))
-                    
-                    print(f"  生成的组合: {combinations}")
-                    print(f"  组合数量: {len(combinations)}")
-                    print()
-                    
-                    var_combinations.append({
-                        'var1': var1,
-                        'var2': var2,
-                        'combinations': combinations,
-                        'is_comparison': True  # 标记为比较控件
-                    })
+                        var_combinations.append({
+                            'var_name': var_name,
+                            'combinations': combinations,
+                            'is_comparison': False  # 标记为普通变量
+                        })
                 
                 # 生成笛卡尔积
                 if var_combinations:
@@ -2335,7 +3184,7 @@ class FormulaSelectWidget(QWidget):
                     for var_combo in var_combinations:
                         total_combinations *= len(var_combo['combinations'])
                     
-                    print(f"非锁定输出模式：总共 {total_combinations} 个组合")
+                    print(f"锁定输出模式：总共 {total_combinations} 个组合")
                     
                     # 为每个条件组合生成公式
                     for i in range(total_combinations):
@@ -2346,12 +3195,12 @@ class FormulaSelectWidget(QWidget):
                             indices.append(temp % len(var_combo['combinations']))
                             temp //= len(var_combo['combinations'])
                         
-                        # 构建当前组合的条件
-                        current_conditions = logic_conditions + comparison_conditions
+                        # 构建当前组合的条件 - 每个笛卡尔积组合都应该有独立的条件
+                        current_conditions = logic_conditions.copy()  # 复制逻辑条件，避免引用问题
                         
-                        print(f"生成非锁定输出组合 {i+1} 的条件:")
+                        print(f"生成锁定输出组合 {i+1} 的条件:")
                         print(f"  逻辑条件: {logic_conditions}")
-                        print(f"  比较条件: {comparison_conditions}")
+                        print(f"  比较条件: []")
                         
                         for j, var_combo in enumerate(var_combinations):
                             combo_idx = indices[j]
@@ -2365,12 +3214,12 @@ class FormulaSelectWidget(QWidget):
                                 continue
                             
                             if var_combo['is_comparison']:
-                                # 比较控件：生成 v1 >= lower * v2 and v1 <= upper * v2 的条件
+                                # 比较控件：生成 v1 / v2 >= lower and v1 / v2 <= upper 的条件
                                 var1 = var_combo['var1']
                                 var2 = var_combo['var2']
                                 comp_conditions = []
-                                comp_conditions.append(f"{var1} >= {lower_val} * {var2}")
-                                comp_conditions.append(f"{var1} <= {upper_val} * {var2}")
+                                comp_conditions.append(f"{var1} / {var2} >= {lower_val}")
+                                comp_conditions.append(f"{var1} / {var2} <= {upper_val}")
                                 current_conditions.append(' and '.join(comp_conditions))
                                 print(f"    添加比较条件: {' and '.join(comp_conditions)}")
                             else:
@@ -2477,10 +3326,10 @@ class FormulaSelectWidget(QWidget):
                 print(formula_obj['formula'])
                 print("-" * 50)
             return formula_list
-        elif not combination_vars and not comparison_combination_vars:
-            # 如果没有需要组合的变量和比较控件，为每个特殊result组合生成一个公式
+        elif not combination_vars:
+            # 如果没有需要组合的变量，为每个特殊result组合生成一个公式
             # 注意：逻辑控件条件在最后统一处理，这里不处理
-            all_conditions = comparison_conditions
+            all_conditions = []
             if all_conditions:
                 cond_str = "if " + " and ".join(all_conditions) + ":"
             else:
@@ -2507,6 +3356,15 @@ class FormulaSelectWidget(QWidget):
                             'sort_mode': sort_mode,
                             'result_vars': all_result_vars
                         })
+                        
+                        # 如果有含逻辑的比较控件，额外生成一个if True的公式
+                        if has_logic_comparison:
+                            true_formula = f"if True:\n    {result_expr}\nelse:\n    result = 0"
+                            formula_list.append({
+                                'formula': true_formula,
+                                'sort_mode': sort_mode,
+                                'result_vars': all_result_vars
+                            })
             else:
                 # 容错处理：当没有特殊组合时，也要处理向前参数和其他result变量
                 print(f"没有特殊组合")
@@ -2516,7 +3374,7 @@ class FormulaSelectWidget(QWidget):
                 else:
                     result_expr = "result = 0"
                 
-                # 向前相关参数不区分最大最小排序，以基础参数为准，如果没有基础参数，则按用户设置的排序
+                # 向前相关参数不区分最大最小排序，以基础参数为准，如果没有基础参量，则按用户设置的排序
                 # 获取用户设置的排序方式
                 user_sort_mode = self.sort_combo.currentText() if self.sort_combo else '最大值排序'
                 print(f"user_sort_mode: {user_sort_mode}")
@@ -2528,103 +3386,50 @@ class FormulaSelectWidget(QWidget):
                     'sort_mode': user_sort_mode,
                     'result_vars': all_result_vars
                 })
+                
+                # 如果有含逻辑的比较控件，额外生成一个if True的公式
+                if has_logic_comparison:
+                    true_formula = f"if True:\n    {result_expr}\nelse:\n    result = 0"
+                    formula_list.append({
+                        'formula': true_formula,
+                        'sort_mode': user_sort_mode,
+                        'result_vars': all_result_vars
+                    })
         else:
             # 为每个变量生成组合
             var_combinations = []
             
             for var_info in combination_vars:
-                var_name = var_info['var_name']
-                lower_val = var_info['lower']
-                upper_val = var_info['upper']
-                step_val = var_info['step']
-                direction = var_info['direction']
-                has_logic = var_info['has_logic']
+                is_comparison = var_info.get('is_comparison', False)
+                
+                if is_comparison:
+                    # 比较控件
+                    var1 = var_info['var1']
+                    var2 = var_info['var2']
+                    lower_val = var_info['lower']
+                    upper_val = var_info['upper']
+                    step_val = var_info['step']
+                    direction = var_info['direction']
+                    has_logic = var_info['has_logic']
+                    
+                    print(f"比较控件组合 - {var1} vs {var2}:")
+                    print(f"  下限: {lower_val}, 上限: {upper_val}, 步长: {step_val}")
+                    print(f"  方向: {direction}, 含逻辑: {has_logic}")
+                else:
+                    # 普通变量
+                    var_name = var_info['var_name']
+                    lower_val = var_info['lower']
+                    upper_val = var_info['upper']
+                    step_val = var_info['step']
+                    direction = var_info['direction']
+                    has_logic = var_info['has_logic']
                 
                 combinations = []
                 
-                if direction == "右单向":
-                    # 最大值不变，最小值按步长变化
-                    current_lower = lower_val
-                    # 根据步长正负调整循环条件
-                    if step_val > 0:
-                        while current_lower < upper_val:
-                            combinations.append((round(current_lower, 2), round(upper_val, 2)))
-                            current_lower += step_val
-                    else:  # step_val < 0
-                        while current_lower > upper_val:
-                            combinations.append((round(current_lower, 2), round(upper_val, 2)))
-                            current_lower += step_val
-                
-                elif direction == "左单向":
-                    # 最小值不变，最大值按步长变化
-                    current_upper = upper_val
-                    # 根据步长正负调整循环条件
-                    if step_val > 0:
-                        while current_upper > lower_val:
-                            combinations.append((round(lower_val, 2), round(current_upper, 2)))
-                            current_upper -= step_val
-                    else:  # step_val < 0
-                        while current_upper < lower_val:
-                            combinations.append((round(lower_val, 2), round(current_upper, 2)))
-                            current_upper -= step_val
-                
-                elif direction == "全方向":
-                    combinations = []
-                    # 右单向：上限不变，下限不断加步长
-                    current_lower = lower_val
-                    if step_val > 0:
-                        while current_lower < upper_val:
-                            combinations.append((round(current_lower, 2), round(upper_val, 2)))
-                            current_lower += step_val
-                    else:
-                        while current_lower > upper_val:
-                            combinations.append((round(current_lower, 2), round(upper_val, 2)))
-                            current_lower += step_val
-                    # 左单向：下限不变，上限不断减步长
-                    current_upper = upper_val
-                    if step_val > 0:
-                        while current_upper > lower_val:
-                            combinations.append((round(lower_val, 2), round(current_upper, 2)))
-                            current_upper -= step_val
-                    else:
-                        while current_upper < lower_val:
-                            combinations.append((round(lower_val, 2), round(current_upper, 2)))
-                            current_upper -= step_val
-                    # 剔除重复项和下限=上限的情况
-                    combinations = list({(a, b) for a, b in combinations if a != b})
-                    combinations.sort()
-                
-                # 处理含逻辑：如果勾选了含逻辑，添加一个True条件
-                if has_logic:
-                    print(f"    变量 {var_name} 勾选了含逻辑，添加True条件")
-                    combinations.append(('True', 'True'))
-                
-                var_combinations.append({
-                    'var_name': var_name,
-                    'combinations': combinations,
-                    'is_comparison': False  # 标记为普通变量
-                })
-            
-            # 为每个比较控件生成组合
-            for comp_info in comparison_combination_vars:
-                var1 = comp_info['var1']
-                var2 = comp_info['var2']
-                lower_val = comp_info['lower']
-                upper_val = comp_info['upper']
-                step_val = comp_info['step']
-                direction = comp_info['direction']
-                has_logic = comp_info['has_logic']
-                
-                print(f"比较控件组合 - {var1} vs {var2}:")
-                print(f"  下限: {lower_val}, 上限: {upper_val}, 步长: {step_val}")
-                print(f"  方向: {direction}, 含逻辑: {has_logic}")
-                
-                combinations = []
-                
+                # 如果步长为0或空，生成单一组合
                 if step_val == 0 or step_val == '' or step_val is None:
                     combinations.append((round(lower_val, 2), round(upper_val, 2)))
                     print(f"  步长为0或空，生成单一组合: ({round(lower_val, 2)}, {round(upper_val, 2)})")
-
                 elif direction == "右单向":
                     # 最大值不变，最小值按步长变化
                     current_lower = lower_val
@@ -2679,19 +3484,21 @@ class FormulaSelectWidget(QWidget):
                 
                 # 处理含逻辑：如果勾选了含逻辑，添加一个True条件
                 if has_logic:
-                    print(f"    变量 {var_name} 勾选了含逻辑，添加True条件")
                     combinations.append(('True', 'True'))
                 
-                print(f"  生成的组合: {combinations}")
-                print(f"  组合数量: {len(combinations)}")
-                print()
-                
-                var_combinations.append({
-                    'var1': var1,
-                    'var2': var2,
-                    'combinations': combinations,
-                    'is_comparison': True  # 标记为比较控件
-                })
+                if is_comparison:
+                    var_combinations.append({
+                        'var1': var1,
+                        'var2': var2,
+                        'combinations': combinations,
+                        'is_comparison': True  # 标记为比较控件
+                    })
+                else:
+                    var_combinations.append({
+                        'var_name': var_name,
+                        'combinations': combinations,
+                        'is_comparison': False  # 标记为普通变量
+                    })
             
             # 生成笛卡尔积
             if var_combinations:
@@ -2712,11 +3519,11 @@ class FormulaSelectWidget(QWidget):
                         temp //= len(var_combo['combinations'])
                     
                     # 构建当前组合的条件
-                    current_conditions = logic_conditions + comparison_conditions
+                    current_conditions = logic_conditions.copy()
                     
                     print(f"生成非锁定输出组合 {i+1} 的条件:")
                     print(f"  逻辑条件: {logic_conditions}")
-                    print(f"  比较条件: {comparison_conditions}")
+                    print(f"  比较条件: []")
                     
                     for j, var_combo in enumerate(var_combinations):
                         combo_idx = indices[j]
@@ -2730,12 +3537,12 @@ class FormulaSelectWidget(QWidget):
                             continue
                         
                         if var_combo['is_comparison']:
-                            # 比较控件：生成 v1 >= lower * v2 and v1 <= upper * v2 的条件
+                            # 比较控件：生成 v1 / v2 >= lower and v1 / v2 <= upper 的条件
                             var1 = var_combo['var1']
                             var2 = var_combo['var2']
                             comp_conditions = []
-                            comp_conditions.append(f"{var1} >= {lower_val} * {var2}")
-                            comp_conditions.append(f"{var1} <= {upper_val} * {var2}")
+                            comp_conditions.append(f"{var1} / {var2} >= {lower_val}")
+                            comp_conditions.append(f"{var1} / {var2} <= {upper_val}")
                             current_conditions.append(' and '.join(comp_conditions))
                             print(f"    添加比较条件: {' and '.join(comp_conditions)}")
                         else:
@@ -2833,6 +3640,1173 @@ class FormulaSelectWidget(QWidget):
             print("-" * 50)
         return formula_list
 
+    def optimize_formula_list(self, secondary_analysis_count=1):
+        """
+        生成优化公式列表，用于二次分析
+        根据统计值生成优化的变量范围组合：
+        - 下限固定为统计最小值，上限从统计最大值按步长减少到正值中值
+        - 上限固定为统计最大值，下限从统计最小值按步长增加到负值中值
+        步长值为 (正值中值 - 负值中值) / 4 的整数部分
+        
+        新增二次分析逻辑：
+        - 当选择左单向时，最大值逐渐减步长，分析二次分析次数设置值（如果减超最小值停止）
+        - 当选择右单向时，最小值逐渐加步长，分析设置的次数（如果加超最大值停止）
+        - 当选择全方向时，两边各分析设置的二次分析次数，然后生成笛卡尔积组合
+        """
+        
+        overall_stats = self.main_window.overall_stats
+        if not overall_stats:
+            print("没有可用的统计结果，无法进行优化")
+            return []
+        
+        # 检查是否锁定输出
+        lock_output = False
+        if hasattr(self.main_window, 'last_lock_output'):
+            lock_output = self.main_window.last_lock_output
+        
+        formula_list = []
+        
+        # 收集需要参与组合的逻辑控件（所有逻辑控件都参与）
+        logic_combination_vars = []
+        logic_map = get_abbr_logic_map()
+        
+        # 遍历所有逻辑控件
+        for en, widgets in self.var_widgets.items():
+            if 'checkbox' in widgets and 'lower' not in widgets:
+                if widgets['checkbox'].isChecked():
+                    # 查找对应的中文名称
+                    logic_zh = None
+                    for zh, en_name in logic_map.items():
+                        if en_name == en:
+                            logic_zh = zh
+                            break
+                    
+                    logic_combination_vars.append({
+                        'var_name': en,
+                        'zh_name': logic_zh or en
+                    })
+                    print(f"  添加逻辑控件到优化组合: {en} ({logic_zh or en})")
+        
+        # 收集需要优化的变量控件
+        optimization_vars = []
+        abbr_map = get_abbr_map()
+        
+        for zh_name, variable_name in abbr_map.items():
+            if variable_name in self.var_widgets:
+                widgets = self.var_widgets[variable_name]
+                if 'lower' in widgets and 'upper' in widgets and 'step' in widgets and 'direction' in widgets:
+                    # 对于同时有圆框和方框的变量，需要方框勾选才参与组合
+                    # 对于只有方框的变量，只需要方框勾选
+                    should_include = widgets['checkbox'].isChecked()
+                    if should_include:
+                        # 获取统计值
+                        max_key = f'{variable_name}_max'
+                        min_key = f'{variable_name}_min'
+                        positive_median_key = f'{variable_name}_positive_median'
+                        negative_median_key = f'{variable_name}_negative_median'
+                        
+                        max_value = overall_stats.get(max_key)
+                        min_value = overall_stats.get(min_key)
+                        positive_median = overall_stats.get(positive_median_key)
+                        negative_median = overall_stats.get(negative_median_key)
+                        
+                        # 获取当前输入框的值作为起始点
+                        current_lower = float(widgets['lower'].text()) if widgets['lower'].text() else 0
+                        current_upper = float(widgets['upper'].text()) if widgets['upper'].text() else 0
+                        
+                        # 获取步长值和方向
+                        # 如果步长输入框为空，按单一条件处理（步长为0）
+                        step_value = float(widgets['step'].text()) if widgets['step'].text() else 0
+                        direction = widgets['direction'].currentText() if 'direction' in widgets else ""
+                        
+                        if max_value is not None and min_value is not None and step_value is not None and step_value >= 0:
+                            has_logic = widgets.get('logic_check', None) and widgets['logic_check'].isChecked()
+                            
+                            print(f"  添加变量到优化组合: {variable_name}, 含逻辑: {has_logic}, 方向: {direction}")
+                            print(f"    统计值: min={min_value}, max={max_value}, pos_median={positive_median}, neg_median={negative_median}, step={step_value}")
+                            print(f"    当前输入值: lower={current_lower}, upper={current_upper}")
+                            
+                            optimization_vars.append({
+                                'var_name': variable_name,
+                                'current_lower': current_lower,
+                                'current_upper': current_upper,
+                                'positive_median': positive_median,
+                                'negative_median': negative_median,
+                                'step_value': step_value,
+                                'direction': direction,
+                                'has_logic': has_logic,
+                                'is_comparison': False  # 标记为普通变量
+                            })
+        
+        # 收集向前参数，也参与优化组合生成（使用中值优化逻辑）
+        if hasattr(self.main_window, 'forward_param_state') and self.main_window.forward_param_state:
+            for en, v in self.main_window.forward_param_state.items():
+                if v.get('enable'):
+                    # 获取统计值
+                    max_key = f'{en}_max'
+                    min_key = f'{en}_min'
+                    positive_median_key = f'{en}_positive_median'
+                    negative_median_key = f'{en}_negative_median'
+                    
+                    max_value = overall_stats.get(max_key)
+                    min_value = overall_stats.get(min_key)
+                    positive_median = overall_stats.get(positive_median_key)
+                    negative_median = overall_stats.get(negative_median_key)
+                    
+                    # 获取当前输入框的值作为起始点
+                    lower_text = v.get('lower', '').strip()
+                    upper_text = v.get('upper', '').strip()
+                    step_text = v.get('step', '').strip()
+                    
+                    if lower_text and upper_text:  # 只检查下限和上限，步长可以为空
+                        try:
+                            current_lower = float(lower_text)
+                            current_upper = float(upper_text)
+                            # 如果步长为空，按单一条件处理（步长为0）
+                            if step_text:
+                                step_value = float(step_text)
+                            else:
+                                step_value = 0
+                            
+                            if max_value is not None and min_value is not None and step_value is not None and step_value >= 0:
+                                has_logic = v.get('logic', False)
+                                direction = v.get('direction', '右单向')
+                                
+                                print(f"  添加向前参数到优化组合: {en}, 方向: {direction}")
+                                print(f"    统计值: min={min_value}, max={max_value}, pos_median={positive_median}, neg_median={negative_median}, step={step_value}")
+                                print(f"    当前输入值: lower={current_lower}, upper={current_upper}")
+                                
+                                optimization_vars.append({
+                                    'var_name': en,
+                                    'current_lower': current_lower,
+                                    'current_upper': current_upper,
+                                    'positive_median': positive_median,
+                                    'negative_median': negative_median,
+                                    'step_value': step_value,
+                                    'direction': direction,
+                                    'has_logic': has_logic,
+                                    'is_comparison': False  # 标记为普通变量
+                                })
+                        except ValueError as e:
+                            print(f"  向前参数数值转换失败: {e}")
+                            continue
+                    else:
+                        print(f"  向前参数不完整，跳过")
+        
+        print(f"优化组合变量数量: {len(optimization_vars)}")
+        
+        # 收集圆框变量（这些在所有组合中都一样）
+        # 特殊处理四个变量的result组合
+        special_result_combinations = self._generate_special_result_combinations()
+        print(f"optimize_formula_list中特殊组合数量: {len(special_result_combinations)}")
+        
+        # 收集其他圆框变量（排除特殊变量和get_abbr_round_only_map中的变量）
+        other_result_vars = []
+        # 获取get_abbr_round_only_map中的变量名列表，用于排除
+        round_only_vars = set()
+        for (zh, en), en_val in self.abbr_round_only_map.items():
+            round_only_vars.add(en_val)
+        
+        for en, widgets in self.var_widgets.items():
+            # 排除特殊变量和get_abbr_round_only_map中的变量
+            if (en not in ['cont_sum_pos_sum', 'cont_sum_neg_sum', 'valid_pos_sum', 'valid_neg_sum'] and 
+                en not in round_only_vars):
+                if 'round_checkbox' in widgets and widgets['round_checkbox'].isChecked():
+                    other_result_vars.append(en)
+        
+        # 收集向前参数的圆框变量
+        # 8个特殊向前参数变量（正负相加值）不参与组合，直接加到result
+        special_forward_result_vars = []
+        other_forward_result_vars = []
+        
+        # 检查是否有基础变量，如果没有基础变量，8个特殊向前参数变量已经在_generate_special_result_combinations中处理了
+        has_basic_vars = any(
+            widgets.get('round_checkbox', None) and widgets['round_checkbox'].isChecked()
+            for en, widgets in self.var_widgets.items()
+            if en in ['cont_sum_pos_sum', 'cont_sum_neg_sum', 'valid_pos_sum', 'valid_neg_sum']
+        )
+        
+        if hasattr(self.main_window, 'forward_param_state') and self.main_window.forward_param_state:
+            for en, v in self.main_window.forward_param_state.items():
+                if v.get('round'):
+                    # 检查是否是8个特殊向前参数变量
+                    if en in ['forward_min_valid_pos_sum', 'forward_min_valid_neg_sum',
+                             'forward_max_valid_pos_sum', 'forward_max_valid_neg_sum',
+                             'forward_max_cont_sum_pos_sum', 'forward_max_cont_sum_neg_sum',
+                             'forward_min_cont_sum_pos_sum', 'forward_min_cont_sum_neg_sum']:
+                        # 只有当有基础变量时，才添加到special_forward_result_vars
+                        # 如果没有基础变量，这些变量已经在_generate_special_result_combinations中处理了
+                        if has_basic_vars:
+                            special_forward_result_vars.append(en)
+                    else:
+                        other_forward_result_vars.append(en)
+        
+        # 将其他向前参数的圆框变量添加到other_result_vars
+        other_result_vars.extend(other_forward_result_vars)
+        
+        # 收集比较控件条件
+        comparison_conditions = []
+        has_logic_comparison = False
+        # 收集比较控件到optimization_vars中，参与优化组合（使用generate_formula_list的规则）
+        for comp in self.comparison_widgets:
+            if comp['checkbox'].isChecked():
+                var1 = comp['var1'].currentText()
+                lower = comp['lower'].text().strip()
+                upper = comp['upper'].text().strip()
+                step = comp['step'].text().strip()
+                direction = comp['direction'].currentText()
+                var2 = comp['var2'].currentText()
+                has_logic = comp['logic_check'].isChecked()
+                
+                var1_en = next((en for zh, en in self.abbr_map.items() if zh == var1), None)
+                var2_en = next((en for zh, en in self.abbr_map.items() if zh == var2), None)
+                
+                if lower and upper and var1_en and var2_en:
+                    try:
+                        # 如果步长为空，设为0
+                        if step:
+                            step_val = float(step)
+                        else:
+                            step_val = 0
+                        lower_val = float(lower)
+                        upper_val = float(upper)
+                        
+                        # 将比较控件也加入到optimization_vars中，参与优化组合
+                        optimization_vars.append({
+                            'var1': var1_en,
+                            'var2': var2_en,
+                            'lower': lower_val,
+                            'upper': upper_val,
+                            'step': step_val,
+                            'direction': direction,
+                            'has_logic': has_logic,
+                            'is_comparison': True  # 标记为比较控件
+                        })
+                        
+                        if has_logic:
+                            has_logic_comparison = True
+                    except ValueError:
+                        continue
+        # 生成优化组合
+        print(f"lock_output: {lock_output}")
+        # 初始化logic_conditions，避免未定义错误
+        logic_conditions = []
+        if lock_output:
+            # 锁定输出时，结果部分只生成一种组合（所有勾选的result变量直接加号拼接）
+            all_result_vars = []
+            for special_combo in special_result_combinations:
+                all_result_vars.extend(special_combo['result_vars'])
+            all_result_vars.extend(other_result_vars)
+            all_result_vars.extend(special_forward_result_vars)
+            # 去重
+            all_result_vars = list(dict.fromkeys(all_result_vars))
+            
+            # 排序方式：取主界面当前排序
+            user_sort_mode = self.sort_combo.currentText() if self.sort_combo else (self.main_window.last_sort_mode if hasattr(self.main_window, 'last_sort_mode') else '最大值排序')
+            
+            if not optimization_vars:
+                # 如果没有需要优化的变量，只生成一个公式
+                all_conditions = []
+                if all_conditions:
+                    cond_str = "if " + " and ".join(all_conditions) + ":"
+                else:
+                    cond_str = "if True:"
+                result_expr = "result = " + " + ".join(all_result_vars) if all_result_vars else "result = 0"
+                formula = f"{cond_str}\n    {result_expr}\nelse:\n    result = 0"
+                formula_list.append({
+                    'formula': formula,
+                    'sort_mode': user_sort_mode,
+                    'result_vars': all_result_vars
+                })
+                
+                # 如果有含逻辑的比较控件，额外生成一个if True的公式
+                if has_logic_comparison:
+                    true_formula = f"if True:\n    {result_expr}\nelse:\n    result = 0"
+                    formula_list.append({
+                        'formula': true_formula,
+                        'sort_mode': user_sort_mode,
+                        'result_vars': all_result_vars
+                    })
+            else:
+                # 如果有需要优化的变量，生成优化组合
+                var_combinations = []
+                
+                for var_info in optimization_vars:
+                    is_comparison = var_info.get('is_comparison', False)
+                    
+                    if is_comparison:
+                        # 比较控件 - 使用generate_formula_list的规则（不使用中值优化逻辑）
+                        var1 = var_info['var1']
+                        var2 = var_info['var2']
+                        lower_val = var_info['lower']
+                        upper_val = var_info['upper']
+                        step_val = var_info['step']
+                        direction = var_info['direction']
+                        has_logic = var_info['has_logic']
+                        
+                        print(f"比较控件优化组合 - {var1} vs {var2}:")
+                        print(f"  下限: {lower_val}, 上限: {upper_val}, 步长: {step_val}")
+                        print(f"  方向: {direction}, 含逻辑: {has_logic}")
+                        
+                        # 比较控件使用标准组合生成逻辑（不使用中值优化）
+                        combinations = []
+                        
+                        # 如果步长为0或空，生成单一组合
+                        if step_val == 0 or step_val == '' or step_val is None:
+                            combinations.append((round(lower_val, 2), round(upper_val, 2)))
+                            print(f"  步长为0或空，生成单一组合: ({round(lower_val, 2)}, {round(upper_val, 2)})")
+                        else:
+                            if direction == "右单向":
+                                # 最大值不变，最小值按步长变化
+                                current_lower = lower_val
+                                # 根据步长正负调整循环条件
+                                if step_val > 0:
+                                    while current_lower < upper_val:
+                                        combinations.append((round(current_lower, 2), round(upper_val, 2)))
+                                        current_lower += step_val
+                                else:  # step_val < 0
+                                    while current_lower > upper_val:
+                                        combinations.append((round(current_lower, 2), round(upper_val, 2)))
+                                        current_lower += step_val
+                            
+                            elif direction == "左单向":
+                                # 最小值不变，最大值按步长变化
+                                current_upper = upper_val
+                                # 根据步长正负调整循环条件
+                                if step_val > 0:
+                                    while current_upper > lower_val:
+                                        combinations.append((round(lower_val, 2), round(current_upper, 2)))
+                                        current_upper -= step_val
+                                else:  # step_val < 0
+                                    while current_upper < lower_val:
+                                        combinations.append((round(lower_val, 2), round(current_upper, 2)))
+                                        current_upper -= step_val
+                            
+                            elif direction == "全方向":
+                                combinations = []
+                                # 右单向：上限不变，下限不断加步长
+                                current_lower = lower_val
+                                if step_val > 0:
+                                    while current_lower < upper_val:
+                                        combinations.append((round(current_lower, 2), round(upper_val, 2)))
+                                        current_lower += step_val
+                                else:
+                                    while current_lower > upper_val:
+                                        combinations.append((round(current_lower, 2), round(upper_val, 2)))
+                                        current_lower += step_val
+                                # 左单向：下限不变，上限不断减步长
+                                current_upper = upper_val
+                                if step_val > 0:
+                                    while current_upper > lower_val:
+                                        combinations.append((round(lower_val, 2), round(current_upper, 2)))
+                                        current_upper -= step_val
+                                else:
+                                    while current_upper < lower_val:
+                                        combinations.append((round(lower_val, 2), round(current_upper, 2)))
+                                        current_upper -= step_val
+                                # 剔除重复项和下限=上限的情况
+                                combinations = list({(a, b) for a, b in combinations if a != b})
+                                combinations.sort()
+                        
+                        print(f"  比较控件 {var1} vs {var2} 生成 {len(combinations)} 个标准组合")
+                        for i, (lower, upper) in enumerate(combinations[:5]):  # 只显示前5个
+                            print(f"    组合 {i+1}: ({lower}, {upper})")
+                        if len(combinations) > 5:
+                            print(f"    ... 还有 {len(combinations) - 5} 个组合")
+                    else:
+                        # 普通变量 - 检查是否是abbr_map变量
+                        var_name = var_info['var_name']
+                        has_logic = var_info['has_logic']
+                        
+                        # 检查是否是abbr_map变量或向前参数（都需要使用中值优化逻辑）
+                        is_abbr_map_var = var_name in [en for zh, en in abbr_map.items()]
+                        is_forward_param = hasattr(self.main_window, 'forward_param_state') and self.main_window.forward_param_state and var_name in self.main_window.forward_param_state
+                        should_use_median_optimization = is_abbr_map_var or is_forward_param
+                        
+                        if should_use_median_optimization:
+                            # abbr_map变量和向前参数使用二次分析逻辑
+                            current_lower = var_info['current_lower']
+                            current_upper = var_info['current_upper']
+                            step_value = var_info['step_value']
+                            direction = var_info['direction']
+                            
+                            # 获取统计的最小值和最大值作为边界
+                            max_value = overall_stats.get(f'{var_name}_max')
+                            min_value = overall_stats.get(f'{var_name}_min')
+                            
+                            combinations = []
+                            
+                            # 如果步长为0，生成单一组合
+                            if step_value == 0:
+                                combinations.append((round(current_lower, 2), round(current_upper, 2)))
+                                print(f"  步长为0，生成单一组合: ({round(current_lower, 2)}, {round(current_upper, 2)})")
+                            else:
+                                if direction == "左单向":
+                                    # 最大值逐渐减步长，分析二次分析次数设置值
+                                    current_upper_val = current_upper
+                                    for i in range(secondary_analysis_count):
+                                        if min_value is not None and current_upper_val < min_value:
+                                            # 如果减超最小值停止
+                                            break
+                                        combinations.append((round(current_lower, 2), round(current_upper_val, 2)))
+                                        current_upper_val -= step_value
+                                    
+                                    print(f"  左单向变量 {var_name} 生成 {len(combinations)} 个组合")
+                                    for i, (lower, upper) in enumerate(combinations[:5]):  # 只显示前5个
+                                        print(f"    组合 {i+1}: ({lower}, {upper})")
+                                    if len(combinations) > 5:
+                                        print(f"    ... 还有 {len(combinations) - 5} 个组合")
+                                        
+                                elif direction == "右单向":
+                                    # 最小值逐渐加步长，分析设置的次数
+                                    current_lower_val = current_lower
+                                    for i in range(secondary_analysis_count):
+                                        if max_value is not None and current_lower_val > max_value:
+                                            # 如果加超最大值停止
+                                            break
+                                        combinations.append((round(current_lower_val, 2), round(current_upper, 2)))
+                                        current_lower_val += step_value
+                                    
+                                    print(f"  右单向变量 {var_name} 生成 {len(combinations)} 个组合")
+                                    for i, (lower, upper) in enumerate(combinations[:5]):  # 只显示前5个
+                                        print(f"    组合 {i+1}: ({lower}, {upper})")
+                                    if len(combinations) > 5:
+                                        print(f"    ... 还有 {len(combinations) - 5} 个组合")
+                                        
+                                elif direction == "全方向":
+                                    # 两边各分析设置的二次分析次数，然后生成笛卡尔积
+                                    # 左方向：最大值逐渐减步长
+                                    left_upper_values = []
+                                    current_upper_val = current_upper
+                                    for i in range(secondary_analysis_count):
+                                        if min_value is not None and current_upper_val < min_value:
+                                            break
+                                        left_upper_values.append(round(current_upper_val, 2))
+                                        current_upper_val -= step_value
+                                    
+                                    # 右方向：最小值逐渐加步长
+                                    right_lower_values = []
+                                    current_lower_val = current_lower
+                                    for i in range(secondary_analysis_count):
+                                        if max_value is not None and current_lower_val > max_value:
+                                            break
+                                        right_lower_values.append(round(current_lower_val, 2))
+                                        current_lower_val += step_value
+                                    
+                                    # 生成笛卡尔积组合
+                                    for left_upper in left_upper_values:
+                                        for right_lower in right_lower_values:
+                                            if right_lower <= left_upper:  # 确保下限不大于上限
+                                                combinations.append((right_lower, left_upper))
+                                    
+                                    # 剔除重复项并排序
+                                    combinations = list({(a, b) for a, b in combinations})
+                                    combinations.sort()
+                                    
+                                    print(f"  全方向变量 {var_name} 生成 {len(combinations)} 个组合")
+                                    print(f"    左单向上限值: {left_upper_values}")
+                                    print(f"    右单向下限值: {right_lower_values}")
+                                    for i, (lower, upper) in enumerate(combinations[:5]):  # 只显示前5个
+                                        print(f"    组合 {i+1}: ({lower}, {upper})")
+                                    if len(combinations) > 5:
+                                        print(f"    ... 还有 {len(combinations) - 5} 个组合")
+                        else:
+                            # 非中值优化变量使用generate_formula_list的规则
+                            lower_val = var_info['lower']
+                            upper_val = var_info['upper']
+                            step_val = var_info['step']
+                            direction = var_info['direction']
+                            
+                            combinations = []
+                            
+                            # 如果步长为0或空，生成单一组合
+                            if step_val == 0 or step_val == '' or step_val is None:
+                                combinations.append((round(lower_val, 2), round(upper_val, 2)))
+                                print(f"  步长为0或空，生成单一组合: ({round(lower_val, 2)}, {round(upper_val, 2)})")
+                            else:
+                                if direction == "右单向":
+                                    # 最大值不变，最小值按步长变化
+                                    current_lower = lower_val
+                                    # 根据步长正负调整循环条件
+                                    if step_val > 0:
+                                        while current_lower < upper_val:
+                                            combinations.append((round(current_lower, 2), round(upper_val, 2)))
+                                            current_lower += step_val
+                                    else:  # step_val < 0
+                                        while current_lower > upper_val:
+                                            combinations.append((round(current_lower, 2), round(upper_val, 2)))
+                                            current_lower += step_val
+                                
+                                elif direction == "左单向":
+                                    # 最小值不变，最大值按步长变化
+                                    current_upper = upper_val
+                                    # 根据步长正负调整循环条件
+                                    if step_val > 0:
+                                        while current_upper > lower_val:
+                                            combinations.append((round(lower_val, 2), round(current_upper, 2)))
+                                            current_upper -= step_val
+                                    else:  # step_val < 0
+                                        while current_upper < lower_val:
+                                            combinations.append((round(lower_val, 2), round(current_upper, 2)))
+                                            current_upper -= step_val
+                                
+                                elif direction == "全方向":
+                                    combinations = []
+                                    # 右单向：上限不变，下限不断加步长
+                                    current_lower = lower_val
+                                    if step_val > 0:
+                                        while current_lower < upper_val:
+                                            combinations.append((round(current_lower, 2), round(upper_val, 2)))
+                                            current_lower += step_val
+                                    else:
+                                        while current_lower > upper_val:
+                                            combinations.append((round(current_lower, 2), round(upper_val, 2)))
+                                            current_lower += step_val
+                                    # 左单向：下限不变，上限不断减步长
+                                    current_upper = upper_val
+                                    if step_val > 0:
+                                        while current_upper > lower_val:
+                                            combinations.append((round(lower_val, 2), round(current_upper, 2)))
+                                            current_upper -= step_val
+                                    else:
+                                        while current_upper < lower_val:
+                                            combinations.append((round(lower_val, 2), round(current_upper, 2)))
+                                            current_upper -= step_val
+                                    # 剔除重复项和下限=上限的情况
+                                    combinations = list({(a, b) for a, b in combinations if a != b})
+                                    combinations.sort()
+                            
+                            print(f"  非中值优化变量 {var_name} 生成 {len(combinations)} 个标准组合")
+                            for i, (lower, upper) in enumerate(combinations[:5]):  # 只显示前5个
+                                print(f"    组合 {i+1}: ({lower}, {upper})")
+                            if len(combinations) > 5:
+                                print(f"    ... 还有 {len(combinations) - 5} 个组合")
+                    
+                    # 处理含逻辑：如果勾选了含逻辑，添加一个True条件
+                    if has_logic:
+                        combinations.append(('True', 'True'))
+                    
+                    if is_comparison:
+                        var_combinations.append({
+                            'var1': var1,
+                            'var2': var2,
+                            'combinations': combinations,
+                            'is_comparison': True  # 标记为比较控件
+                        })
+                    else:
+                        var_combinations.append({
+                            'var_name': var_name,
+                            'combinations': combinations,
+                            'is_comparison': False  # 标记为普通变量
+                        })
+                
+                # 生成笛卡尔积
+                if var_combinations:
+                    # 获取所有变量的组合数量
+                    total_combinations = 1
+                    for var_combo in var_combinations:
+                        total_combinations *= len(var_combo['combinations'])
+                    
+                    print(f"锁定输出模式：总共 {total_combinations} 个优化组合")
+                    
+                    # 为每个条件组合生成公式
+                    for i in range(total_combinations):
+                        # 计算当前组合的索引
+                        indices = []
+                        temp = i
+                        for var_combo in var_combinations:
+                            indices.append(temp % len(var_combo['combinations']))
+                            temp //= len(var_combo['combinations'])
+                        
+                        # 构建当前组合的条件 - 每个笛卡尔积组合都应该有独立的条件
+                        current_conditions = logic_conditions.copy()  # 复制逻辑条件，避免引用问题
+                        
+                        print(f"生成锁定输出优化组合 {i+1} 的条件:")
+                        print(f"  逻辑条件: {logic_conditions}")
+                        print(f"  比较条件: []")
+                        
+                        for j, var_combo in enumerate(var_combinations):
+                            combo_idx = indices[j]
+                            lower_val, upper_val = var_combo['combinations'][combo_idx]
+                            
+                            print(f"  变量组合 {j+1}: ({lower_val}, {upper_val})")
+                            
+                            # 如果是True条件，跳过该变量（不添加任何条件）
+                            if lower_val == 'True' and upper_val == 'True':
+                                print(f"    跳过True条件")
+                                continue
+                            
+                            if var_combo['is_comparison']:
+                                # 比较控件：生成 v1 / v2 >= lower and v1 / v2 <= upper 的条件
+                                var1 = var_combo['var1']
+                                var2 = var_combo['var2']
+                                comp_conditions = []
+                                comp_conditions.append(f"{var1} / {var2} >= {lower_val}")
+                                comp_conditions.append(f"{var1} / {var2} <= {upper_val}")
+                                current_conditions.append(' and '.join(comp_conditions))
+                                print(f"    添加比较条件: {' and '.join(comp_conditions)}")
+                            else:
+                                # 普通变量：生成 var >= lower and var <= upper 的条件
+                                var_name = var_combo['var_name']
+                                var_conditions = []
+                                var_conditions.append(f"{var_name} >= {lower_val}")
+                                var_conditions.append(f"{var_name} <= {upper_val}")
+                                current_conditions.append(' and '.join(var_conditions))
+                                print(f"    添加变量条件: {' and '.join(var_conditions)}")
+                        
+                        print(f"  最终条件: {current_conditions}")
+                        
+                        # 生成公式
+                        if current_conditions:
+                            cond_str = "if " + " and ".join(current_conditions) + ":"
+                        else:
+                            cond_str = "if True:"
+                        
+                        # 为每个特殊组合生成公式
+                        if special_result_combinations:
+                            print(f"有特殊组合 special_result_combinations :{special_result_combinations}")
+                            for special_combo in special_result_combinations:
+                                # 合并特殊组合和其他result变量
+                                all_result_vars = special_combo['result_vars'] + other_result_vars + special_forward_result_vars
+                                if all_result_vars:
+                                    result_expr = "result = " + " + ".join(all_result_vars)
+                                else:
+                                    result_expr = "result = 0"
+                                
+                                # 为每个排序方式生成一个公式
+                                for sort_mode in special_combo['sort_modes']:
+                                    formula = f"{cond_str}\n    {result_expr}\nelse:\n    result = 0"
+                                    formula_list.append({
+                                        'formula': formula,
+                                        'sort_mode': sort_mode,
+                                        'result_vars': all_result_vars
+                                    })
+                        else:
+                            # 容错处理：当没有特殊组合时，也要处理向前参数和其他result变量
+                            print(f"没有特殊组合")
+                            all_result_vars = other_result_vars + special_forward_result_vars
+                            if all_result_vars:
+                                result_expr = "result = " + " + ".join(all_result_vars)
+                            else:
+                                result_expr = "result = 0"
+                            
+                            # 向前相关参数不区分最大最小排序，以基础参数为准，如果没有基础参数，则按用户设置的排序
+                            # 获取用户设置的排序方式
+                            user_sort_mode = self.sort_combo.currentText() if self.sort_combo else '最大值排序'
+                            print(f"user_sort_mode: {user_sort_mode}")
+                            
+                            # 生成一个公式
+                            formula = f"{cond_str}\n    {result_expr}\nelse:\n    result = 0"
+                            formula_list.append({
+                                'formula': formula,
+                                'sort_mode': user_sort_mode,
+                                'result_vars': all_result_vars
+                            })
+            
+            # 锁定输出模式下也需要进行逻辑控件组合处理
+            if logic_combination_vars:
+                print(f"锁定输出模式下进行逻辑控件组合处理")
+                original_formula_list = formula_list.copy()
+                formula_list = []
+                
+                # 锁定输出模式下，逻辑控件也只生成一个组合（所有勾选的逻辑条件用and连接）
+                if logic_combination_vars:
+                    print(f"锁定输出模式：有 {len(logic_combination_vars)} 个逻辑控件参与组合，只生成一个组合")
+                    
+                    # 收集所有勾选的逻辑控件条件
+                    logic_conditions = [logic_var_info['var_name'] for logic_var_info in logic_combination_vars]
+                    logic_condition_str = " and ".join(logic_conditions)
+                    print(f"锁定输出模式逻辑控件组合: {logic_condition_str}")
+                    
+                    # 为每个公式添加逻辑控件条件
+                    for formula_obj in original_formula_list:
+                        original_formula = formula_obj['formula']
+                        if 'if ' in original_formula:
+                            # 找到if行的结束位置
+                            if_end_pos = original_formula.find(':')
+                            if if_end_pos != -1:
+                                # 获取原始if条件
+                                if_condition = original_formula[3:if_end_pos].strip()
+                                
+                                # 构建新的if条件 - 在原有条件基础上添加逻辑控件条件
+                                if if_condition == 'True':
+                                    new_condition = f"if {logic_condition_str}:"
+                                else:
+                                    new_condition = f"if {if_condition} and {logic_condition_str}:"
+                                
+                                # 完全重新构建公式
+                                new_formula = new_condition + original_formula[if_end_pos + 1:]  # +1 跳过冒号
+                                formula_obj['formula'] = new_formula
+                                
+                                print(f"  生成锁定输出逻辑组合公式: {logic_condition_str}")
+                        formula_list.append(formula_obj)
+                else:
+                    # 没有逻辑控件，直接添加原公式
+                    formula_list.extend(original_formula_list)
+            
+            for i, formula_obj in enumerate(formula_list):
+                print(f"锁定输出优化公式 {i+1} (排序方式: {formula_obj['sort_mode']}):")
+                print(formula_obj['formula'])
+                print("-" * 50)
+            return formula_list
+        elif not optimization_vars:
+            # 如果没有需要优化的变量，为每个特殊result组合生成一个公式
+            # 注意：逻辑控件条件在最后统一处理，这里不处理
+            all_conditions = []
+            if all_conditions:
+                cond_str = "if " + " and ".join(all_conditions) + ":"
+            else:
+                cond_str = "if True:"
+            
+            # 为每个特殊组合生成公式
+            if special_result_combinations:
+                print(f"有特殊组合 special_result_combinations :{special_result_combinations}")
+                for special_combo in special_result_combinations:
+                    # 合并特殊组合和其他result变量
+                    # 注意：8个特殊向前参数变量已经在special_combo['result_vars']中了（当没有基础变量时）
+                    # 所以这里只需要添加其他result变量
+                    all_result_vars = special_combo['result_vars'] + other_result_vars + special_forward_result_vars
+                    if all_result_vars:
+                        result_expr = "result = " + " + ".join(all_result_vars)
+                    else:
+                        result_expr = "result = 0"
+                    
+                    # 为每个排序方式生成一个公式
+                    for sort_mode in special_combo['sort_modes']:
+                        formula = f"{cond_str}\n    {result_expr}\nelse:\n    result = 0"
+                        formula_list.append({
+                            'formula': formula,
+                            'sort_mode': sort_mode,
+                            'result_vars': all_result_vars
+                        })
+                        
+                        # 如果有含逻辑的比较控件，额外生成一个if True的公式
+                        if has_logic_comparison:
+                            true_formula = f"if True:\n    {result_expr}\nelse:\n    result = 0"
+                            formula_list.append({
+                                'formula': true_formula,
+                                'sort_mode': sort_mode,
+                                'result_vars': all_result_vars
+                            })
+            else:
+                # 容错处理：当没有特殊组合时，也要处理向前参数和其他result变量
+                print(f"没有特殊组合")
+                all_result_vars = other_result_vars + special_forward_result_vars
+                if all_result_vars:
+                    result_expr = "result = " + " + ".join(all_result_vars)
+                else:
+                    result_expr = "result = 0"
+                
+                # 向前相关参数不区分最大最小排序，以基础参数为准，如果没有基础参数，则按用户设置的排序
+                # 获取用户设置的排序方式
+                user_sort_mode = self.sort_combo.currentText() if self.sort_combo else '最大值排序'
+                print(f"user_sort_mode: {user_sort_mode}")
+                
+                # 生成一个公式
+                formula = f"{cond_str}\n    {result_expr}\nelse:\n    result = 0"
+                formula_list.append({
+                    'formula': formula,
+                    'sort_mode': user_sort_mode,
+                    'result_vars': all_result_vars
+                })
+                
+                # 如果有含逻辑的比较控件，额外生成一个if True的公式
+                if has_logic_comparison:
+                    true_formula = f"if True:\n    {result_expr}\nelse:\n    result = 0"
+                    formula_list.append({
+                        'formula': true_formula,
+                        'sort_mode': user_sort_mode,
+                        'result_vars': all_result_vars
+                    })
+        else:
+            # 为每个变量生成优化组合
+            var_combinations = []
+            
+            for var_info in optimization_vars:
+                is_comparison = var_info.get('is_comparison', False)
+                
+                if is_comparison:
+                    # 比较控件 - 使用generate_formula_list的规则（不使用中值优化逻辑）
+                    var1 = var_info['var1']
+                    var2 = var_info['var2']
+                    lower_val = var_info['lower']
+                    upper_val = var_info['upper']
+                    step_val = var_info['step']
+                    direction = var_info['direction']
+                    has_logic = var_info['has_logic']
+                    
+                    print(f"比较控件优化组合 - {var1} vs {var2}:")
+                    print(f"  下限: {lower_val}, 上限: {upper_val}, 步长: {step_val}")
+                    print(f"  方向: {direction}, 含逻辑: {has_logic}")
+                    
+                    # 比较控件使用标准组合生成逻辑（不使用中值优化）
+                    combinations = []
+                    
+                    # 如果步长为0或空，生成单一组合
+                    if step_val == 0 or step_val == '' or step_val is None:
+                        combinations.append((round(lower_val, 2), round(upper_val, 2)))
+                        print(f"  步长为0或空，生成单一组合: ({round(lower_val, 2)}, {round(upper_val, 2)})")
+                    else:
+                        if direction == "右单向":
+                            # 最大值不变，最小值按步长变化
+                            current_lower = lower_val
+                            # 根据步长正负调整循环条件
+                            if step_val > 0:
+                                while current_lower < upper_val:
+                                    combinations.append((round(current_lower, 2), round(upper_val, 2)))
+                                    current_lower += step_val
+                            else:  # step_val < 0
+                                while current_lower > upper_val:
+                                    combinations.append((round(current_lower, 2), round(upper_val, 2)))
+                                    current_lower += step_val
+                        
+                        elif direction == "左单向":
+                            # 最小值不变，最大值按步长变化
+                            current_upper = upper_val
+                            # 根据步长正负调整循环条件
+                            if step_val > 0:
+                                while current_upper > lower_val:
+                                    combinations.append((round(lower_val, 2), round(current_upper, 2)))
+                                    current_upper -= step_val
+                            else:  # step_val < 0
+                                while current_upper < lower_val:
+                                    combinations.append((round(lower_val, 2), round(current_upper, 2)))
+                                    current_upper -= step_val
+                        
+                        elif direction == "全方向":
+                            combinations = []
+                            # 右单向：上限不变，下限不断加步长
+                            current_lower = lower_val
+                            if step_val > 0:
+                                while current_lower < upper_val:
+                                    combinations.append((round(current_lower, 2), round(upper_val, 2)))
+                                    current_lower += step_val
+                            else:
+                                while current_lower > upper_val:
+                                    combinations.append((round(current_lower, 2), round(upper_val, 2)))
+                                    current_lower += step_val
+                            # 左单向：下限不变，上限不断减步长
+                            current_upper = upper_val
+                            if step_val > 0:
+                                while current_upper > lower_val:
+                                    combinations.append((round(lower_val, 2), round(current_upper, 2)))
+                                    current_upper -= step_val
+                            else:
+                                while current_upper < lower_val:
+                                    combinations.append((round(lower_val, 2), round(current_upper, 2)))
+                                    current_upper -= step_val
+                            # 剔除重复项和下限=上限的情况
+                            combinations = list({(a, b) for a, b in combinations if a != b})
+                            combinations.sort()
+                    
+                    print(f"  比较控件 {var1} vs {var2} 生成 {len(combinations)} 个标准组合")
+                    for i, (lower, upper) in enumerate(combinations[:5]):  # 只显示前5个
+                        print(f"    组合 {i+1}: ({lower}, {upper})")
+                    if len(combinations) > 5:
+                        print(f"    ... 还有 {len(combinations) - 5} 个组合")
+                else:
+                    # 普通变量 - 检查是否是abbr_map变量
+                    var_name = var_info['var_name']
+                    has_logic = var_info['has_logic']
+                    
+                    # 检查是否是abbr_map变量或向前参数（都需要使用中值优化逻辑）
+                    is_abbr_map_var = var_name in [en for zh, en in abbr_map.items()]
+                    is_forward_param = hasattr(self.main_window, 'forward_param_state') and self.main_window.forward_param_state and var_name in self.main_window.forward_param_state
+                    should_use_median_optimization = is_abbr_map_var or is_forward_param
+                    
+                    if should_use_median_optimization:
+                        # abbr_map变量使用中值优化逻辑
+                        current_lower = var_info['current_lower']
+                        current_upper = var_info['current_upper']
+                        positive_median = var_info['positive_median']
+                        negative_median = var_info['negative_median']
+                        step_value = var_info['step_value']
+                        
+                        # 生成上限值列表：从当前上限按步长减少到正值中值为止
+                        upper_values = []
+                        if positive_median is not None and current_upper > positive_median:
+                            if step_value > 0:  # 只有当步长大于0时才进行循环
+                                upper_val = current_upper
+                                while upper_val >= positive_median:
+                                    upper_values.append(round(upper_val, 2))
+                                    upper_val -= step_value
+                            else:
+                                # 如果步长为0，只使用当前上限
+                                upper_values.append(round(current_upper, 2))
+                        else:
+                            # 如果正值中值为空或当前上限不大于正值中值，使用当前上限
+                            upper_values.append(round(current_upper, 2))
+                        
+                        # 生成下限值列表：从当前下限按步长增加到负值中值为止
+                        lower_values = []
+                        if negative_median is not None and current_lower < negative_median:
+                            if step_value > 0:  # 只有当步长大于0时才进行循环
+                                lower_val = current_lower
+                                while lower_val <= negative_median:
+                                    lower_values.append(round(lower_val, 2))
+                                    lower_val += step_value
+                            else:
+                                # 如果步长为0，只使用当前下限
+                                lower_values.append(round(current_lower, 2))
+                        else:
+                            # 如果负值中值为空或当前下限不小于负值中值，使用当前下限
+                            lower_values.append(round(current_lower, 2))
+                        
+                        # 生成组合
+                        combinations = []
+                        
+                        # 如果正值中值和负值中值都为空，生成单一条件
+                        if positive_median is None and negative_median is None:
+                            combinations.append((round(current_lower, 2), round(current_upper, 2)))
+                            print(f"  正值中值和负值中值都为空，生成单一条件: ({round(current_lower, 2)}, {round(current_upper, 2)})")
+                        else:
+                            # 生成笛卡尔积组合
+                            for lower in lower_values:
+                                for upper in upper_values:
+                                    if lower <= upper:  # 确保下限不大于上限
+                                        combinations.append((lower, upper))
+                            
+                            # 剔除重复项
+                            combinations = list({(a, b) for a, b in combinations})
+                            combinations.sort()
+                        
+                        print(f"  中值优化变量 {var_name} 生成 {len(combinations)} 个中值优化组合")
+                        for i, (lower, upper) in enumerate(combinations[:5]):  # 只显示前5个
+                            print(f"    组合 {i+1}: ({lower}, {upper})")
+                        if len(combinations) > 5:
+                            print(f"    ... 还有 {len(combinations) - 5} 个组合")
+                    else:
+                        # 非中值优化变量使用generate_formula_list的规则
+                        # 对于非中值优化变量，使用与锁定模式一致的字段名
+                        lower_val = var_info['current_lower']
+                        upper_val = var_info['current_upper']
+                        step_val = var_info['step_value']
+                        # 非中值优化变量没有direction字段，使用默认值
+                        direction = "全方向"
+                        
+                        combinations = []
+                        
+                        # 如果步长为0或空，生成单一组合
+                        if step_val == 0 or step_val == '' or step_val is None:
+                            combinations.append((round(lower_val, 2), round(upper_val, 2)))
+                            print(f"  步长为0或空，生成单一组合: ({round(lower_val, 2)}, {round(upper_val, 2)})")
+                        else:
+                            if direction == "右单向":
+                                # 最大值不变，最小值按步长变化
+                                current_lower = lower_val
+                                # 根据步长正负调整循环条件
+                                if step_val > 0:
+                                    while current_lower < upper_val:
+                                        combinations.append((round(current_lower, 2), round(upper_val, 2)))
+                                        current_lower += step_val
+                                else:  # step_val < 0
+                                    while current_lower > upper_val:
+                                        combinations.append((round(current_lower, 2), round(upper_val, 2)))
+                                        current_lower += step_val
+                            
+                            elif direction == "左单向":
+                                # 最小值不变，最大值按步长变化
+                                current_upper = upper_val
+                                # 根据步长正负调整循环条件
+                                if step_val > 0:
+                                    while current_upper > lower_val:
+                                        combinations.append((round(lower_val, 2), round(current_upper, 2)))
+                                        current_upper -= step_val
+                                else:  # step_val < 0
+                                    while current_upper < lower_val:
+                                        combinations.append((round(lower_val, 2), round(current_upper, 2)))
+                                        current_upper -= step_val
+                            
+                            elif direction == "全方向":
+                                combinations = []
+                                # 右单向：上限不变，下限不断加步长
+                                current_lower = lower_val
+                                if step_val > 0:
+                                    while current_lower < upper_val:
+                                        combinations.append((round(current_lower, 2), round(upper_val, 2)))
+                                        current_lower += step_val
+                                else:
+                                    while current_lower > upper_val:
+                                        combinations.append((round(current_lower, 2), round(upper_val, 2)))
+                                        current_lower += step_val
+                                # 左单向：下限不变，上限不断减步长
+                                current_upper = upper_val
+                                if step_val > 0:
+                                    while current_upper > lower_val:
+                                        combinations.append((round(lower_val, 2), round(current_upper, 2)))
+                                        current_upper -= step_val
+                                else:
+                                    while current_upper < lower_val:
+                                        combinations.append((round(lower_val, 2), round(current_upper, 2)))
+                                        current_upper -= step_val
+                                # 剔除重复项和下限=上限的情况
+                                combinations = list({(a, b) for a, b in combinations if a != b})
+                                combinations.sort()
+                        
+                        print(f"  非中值优化变量 {var_name} 生成 {len(combinations)} 个标准组合")
+                        for i, (lower, upper) in enumerate(combinations[:5]):  # 只显示前5个
+                            print(f"    组合 {i+1}: ({lower}, {upper})")
+                        if len(combinations) > 5:
+                            print(f"    ... 还有 {len(combinations) - 5} 个组合")
+                
+                # 处理含逻辑：如果勾选了含逻辑，添加一个True条件
+                if has_logic:
+                    combinations.append(('True', 'True'))
+                
+                if is_comparison:
+                    var_combinations.append({
+                        'var1': var1,
+                        'var2': var2,
+                        'combinations': combinations,
+                        'is_comparison': True  # 标记为比较控件
+                    })
+                else:
+                    var_combinations.append({
+                        'var_name': var_name,
+                        'combinations': combinations,
+                        'is_comparison': False  # 标记为普通变量
+                    })
+            
+            # 生成笛卡尔积
+            if var_combinations:
+                # 获取所有变量的组合数量
+                total_combinations = 1
+                for var_combo in var_combinations:
+                    total_combinations *= len(var_combo['combinations'])
+                
+                print(f"非锁定输出模式：总共 {total_combinations} 个优化组合")
+                
+                # 为每个条件组合生成公式
+                for i in range(total_combinations):
+                    # 计算当前组合的索引
+                    indices = []
+                    temp = i
+                    for var_combo in var_combinations:
+                        indices.append(temp % len(var_combo['combinations']))
+                        temp //= len(var_combo['combinations'])
+                    
+                    # 构建当前组合的条件
+                    current_conditions = logic_conditions.copy()
+                    
+                    print(f"生成非锁定输出优化组合 {i+1} 的条件:")
+                    print(f"  逻辑条件: {logic_conditions}")
+                    print(f"  比较条件: []")
+                    
+                    for j, var_combo in enumerate(var_combinations):
+                        combo_idx = indices[j]
+                        lower_val, upper_val = var_combo['combinations'][combo_idx]
+                        
+                        print(f"  变量组合 {j+1}: ({lower_val}, {upper_val})")
+                        
+                        # 如果是True条件，跳过该变量（不添加任何条件）
+                        if lower_val == 'True' and upper_val == 'True':
+                            print(f"    跳过True条件")
+                            continue
+                        
+                        if var_combo['is_comparison']:
+                            # 比较控件：生成 v1 / v2 >= lower and v1 / v2 <= upper 的条件
+                            var1 = var_combo['var1']
+                            var2 = var_combo['var2']
+                            comp_conditions = []
+                            comp_conditions.append(f"{var1} / {var2} >= {lower_val}")
+                            comp_conditions.append(f"{var1} / {var2} <= {upper_val}")
+                            current_conditions.append(' and '.join(comp_conditions))
+                            print(f"    添加比较条件: {' and '.join(comp_conditions)}")
+                        else:
+                            # 普通变量：生成 var >= lower and var <= upper 的条件
+                            var_name = var_combo['var_name']
+                            var_conditions = []
+                            var_conditions.append(f"{var_name} >= {lower_val}")
+                            var_conditions.append(f"{var_name} <= {upper_val}")
+                            current_conditions.append(' and '.join(var_conditions))
+                            print(f"    添加变量条件: {' and '.join(var_conditions)}")
+                    
+                    print(f"  最终条件: {current_conditions}")
+                    
+                    # 生成公式
+                    if current_conditions:
+                        cond_str = "if " + " and ".join(current_conditions) + ":"
+                    else:
+                        cond_str = "if True:"
+                    
+                    # 为每个特殊组合生成公式
+                    if special_result_combinations:
+                        print(f"有特殊组合 special_result_combinations :{special_result_combinations}")
+                        for special_combo in special_result_combinations:
+                            # 合并特殊组合和其他result变量
+                            all_result_vars = special_combo['result_vars'] + other_result_vars + special_forward_result_vars
+                            if all_result_vars:
+                                result_expr = "result = " + " + ".join(all_result_vars)
+                            else:
+                                result_expr = "result = 0"
+                            
+                            # 为每个排序方式生成一个公式
+                            for sort_mode in special_combo['sort_modes']:
+                                formula = f"{cond_str}\n    {result_expr}\nelse:\n    result = 0"
+                                formula_list.append({
+                                    'formula': formula,
+                                    'sort_mode': sort_mode,
+                                    'result_vars': all_result_vars
+                                })
+                    else:
+                        # 容错处理：当没有特殊组合时，也要处理向前参数和其他result变量
+                        print(f"没有特殊组合")
+                        all_result_vars = other_result_vars + special_forward_result_vars
+                        if all_result_vars:
+                            result_expr = "result = " + " + ".join(all_result_vars)
+                        else:
+                            result_expr = "result = 0"
+                        
+                        # 向前相关参数不区分最大最小排序，以基础参数为准，如果没有基础参数，则按用户设置的排序
+                        # 获取用户设置的排序方式
+                        user_sort_mode = self.sort_combo.currentText() if self.sort_combo else '最大值排序'
+                        print(f"user_sort_mode: {user_sort_mode}")
+                        
+                        # 生成一个公式
+                        formula = f"{cond_str}\n    {result_expr}\nelse:\n    result = 0"
+                        formula_list.append({
+                            'formula': formula,
+                            'sort_mode': user_sort_mode,
+                            'result_vars': all_result_vars
+                        })
+        
+        # 如果有逻辑控件参与组合，只生成一个组合（所有勾选的逻辑条件用and连接）
+        if logic_combination_vars:
+            print(f"有 {len(logic_combination_vars)} 个逻辑控件参与组合，只生成一个组合")
+            
+            # 收集所有勾选的逻辑控件条件
+            logic_conditions = [logic_var_info['var_name'] for logic_var_info in logic_combination_vars]
+            logic_condition_str = " and ".join(logic_conditions)
+            print(f"逻辑控件组合: {logic_condition_str}")
+            
+            # 为每个公式添加逻辑控件条件
+            for formula_obj in formula_list:
+                original_formula = formula_obj['formula']
+                if 'if ' in original_formula:
+                    # 找到if行的结束位置
+                    if_end_pos = original_formula.find(':')
+                    if if_end_pos != -1:
+                        # 获取原始if条件
+                        if_condition = original_formula[3:if_end_pos].strip()
+                        
+                        # 构建新的if条件 - 在原有条件基础上添加逻辑控件条件
+                        if if_condition == 'True':
+                            new_condition = f"if {logic_condition_str}:"
+                        else:
+                            new_condition = f"if {if_condition} and {logic_condition_str}:"
+                        
+                        # 完全重新构建公式
+                        new_formula = new_condition + original_formula[if_end_pos + 1:]  # +1 跳过冒号
+                        formula_obj['formula'] = new_formula
+                        
+                        print(f"  生成逻辑组合公式: {logic_condition_str}")
+        
+        for i, formula_obj in enumerate(formula_list):
+            print(f"优化公式 {i+1} (排序方式: {formula_obj['sort_mode']}):")
+            print(formula_obj['formula'])
+            print("-" * 50)
+        return formula_list
+
     def generate_special_params_combinations(self):
         """
         生成特殊变量的组合参数
@@ -2846,7 +4820,7 @@ class FormulaSelectWidget(QWidget):
         
         # 先收集勾选的变量
         for en, widgets in self.var_widgets.items():
-            if en in ['width', 'op_days', 'increment_rate', 'after_gt_end_ratio', 'after_gt_start_ratio', 'stop_loss_inc_rate', 'stop_loss_after_gt_end_ratio', 'stop_loss_after_gt_start_ratio']:
+            if en in ['width', 'op_days', 'increment_rate', 'after_gt_end_ratio', 'after_gt_start_ratio', 'stop_loss_inc_rate', 'stop_loss_after_gt_end_ratio', 'stop_loss_after_gt_start_ratio', 'negative_multiplier', 'positive_multiplier']:
                 if 'checkbox' in widgets and widgets['checkbox'].isChecked():
                     lower_text = widgets.get('lower', '').text().strip()
                     upper_text = widgets.get('upper', '').text().strip()
@@ -2860,6 +4834,13 @@ class FormulaSelectWidget(QWidget):
                                 step_val = int(float(step_text))
                                 # 生成整数序列
                                 values = list(range(lower_val, upper_val + 1, step_val))
+                            elif en in ['negative_multiplier', 'positive_multiplier']:
+                                # 倍增系数使用浮点数，保留两位小数
+                                lower_val = float(lower_text)
+                                upper_val = float(upper_text)
+                                step_val = float(step_text)
+                                values = [round(v, 2) for v in
+                                         list(self._frange(lower_val, upper_val, step_val))]
                             else:
                                 # 止盈递增率使用浮点数，保留两位小数
                                 lower_val = float(lower_text)
@@ -2872,7 +4853,7 @@ class FormulaSelectWidget(QWidget):
                         except ValueError:
                             continue
         
-        # 没勾选的用主界面参数
+        # 没勾选的基础特殊变量用主界面参数
         param_map = {
             'width': getattr(self.main_window, 'width_spin', None),
             'op_days': getattr(self.main_window, 'op_days_edit', None),
@@ -2881,34 +4862,66 @@ class FormulaSelectWidget(QWidget):
             'after_gt_start_ratio': getattr(self.main_window, 'after_gt_prev_edit', None),
             'stop_loss_inc_rate': getattr(self.main_window, 'stop_loss_inc_rate_edit', None),
             'stop_loss_after_gt_end_ratio': getattr(self.main_window, 'stop_loss_after_gt_end_edit', None),
-            'stop_loss_after_gt_start_ratio': getattr(self.main_window, 'stop_loss_after_gt_start_edit', None)
+            'stop_loss_after_gt_start_ratio': getattr(self.main_window, 'stop_loss_after_gt_start_edit', None),
+            'negative_multiplier': None,  # 倍增系数没有对应的主界面控件
+            'positive_multiplier': None   # 倍增系数没有对应的主界面控件
         }
         
-        for en in ['width', 'op_days', 'increment_rate', 'after_gt_end_ratio', 'after_gt_start_ratio', 'stop_loss_inc_rate', 'stop_loss_after_gt_end_ratio', 'stop_loss_after_gt_start_ratio']:
+        for en in ['width', 'op_days', 'increment_rate', 'after_gt_end_ratio', 'after_gt_start_ratio', 'stop_loss_inc_rate', 'stop_loss_after_gt_end_ratio', 'stop_loss_after_gt_start_ratio', 'negative_multiplier', 'positive_multiplier']:
             if en not in special_vars:
-                widget = param_map[en]
-                if widget is not None:
+                # 倍增系数从选股界面控件获取，其他参数从主界面控件获取
+                if en in ['negative_multiplier', 'positive_multiplier']:
+                    val = 1.0  # 默认值
                     try:
-                        # 根据控件类型获取值
-                        if hasattr(widget, 'value'):  # QSpinBox类型
-                            val = widget.value()
-                        elif hasattr(widget, 'text'):  # QLineEdit类型
-                            val = widget.text()
-                        else:
-                            val = 30 if en == 'width' else 5 if en == 'op_days' else 0
-                        
-                        # 根据变量类型转换
-                        if en in ['width', 'op_days']:
-                            val = int(float(val))
-                        else:
-                            val = round(float(val), 2)
+                        # 从当前选股界面控件获取倍增系数值
+                        if en in self.var_widgets:
+                            widgets = self.var_widgets[en]
+                            if 'checkbox' in widgets and widgets['checkbox'].isChecked():
+                                if 'lower' in widgets:
+                                    lower_text = widgets['lower'].text().strip()
+                                    if lower_text:
+                                        val = round(float(lower_text), 2)
                     except (ValueError, AttributeError):
-                        # 如果获取失败，使用默认值
-                        val = 30 if en == 'width' else 5 if en == 'op_days' else 0
+                        val = 1.0
                 else:
-                    # 如果控件不存在，使用默认值
-                    val = 30 if en == 'width' else 5 if en == 'op_days' else 0
+                    # 其他参数从主界面控件获取
+                    widget = param_map[en]
+                    if widget is not None:
+                        try:
+                            # 根据控件类型获取值
+                            if hasattr(widget, 'value'):  # QSpinBox类型
+                                val = widget.value()
+                            elif hasattr(widget, 'text'):  # QLineEdit类型
+                                val = widget.text()
+                            else:
+                                val = 30 if en == 'width' else 5 if en == 'op_days' else 0
+                            
+                            # 根据变量类型转换
+                            if en in ['width', 'op_days']:
+                                val = int(float(val))
+                            else:
+                                val = round(float(val), 2)
+                        except (ValueError, AttributeError):
+                            # 如果获取失败，使用默认值
+                            if en == 'width':
+                                val = 30
+                            elif en == 'op_days':
+                                val = 5
+                            else:
+                                val = 0
+                    else:
+                        # 如果控件不存在，使用默认值
+                        if en == 'width':
+                            val = 30
+                        elif en == 'op_days':
+                            val = 5
+                        else:
+                            val = 0
                 special_vars[en] = {'values': [val]}
+        
+        # 处理创新高/创新低参数，根据flag的勾选情况确定具体参数
+        new_high_low_params = self._get_new_high_low_params_from_flags()
+        special_vars.update(new_high_low_params)
         
         # 生成笛卡尔积
         width_values = special_vars['width']['values']
@@ -2920,6 +4933,18 @@ class FormulaSelectWidget(QWidget):
         stop_loss_after_gt_end_ratio_values = special_vars['stop_loss_after_gt_end_ratio']['values']
         stop_loss_after_gt_start_ratio_values = special_vars['stop_loss_after_gt_start_ratio']['values']
         
+        # 创新高/创新低参数
+        new_high_low1_start_values = special_vars.get('new_high_low1_start', {'values': [0]})['values']
+        new_high_low1_range_values = special_vars.get('new_high_low1_range', {'values': [0]})['values']
+        new_high_low1_span_values = special_vars.get('new_high_low1_span', {'values': [0]})['values']
+        new_high_low2_start_values = special_vars.get('new_high_low2_start', {'values': [0]})['values']
+        new_high_low2_range_values = special_vars.get('new_high_low2_range', {'values': [0]})['values']
+        new_high_low2_span_values = special_vars.get('new_high_low2_span', {'values': [0]})['values']
+        
+        # 倍增系数参数
+        negative_multiplier_values = special_vars.get('negative_multiplier', {'values': [1.0]})['values']
+        positive_multiplier_values = special_vars.get('positive_multiplier', {'values': [1.0]})['values']
+        
         for width in width_values:
             for op_days in op_days_values:
                 for increment_rate in increment_rate_values:
@@ -2928,7 +4953,21 @@ class FormulaSelectWidget(QWidget):
                             for stop_loss_inc_rate in stop_loss_inc_rate_values:
                                 for stop_loss_after_gt_end_ratio in stop_loss_after_gt_end_ratio_values:
                                     for stop_loss_after_gt_start_ratio in stop_loss_after_gt_start_ratio_values:
-                                        special_combinations.append((width, op_days, increment_rate, after_gt_end_ratio, after_gt_start_ratio, stop_loss_inc_rate, stop_loss_after_gt_end_ratio, stop_loss_after_gt_start_ratio))
+                                        for new_high_low1_start in new_high_low1_start_values:
+                                            for new_high_low1_range in new_high_low1_range_values:
+                                                for new_high_low1_span in new_high_low1_span_values:
+                                                    for new_high_low2_start in new_high_low2_start_values:
+                                                        for new_high_low2_range in new_high_low2_range_values:
+                                                            for new_high_low2_span in new_high_low2_span_values:
+                                                                for negative_multiplier in negative_multiplier_values:
+                                                                    for positive_multiplier in positive_multiplier_values:
+                                                                        special_combinations.append((
+                                                                            width, op_days, increment_rate, after_gt_end_ratio, after_gt_start_ratio, 
+                                                                            stop_loss_inc_rate, stop_loss_after_gt_end_ratio, stop_loss_after_gt_start_ratio,
+                                                                            new_high_low1_start, new_high_low1_range, new_high_low1_span,
+                                                                            new_high_low2_start, new_high_low2_range, new_high_low2_span,
+                                                                            negative_multiplier, positive_multiplier
+                                                                        ))
         
         for i, combination in enumerate(special_combinations):
             print(f"组合 {i+1}: {combination}")
@@ -2936,6 +4975,134 @@ class FormulaSelectWidget(QWidget):
         
         return special_combinations
 
+    def _get_new_high_low_params_from_flags(self):
+        """
+        根据创新高/创新低flag的勾选情况，确定具体使用哪个参数
+        返回: 字典，键为通用参数名，值为参数值字典
+        """
+        new_high_low_params = {}
+        
+        # 定义flag到具体参数的映射
+        flag_to_params = {
+            'new_before_high_flag': {
+                'new_high_low1_start': 'new_before_high_start',
+                'new_high_low1_range': 'new_before_high_range', 
+                'new_high_low1_span': 'new_before_high_span'
+            },
+            'new_before_high2_flag': {
+                'new_high_low2_start': 'new_before_high2_start',
+                'new_high_low2_range': 'new_before_high2_range',
+                'new_high_low2_span': 'new_before_high2_span'
+            },
+            'new_after_high_flag': {
+                'new_high_low1_start': 'new_after_high_start',
+                'new_high_low1_range': 'new_after_high_range',
+                'new_high_low1_span': 'new_after_high_span'
+            },
+            'new_after_high2_flag': {
+                'new_high_low2_start': 'new_after_high2_start',
+                'new_high_low2_range': 'new_after_high2_range',
+                'new_high_low2_span': 'new_after_high2_span'
+            },
+            'new_before_low_flag': {
+                'new_high_low1_start': 'new_before_low_start',
+                'new_high_low1_range': 'new_before_low_range',
+                'new_high_low1_span': 'new_before_low_span'
+            },
+            'new_before_low2_flag': {
+                'new_high_low2_start': 'new_before_low2_start',
+                'new_high_low2_range': 'new_before_low2_range',
+                'new_high_low2_span': 'new_before_low2_span'
+            },
+            'new_after_low_flag': {
+                'new_high_low1_start': 'new_after_low_start',
+                'new_high_low1_range': 'new_after_low_range',
+                'new_high_low1_span': 'new_after_low_span'
+            },
+            'new_after_low2_flag': {
+                'new_high_low2_start': 'new_after_low2_start',
+                'new_high_low2_range': 'new_after_low2_range',
+                'new_high_low2_span': 'new_after_low2_span'
+            }
+        }
+        
+        # 按组分类检查flag被勾选情况
+        group1_flags = ['new_before_high_flag', 'new_after_high_flag', 'new_before_low_flag', 'new_after_low_flag']
+        group2_flags = ['new_before_high2_flag', 'new_after_high2_flag', 'new_before_low2_flag', 'new_after_low2_flag']
+        
+        # 检查第一组flag
+        active_group1_flags = []
+        for flag_name in group1_flags:
+            flag_widget = getattr(self.main_window, flag_name + '_checkbox', None)
+            if flag_widget and flag_widget.isChecked():
+                active_group1_flags.append(flag_name)
+                print(f"检测到勾选的第一组创新高/创新低标志: {flag_name}")
+        
+        # 检查第二组flag
+        active_group2_flags = []
+        for flag_name in group2_flags:
+            flag_widget = getattr(self.main_window, flag_name + '_checkbox', None)
+            if flag_widget and flag_widget.isChecked():
+                active_group2_flags.append(flag_name)
+                print(f"检测到勾选的第二组创新高/创新低标志: {flag_name}")
+        
+        # 如果没有勾选任何flag，返回空字典
+        if not active_group1_flags and not active_group2_flags:
+            print("没有勾选任何创新高/创新低标志")
+            return new_high_low_params
+        
+        # 每组只使用第一个勾选的flag
+        final_active_flags = []
+        if active_group1_flags:
+            final_active_flags.append(active_group1_flags[0])
+            print(f"第一组使用第一个勾选的标志: {active_group1_flags[0]}")
+        if active_group2_flags:
+            final_active_flags.append(active_group2_flags[0])
+            print(f"第二组使用第一个勾选的标志: {active_group2_flags[0]}")
+        
+        # 处理最终选中的flag
+        for active_flag in final_active_flags:
+            print(f"处理创新高/创新低标志: {active_flag}")
+            param_mapping = flag_to_params[active_flag]
+            
+            # 检查对应的参数是否在特殊变量控件中被勾选
+            for generic_param, specific_param in param_mapping.items():
+                # 如果参数已经被处理过，跳过（避免覆盖）
+                if generic_param in new_high_low_params:
+                    print(f"参数 {generic_param} 已被处理，跳过")
+                    continue
+                    
+                if generic_param in self.var_widgets:
+                    widgets = self.var_widgets[generic_param]
+                    if 'checkbox' in widgets and widgets['checkbox'].isChecked():
+                        lower_text = widgets.get('lower', '').text().strip()
+                        upper_text = widgets.get('upper', '').text().strip()
+                        step_text = widgets.get('step', '').text().strip()
+                        if lower_text and upper_text and step_text:
+                            try:
+                                # 创新高/创新低参数都是整数
+                                lower_val = int(float(lower_text))
+                                upper_val = int(float(upper_text))
+                                step_val = int(float(step_text))
+                                values = list(range(lower_val, upper_val + 1, step_val))
+                                new_high_low_params[generic_param] = {'values': values}
+                                print(f"添加创新高/创新低参数: {generic_param} = {values} (对应具体参数: {specific_param})")
+                            except ValueError:
+                                continue
+                    else:
+                        # 如果没有勾选，从主界面获取对应的具体参数值
+                        specific_widget = getattr(self.main_window, specific_param + '_spin', None)
+                        if specific_widget is not None:
+                            try:
+                                val = specific_widget.value()
+                                new_high_low_params[generic_param] = {'values': [val]}
+                                print(f"从主界面获取创新高/创新低参数: {generic_param} = {val} (对应具体参数: {specific_param})")
+                            except (ValueError, AttributeError):
+                                new_high_low_params[generic_param] = {'values': [0]}
+                        else:
+                            new_high_low_params[generic_param] = {'values': [0]}
+        
+        return new_high_low_params
     def _frange(self, start, stop, step):
         """生成浮点数区间"""
         vals = []
@@ -3036,9 +5203,9 @@ class FormulaSelectWidget(QWidget):
                 var2_en = next((en for zh, en in self.abbr_map.items() if zh == var2), None)
                 comp_conds = []
                 if lower and var1_en and var2_en:
-                    comp_conds.append(f"{var1_en} >= {lower} * {var2_en}")
+                    comp_conds.append(f"{var1_en} / {var2_en} >= {lower}")
                 if upper and var1_en and var2_en:
-                    comp_conds.append(f"{var1_en} <= {upper} * {var2_en}")
+                    comp_conds.append(f"{var1_en} / {var2_en} <= {upper}")
                 if comp_conds:
                     conditions.append(' and '.join(comp_conds))
         # 3. 连接条件，全部用and拼接
@@ -3199,6 +5366,9 @@ class FormulaSelectWidget(QWidget):
             name_label.setAlignment(Qt.AlignLeft)
             var_layout.addWidget(name_label)
 
+            # 为普通变量控件添加悬浮提示
+            add_tooltip_to_variable(name_label, en, self.main_window)
+
             # 添加下限输入框
             lower_input = QLineEdit()
             lower_input.setPlaceholderText("下限")
@@ -3236,8 +5406,21 @@ class FormulaSelectWidget(QWidget):
             var_layout.addWidget(logic_check)
             var_layout.addWidget(logic_label)
 
+            # 添加排序下拉框
+            sort_input = QComboBox()
+            sort_input.setFixedWidth(45)
+            sort_input.setToolTip("设置参数分析优先级，数字越小优先级越高")
+            # 添加排序选项：0-99，每个数字一个选项
+            sort_options = [str(i) for i in range(0, 100)]
+            sort_input.addItems(sort_options)
+            sort_input.setCurrentText("0")  # 默认选择最高优先级
+            # 设置下拉框高度，显示10个选项，超出时可滚动
+            sort_input.setMaxVisibleItems(10)
+            var_layout.addWidget(sort_input)
+
             widget_dict = {
                 'checkbox': checkbox,
+                'sort': sort_input,
                 'lower': lower_input,
                 'upper': upper_input,
                 'step': step_input,
@@ -3366,7 +5549,7 @@ class FormulaSelectWidget(QWidget):
             # 添加label
             if en_val in self.component_analysis_variables:
                 name_label = QLabel(zh)
-                name_label.setFixedWidth(140)  # 更紧凑
+                name_label.setFixedWidth(170)  # 更紧凑
             else:
                 name_label = QLabel(zh)
                 name_label.setFixedWidth(250)  # 保持原宽度
@@ -3381,6 +5564,7 @@ class FormulaSelectWidget(QWidget):
                 n_input.setFixedWidth(30)
                 n_input.textChanged.connect(self._sync_to_main)  # 自动保存
                 var_layout.addWidget(n_input)
+                
                 widget_dict = {
                     'round_checkbox': round_checkbox,
                     'n_input': n_input
@@ -3439,7 +5623,7 @@ class FormulaSelectWidget(QWidget):
         special_count = len(self.special_abbr_map)
         special_rows = (special_count + self.cols_per_row - 1) // self.cols_per_row
         # 新的比较区起始行：变量控件最后一行 + round_only 控件行数 + 特殊变量行数 + 2
-        comparison_start_row = last_var_row + round_only_rows + special_rows + 2
+        comparison_start_row = last_var_row + round_only_rows + special_rows + 3
         for comp in getattr(self, 'comparison_widgets', []):
             if hasattr(comp, 'widget'):
                 comp['widget'].setParent(None)
@@ -3466,6 +5650,8 @@ class FormulaSelectWidget(QWidget):
                 widgets['checkbox'].stateChanged.connect(self._sync_to_main)
             if 'round_checkbox' in widgets:
                 widgets['round_checkbox'].stateChanged.connect(self._sync_to_main)
+            if 'sort' in widgets:
+                widgets['sort'].currentTextChanged.connect(self._sync_to_main)
             if 'lower' in widgets:
                 widgets['lower'].textChanged.connect(self._sync_to_main)
             if 'upper' in widgets:
@@ -3495,6 +5681,104 @@ class FormulaSelectWidget(QWidget):
                     selected_vars.append(en_val)
         
         return selected_vars
+
+    def get_sorted_output_params(self):
+        """
+        获取排序后的输出参数列表（get_abbr_round_map中的变量，包括向前输出参数）
+        返回格式：[(变量名, 排序值), ...]，按排序值升序排列
+        注意：只有当sort_value不为0时才参与排序，为0时不参与排序
+        """
+        output_params = []
+        for zh, en in self.abbr_round_map.items():
+            if en in self.var_widgets:
+                widgets = self.var_widgets[en]
+                # 获取排序值，如果为0则不参与排序
+                sort_value = 0  # 默认值
+                if 'sort' in widgets and widgets['sort'].currentText().strip():
+                    try:
+                        sort_value = int(widgets['sort'].currentText().strip())
+                    except ValueError:
+                        sort_value = 0
+                
+                # 只有当sort_value不为0时才添加到排序列表
+                if sort_value > 0:
+                    output_params.append((en, sort_value))
+        
+        # 添加向前输出参数（在abbr_round_map中的向前参数）
+        if hasattr(self.main_window, 'forward_param_state') and self.main_window.forward_param_state:
+            forward_round_map = get_abbr_round_map()  # 获取输出参数映射
+            forward_round_values = set(forward_round_map.values())  # 获取英文名称集合
+            for var_name, var_config in self.main_window.forward_param_state.items():
+                if var_name in forward_round_values:
+                    sort_value = 0  # 默认值
+                    if var_config.get('sort', '').strip():
+                        try:
+                            sort_value = int(var_config['sort'].strip())
+                        except ValueError:
+                            sort_value = 0
+                    
+                    # 只有当sort_value不为0时才添加到排序列表
+                    if sort_value > 0:
+                        output_params.append((var_name, sort_value))
+                        print(f"添加向前输出参数: {var_name}")
+        
+        # 按排序值升序排列
+        output_params.sort(key=lambda x: x[1])
+        return output_params
+
+    def get_sorted_auxiliary_params(self):
+        """
+        获取排序后的辅助参数列表（get_abbr_map中的变量，排除get_abbr_round_map中的变量，包括向前辅助参数）
+        返回格式：[(变量名, 排序值), ...]，按排序值升序排列
+        注意：只有当sort_value不为0时才参与排序，为0时不参与排序
+        """
+        auxiliary_params = []
+        # 获取get_abbr_round_map中的变量集合，用于排除
+        output_vars = set(self.abbr_round_map.values())
+        
+        for zh, en in self.abbr_map.items():
+            if en in self.var_widgets and en not in output_vars:
+                widgets = self.var_widgets[en]
+                # 获取排序值，如果为0则不参与排序
+                sort_value = 0  # 默认值
+                if 'sort' in widgets and widgets['sort'].currentText().strip():
+                    try:
+                        sort_value = int(widgets['sort'].currentText().strip())
+                    except ValueError:
+                        sort_value = 0
+                
+                # 只有当sort_value不为0时才添加到排序列表
+                if sort_value > 0:
+                    auxiliary_params.append((en, sort_value))
+        
+        # 添加向前辅助参数（在abbr_map中但不在abbr_round_map中的向前参数）
+        if hasattr(self.main_window, 'forward_param_state') and self.main_window.forward_param_state:
+            forward_abbr_map = get_abbr_map()  # 获取辅助参数映射
+            forward_round_map = get_abbr_round_map()  # 获取输出参数映射
+            forward_abbr_values = set(forward_abbr_map.values())  # 获取英文名称集合
+            forward_round_values = set(forward_round_map.values())  # 获取英文名称集合
+            for var_name, var_config in self.main_window.forward_param_state.items():
+                if (var_name in forward_abbr_values and 
+                    var_name not in forward_round_values):
+                    sort_value = 0  # 默认值
+                    if var_config.get('sort', '').strip():
+                        try:
+                            sort_value = int(var_config['sort'].strip())
+                        except ValueError:
+                            sort_value = 0
+                    
+                    # 只有当sort_value不为0时才添加到排序列表
+                    if sort_value > 0:
+                        auxiliary_params.append((var_name, sort_value))
+                        print(f"添加向前辅助参数: {var_name}")
+        else:
+            print("没有向前辅助参数")
+        
+        # 按排序值升序排列
+        auxiliary_params.sort(key=lambda x: x[1])
+        return auxiliary_params
+
+
 
 def get_abbr_map():
     """获取变量缩写映射字典"""
@@ -3568,7 +5852,6 @@ def get_abbr_logic_map():
         ("开始日到结束日之间向前最大有效累加值绝对值小于M", "forward_max_valid_abs_is_less"),
     ]
     return {zh: en for zh, en in abbrs}
-
 def get_abbr_round_map():
     """只需要圆框勾选的变量映射"""
     abbrs = [
@@ -3586,6 +5869,25 @@ def get_abbr_round_map():
         ("向前最小有效累加值负加值和", "forward_min_valid_neg_sum"),
     ]
     return {zh: en for zh, en in abbrs}
+
+def get_sorted_params_from_widget(formula_widget):
+    """
+    从FormulaSelectWidget获取排序后的参数列表
+    返回格式：{
+        'output_params': [(变量名, 排序值), ...],  # 输出参数，按排序值升序
+        'auxiliary_params': [(变量名, 排序值), ...],  # 辅助参数，按排序值升序
+    }
+    """
+    if not formula_widget:
+        return {
+            'output_params': [],
+            'auxiliary_params': []
+        }
+    
+    return {
+        'output_params': formula_widget.get_sorted_output_params(),
+        'auxiliary_params': formula_widget.get_sorted_auxiliary_params()
+    }
 
 def parse_formula_to_config(formula, abbr_map=None):
     """
@@ -3631,7 +5933,7 @@ def parse_formula_to_config(formula, abbr_map=None):
         config.setdefault('comparison_widgets', []).append(comp)
     return config
 
-def calculate_analysis_result(valid_items):
+def calculate_analysis_result(valid_items, parent=None):
     """
     计算分析结果，包含每个日期的详细数据和总体统计
     
@@ -3641,6 +5943,7 @@ def calculate_analysis_result(valid_items):
     Returns:
         dict: 包含分析结果的字典，结构如下：
         {
+            item： 是每天的选股结果，当天股票的均值
             'items': [
                 {
                     'date': '日期',
@@ -3654,8 +5957,9 @@ def calculate_analysis_result(valid_items):
                 },
                 ...
             ],
+            summary： 是统计每天选股结果均值的均值
             'summary': {
-                'mean_hold_days': '操作天数均值',
+                'mean_hold_days': '持有天数均值',
                 'mean_ops_change': '持有涨跌幅均值',
                 'mean_daily_change': '日均涨跌幅均值',
                 'mean_adjust_ops_incre_rate': '调天日均涨跌幅均值',
@@ -3698,6 +6002,17 @@ def calculate_analysis_result(valid_items):
             }
         }
     """
+    # 在方法入口处过滤掉stock_idx为负数的股票（统计行）
+    filtered_valid_items = []
+    for date_key, stocks in valid_items:
+        # 过滤掉stock_idx为负数的股票
+        filtered_stocks = [stock for stock in stocks if stock.get('stock_idx', 0) >= 0]
+        if filtered_stocks:  # 只保留有有效股票的日期
+            filtered_valid_items.append((date_key, filtered_stocks))
+    
+    # 使用过滤后的数据
+    valid_items = filtered_valid_items
+    
     def safe_val(val):
         if val is None:
             return ''
@@ -3767,27 +6082,27 @@ def calculate_analysis_result(valid_items):
                     print(f"从last_formula_select_state读取到N位控件值: {n_values}")
                 else:
                     # 使用默认值
-                    n_vars = ['bottom_nth_non_nan1', 'bottom_nth_non_nan2', 'bottom_nth_non_nan3',
-                             'bottom_nth_with_nan1', 'bottom_nth_with_nan2', 'bottom_nth_with_nan3',
-                             'bottom_nth_adjust_non_nan1', 'bottom_nth_adjust_non_nan2', 'bottom_nth_adjust_non_nan3',
-                             'bottom_nth_adjust_with_nan1', 'bottom_nth_adjust_with_nan2', 'bottom_nth_adjust_with_nan3']
+                    n_vars = ['bottom_nth_take_and_stop_with_nan1', 'bottom_nth_take_and_stop_with_nan2', 'bottom_nth_take_and_stop_with_nan3',
+                        'bottom_nth_with_nan1', 'bottom_nth_with_nan2', 'bottom_nth_with_nan3',
+                        'bottom_nth_stop_and_take_with_nan1', 'bottom_nth_stop_and_take_with_nan2', 'bottom_nth_stop_and_take_with_nan3',
+                        'bottom_nth_adjust_with_nan1', 'bottom_nth_adjust_with_nan2', 'bottom_nth_adjust_with_nan3']
                     n_values = {var: 1 for var in n_vars}
                     print(f"使用默认N位控件值: {n_values}")
             else:
-                # 使用默认值
-                n_vars = ['bottom_nth_non_nan1', 'bottom_nth_non_nan2', 'bottom_nth_non_nan3',
-                         'bottom_nth_with_nan1', 'bottom_nth_with_nan2', 'bottom_nth_with_nan3',
-                         'bottom_nth_adjust_non_nan1', 'bottom_nth_adjust_non_nan2', 'bottom_nth_adjust_non_nan3',
-                         'bottom_nth_adjust_with_nan1', 'bottom_nth_adjust_with_nan2', 'bottom_nth_adjust_with_nan3']
+                # 使用默认值bottom_nth_non_nan1
+                n_vars = ['bottom_nth_take_and_stop_with_nan1', 'bottom_nth_take_and_stop_with_nan2', 'bottom_nth_take_and_stop_with_nan3',
+                    'bottom_nth_with_nan1', 'bottom_nth_with_nan2', 'bottom_nth_with_nan3',
+                    'bottom_nth_stop_and_take_with_nan1', 'bottom_nth_stop_and_take_with_nan2', 'bottom_nth_stop_and_take_with_nan3',
+                    'bottom_nth_adjust_with_nan1', 'bottom_nth_adjust_with_nan2', 'bottom_nth_adjust_with_nan3']
                 n_values = {var: 1 for var in n_vars}
                 print(f"使用默认N位控件值: {n_values}")
                 
     except Exception as e:
         print(f"获取N位控件值时出错: {e}")
         # 使用默认值
-        n_vars = ['bottom_nth_non_nan1', 'bottom_nth_non_nan2', 'bottom_nth_non_nan3',
+        n_vars = ['bottom_nth_take_and_stop_with_nan1', 'bottom_nth_take_and_stop_with_nan2', 'bottom_nth_take_and_stop_with_nan3',
                  'bottom_nth_with_nan1', 'bottom_nth_with_nan2', 'bottom_nth_with_nan3',
-                 'bottom_nth_adjust_non_nan1', 'bottom_nth_adjust_non_nan2', 'bottom_nth_adjust_non_nan3',
+                 'bottom_nth_stop_and_take_with_nan1', 'bottom_nth_stop_and_take_with_nan2', 'bottom_nth_stop_and_take_with_nan3',
                  'bottom_nth_adjust_with_nan1', 'bottom_nth_adjust_with_nan2', 'bottom_nth_adjust_with_nan3']
         n_values = {var: 1 for var in n_vars}
         print(f"出错后使用默认N位控件值: {n_values}")
@@ -3805,9 +6120,25 @@ def calculate_analysis_result(valid_items):
     # 新增：调幅相关列表
     adjust_ops_incre_rate_list = []
     adjust_ops_incre_rate_list_with_nan = []  # 存储含空值的调幅日均涨跌幅列表
+    take_and_stop_daily_with_nan_list = []
+    stop_and_take_daily_with_nan_list = []
     adjust_non_nan_mean_list = []
     adjust_with_nan_mean_list = []
-    
+    # 新增：止盈停损相关列表
+    take_and_stop_non_nan_mean_list = []
+    take_and_stop_with_nan_mean_list = []
+    stop_and_take_non_nan_mean_list = []
+    stop_and_take_with_nan_mean_list = []
+
+    take_and_stop_change_list = []
+    stop_and_take_change_list = []
+    # 新增：调整天数和止盈止损涨幅相关列表
+    adjust_days_list = []
+    adjust_ops_change_list = []
+    take_and_stop_daily_change_list = []
+    stop_and_take_daily_change_list = []
+    adjust_daily_change_list = []
+    adjust_daily_change_list_with_nan = []
     # 新增：统计止盈率、止损率、持有率
     total_stocks = 0
     hold_count = 0  # end_state = 0
@@ -3825,6 +6156,10 @@ def calculate_analysis_result(valid_items):
         ops_change_list_per_date = []
         ops_incre_rate_list_per_date = []
         adjust_ops_incre_rate_list_per_date = []
+        adjust_days_list_per_date = []
+        adjust_ops_change_list_per_date = []
+        take_and_stop_change_list_per_date = []
+        stop_and_take_change_list_per_date = []
         
         # 新增：收集股票索引用于调试
         stock_indices_per_date = []
@@ -3843,14 +6178,15 @@ def calculate_analysis_result(valid_items):
                     if end_state == 0:
                         hold_count += 1
                         # 收集持有涨跌幅：只使用op_day_change
-                        op_day_change_raw = stock.get('op_day_change', '')
-                        op_day_change = safe_val(op_day_change_raw)
+                        ops_change_raw = stock.get('ops_change', '')
+                        ops_change = safe_val(ops_change_raw)
                         
-                        if op_day_change != '' and op_day_change is not None:
+                        if ops_change != '' and ops_change is not None:
                             try:
-                                op_day_change = float(op_day_change)
-                                if not math.isnan(op_day_change):
-                                    hold_changes.append(op_day_change)
+                                ops_change = float(ops_change)
+                                if not math.isnan(ops_change):
+                                    hold_changes.append(ops_change)
+                                    #print(f"stock_name = {stock.get('stock_name', '')}, 持有涨跌幅 = {ops_change}")
                             except (ValueError, TypeError):
                                 pass
                     elif end_state == 1:
@@ -3863,6 +6199,7 @@ def calculate_analysis_result(valid_items):
                                 take_profit = float(take_profit)
                                 if not math.isnan(take_profit):
                                     profit_changes.append(take_profit)
+                                    #print(f"stock_name = {stock.get('stock_name', '')}, 止盈涨跌幅 = {take_profit}")
                             except (ValueError, TypeError):
                                 pass
                     elif end_state == 2:
@@ -3875,6 +6212,7 @@ def calculate_analysis_result(valid_items):
                                 stop_loss = float(stop_loss)
                                 if not math.isnan(stop_loss):
                                     loss_changes.append(stop_loss)
+                                    #print(f"stock_name = {stock.get('stock_name', '')}, 止损涨跌幅 = {stop_loss}")
                             except (ValueError, TypeError):
                                 pass
             except Exception as e:
@@ -3917,17 +6255,110 @@ def calculate_analysis_result(valid_items):
                         adjust_ops_incre_rate_list_per_date.append(v)
             except Exception:
                 pass
-        
+            # 新增：收集调整天数
+            try:
+                v = safe_val(stock.get('adjust_days', ''))
+                if v != '':
+                    v = float(v)
+                    if not math.isnan(v):
+                        adjust_days_list_per_date.append(v)
+            except Exception:
+                pass
+            # 新增：收集止盈止损涨幅
+            try:
+                v = safe_val(stock.get('adjust_ops_change', ''))
+                if v != '':
+                    v = float(v)
+                    if not math.isnan(v):
+                        adjust_ops_change_list_per_date.append(v)
+            except Exception:
+                pass
+            # 新增：收集止盈停损涨幅
+            try:
+                v = safe_val(stock.get('take_and_stop_change', ''))
+                if v != '':
+                    v = float(v)
+                    if not math.isnan(v):
+                        take_and_stop_change_list_per_date.append(v)
+            except Exception:
+                pass
+            # 新增：收集停盈止损涨幅
+            try:
+                v = safe_val(stock.get('stop_and_take_change', ''))
+                if v != '':
+                    v = float(v)
+                    if not math.isnan(v):
+                        stop_and_take_change_list_per_date.append(v)
+            except Exception:
+                pass
         mean_hold_days = safe_mean(hold_days_list_per_date)
-        mean_ops_change = round(safe_mean(ops_change_list_per_date) / mean_hold_days, 2) if mean_hold_days != '' and mean_hold_days != 0 else ''
+        mean_adjust_days = safe_mean(adjust_days_list_per_date)
+        mean_adjust_ops_change = safe_mean(adjust_ops_change_list_per_date)
+        mean_take_and_stop_change = safe_mean(take_and_stop_change_list_per_date)
+        mean_stop_and_take_change = safe_mean(stop_and_take_change_list_per_date)
+        mean_ops_change = safe_mean(ops_change_list_per_date)
         mean_ops_incre_rate = safe_mean(ops_incre_rate_list_per_date)
-        # 新增：计算调幅日均涨跌幅均值
+        
         mean_adjust_ops_incre_rate = safe_mean(adjust_ops_incre_rate_list_per_date)
         
-        daily_change = mean_ops_incre_rate
-        # 新增：调幅日均涨跌幅
-        adjust_daily_change = mean_adjust_ops_incre_rate
-            
+        # 从父窗口控件获取综合均值系数和均值按两者最小值计算参数
+        mean_coefficient = 0.0
+        mean_min_calc = False
+        if parent and hasattr(parent, 'mean_coefficient_edit') and parent.mean_coefficient_edit:
+            try:
+                mean_coefficient = float(parent.mean_coefficient_edit.text()) if parent.mean_coefficient_edit.text() else 0.0
+            except (ValueError, AttributeError, RuntimeError):
+                mean_coefficient = 0.0
+        
+        if parent and hasattr(parent, 'mean_min_calc_checkbox') and parent.mean_min_calc_checkbox:
+            try:
+                mean_min_calc = parent.mean_min_calc_checkbox.isChecked()
+            except (AttributeError, RuntimeError):
+                mean_min_calc = False
+        
+        # 获取收益法均值勾选框状态
+        profit_mean_calc = False
+        if parent and hasattr(parent, 'profit_mean_checkbox') and parent.profit_mean_checkbox:
+            try:
+                profit_mean_calc = parent.profit_mean_checkbox.isChecked()
+            except (AttributeError, RuntimeError):
+                profit_mean_calc = False
+
+        # 计算单值均值法的日均涨跌幅
+        daily_change_single = round(mean_ops_change / mean_adjust_days, 2) if mean_ops_change != '' and mean_adjust_days != '' and mean_adjust_days != 0 else ''
+        adjust_daily_change_single = round(mean_adjust_ops_change / mean_hold_days, 2) if mean_adjust_ops_change != '' and mean_hold_days != '' and mean_hold_days != 0 else ''
+        take_and_stop_daily_change_single = round(mean_take_and_stop_change / mean_hold_days, 2) if mean_take_and_stop_change != '' and mean_hold_days != '' and mean_hold_days != 0 else ''
+        stop_and_take_daily_change_single = round(mean_stop_and_take_change / mean_adjust_days, 2) if mean_stop_and_take_change != '' and mean_adjust_days != '' and mean_adjust_days != 0 else ''
+        
+        # 计算综合均值法的日均涨跌幅（涨幅和值/平均天数）
+        # 获取当天的涨幅和值
+        total_ops_change = sum(ops_change_list_per_date) if ops_change_list_per_date else 0
+        total_adjust_ops_change = sum(adjust_ops_change_list_per_date) if adjust_ops_change_list_per_date else 0
+        total_take_and_stop_change = sum(take_and_stop_change_list_per_date) if take_and_stop_change_list_per_date else 0
+        total_stop_and_take_change = sum(stop_and_take_change_list_per_date) if stop_and_take_change_list_per_date else 0
+        
+        daily_change_comprehensive = round(total_ops_change / mean_adjust_days, 2) if total_ops_change != 0 and mean_adjust_days != '' and mean_adjust_days != 0 else ''
+        adjust_daily_change_comprehensive = round(total_adjust_ops_change / mean_hold_days, 2) if total_adjust_ops_change != 0 and mean_hold_days != '' and mean_hold_days != 0 else ''
+        take_and_stop_daily_change_comprehensive = round(total_take_and_stop_change / mean_hold_days, 2) if total_take_and_stop_change != 0 and mean_hold_days != '' and mean_hold_days != 0 else ''
+        stop_and_take_daily_change_comprehensive = round(total_stop_and_take_change / mean_adjust_days, 2) if total_stop_and_take_change != 0 and mean_adjust_days != '' and mean_adjust_days != 0 else ''
+        
+        # 根据综合均值系数混合两种方法
+        single_weight = 1 - mean_coefficient
+        comprehensive_weight = mean_coefficient
+        
+        # 如果启用均值按两者最小值计算，则使用最小值
+        if mean_min_calc:
+            daily_change = round(min(daily_change_single, daily_change_comprehensive), 2) if daily_change_single != '' and daily_change_comprehensive != '' else (daily_change_single if daily_change_single != '' else daily_change_comprehensive)
+            adjust_daily_change = round(min(adjust_daily_change_single, adjust_daily_change_comprehensive), 2) if adjust_daily_change_single != '' and adjust_daily_change_comprehensive != '' else (adjust_daily_change_single if adjust_daily_change_single != '' else adjust_daily_change_comprehensive)
+            take_and_stop_daily_change = round(min(take_and_stop_daily_change_single, take_and_stop_daily_change_comprehensive), 2) if take_and_stop_daily_change_single != '' and take_and_stop_daily_change_comprehensive != '' else (take_and_stop_daily_change_single if take_and_stop_daily_change_single != '' else take_and_stop_daily_change_comprehensive)
+            stop_and_take_daily_change = round(min(stop_and_take_daily_change_single, stop_and_take_daily_change_comprehensive), 2) if stop_and_take_daily_change_single != '' and stop_and_take_daily_change_comprehensive != '' else (stop_and_take_daily_change_single if stop_and_take_daily_change_single != '' else stop_and_take_daily_change_comprehensive)
+        else:
+            # 按权重混合两种方法
+            daily_change = round(single_weight * daily_change_single + comprehensive_weight * daily_change_comprehensive, 2) if daily_change_single != '' and daily_change_comprehensive != '' else (daily_change_single if daily_change_single != '' else daily_change_comprehensive)
+            adjust_daily_change = round(single_weight * adjust_daily_change_single + comprehensive_weight * adjust_daily_change_comprehensive, 2) if adjust_daily_change_single != '' and adjust_daily_change_comprehensive != '' else (adjust_daily_change_single if adjust_daily_change_single != '' else adjust_daily_change_comprehensive)
+            take_and_stop_daily_change = round(single_weight * take_and_stop_daily_change_single + comprehensive_weight * take_and_stop_daily_change_comprehensive, 2) if take_and_stop_daily_change_single != '' and take_and_stop_daily_change_comprehensive != '' else (take_and_stop_daily_change_single if take_and_stop_daily_change_single != '' else take_and_stop_daily_change_comprehensive)
+            stop_and_take_daily_change = round(single_weight * stop_and_take_daily_change_single + comprehensive_weight * stop_and_take_daily_change_comprehensive, 2) if stop_and_take_daily_change_single != '' and stop_and_take_daily_change_comprehensive != '' else (stop_and_take_daily_change_single if stop_and_take_daily_change_single != '' else stop_and_take_daily_change_comprehensive)
+        
         if mean_hold_days != '':
             hold_days_list.append(mean_hold_days)
         if mean_ops_change != '':
@@ -3937,14 +6368,48 @@ def calculate_analysis_result(valid_items):
             daily_change_list_with_nan.append(daily_change)  # 添加到含空值列表
         else:
             daily_change_list_with_nan.append(0)  # 空值当作0处理
-            
+        
+        if adjust_daily_change != '':
+            adjust_daily_change_list.append(adjust_daily_change)
+            adjust_daily_change_list_with_nan.append(adjust_daily_change)  # 添加到含空值列表
+        else:
+            adjust_daily_change_list_with_nan.append(0)  # 空值当作0处理
+
+        if take_and_stop_daily_change != '':
+            take_and_stop_daily_change_list.append(take_and_stop_daily_change)
+        if stop_and_take_daily_change != '':
+            stop_and_take_daily_change_list.append(stop_and_take_daily_change)
+
         # 新增：处理调幅日均涨跌幅
         if adjust_daily_change != '':
             adjust_ops_incre_rate_list.append(adjust_daily_change)
             adjust_ops_incre_rate_list_with_nan.append(adjust_daily_change)  # 添加到含空值列表
         else:
             adjust_ops_incre_rate_list_with_nan.append(0)  # 空值当作0处理
-            
+
+        # 新增：处理调整天数和止盈止损涨幅
+        if mean_adjust_days != '':
+            adjust_days_list.append(mean_adjust_days)
+        if mean_adjust_ops_change != '':
+            adjust_ops_change_list.append(mean_adjust_ops_change)
+        # 新增：处理止盈停损涨幅, 停盈止损涨幅
+        if mean_take_and_stop_change != '':
+            take_and_stop_change_list.append(mean_take_and_stop_change)
+        if mean_stop_and_take_change != '':
+            stop_and_take_change_list.append(mean_stop_and_take_change)
+
+        # 止盈停损日均涨跌幅
+        if take_and_stop_daily_change != '':
+            take_and_stop_daily_with_nan_list.append(take_and_stop_daily_change)
+        else:
+            take_and_stop_daily_with_nan_list.append(0)
+
+        #停盈止损日均涨跌幅
+        if stop_and_take_daily_change != '':
+            stop_and_take_daily_with_nan_list.append(stop_and_take_daily_change)
+        else:
+            stop_and_take_daily_with_nan_list.append(0)
+
         # 添加到items列表
         items.append({
             'date': date_key,
@@ -3952,19 +6417,22 @@ def calculate_analysis_result(valid_items):
             'ops_change': mean_ops_change,
             'daily_change': daily_change,
             'adjust_daily_change': adjust_daily_change,  # 新增：调幅日均涨跌幅
+            'adjust_days': mean_adjust_days,  # 新增：调整天数
+            'adjust_ops_change': mean_adjust_ops_change,  # 新增：止盈止损涨幅
             'non_nan_mean': '',  # 将在后面计算
             'with_nan_mean': '',  # 将在后面计算
             'adjust_non_nan_mean': '',  # 新增：调幅从下往上非空均值
-            'adjust_with_nan_mean': ''  # 新增：调幅从下往上含空均值
+            'adjust_with_nan_mean': '',  # 新增：调幅从下往上含空均值
+            'take_and_stop_change': mean_take_and_stop_change, # 止盈停损涨幅
+            'stop_and_take_change': mean_stop_and_take_change, # 停盈止损涨幅
+            'take_and_stop_daily_change': take_and_stop_daily_change, # 止盈停损日均涨幅
+            'stop_and_take_daily_change': stop_and_take_daily_change, # 停盈止损日均涨幅
+            'take_and_stop_with_nan_mean': '', # 止盈停损含空均值
+            'take_and_stop_non_nan_mean': '', # 止盈停损从下往上非空均值
+            'stop_and_take_with_nan_mean': '', # 停盈止损含空均值
+            'stop_and_take_non_nan_mean': '', # 停盈止损从下往上非空均值
         })
         
-        # 调试打印：股票索引和ops_change列表
-        # print(f"日期: {date_key}")
-        # print(f"股票索引列表: {stock_indices_per_date}")
-        # print(f"ops_change列表: {ops_change_list_per_date}")
-        # print(f"ops_change列表长度: {len(ops_change_list_per_date)}")
-        # print(f"股票索引列表长度: {len(stock_indices_per_date)}")
-        # print("-" * 50)
 
     # 计算从下往上的均值
     n = len(items)
@@ -4011,7 +6479,7 @@ def calculate_analysis_result(valid_items):
         # 更新items中的值
         items[i]['non_nan_mean'] = non_nan_mean
         items[i]['with_nan_mean'] = with_nan_mean
-        
+
         # 新增：计算调幅从下往上的均值
         adjust_sub_list = [item['adjust_daily_change'] for item in items[i:]]
         
@@ -4050,52 +6518,424 @@ def calculate_analysis_result(valid_items):
                     adjust_with_nan_vals.append(0)
                     
         adjust_with_nan_mean = sum(adjust_with_nan_vals) / len(adjust_sub_list) if adjust_sub_list else float('nan')
-        
+
         # 更新items中的调幅值
         items[i]['adjust_non_nan_mean'] = adjust_non_nan_mean
         items[i]['adjust_with_nan_mean'] = adjust_with_nan_mean
+
+        # 计算止盈停损含空均值
+        take_and_stop_sub_list = [item['take_and_stop_daily_change'] for item in items[i:]]
+
+        # 计算止盈停损非空均值
+        take_and_stop_non_nan_sum = 0
+        take_and_stop_non_nan_len = 0
+        for v in take_and_stop_sub_list:
+            if isinstance(v, str) and v == '':
+                continue
+            if isinstance(v, float) and math.isnan(v):
+                continue
+            try:
+                v = float(v) if isinstance(v, str) else v
+                take_and_stop_non_nan_sum += v
+                take_and_stop_non_nan_len += 1
+            except (ValueError, TypeError):
+                continue
+        if take_and_stop_non_nan_len > 0:
+            take_and_stop_non_nan_mean = float(Decimal(str(take_and_stop_non_nan_sum / take_and_stop_non_nan_len)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
+        else:
+            take_and_stop_non_nan_mean = float('nan')
+
+        # 计算止盈停损含空均值
+        take_and_stop_with_nan_vals = []
+        for v in take_and_stop_sub_list:
+            if isinstance(v, str) and v == '':
+                take_and_stop_with_nan_vals.append(0)
+            elif isinstance(v, float) and math.isnan(v):
+                take_and_stop_with_nan_vals.append(0)
+            else:
+                try:
+                    v = float(v) if isinstance(v, str) else v
+                    take_and_stop_with_nan_vals.append(v)
+                except (ValueError, TypeError):
+                    take_and_stop_with_nan_vals.append(0)
+                    
+        take_and_stop_with_nan_mean = sum(take_and_stop_with_nan_vals) / len(take_and_stop_sub_list) if take_and_stop_sub_list else float('nan')   
+
+        items[i]['take_and_stop_with_nan_mean'] = take_and_stop_with_nan_mean
+        items[i]['take_and_stop_non_nan_mean'] = take_and_stop_non_nan_mean
+
+        # 计算停盈止损含空均值
+        stop_and_take_sub_list = [item['stop_and_take_daily_change'] for item in items[i:]]
+
+        # 计算停盈止损非空均值
+        stop_and_take_non_nan_sum = 0
+        stop_and_take_non_nan_len = 0
+        for v in stop_and_take_sub_list:
+            if isinstance(v, str) and v == '':
+                continue
+            if isinstance(v, float) and math.isnan(v):
+                continue
+            try:
+                v = float(v) if isinstance(v, str) else v
+                stop_and_take_non_nan_sum += v
+                stop_and_take_non_nan_len += 1
+            except (ValueError, TypeError):
+                continue
+        if stop_and_take_non_nan_len > 0:
+            stop_and_take_non_nan_mean = float(Decimal(str(stop_and_take_non_nan_sum / stop_and_take_non_nan_len)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
+        else:
+            stop_and_take_non_nan_mean = float('nan')
+
+        # 计算停盈止损含空均值
+        stop_and_take_with_nan_vals = []
+        for v in stop_and_take_sub_list:
+            if isinstance(v, str) and v == '':
+                stop_and_take_with_nan_vals.append(0)
+            elif isinstance(v, float) and math.isnan(v):
+                stop_and_take_with_nan_vals.append(0)
+            else:
+                try:
+                    v = float(v) if isinstance(v, str) else v
+                    stop_and_take_with_nan_vals.append(v)
+                except (ValueError, TypeError):
+                    stop_and_take_with_nan_vals.append(0)
+
+        stop_and_take_with_nan_mean = sum(stop_and_take_with_nan_vals) / len(stop_and_take_sub_list) if stop_and_take_sub_list else float('nan')
+
+        items[i]['stop_and_take_with_nan_mean'] = stop_and_take_with_nan_mean
+        items[i]['stop_and_take_non_nan_mean'] = stop_and_take_non_nan_mean
         
         # 添加到均值列表
         non_nan_mean_list.append(non_nan_mean)
         with_nan_mean_list.append(with_nan_mean)
         adjust_non_nan_mean_list.append(adjust_non_nan_mean)
         adjust_with_nan_mean_list.append(adjust_with_nan_mean)
+        take_and_stop_with_nan_mean_list.append(take_and_stop_with_nan_mean)
+        take_and_stop_non_nan_mean_list.append(take_and_stop_non_nan_mean)
+        stop_and_take_with_nan_mean_list.append(stop_and_take_with_nan_mean)
+        stop_and_take_non_nan_mean_list.append(stop_and_take_non_nan_mean)
 
     # 计算总体统计
+    # 预先计算重复使用的safe_mean值，避免重复调用
+    mean_ops_change_val = safe_mean(ops_change_list)
+    mean_adjust_ops_change_val = safe_mean(adjust_ops_change_list)
+    adjust_days_val = safe_mean(adjust_days_list)
+    hold_days_val = safe_mean(hold_days_list)
+    mean_take_and_stop_change_val = safe_mean(take_and_stop_change_list)
+    mean_stop_and_take_change_val = safe_mean(stop_and_take_change_list)
+    
+    # 收益法均值计算
+    if profit_mean_calc:
+        print("=" * 50)
+        print("开始收益法均值计算")
+        print("=" * 50)
+        
+        # 初始可投入资金为100
+        initial_capital = 100.0
+        # 存储每个日期的资金占用情况
+        capital_usage = {}  # {date: {stock_id: (amount, release_date)}}
+        # 存储每个日期的收益 - 分别计算四种不同的收益
+        daily_profits_ops = {}  # {date: profit} - 停盈停损收益
+        daily_profits_adjust = {}  # {date: profit} - 止盈止损收益
+        daily_profits_take_and_stop = {}  # {date: profit} - 止盈停损收益
+        daily_profits_stop_and_take = {}  # {date: profit} - 停盈止损收益
+        
+        # 遍历每个日期，计算收益
+        for i, (date_key, stocks) in enumerate(valid_items):
+            if not stocks:
+                continue
+                
+            print(f"\n第{i+1}天 ({date_key})")
+            print("-" * 30)
+            
+            # 统计当前持有的股票和当天释放的股票
+            holding_stocks = []  # 当前持有的股票
+            releasing_stocks = []  # 当天释放的股票
+            total_holding_capital = 0.0
+            total_releasing_capital = 0.0
+            
+            # 计算当前可投入资金
+            available_capital = initial_capital
+            # 减去被占用的资金（基于每只股票的持有天数）
+            for usage_date, usages in capital_usage.items():
+                for stock_id, (amount, hold_days_for_stock) in usages.items():
+                    # 计算该股票的资金释放日期（基于其持有天数）
+                    usage_date_index = None
+                    for idx, (d_key, _) in enumerate(valid_items):
+                        if d_key == usage_date:
+                            usage_date_index = idx
+                            break
+                    
+                    if usage_date_index is not None:
+                        release_date_index = usage_date_index + hold_days_for_stock
+                        # 如果释放日期索引大于当前日期索引，说明资金还未释放
+                        if release_date_index > i:
+                            available_capital -= amount
+                            holding_stocks.append({
+                                'id': stock_id,
+                                'amount': amount,
+                                'hold_days': hold_days_for_stock,
+                                'release_date': f"第{release_date_index+1}天"
+                            })
+                            total_holding_capital += amount
+                        # 如果释放日期索引等于当前日期索引，说明当天释放
+                        elif release_date_index == i:
+                            releasing_stocks.append({
+                                'id': stock_id,
+                                'amount': amount,
+                                'hold_days': hold_days_for_stock,
+                                'usage_date': usage_date
+                            })
+                            total_releasing_capital += amount
+            
+            print(f"可投入资金：{available_capital:.2f}")
+            
+            # 显示持有股票信息
+            if holding_stocks:
+                print(f"持有股票：")
+                for stock in holding_stocks:
+                    # 只显示股票代码和名称，不显示完整字典
+                    stock_info = stock['id']
+                    if isinstance(stock_info, dict):
+                        code = stock_info.get('code', 'N/A')
+                        name = stock_info.get('name', 'N/A')
+                        stock_display = f"{code}({name})"
+                    else:
+                        stock_display = str(stock_info)
+                    print(f"  {stock_display}, 持有资金：{stock['amount']:.2f}, 释放日期：{stock['release_date']}")
+                print(f"  持有资金总计：{total_holding_capital:.2f}")
+            else:
+                print(f"持有股票：无")
+            
+            # 显示当天释放股票信息
+            if releasing_stocks:
+                print(f"释放股票：")
+                for stock in releasing_stocks:
+                    # 只显示股票代码和名称，不显示完整字典
+                    stock_info = stock['id']
+                    if isinstance(stock_info, dict):
+                        code = stock_info.get('code', 'N/A')
+                        name = stock_info.get('name', 'N/A')
+                        stock_display = f"{code}({name})"
+                    else:
+                        stock_display = str(stock_info)
+                    print(f"  {stock_display}, 释放资金：{stock['amount']:.2f}, 原投入日期：{stock['usage_date']}")
+                print(f"  释放资金总计：{total_releasing_capital:.2f}")
+            else:
+                print(f"释放股票：无")
+            
+            # 对选出的股票均分资金
+            valid_stocks = stocks  # 已经在方法入口处过滤了stock_idx为负数的股票
+            stock_count = len(valid_stocks)
+            if stock_count > 0:
+                capital_per_stock = available_capital / stock_count
+                print(f"股票数量：{stock_count}，每只股票投入：{capital_per_stock:.2f}")
+                
+                # 计算当天的总收益 - 分别计算四种不同的收益
+                daily_profit_ops = 0.0  # 停盈停损收益
+                daily_profit_adjust = 0.0  # 止盈止损收益
+                daily_profit_take_and_stop = 0.0  # 止盈停损收益
+                daily_profit_stop_and_take = 0.0  # 停盈止损收益
+                
+                for j, stock in enumerate(valid_stocks):
+                    # 获取股票标识
+                    if stock.get('code') and stock.get('name'):
+                        stock_id = f"{stock.get('code')}({stock.get('name')})"
+                    else:
+                        stock_id = f"股票{j+1}"
+                    
+                    # 获取持有天数
+                    hold_days = 1
+                    if stock.get('hold_days') and stock.get('hold_days') != '':
+                        try:
+                            hold_days = int(stock.get('hold_days'))
+                        except (ValueError, TypeError):
+                            hold_days = 1
+                    
+                    # 获取各种涨幅
+                    ops_change = 0.0  # 停盈停损涨幅
+                    adjust_ops_change = 0.0  # 止盈止损涨幅
+                    take_and_stop_change = 0.0  # 止盈停损涨幅
+                    stop_and_take_change = 0.0  # 停盈止损涨幅
+                    
+                    if stock.get('ops_change') and stock.get('ops_change') != '':
+                        try:
+                            ops_change = float(stock.get('ops_change'))
+                        except (ValueError, TypeError):
+                            ops_change = 0.0
+                    
+                    if stock.get('adjust_ops_change') and stock.get('adjust_ops_change') != '':
+                        try:
+                            adjust_ops_change = float(stock.get('adjust_ops_change'))
+                        except (ValueError, TypeError):
+                            adjust_ops_change = 0.0
+                    
+                    if stock.get('take_and_stop_change') and stock.get('take_and_stop_change') != '':
+                        try:
+                            take_and_stop_change = float(stock.get('take_and_stop_change'))
+                        except (ValueError, TypeError):
+                            take_and_stop_change = 0.0
+                    
+                    if stock.get('stop_and_take_change') and stock.get('stop_and_take_change') != '':
+                        try:
+                            stop_and_take_change = float(stock.get('stop_and_take_change'))
+                        except (ValueError, TypeError):
+                            stop_and_take_change = 0.0
+                    
+                    # 计算各种收益（涨幅是百分比，需要除以100）
+                    if hold_days == 1 and adjust_days_val != '' and adjust_days_val == 2:
+                        # 特例：持有天数为1，调整天数为2时，收益为 可投入资金 * 对应涨幅 / 100 / 2
+                        profit_ops = capital_per_stock * ops_change / 100 / 2
+                        profit_adjust = capital_per_stock * adjust_ops_change / 100 / 2
+                        profit_take_and_stop = capital_per_stock * take_and_stop_change / 100 / 2
+                        profit_stop_and_take = capital_per_stock * stop_and_take_change / 100 / 2
+                        special_case = True
+                    else:
+                        # 正常情况：收益为 可投入资金 * 对应涨幅 / 100
+                        profit_ops = capital_per_stock * ops_change / 100
+                        profit_adjust = capital_per_stock * adjust_ops_change / 100
+                        profit_take_and_stop = capital_per_stock * take_and_stop_change / 100
+                        profit_stop_and_take = capital_per_stock * stop_and_take_change / 100
+                        special_case = False
+                    
+                    # 打印股票详细信息
+                    print(f"  {stock_id}：")
+                    print(f"    投入资金：{capital_per_stock:.2f}")
+                    print(f"    持有天数：{hold_days}")
+                    print(f"    停盈停损涨幅：{ops_change:.2f}%，收益：{profit_ops:.2f}")
+                    print(f"    止盈止损涨幅：{adjust_ops_change:.2f}%，收益：{profit_adjust:.2f}")
+                    print(f"    止盈停损涨幅：{take_and_stop_change:.2f}%，收益：{profit_take_and_stop:.2f}")
+                    print(f"    停盈止损涨幅：{stop_and_take_change:.2f}%，收益：{profit_stop_and_take:.2f}")
+                    if special_case:
+                        print(f"    (特例：持有天数1，调整天数2，收益减半)")
+                    
+                    daily_profit_ops += profit_ops
+                    daily_profit_adjust += profit_adjust
+                    daily_profit_take_and_stop += profit_take_and_stop
+                    daily_profit_stop_and_take += profit_stop_and_take
+                    
+                    # 记录资金占用（记录投入金额和持有天数）
+                    if date_key not in capital_usage:
+                        capital_usage[date_key] = {}
+                    # 直接记录持有天数，用于后续计算资金释放
+                    capital_usage[date_key][stock_id] = (capital_per_stock, hold_days)
+                
+                # 保存各种收益
+                daily_profits_ops[date_key] = daily_profit_ops
+                daily_profits_adjust[date_key] = daily_profit_adjust
+                daily_profits_take_and_stop[date_key] = daily_profit_take_and_stop
+                daily_profits_stop_and_take[date_key] = daily_profit_stop_and_take
+                
+                # 打印当天总收益
+                print(f"  当天总收益：")
+                print(f"    停盈停损：{daily_profit_ops:.2f}")
+                print(f"    止盈止损：{daily_profit_adjust:.2f}")
+                print(f"    止盈停损：{daily_profit_take_and_stop:.2f}")
+                print(f"    停盈止损：{daily_profit_stop_and_take:.2f}")
+            else:
+                print(f"没有有效股票，跳过该日期")
+                continue
+        
+        # 计算总收益和总持有天数
+        total_profit_ops = sum(daily_profits_ops.values())
+        total_profit_adjust = sum(daily_profits_adjust.values())
+        total_profit_take_and_stop = sum(daily_profits_take_and_stop.values())
+        total_profit_stop_and_take = sum(daily_profits_stop_and_take.values())
+        total_hold_days = len(valid_items)  # 总持有天数（结束日期数量）
+        
+        print(f"\n" + "=" * 50)
+        print("收益法均值计算结果汇总")
+        print("=" * 50)
+        print(f"总持有天数：{total_hold_days}")
+        print(f"总收益：")
+        print(f"  停盈停损：{total_profit_ops:.2f}")
+        print(f"  止盈止损：{total_profit_adjust:.2f}")
+        print(f"  止盈停损：{total_profit_take_and_stop:.2f}")
+        print(f"  停盈止损：{total_profit_stop_and_take:.2f}")
+        
+        # 计算各收益率（保留两位小数）
+        if total_hold_days > 0:
+            profit_rate_ops = round(total_profit_ops / total_hold_days, 2)
+            profit_rate_adjust = round(total_profit_adjust / total_hold_days, 2)
+            profit_rate_take_and_stop = round(total_profit_take_and_stop / total_hold_days, 2)
+            profit_rate_stop_and_take = round(total_profit_stop_and_take / total_hold_days, 2)
+        else:
+            profit_rate_ops = 0.0
+            profit_rate_adjust = 0.0
+            profit_rate_take_and_stop = 0.0
+            profit_rate_stop_and_take = 0.0
+        
+        print(f"收益率（总收益/总持有天数）：")
+        print(f"  停盈停损含空均值：{profit_rate_ops:.2f}")
+        print(f"  止盈止损含空均值：{profit_rate_adjust:.2f}")
+        print(f"  止盈停损含空均值：{profit_rate_take_and_stop:.2f}")
+        print(f"  停盈止损含空均值：{profit_rate_stop_and_take:.2f}")
+        print("=" * 50)
+        
+        # 更新四个含空均值 - 使用对应的收益率
+        mean_daily_with_nan_profit = profit_rate_ops  # 停盈停损含空均值
+        mean_adjust_daily_with_nan_profit = profit_rate_adjust  # 止盈止损含空均值
+        mean_take_and_stop_daily_with_nan_profit = profit_rate_take_and_stop  # 止盈停损含空均值
+        mean_stop_and_take_daily_with_nan_profit = profit_rate_stop_and_take  # 停盈止损含空均值
+    else:
+        # 当收益法均值为false时，按照目前逻辑统计
+        mean_daily_with_nan_profit = None
+        mean_adjust_daily_with_nan_profit = None
+        mean_take_and_stop_daily_with_nan_profit = None
+        mean_stop_and_take_daily_with_nan_profit = None
     summary = {
-        'mean_hold_days': safe_mean(hold_days_list),
-        'mean_ops_change': safe_mean(ops_change_list),
+        'mean_hold_days': hold_days_val,
+        'mean_ops_change': mean_ops_change_val,
+        'comprehensive_stop_daily_change': round(mean_ops_change_val / adjust_days_val, 2) if mean_ops_change_val != '' and adjust_days_val != '' and adjust_days_val != 0 else '',
+        'mean_adjust_ops_change': mean_adjust_ops_change_val,
+        'comprehensive_daily_change': round(mean_adjust_ops_change_val / hold_days_val, 2) if mean_adjust_ops_change_val != '' and hold_days_val != '' and hold_days_val != 0 else '',
         'mean_daily_change': safe_mean(daily_change_list),
-        'mean_non_nan': safe_mean(non_nan_mean_list),
-        'mean_with_nan': safe_mean(with_nan_mean_list),  # 保持为从下往上含空均值
-        'mean_daily_with_nan': safe_mean(daily_change_list_with_nan),  # 使用含空值的列表计算均值
+        'mean_adjust_daily_change': safe_mean(adjust_daily_change_list),
+        'mean_non_nan': safe_mean(non_nan_mean_list),    # 停盈停损从下往上非空均值
+        'mean_with_nan': safe_mean(with_nan_mean_list),  # 停盈停损从下往上含空均值
+        'mean_daily_with_nan': mean_daily_with_nan_profit if mean_daily_with_nan_profit is not None else safe_mean(daily_change_list_with_nan),  # 使用含空值的列表计算均值
         'max_change': max(daily_change_list) if daily_change_list else '',
         'min_change': min(daily_change_list) if daily_change_list else '',
         # 新增：调幅相关统计
         'mean_adjust_ops_incre_rate': safe_mean(adjust_ops_incre_rate_list),
-        'mean_adjust_non_nan': safe_mean(adjust_non_nan_mean_list),
-        'mean_adjust_with_nan': safe_mean(adjust_with_nan_mean_list),
-        'mean_adjust_daily_with_nan': safe_mean(adjust_ops_incre_rate_list_with_nan),
+        'mean_adjust_non_nan': safe_mean(adjust_non_nan_mean_list), # 止盈止损从下往上非空均值
+        'mean_adjust_with_nan': safe_mean(adjust_with_nan_mean_list), # 止盈止损从下往上含空均值
+        'mean_adjust_daily_with_nan': mean_adjust_daily_with_nan_profit if mean_adjust_daily_with_nan_profit is not None else safe_mean(adjust_ops_incre_rate_list_with_nan),
         'max_adjust_ops_incre_rate': max(adjust_ops_incre_rate_list) if adjust_ops_incre_rate_list else '',
         'min_adjust_ops_incre_rate': min(adjust_ops_incre_rate_list) if adjust_ops_incre_rate_list else '',
+        # 新增：止盈停损相关统计，停盈止损相关统计
+        'mean_take_and_stop_change': mean_take_and_stop_change_val,
+        'comprehensive_take_and_stop_change': round(mean_take_and_stop_change_val / hold_days_val, 2) if mean_take_and_stop_change_val != '' and hold_days_val != '' and hold_days_val != 0 else '',
+        'mean_take_and_stop_daily_change': safe_mean(take_and_stop_daily_change_list),
+        'mean_take_and_stop_non_nan': safe_mean(take_and_stop_non_nan_mean_list),
+        'mean_take_and_stop_with_nan': safe_mean(take_and_stop_with_nan_mean_list),
+        'mean_take_and_stop_daily_with_nan': mean_take_and_stop_daily_with_nan_profit if mean_take_and_stop_daily_with_nan_profit is not None else safe_mean(take_and_stop_daily_with_nan_list),
+        'mean_stop_and_take_change': mean_stop_and_take_change_val,
+        'comprehensive_stop_and_take_change': round(mean_stop_and_take_change_val / hold_days_val, 2) if mean_stop_and_take_change_val != '' and hold_days_val != '' and hold_days_val != 0 else '',
+        'mean_stop_and_take_daily_change': safe_mean(stop_and_take_daily_change_list),
+        'mean_stop_and_take_non_nan': safe_mean(stop_and_take_non_nan_mean_list),
+        'mean_stop_and_take_with_nan': safe_mean(stop_and_take_with_nan_mean_list),
+        'mean_stop_and_take_daily_with_nan': mean_stop_and_take_daily_with_nan_profit if mean_stop_and_take_daily_with_nan_profit is not None else safe_mean(stop_and_take_daily_with_nan_list),
+        # 新增：调整天数和止盈止损涨幅统计
+        'mean_adjust_days': adjust_days_val,
         # 添加从下往上的前1~4个的非空均值和含空均值
         'bottom_first_with_nan': items[-1]['with_nan_mean'] if len(items) > 0 else None,
         'bottom_second_with_nan': items[-2]['with_nan_mean'] if len(items) > 1 else None,
         'bottom_third_with_nan': items[-3]['with_nan_mean'] if len(items) > 2 else None,
         'bottom_fourth_with_nan': items[-4]['with_nan_mean'] if len(items) > 3 else None,
-        'bottom_first_non_nan': items[-1]['non_nan_mean'] if len(items) > 0 else None,
-        'bottom_second_non_nan': items[-2]['non_nan_mean'] if len(items) > 1 else None,
-        'bottom_third_non_nan': items[-3]['non_nan_mean'] if len(items) > 2 else None,
-        'bottom_fourth_non_nan': items[-4]['non_nan_mean'] if len(items) > 3 else None,
+        'bottom_first_take_and_stop_with_nan': items[-1]['take_and_stop_with_nan_mean'] if len(items) > 0 else None,
+        'bottom_second_take_and_stop_with_nan': items[-2]['take_and_stop_with_nan_mean'] if len(items) > 1 else None,
+        'bottom_third_take_and_stop_with_nan': items[-3]['take_and_stop_with_nan_mean'] if len(items) > 2 else None,
+        'bottom_fourth_take_and_stop_with_nan': items[-4]['take_and_stop_with_nan_mean'] if len(items) > 3 else None,
         # 新增：调幅从下往上的前1~4个的非空均值和含空均值
         'adjust_bottom_first_with_nan': items[-1]['adjust_with_nan_mean'] if len(items) > 0 else None,
         'adjust_bottom_second_with_nan': items[-2]['adjust_with_nan_mean'] if len(items) > 1 else None,
         'adjust_bottom_third_with_nan': items[-3]['adjust_with_nan_mean'] if len(items) > 2 else None,
         'adjust_bottom_fourth_with_nan': items[-4]['adjust_with_nan_mean'] if len(items) > 3 else None,
-        'adjust_bottom_first_non_nan': items[-1]['adjust_non_nan_mean'] if len(items) > 0 else None,
-        'adjust_bottom_second_non_nan': items[-2]['adjust_non_nan_mean'] if len(items) > 1 else None,
-        'adjust_bottom_third_non_nan': items[-3]['adjust_non_nan_mean'] if len(items) > 2 else None,
-        'adjust_bottom_fourth_non_nan': items[-4]['adjust_non_nan_mean'] if len(items) > 3 else None,
+        'bottom_first_stop_and_take_with_nan': items[-1]['stop_and_take_with_nan_mean'] if len(items) > 0 else None,
+        'bottom_second_stop_and_take_with_nan': items[-2]['stop_and_take_with_nan_mean'] if len(items) > 1 else None,
+        'bottom_third_stop_and_take_with_nan': items[-3]['stop_and_take_with_nan_mean'] if len(items) > 2 else None,
+        'bottom_fourth_stop_and_take_with_nan': items[-4]['stop_and_take_with_nan_mean'] if len(items) > 3 else None,
         # 新增：止盈率、止损率、持有率统计
         'total_stocks': total_stocks,
         'hold_rate': round(hold_count / total_stocks * 100, 2) if total_stocks > 0 else 0,
@@ -4117,17 +6957,14 @@ def calculate_analysis_result(valid_items):
         except Exception as e:
             print(f"计算中位数时出错: {e}")
             return None
-    
     # 计算各数组中位数
     hold_median = calculate_median(hold_changes)
     profit_median = calculate_median(profit_changes)
     loss_median = calculate_median(loss_changes)
-    
     # 将中位数添加到summary中
     summary['hold_median'] = hold_median
     summary['profit_median'] = profit_median
     summary['loss_median'] = loss_median
-    
     # 打印各数组用于校验
     # print(f"持有涨跌幅数组 (end_state=0, op_day_change): {sorted(hold_changes) if hold_changes else '空'}")
     # print(f"止盈涨跌幅数组 (end_state=1, take_profit): {sorted(profit_changes) if profit_changes else '空'}")
@@ -4135,7 +6972,6 @@ def calculate_analysis_result(valid_items):
     # print(f"持有中位数: {hold_median}")
     # print(f"止盈中位数: {profit_median}")
     # print(f"止损中位数: {loss_median}")
-    
     # 新增：根据N位控件值动态计算从下往上第N位的值
     if items:
         # 调天非空均值
@@ -4144,6 +6980,24 @@ def calculate_analysis_result(valid_items):
             n = n_values.get(var_name, 1)
             if n > 0 and n <= len(items):
                 summary[var_name] = items[-n]['non_nan_mean']
+            else:
+                summary[var_name] = None
+
+        # 止盈停损含空均值
+        for i in range(1, 4):
+            var_name = f'bottom_nth_take_and_stop_with_nan{i}'
+            n = n_values.get(var_name, 1)
+            if n > 0 and n <= len(items):
+                summary[var_name] = items[-n]['take_and_stop_with_nan_mean']
+            else:
+                summary[var_name] = None
+
+        # 停盈止损含空均值
+        for i in range(1, 4):
+            var_name = f'bottom_nth_stop_and_take_with_nan{i}'
+            n = n_values.get(var_name, 1)
+            if n > 0 and n <= len(items):
+                summary[var_name] = items[-n]['stop_and_take_with_nan_mean']
             else:
                 summary[var_name] = None
         
@@ -4182,16 +7036,225 @@ def calculate_analysis_result(valid_items):
 def get_component_analysis_variables():
     """获取组合分析元件变量列表"""
     return [
-        'bottom_nth_non_nan1',
-        'bottom_nth_non_nan2', 
-        'bottom_nth_non_nan3',
+        'bottom_nth_take_and_stop_with_nan1',
+        'bottom_nth_take_and_stop_with_nan2', 
+        'bottom_nth_take_and_stop_with_nan3',
         'bottom_nth_with_nan1',
         'bottom_nth_with_nan2',
         'bottom_nth_with_nan3',
-        'bottom_nth_adjust_non_nan1',
-        'bottom_nth_adjust_non_nan2',
-        'bottom_nth_adjust_non_nan3',
+        'bottom_nth_stop_and_take_with_nan1',
+        'bottom_nth_stop_and_take_with_nan2',
+        'bottom_nth_stop_and_take_with_nan3',
         'bottom_nth_adjust_with_nan1',
         'bottom_nth_adjust_with_nan2',
         'bottom_nth_adjust_with_nan3',
     ]
+
+def add_tooltip_to_variable(name_label, variable_name, main_window):
+    """
+    为变量控件添加悬浮提示，显示该变量的统计信息
+    
+    Args:
+        name_label: 要添加悬浮提示的标签控件
+        variable_name: 变量名称
+        main_window: 主窗口实例，用于访问 all_row_results
+    """
+    try:
+        if hasattr(main_window, 'overall_stats') and main_window.overall_stats:
+            overall_stats = main_window.overall_stats
+            max_key = f'{variable_name}_max'
+            min_key = f'{variable_name}_min'
+            median_key = f'{variable_name}_median'
+            positive_median_key = f'{variable_name}_positive_median'
+            negative_median_key = f'{variable_name}_negative_median'
+            stats_parts = []
+            if max_key in overall_stats and overall_stats[max_key] is not None:
+                formatted_max = format_overall_stat_value(overall_stats[max_key])
+                overall_stats[max_key] = formatted_max  # 更新overall_stats中的值
+                stats_parts.append(f"最大值: {formatted_max}")
+            if min_key in overall_stats and overall_stats[min_key] is not None:
+                formatted_min = format_overall_stat_value(overall_stats[min_key])
+                overall_stats[min_key] = formatted_min  # 更新overall_stats中的值
+                stats_parts.append(f"最小值: {formatted_min}")
+            if median_key in overall_stats and overall_stats[median_key] is not None:
+                formatted_median = format_overall_stat_value(overall_stats[median_key])
+                overall_stats[median_key] = formatted_median  # 更新overall_stats中的值
+                stats_parts.append(f"中值: {formatted_median}")
+            if positive_median_key in overall_stats and overall_stats[positive_median_key] is not None:
+                formatted_positive_median = format_overall_stat_value(overall_stats[positive_median_key])
+                overall_stats[positive_median_key] = formatted_positive_median  # 更新overall_stats中的值
+                stats_parts.append(f"正值中值: {formatted_positive_median}")
+            if negative_median_key in overall_stats and overall_stats[negative_median_key] is not None:
+                formatted_negative_median = format_overall_stat_value(overall_stats[negative_median_key])
+                overall_stats[negative_median_key] = formatted_negative_median  # 更新overall_stats中的值
+                stats_parts.append(f"负值中值: {formatted_negative_median}")
+            if stats_parts:
+                tooltip_widget = _create_tooltip_widget(stats_parts, variable_name, main_window, overall_stats)
+                # 延迟显示定时器
+                name_label._show_tooltip_timer = None
+                name_label.enterEvent = lambda event, ln=name_label, tw=tooltip_widget: _delayed_show_custom_tooltip(event, ln, tw)
+                name_label.leaveEvent = lambda event, tw=tooltip_widget: _cancel_show_and_delayed_hide(event, name_label, tw)
+            else:
+                name_label.setToolTip("暂无统计信息")
+        else:
+            name_label.setToolTip("暂无统计信息")
+    except Exception as e:
+        name_label.setToolTip("暂无统计信息")
+
+from PyQt5.QtCore import QTimer
+
+def _create_tooltip_widget(stats_parts, variable_name, main_window, overall_stats):
+    from PyQt5.QtWidgets import QWidget, QHBoxLayout, QLabel, QPushButton
+    from PyQt5.QtCore import Qt
+    tooltip_widget = QWidget()
+    tooltip_widget.setWindowFlags(Qt.ToolTip | Qt.FramelessWindowHint)
+    tooltip_widget.setStyleSheet("""
+        QWidget {
+            background-color: #2b2b2b;
+            color: white;
+            border: 1px solid #555555;
+            border-radius: 5px;
+            padding: 5px;
+        }
+        QPushButton {
+            background-color: #4a90e2;
+            border: none;
+            border-radius: 3px;
+            padding: 5px 10px;
+            color: white;
+            font-weight: bold;
+        }
+        QPushButton:hover {
+            background-color: #357abd;
+        }
+    """)
+    # 横向布局
+    layout = QHBoxLayout(tooltip_widget)
+    layout.setSpacing(10)
+    layout.setContentsMargins(10, 10, 10, 10)
+    # 统计信息一行
+    stats_text = " , ".join(stats_parts)
+    stats_label = QLabel(stats_text)
+    stats_label.setWordWrap(False)
+    stats_label.setStyleSheet("font-size: 12px; margin-bottom: 0px;")
+    layout.addWidget(stats_label)
+    # 按钮同一行
+    optimize_button = QPushButton("二次优化设置")
+    optimize_button.clicked.connect(lambda: _on_optimize_click_button(variable_name, main_window, overall_stats, tooltip_widget))
+    layout.addWidget(optimize_button)
+    # 鼠标进入/离开事件，配合延迟隐藏
+    tooltip_widget.enterEvent = lambda event, tw=tooltip_widget: _cancel_hide_custom_tooltip(event, tw)
+    tooltip_widget.leaveEvent = lambda event, tw=tooltip_widget: _delayed_hide_custom_tooltip(event, tw)
+    tooltip_widget._hide_timer = None
+    return tooltip_widget
+
+def _show_custom_tooltip(event, name_label, tooltip_widget):
+    # 获取label在屏幕上的位置，悬浮框显示在label的左下角
+    label_global_pos = name_label.mapToGlobal(name_label.rect().bottomLeft())
+    tooltip_widget.move(label_global_pos.x(), label_global_pos.y())  # 悬浮框左上角位于label左下角
+    tooltip_widget.show()
+    _cancel_hide_custom_tooltip(None, tooltip_widget)
+
+def _delayed_hide_custom_tooltip(event, tooltip_widget):
+    if hasattr(tooltip_widget, '_hide_timer') and tooltip_widget._hide_timer:
+        tooltip_widget._hide_timer.stop()
+    else:
+        from PyQt5.QtCore import QTimer
+        tooltip_widget._hide_timer = QTimer()
+    tooltip_widget._hide_timer.setSingleShot(True)
+    tooltip_widget._hide_timer.timeout.connect(tooltip_widget.hide)
+    tooltip_widget._hide_timer.start(1000)  # 1秒后隐藏
+
+def _cancel_hide_custom_tooltip(event, tooltip_widget):
+    if hasattr(tooltip_widget, '_hide_timer') and tooltip_widget._hide_timer:
+        tooltip_widget._hide_timer.stop()
+
+def _on_optimize_click_button(variable_name, main_window, overall_stats, tooltip_widget):
+    try:
+        from PyQt5.QtWidgets import QMessageBox
+        
+        max_key = f'{variable_name}_max'
+        min_key = f'{variable_name}_min'
+        positive_median_key = f'{variable_name}_positive_median'
+        negative_median_key = f'{variable_name}_negative_median'
+        max_value = overall_stats.get(max_key)
+        min_value = overall_stats.get(min_key)
+        positive_median = overall_stats.get(positive_median_key)
+        negative_median = overall_stats.get(negative_median_key)
+        # 如果中值为空，按0处理
+        positive_median = positive_median if positive_median is not None else 0
+        negative_median = negative_median if negative_median is not None else 0
+        # 步长默认为0
+        step_value = 0
+        if hasattr(main_window, 'formula_widget'):
+            print("进入二次优化设置")
+            formula_widget = main_window.formula_widget
+            if hasattr(formula_widget, 'var_widgets') and variable_name in formula_widget.var_widgets:
+                widgets = formula_widget.var_widgets[variable_name]
+                if 'lower' in widgets and min_value is not None:
+                    widgets['lower'].setText(str(min_value))
+                if 'upper' in widgets and max_value is not None:
+                    widgets['upper'].setText(str(max_value))
+                if 'step' in widgets and step_value is not None:
+                    widgets['step'].setText(str(step_value))
+                if tooltip_widget:
+                    tooltip_widget.hide()
+                QMessageBox.information(main_window, "设置成功", 
+                                      f"已为变量 {variable_name} 设置参数：\n"
+                                      f"最小值: {min_value}\n"
+                                      f"最大值: {max_value}\n"
+                                      f"步长: {step_value}")
+                return
+            
+        # 向前参数设置
+        if hasattr(main_window, 'forward_param_state'):
+            print("进入向前参数设置")
+            forward_param_state = main_window.forward_param_state
+            if variable_name in forward_param_state:
+                
+                # 如果向前参数窗口是打开的，更新窗口中的控件值
+                for child in main_window.children():
+                    if hasattr(child, 'widgets') and hasattr(child, 'setWindowTitle'):
+                        if child.windowTitle() == "设置向前参数" and child.isVisible():
+                            if variable_name in child.widgets:
+                                widgets = child.widgets[variable_name]
+                                if 'lower' in widgets and min_value is not None:
+                                    widgets['lower'].setText(str(min_value))
+                                if 'upper' in widgets and max_value is not None:
+                                    widgets['upper'].setText(str(max_value))
+                                if 'step' in widgets and step_value is not None:
+                                    widgets['step'].setText(str(step_value))
+                                break
+                
+                if tooltip_widget:
+                    tooltip_widget.hide()
+                QMessageBox.information(main_window, "设置成功", 
+                                      f"已为变量 {variable_name} 设置参数：\n"
+                                      f"最小值: {min_value}\n"
+                                      f"最大值: {max_value}\n"
+                                      f"步长: {step_value}")
+                return
+        QMessageBox.warning(main_window, "设置失败", f"未找到变量 {variable_name} 对应的控件")
+    except Exception as e:
+        QMessageBox.critical(main_window, "设置错误", f"设置参数时发生错误：{str(e)}")
+
+def _on_optimize_click(event, name_label, variable_name, main_window, overall_stats):
+    _on_optimize_click_button(variable_name, main_window, overall_stats, None)
+
+def _delayed_show_custom_tooltip(event, name_label, tooltip_widget):
+    # 鼠标进入时，0.5秒后才显示悬浮框
+    def show_tooltip():
+        _show_custom_tooltip(event, name_label, tooltip_widget)
+    if hasattr(name_label, '_show_tooltip_timer') and name_label._show_tooltip_timer:
+        name_label._show_tooltip_timer.stop()
+    else:
+        name_label._show_tooltip_timer = QTimer()
+    name_label._show_tooltip_timer.setSingleShot(True)
+    name_label._show_tooltip_timer.timeout.connect(show_tooltip)
+    name_label._show_tooltip_timer.start(500)  # 0.5秒后显示
+
+def _cancel_show_and_delayed_hide(event, name_label, tooltip_widget):
+    # 鼠标离开时，取消显示定时器，并启动延迟隐藏
+    if hasattr(name_label, '_show_tooltip_timer') and name_label._show_tooltip_timer:
+        name_label._show_tooltip_timer.stop()
+    _delayed_hide_custom_tooltip(event, tooltip_widget)
