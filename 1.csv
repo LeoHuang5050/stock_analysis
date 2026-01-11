@@ -1,0 +1,20 @@
+﻿分析结果,值,说明
+adjusted_value,0.9519230769230769,调整后的输出值
+formula,,公式
+date_range,,日期范围
+total_stocks,,总股票数
+hold_rate,,持有率
+profit_rate,,止盈率
+loss_rate,,止损率
+
+分析参数,值,说明
+width,60,日期宽度
+op_days,5,操作天数
+increment_rate,0.5,止盈递增率
+after_gt_end_ratio,0.5,止盈后大于结束比例
+after_gt_start_ratio,1.0,止盈后大于开始比例
+stop_loss_inc_rate,-100.5,止损递增率
+stop_loss_after_gt_end_ratio,-10.0,止损后大于结束比例
+stop_loss_after_gt_start_ratio,1.0,止损后大于开始比例
+sort_mode,最大值排序,排序方式
+expr,result = INC,表达式

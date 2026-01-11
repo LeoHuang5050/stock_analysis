@@ -45,8 +45,8 @@ class StockAnalysisInit:
         # 设置日期选择器范围
         min_date = QDate.fromString(self.workdays_str[0], "yyyy-MM-dd")
         max_date = QDate.fromString(self.workdays_str[-1], "yyyy-MM-dd")
-        self.main_window.date_picker.setMinimumDate(min_date)
-        self.main_window.date_picker.setMaximumDate(max_date)
+        # self.main_window.date_picker.setMinimumDate(min_date)
+        # self.main_window.date_picker.setMaximumDate(max_date)
 
         # 获取今天
         today = QDate.currentDate()
@@ -58,68 +58,45 @@ class StockAnalysisInit:
         else:
             self.main_window.date_picker.setDate(max_date)
             self.last_valid_date = max_date
+        
+        # 更新自动分析界面的开始和结束日期为最大交易日
+        self.main_window.last_analysis_start_date = max_date.toString("yyyy-MM-dd")
+        self.main_window.last_analysis_end_date = max_date.toString("yyyy-MM-dd")
 
-        # 计算最大宽度并更新标签
-        max_width = len(self.workdays_str)
+        # 获取当前结束日期
+        end_date = self.main_window.date_picker.date().toString("yyyy-MM-dd")
+        if end_date in self.workdays_str:
+            max_width = self.workdays_str.index(end_date)
+        else:
+            max_width = len(self.workdays_str) - 1  # 兜底
+
         self.main_window.width_label.setText(f"请选择日期宽度（最大宽度为 {max_width}）：")
         self.main_window.width_spin.setMaximum(max_width)
-        self.main_window.result_text.setText("文件上传成功，请选择参数后点击计算。")
+        self.main_window.result_text.setText("文件上传成功，请选择参数后进行选股计算。")
+        QMessageBox.information(self.main_window, "提示", "文件上传成功，请选择参数后进行选股计算")
+
+        # 恢复config日期
+        if hasattr(self.main_window, 'pending_date'):
+            date_str = self.main_window.pending_date
+            if date_str in self.workdays_str:
+                self.main_window.date_picker.setDate(QDate.fromString(date_str, "yyyy-MM-dd"))
+            else:
+                max_date = self.workdays_str[-1]
+                self.main_window.date_picker.setDate(QDate.fromString(max_date, "yyyy-MM-dd"))
+            del self.main_window.pending_date
 
     def on_date_changed(self, qdate):
-        date_str = qdate.toString("yyyy-MM-dd")
-        if date_str not in self.workdays_str:
-            QMessageBox.warning(self.main_window, "提示", "只能选择工作日！")
-            if self.last_valid_date:
-                self.main_window.date_picker.setDate(self.last_valid_date)
-        else:
-            self.last_valid_date = qdate
-            # 动态调整日期宽度最大值
-            end_idx = self.workdays_str.index(date_str)
-            max_width = end_idx + 1  # 包含当前日期
+        # 只保存日期，不做验证
+        self.last_valid_date = qdate
+        # 动态调整日期宽度最大值
+        if hasattr(self, 'workdays_str') and self.workdays_str:
+            date_str = qdate.toString("yyyy-MM-dd")
+            end_idx = self.workdays_str.index(date_str) if date_str in self.workdays_str else len(self.workdays_str) - 1
+            max_width = end_idx
             self.main_window.width_spin.setMaximum(max_width)
             self.main_window.width_label.setText(f"请选择日期宽度（最大宽度为 {max_width}）：")
-            # 如果当前宽度大于最大宽度，自动调整
             if self.main_window.width_spin.value() > max_width:
                 self.main_window.width_spin.setValue(max_width)
-
-    def on_confirm_range(self):
-        end_date = self.main_window.date_picker.date().toString("yyyy-MM-dd")
-        width = self.main_window.width_spin.value()
-        shift_days = self.main_window.shift_spin.value()
-        end_idx = self.workdays_str.index(end_date)
-        start_idx = max(0, end_idx - width + shift_days)
-        date_range = self.workdays_str[start_idx:end_idx+1]
-        self.confirmed_date_range = date_range  # 保存下来
-        
-        # 获取区间内的股票价格数据
-        first_row = self.price_data.iloc[0]
-        price_data = [first_row[d] for d in date_range]
-        max_value = max([v for v in price_data if pd.notna(v)])
-        min_value = min([v for v in price_data if pd.notna(v)])
-        
-        # 保存这些值供后续使用
-        self.range_max_value = max_value
-        self.range_min_value = min_value
-        self.range_price_data = price_data
-        self.range_date_range = date_range
-
-        # 新增：设置提示
-        start_date = date_range[0] if date_range else ""
-        end_date = date_range[-1] if date_range else ""
-        
-
-        # 新增：设置操作天数最大值和标签
-        end_idx = self.workdays_str.index(end_date)
-        max_op_days = len(self.workdays_str) - end_idx - 1  # 最大可操作天数为end_date到数组结束的距离
-        if max_op_days < 0:
-            max_op_days = 0
-
-        self.main_window.result_text.setText(
-            f"日期宽度设置完毕，开始日期为：{start_date}，结束日期为：{end_date}，最大设置操作天数为：{max_op_days}"
-        )
-        self.main_window.op_days_label.setText(f"操作天数（最大{max_op_days}）")
-        from PyQt5.QtGui import QIntValidator
-        self.main_window.op_days_edit.setValidator(QIntValidator(0, max_op_days))
 
     def on_start_option_changed(self, idx):
         pass  # 不再做隐藏/显示 

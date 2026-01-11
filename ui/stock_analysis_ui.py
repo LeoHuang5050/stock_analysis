@@ -11,8 +11,7 @@ from datetime import datetime
 import sys as _sys
 import os as _os
 _sys.path.append(_os.path.abspath(_os.path.join(_os.path.dirname(__file__), '..')))
-from function.stock_functions import unify_date_columns, calc_continuous_sum_np, get_workdays
-import chinese_calendar
+from function.stock_functions import unify_date_columns, get_workdays
 
 # 导入worker_threads文件夹下的方法
 from worker_threads import FileLoaderThread, CalculateThread
@@ -129,9 +128,9 @@ class StockAnalysisApp(QWidget):
         self.abs_sum_label = QLabel("开始日到结束日之间连续累加值绝对值小于")
         self.abs_sum_label.setMinimumWidth(col_widths[4])
         grid.addWidget(self.abs_sum_label, 2, 4)
-        self.abs_sum_value_edit = QLineEdit()
-        self.abs_sum_value_edit.setMinimumWidth(col_widths[5])
-        grid.addWidget(self.abs_sum_value_edit, 2, 5)
+        self.continuous_abs_threshold_edit = QLineEdit()
+        self.continuous_abs_threshold_edit.setMinimumWidth(col_widths[5])
+        grid.addWidget(self.continuous_abs_threshold_edit, 2, 5)
 
         # 第四行：参数查询（合并为一组，放最右侧一列）
         query_widget = QWidget()
@@ -153,7 +152,7 @@ class StockAnalysisApp(QWidget):
         query_layout.addWidget(self.query_btn)
         query_widget.setLayout(query_layout)
 
-        # 第四行：操作天数、递增率、后值大于结束值比例、后值大于前值比例
+        # 第四行：操作天数、止盈递增率、止盈后值大于结束值比例、止盈后值大于前值比例
         op_days_layout = QHBoxLayout()
         op_days_layout.setContentsMargins(0, 0, 0, 0)
         op_days_layout.setSpacing(0)
@@ -168,11 +167,11 @@ class StockAnalysisApp(QWidget):
         op_days_widget = QWidget()
         op_days_widget.setLayout(op_days_layout)
 
-        # 递增率组
+        # 止盈递增率组
         inc_rate_layout = QHBoxLayout()
         inc_rate_layout.setContentsMargins(0, 0, 0, 0)
         inc_rate_layout.setSpacing(0)
-        self.inc_rate_label = QLabel("递增率")
+        self.inc_rate_label = QLabel("止盈递增率")
         self.inc_rate_edit = QLineEdit()
         self.inc_rate_edit.setFixedWidth(40)
         self.inc_rate_edit.setAlignment(Qt.AlignLeft)
@@ -183,11 +182,11 @@ class StockAnalysisApp(QWidget):
         inc_rate_widget = QWidget()
         inc_rate_widget.setLayout(inc_rate_layout)
 
-        # 后值大于结束值比例组
+        # 止盈后值大于结束值比例组
         after_gt_end_layout = QHBoxLayout()
         after_gt_end_layout.setContentsMargins(0, 0, 0, 0)
         after_gt_end_layout.setSpacing(0)
-        self.after_gt_end_label = QLabel("后值大于结束值比例")
+        self.after_gt_end_label = QLabel("止盈后值大于结束值比例")
         self.after_gt_end_edit = QLineEdit()
         self.after_gt_end_edit.setFixedWidth(40)
         self.after_gt_end_edit.setAlignment(Qt.AlignLeft)
@@ -198,11 +197,11 @@ class StockAnalysisApp(QWidget):
         after_gt_end_widget = QWidget()
         after_gt_end_widget.setLayout(after_gt_end_layout)
 
-        # 后值大于前值比例组
+        # 止盈后值大于前值比例组
         after_gt_start_layout = QHBoxLayout()
         after_gt_start_layout.setContentsMargins(0, 0, 0, 0)
         after_gt_start_layout.setSpacing(0)
-        self.after_gt_start_label = QLabel("后值大于前值比例")
+        self.after_gt_start_label = QLabel("止盈后值大于前值比例")
         self.after_gt_start_edit = QLineEdit()
         self.after_gt_start_edit.setFixedWidth(40)
         self.after_gt_start_edit.setAlignment(Qt.AlignLeft)
@@ -291,9 +290,9 @@ class StockAnalysisApp(QWidget):
 
     # def on_calculate_clicked(self):
     #     # 在计算时
-    #     A = ... # 递增率
-    #     B = ... # 后值大于结束值比例
-    #     C = ... # 后值大于前值比例
+    #     A = ... # 止盈递增率
+    #     B = ... # 止盈后值大于结束值比例
+    #     C = ... # 止盈后值大于前值比例
     #     expr = self.expr_edit_brief.text()
     #     # 用simpleeval或自定义安全eval执行
     #     from simpleeval import simple_eval
@@ -305,7 +304,7 @@ class StockAnalysisApp(QWidget):
         dialog.setWindowTitle("编辑组合表达式")
         layout = QVBoxLayout(dialog)
         # 固定提示
-        tip_label = QLabel("A:递增率，B:后值大于结束值比例，C:后值大于前值比例")
+        tip_label = QLabel("A:止盈递增率，B:止盈后值大于结束值比例，C:止盈后值大于前值比例")
         tip_label.setStyleSheet("color:gray;")  # 灰色字体
         layout.addWidget(tip_label)
         text_edit = QTextEdit()
